@@ -197,6 +197,7 @@ object SongPlayer {
         contextRegistry.clear(); library.clear()
         synchronized(wantedSaved) { wantedSaved.clear() }
         _queue.value = EngineQueue(); apiQueue = null; _nowPlaying.value = NowPlaying()
+        SponsorSkip.onItem("")
         lastTrackPrefs().edit().clear().apply(); savedLast = ""; resumeWhenReady = false
         _activeDevice.value = null; _sleepEndsAt.value = null; sleepTrackId = null
         _video.value = VideoState(); videoFullscreen.value = false
@@ -298,6 +299,7 @@ object SongPlayer {
             prev = s.previous?.let(::songOf),
             next = s.next?.let(::songOf),
         )
+        SponsorSkip.onItem(uri)
         val state = boundState ?: return
         state.shuffle.value = s.shuffle
         _repeatMode.value = s.repeat.ordinal
@@ -571,6 +573,7 @@ object SongPlayer {
 
     fun seekTo(ms: Long) {
         if (LocalPlayer.active.value) { LocalPlayer.seekTo(ms); return }
+        SponsorSkip.onSeek(ms)
         positionMs = ms
         positionAt = SystemClock.elapsedRealtime()
         command { api.player.seek(ms) }

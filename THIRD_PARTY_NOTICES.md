@@ -25,6 +25,20 @@ The lossless resolving approach and its community backend protocol.
 > all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS",
 > WITHOUT WARRANTY OF ANY KIND.
 
+## EeveeSpotifyReincarnated — GPL-3.0
+https://github.com/SideloadLabs/EeveeSpotifyReincarnated
+
+The podcast sponsor skipper (`di/SponsorSkip.kt`, `data/api/SponsorBlock.kt`) follows its
+SponsorBlock skipper: the hash-prefix query, the default categories and colours, the
+cooldown between two skips, and letting a segment play after the listener seeks into it.
+
+## SponsorBlock — data under CC BY-NC-SA 4.0
+https://sponsor.ajay.app — https://github.com/ajayyy/SponsorBlockServer
+
+The podcast segments come from the SponsorBlock database (the `Spotify` service of the
+[Spot SponsorBlock](https://github.com/Spot-SponsorBlock/Spot-SponsorBlock-Extension)
+extension), submitted by its users. Myspoti credits it in Settings and uses it free of charge.
+
 ## SpotiFLAC Mobile — MIT
 https://github.com/zarzet/SpotiFLAC-Mobile
 

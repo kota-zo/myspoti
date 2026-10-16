@@ -423,6 +423,15 @@ fun PlayerScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
                     .padding(top = 14.dp),
+                marks = {
+                    // The sponsor segments of an episode, on the episode's own clock.
+                    val sb = com.music.spotui.di.SponsorSkip
+                    val d = SongPlayer.getDuration()
+                    if (sb.segments.isEmpty() || !sb.enabled || d <= 0 || mv.duration() != d) emptyList()
+                    else sb.segments.filter { it.category in sb.categories }.map {
+                        Triple(it.startMs.toFloat() / d, it.endMs.toFloat() / d, Color(sb.color(it.category)))
+                    }
+                },
             )
             Row(
                 modifier = Modifier
@@ -731,6 +740,8 @@ fun SpotifySeekBar(
     onDrag: (Float) -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Coloured spans over the track (fractions of its length), e.g. the sponsor segments of an episode. */
+    marks: () -> List<Triple<Float, Float, Color>> = { emptyList() },
 ) {
     var widthPx by remember { mutableStateOf(1f) }
     val seekDescription = stringResource(R.string.playback_seek_description)
@@ -775,6 +786,9 @@ fun SpotifySeekBar(
         val f = fraction().coerceIn(0f, 1f)
         drawLine(Color.White.copy(alpha = 0.3f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
         drawLine(Color.White, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width * f, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
+        for ((start, end, color) in marks()) {
+            drawLine(color, androidx.compose.ui.geometry.Offset(size.width * start.coerceIn(0f, 1f), y), androidx.compose.ui.geometry.Offset(size.width * end.coerceIn(0f, 1f), y), track)
+        }
         drawCircle(Color.White, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * f, y))
     }
 }

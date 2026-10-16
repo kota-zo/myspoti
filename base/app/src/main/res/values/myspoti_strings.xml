@@ -255,4 +255,17 @@
     <string name="update_allow">Allow</string>
     <string name="update_failed">The update failed: %1$s</string>
     <string name="update_retry">Try again</string>
+    <string name="sponsorblock_title">Skip sponsors in podcasts</string>
+    <string name="sponsorblock_detail">Sponsor reads and other parts listeners marked on SponsorBlock</string>
+    <string name="sponsorblock_categories_title">What to skip</string>
+    <string name="sponsorblock_categories_none">Nothing: segments only show on the bar</string>
+    <string name="sponsorblock_credit">Segments from SponsorBlock (sponsor.ajay.app), marked by its listeners. Only the start of a fingerprint of the episode is sent, never which episode plays. Seek back into a segment to hear it.</string>
+    <string name="sponsorblock_skipped">Skipped: %1$s</string>
+    <string name="sponsorblock_cat_sponsor">Sponsor</string>
+    <string name="sponsorblock_cat_selfpromo">Self-promotion</string>
+    <string name="sponsorblock_cat_interaction">Like and subscribe reminders</string>
+    <string name="sponsorblock_cat_intro">Intro</string>
+    <string name="sponsorblock_cat_outro">Outro and credits</string>
+    <string name="sponsorblock_cat_preview">Preview and recap</string>
+    <string name="sponsorblock_cat_filler">Tangents and jokes</string>
 </resources>

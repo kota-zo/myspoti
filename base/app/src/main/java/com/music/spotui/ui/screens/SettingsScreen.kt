@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -59,6 +60,13 @@ fun SettingsScreen(navController: NavController) {
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
             Section(R.string.settings_section_playback)
             StreamingQualityPicker()
+            OptionRow(
+                label = stringResource(R.string.sponsorblock_title),
+                detail = stringResource(R.string.sponsorblock_detail),
+                checked = com.music.spotui.di.SponsorSkip.enabled,
+                onChecked = com.music.spotui.di.SponsorSkip::turn,
+            )
+            if (com.music.spotui.di.SponsorSkip.enabled) SponsorCategoriesRow()
             Divider()
 
             Section(R.string.settings_section_downloads)
@@ -204,6 +212,50 @@ private fun LanguageRow() {
                     if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Check, null, tint = com.music.spotui.ui.theme.AppAccent)
                 }
             }
+        }
+    }
+}
+
+/** What the podcast sponsor skip leaves out: SponsorBlock's categories, each on or off. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun SponsorCategoriesRow() {
+    val sb = com.music.spotui.di.SponsorSkip
+    var picking by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val chosen = com.music.spotui.data.api.SponsorBlock.CATEGORIES.filter { it in sb.categories }
+        .map { stringResource(sb.label(it)) }
+    Column(Modifier.fillMaxWidth().clickable { picking = true }.padding(horizontal = 20.dp, vertical = 10.dp)) {
+        Text(stringResource(R.string.sponsorblock_categories_title), color = Color.White, fontSize = 16.sp)
+        Text(
+            if (chosen.isEmpty()) stringResource(R.string.sponsorblock_categories_none) else chosen.joinToString(", "),
+            color = Color(0xFFB3B3B3), fontSize = 12.sp,
+        )
+    }
+    if (picking) androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = { picking = false },
+        containerColor = Color(0xFF282828),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Text(stringResource(R.string.sponsorblock_categories_title), color = Color.White, fontSize = 18.sp,
+                fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            for (category in com.music.spotui.data.api.SponsorBlock.CATEGORIES) {
+                val on = category in sb.categories
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        .toggleable(on, role = Role.Checkbox) { sb.setCategory(category, it) }
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                ) {
+                    androidx.compose.foundation.Canvas(Modifier.padding(end = 14.dp).size(10.dp)) {
+                        drawCircle(Color(sb.color(category)))
+                    }
+                    Text(stringResource(sb.label(category)), color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Checkbox(checked = on, onCheckedChange = null,
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = com.music.spotui.ui.theme.AppAccent))
+                }
+            }
+            Text(stringResource(R.string.sponsorblock_credit), color = Color(0xFFB3B3B3), fontSize = 12.sp,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp))
         }
     }
 }
