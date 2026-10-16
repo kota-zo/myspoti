@@ -25,6 +25,7 @@ The official Spotify Web Player runs in a hidden WebView and does the actual pla
 - **No ads.** The ad audio is refused, so the player skips each ad within a second. It works with a free account: no Premium, no patched Spotify app, and the DRM is left untouched.
 - Home (with Music, Podcasts and Audiobooks filters), search (songs, artists, albums, playlists, podcasts, episodes), **New releases**, Spotify's real **Browse** categories, library (folders, sorting, drag to reorder), artist, album and playlist pages, with Spotify's official labels.
 - **Podcasts and audiobooks**: shows, episodes, chapters, Your Episodes, playback speed.
+- **Podcast sponsors skipped**: the sponsor reads, self-promotion and "subscribe" reminders that listeners marked on [SponsorBlock](https://sponsor.ajay.app) are skipped and shown on the seek bar. You choose what to skip in Settings; seek back into a segment to hear it.
 - **Jam**: join a Jam with an invite link.
 - Synced lyrics: Spotify first, then [LRCLIB](https://lrclib.net); optionally Apple Music (word by word), NetEase and Genius.
 - **Your recap**: your top tracks, artists and albums, counting Spotify, downloads and local files. It stays on your phone.
@@ -61,6 +62,7 @@ Details for developers: [`base/api-spotify/README.md`](base/api-spotify/README.m
 
 - [SpotiFLAC](https://github.com/spotbye/SpotiFLAC) (MIT) — the lossless resolving idea, its community backend protocol and the gated-session flow.
 - [Spotui](https://github.com/Spotui/Spotui) (GPL-3.0) — the Kotlin port of the resolver, the signed-session verification screen and the DASH-to-FLAC remux that Myspoti builds on.
+- [EeveeSpotifyReincarnated](https://github.com/SideloadLabs/EeveeSpotifyReincarnated) (GPL-3.0) — the podcast SponsorBlock skipper; segments from [SponsorBlock](https://sponsor.ajay.app), the database of the [Spot SponsorBlock](https://github.com/Spot-SponsorBlock/Spot-SponsorBlock-Extension) extension.
 - [SpotiFLAC Mobile](https://github.com/zarzet/SpotiFLAC-Mobile) (MIT) and its [extensions](https://github.com/zarzet/SpotiFLAC-Extension) (Apache-2.0) — the signed download sessions and the Tidal / Qobuz download requests.
 
 Full notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

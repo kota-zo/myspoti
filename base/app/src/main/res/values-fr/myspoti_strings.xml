@@ -255,4 +255,17 @@
     <string name="update_allow">Autoriser</string>
     <string name="update_failed">La mise à jour a échoué : %1$s</string>
     <string name="update_retry">Réessayer</string>
+    <string name="sponsorblock_title">Passer les sponsors des podcasts</string>
+    <string name="sponsorblock_detail">Les pubs lues et autres passages signalés par les auditeurs sur SponsorBlock</string>
+    <string name="sponsorblock_categories_title">Ce qui est passé</string>
+    <string name="sponsorblock_categories_none">Rien : les passages s\'affichent seulement sur la barre</string>
+    <string name="sponsorblock_credit">Passages de SponsorBlock (sponsor.ajay.app), signalés par ses auditeurs. Seul le début d\'une empreinte de l\'épisode est envoyé, jamais l\'épisode écouté. Revenez dans un passage pour l\'écouter.</string>
+    <string name="sponsorblock_skipped">Passé : %1$s</string>
+    <string name="sponsorblock_cat_sponsor">Sponsor</string>
+    <string name="sponsorblock_cat_selfpromo">Autopromotion</string>
+    <string name="sponsorblock_cat_interaction">Rappels pour s\'abonner</string>
+    <string name="sponsorblock_cat_intro">Intro</string>
+    <string name="sponsorblock_cat_outro">Fin et générique</string>
+    <string name="sponsorblock_cat_preview">Aperçu et résumé</string>
+    <string name="sponsorblock_cat_filler">Digressions et blagues</string>
 </resources>
