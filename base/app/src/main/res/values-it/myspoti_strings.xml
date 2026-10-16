@@ -255,4 +255,5 @@
     <string name="update_allow">Consenti</string>
     <string name="update_failed">Aggiornamento non riuscito: %1$s</string>
     <string name="update_retry">Riprova</string>
+    <string name="playlist_removed_from">Rimosso da %1$s</string>
 </resources>

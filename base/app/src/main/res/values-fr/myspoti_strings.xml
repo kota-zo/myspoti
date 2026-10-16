@@ -255,4 +255,5 @@
     <string name="update_allow">Autoriser</string>
     <string name="update_failed">La mise à jour a échoué : %1$s</string>
     <string name="update_retry">Réessayer</string>
+    <string name="playlist_removed_from">Retiré de %1$s</string>
 </resources>
