@@ -217,6 +217,30 @@
     <string name="settings_section_data">Données et batterie</string>
     <string name="settings_section_display">Affichage et langue</string>
     <string name="settings_section_app">Application</string>
+    <string name="settings_section_library">Bibliothèque</string>
+    <string name="trash_title">Titres et artistes masqués</string>
+    <string name="trash_none">Aucun. Masquez un titre ou un artiste depuis son menu.</string>
+    <string name="trash_detail">Les titres masqués, et tous ceux d\'un artiste masqué, sont passés dès qu\'ils arrivent. La liste reste sur ce téléphone ; elle passe vers et depuis la Corbeille de Spicetify sur ordinateur par copier-coller.</string>
+    <string name="trash_hide_song">Masquer le titre</string>
+    <string name="trash_unhide_song">Ne plus masquer le titre</string>
+    <string name="trash_hide_artist">Masquer les titres de %1$s</string>
+    <string name="trash_unhide_artist">Ne plus masquer %1$s</string>
+    <string name="trash_hidden_toast">Masqué : il sera passé dès qu\'il arrive</string>
+    <string name="trash_stopped">Trop de titres masqués à la suite : passage suspendu un instant</string>
+    <string name="trash_copy">Copier la liste</string>
+    <string name="trash_copied">Copiée, au format Corbeille de Spicetify</string>
+    <string name="trash_paste">Coller une liste</string>
+    <string name="trash_pasted">Ajoutée aux titres et artistes masqués</string>
+    <string name="trash_paste_failed">Le presse-papiers ne contient pas de liste Corbeille</string>
+    <string name="trash_clear">Tout réafficher</string>
+    <plurals name="trash_songs">
+        <item quantity="one">%1$d titre</item>
+        <item quantity="other">%1$d titres</item>
+    </plurals>
+    <plurals name="trash_artists">
+        <item quantity="one">%1$d artiste</item>
+        <item quantity="other">%1$d artistes</item>
+    </plurals>
     <string name="quality_streaming_title">Qualité du streaming</string>
     <string name="quality_streaming_detail">Ce que le lecteur diffuse depuis Internet.</string>
     <string name="quality_streaming_auto">Automatique</string>

@@ -26,6 +26,7 @@ The official Spotify Web Player runs in a hidden WebView and does the actual pla
 - Home (with Music, Podcasts and Audiobooks filters), search (songs, artists, albums, playlists, podcasts, episodes), **New releases**, Spotify's real **Browse** categories, library (folders, sorting, drag to reorder), artist, album and playlist pages, with Spotify's official labels.
 - **Podcasts and audiobooks**: shows, episodes, chapters, Your Episodes, playback speed.
 - **Jam**: join a Jam with an invite link.
+- **Hide songs and artists**: a song or an artist hidden from its menu is skipped whenever it comes up, in any playlist, radio or shuffle (Spicetify's Trash Bin). The list moves to and from Spicetify desktop by copy and paste, in Settings.
 - Synced lyrics: Spotify first, then [LRCLIB](https://lrclib.net); optionally Apple Music (word by word), NetEase and Genius.
 - **Your recap**: your top tracks, artists and albums, counting Spotify, downloads and local files. It stays on your phone.
 - Official music videos, when one exists. The video plays muted, in sync with the song. The app only uses YouTube videos marked as official clips, and shows nothing when no clip exists.
@@ -60,6 +61,7 @@ Details for developers: [`base/api-spotify/README.md`](base/api-spotify/README.m
 ## Credits
 
 - [SpotiFLAC](https://github.com/spotbye/SpotiFLAC) (MIT) — the lossless resolving idea, its community backend protocol and the gated-session flow.
+- [Spicetify morphe-patches](https://github.com/spicetify/morphe-patches) (GPL-3.0) — the Trash Bin: hidden songs and artists, skipped whenever they play.
 - [Spotui](https://github.com/Spotui/Spotui) (GPL-3.0) — the Kotlin port of the resolver, the signed-session verification screen and the DASH-to-FLAC remux that Myspoti builds on.
 - [SpotiFLAC Mobile](https://github.com/zarzet/SpotiFLAC-Mobile) (MIT) and its [extensions](https://github.com/zarzet/SpotiFLAC-Extension) (Apache-2.0) — the signed download sessions and the Tidal / Qobuz download requests.
 

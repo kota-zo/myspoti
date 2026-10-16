@@ -217,6 +217,30 @@
     <string name="settings_section_data">Data and battery</string>
     <string name="settings_section_display">Display and language</string>
     <string name="settings_section_app">App</string>
+    <string name="settings_section_library">Library</string>
+    <string name="trash_title">Hidden songs and artists</string>
+    <string name="trash_none">None. Hide a song or an artist from its menu.</string>
+    <string name="trash_detail">Hidden songs, and every song of a hidden artist, are skipped whenever they come up. The list stays on this phone; it moves to and from Spicetify desktop\'s Trash Bin by copy and paste.</string>
+    <string name="trash_hide_song">Hide song</string>
+    <string name="trash_unhide_song">Unhide song</string>
+    <string name="trash_hide_artist">Hide songs by %1$s</string>
+    <string name="trash_unhide_artist">Unhide %1$s</string>
+    <string name="trash_hidden_toast">Hidden: it is skipped whenever it comes up</string>
+    <string name="trash_stopped">Too many hidden songs in a row: skipping paused for a moment</string>
+    <string name="trash_copy">Copy the list</string>
+    <string name="trash_copied">Copied, in Spicetify Trash Bin format</string>
+    <string name="trash_paste">Paste a list</string>
+    <string name="trash_pasted">Added to the hidden songs and artists</string>
+    <string name="trash_paste_failed">The clipboard holds no Trash Bin list</string>
+    <string name="trash_clear">Unhide all</string>
+    <plurals name="trash_songs">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <plurals name="trash_artists">
+        <item quantity="one">%1$d artist</item>
+        <item quantity="other">%1$d artists</item>
+    </plurals>
     <string name="quality_streaming_title">Streaming quality</string>
     <string name="quality_streaming_detail">What the player streams over the network.</string>
     <string name="quality_streaming_auto">Automatic</string>

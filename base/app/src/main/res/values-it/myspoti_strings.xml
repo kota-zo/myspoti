@@ -217,6 +217,30 @@
     <string name="settings_section_data">Dati e batteria</string>
     <string name="settings_section_display">Aspetto e lingua</string>
     <string name="settings_section_app">App</string>
+    <string name="settings_section_library">Libreria</string>
+    <string name="trash_title">Brani e artisti nascosti</string>
+    <string name="trash_none">Nessuno. Nascondi un brano o un artista dal suo menu.</string>
+    <string name="trash_detail">I brani nascosti, e tutti quelli di un artista nascosto, vengono saltati appena arrivano. L\'elenco resta su questo telefono; passa da e verso il Cestino di Spicetify desktop con copia e incolla.</string>
+    <string name="trash_hide_song">Nascondi brano</string>
+    <string name="trash_unhide_song">Mostra di nuovo il brano</string>
+    <string name="trash_hide_artist">Nascondi i brani di %1$s</string>
+    <string name="trash_unhide_artist">Mostra di nuovo %1$s</string>
+    <string name="trash_hidden_toast">Nascosto: verrà saltato appena arriva</string>
+    <string name="trash_stopped">Troppi brani nascosti di fila: salto sospeso per un momento</string>
+    <string name="trash_copy">Copia l\'elenco</string>
+    <string name="trash_copied">Copiato, nel formato Cestino di Spicetify</string>
+    <string name="trash_paste">Incolla un elenco</string>
+    <string name="trash_pasted">Aggiunto ai brani e artisti nascosti</string>
+    <string name="trash_paste_failed">Gli appunti non contengono un elenco del Cestino</string>
+    <string name="trash_clear">Mostra tutto di nuovo</string>
+    <plurals name="trash_songs">
+        <item quantity="one">%1$d brano</item>
+        <item quantity="other">%1$d brani</item>
+    </plurals>
+    <plurals name="trash_artists">
+        <item quantity="one">%1$d artista</item>
+        <item quantity="other">%1$d artisti</item>
+    </plurals>
     <string name="quality_streaming_title">Qualità dello streaming</string>
     <string name="quality_streaming_detail">Ciò che il lettore trasmette da Internet.</string>
     <string name="quality_streaming_auto">Automatica</string>
