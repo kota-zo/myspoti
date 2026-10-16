@@ -288,6 +288,7 @@ object SongPlayer {
         val trackChanged = uri != _nowPlaying.value.uri
         currentContextUri = s.contextUri.orEmpty()
         if (item != null) { checkEndOfTrackTimer(id); currentTrackId = id }
+        TrashBin.onItem(item)
         _nowPlaying.value = NowPlaying(
             contextUri = s.contextUri.orEmpty(),
             contextName = s.contextName.orEmpty(),
@@ -454,6 +455,8 @@ object SongPlayer {
 
     fun stop() = pause()
     fun next() { Haptics.click(); if (LocalPlayer.active.value) { LocalPlayer.next(); return }; intendPlaying(); command { api.player.next() } }
+    /** A hidden song came up: next, without the button's vibration (the phone may be in a pocket). */
+    fun skipHidden() { if (LocalPlayer.active.value) return; intendPlaying(); command { api.player.next() } }
     fun previous() { Haptics.click(); if (LocalPlayer.active.value) { LocalPlayer.previous(); return }; intendPlaying(); command { api.player.previous() } }
 
     /** Shuffle-play a list: Spotify picks the first track of its own shuffled context. */

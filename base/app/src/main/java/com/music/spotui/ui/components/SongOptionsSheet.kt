@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Radio
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Speed
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -221,6 +223,31 @@ fun SongOptionsSheet(
                 }
                 com.music.spotui.di.Haptics.confirm()
                 onDismiss()
+            }
+            // Hidden songs and artists (Spicetify's Trash Bin): skipped whenever they come up.
+            val trash = com.music.spotui.di.TrashBin
+            val songHidden = trash.isSongHidden(trackUri)
+            MenuRow(if (songHidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                stringResource(if (songHidden) R.string.trash_unhide_song else R.string.trash_hide_song), enabled = hasId) {
+                trash.setSong(trackUri, !songHidden)
+                if (!songHidden) toast(context.getString(R.string.trash_hidden_toast))
+                com.music.spotui.di.Haptics.confirm()
+                onDismiss()
+            }
+            val artist by androidx.compose.runtime.produceState<app.myspoti.api.ArtistRef?>(null, trackUri) {
+                value = if (!hasId) null else runCatching {
+                    app.myspoti.host.android.MyspotiRuntime.api.catalog.track(trackUri).artists.firstOrNull()
+                }.getOrNull()
+            }
+            artist?.let { a ->
+                val artistHidden = trash.isArtistHidden(a.uri)
+                MenuRow(if (artistHidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                    stringResource(if (artistHidden) R.string.trash_unhide_artist else R.string.trash_hide_artist, a.name)) {
+                    trash.setArtist(a.uri, !artistHidden)
+                    if (!artistHidden) toast(context.getString(R.string.trash_hidden_toast))
+                    com.music.spotui.di.Haptics.confirm()
+                    onDismiss()
+                }
             }
             if (nowPlaying && song.url.startsWith("episode:")) {
                 MenuRow(Icons.Outlined.Speed, stringResource(R.string.playback_speed)) { showSpeed = true }

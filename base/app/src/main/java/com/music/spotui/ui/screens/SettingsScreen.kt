@@ -61,6 +61,10 @@ fun SettingsScreen(navController: NavController) {
             StreamingQualityPicker()
             Divider()
 
+            Section(R.string.settings_section_library)
+            HiddenItemsRow()
+            Divider()
+
             Section(R.string.settings_section_downloads)
             DownloadQualityPicker()
             // The lossless source: SpotiFLAC's own servers once verified.
@@ -253,5 +257,52 @@ private fun OptionRow(label: String, detail: String, checked: Boolean,
             Text(detail, color = Color(0xFFB3B3B3), fontSize = 12.sp)
         }
         androidx.compose.material3.Switch(checked = checked, enabled = enabled, onCheckedChange = null)
+    }
+}
+
+/** Hidden songs and artists: how many, unhide them all, or move the list to and from Spicetify desktop. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun HiddenItemsRow() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val trash = com.music.spotui.di.TrashBin
+    var open by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val songs = trash.songs.size
+    val artists = trash.artists.size
+    val summary = if (songs + artists == 0) stringResource(R.string.trash_none)
+    else androidx.compose.ui.res.pluralStringResource(R.plurals.trash_songs, songs, songs) + ", " +
+        androidx.compose.ui.res.pluralStringResource(R.plurals.trash_artists, artists, artists)
+    Column(Modifier.fillMaxWidth().clickable { open = true }.padding(horizontal = 20.dp, vertical = 10.dp)) {
+        Text(stringResource(R.string.trash_title), color = Color.White, fontSize = 16.sp)
+        Text(summary, color = Color(0xFFB3B3B3), fontSize = 12.sp)
+    }
+    if (!open) return
+    val clipboard = ctx.getSystemService(android.content.ClipboardManager::class.java)
+    fun toast(id: Int) = android.widget.Toast.makeText(ctx, id, android.widget.Toast.LENGTH_SHORT).show()
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = { open = false }, containerColor = Color(0xFF282828)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Text(stringResource(R.string.trash_title), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            Text(stringResource(R.string.trash_detail), color = Color(0xFFB3B3B3), fontSize = 12.sp,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp))
+            @Composable
+            fun Action(label: Int, enabled: Boolean = true, onClick: () -> Unit) = Text(
+                stringResource(label), color = if (enabled) Color.White else Color(0xFF6A6A6A), fontSize = 16.sp,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = enabled, onClick = onClick)
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+            )
+            Action(R.string.trash_copy, enabled = songs + artists > 0) {
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Trash Bin", trash.export()))
+                toast(R.string.trash_copied)
+            }
+            Action(R.string.trash_paste) {
+                val text = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+                toast(if (trash.import(text)) R.string.trash_pasted else R.string.trash_paste_failed)
+            }
+            Action(R.string.trash_clear, enabled = songs + artists > 0) {
+                trash.clear()
+                open = false
+            }
+        }
     }
 }

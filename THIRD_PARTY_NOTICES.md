@@ -42,3 +42,10 @@ quality names, the Tidal web token and Qobuz app id they use) are followed in
 `LosslessSource.kt`. No extension code is included.
 
 > Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+
+## Spicetify morphe-patches — GPL-3.0
+https://github.com/spicetify/morphe-patches
+
+The hidden songs and artists (`di/TrashBin.kt`, `data/TrashList.kt`) follow its Trash Bin
+extension (`TrashBin.java`): skipping a hidden song or any song of a hidden artist once per
+item, the brake of five skips in ten seconds, and the desktop Trash Bin's export format.
