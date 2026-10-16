@@ -86,7 +86,9 @@ fun SavedInSheet(
     val liked = com.music.spotui.di.rememberTrackSaved(song.spotifyTrackId)
     var playlists by remember { mutableStateOf<List<com.music.spotui.data.api.EditablePlaylist>?>(null) }
     // playlistId → does it contain this track (filled lazily per row).
-    val membership = remember { mutableStateMapOf<String, Boolean>() }
+    val membership = remember(song.spotifyTrackId) { mutableStateMapOf<String, Boolean>() }
+    // Rows with a change on its way: a second tap would race it (an add and a remove at once).
+    val busy = remember(song.spotifyTrackId) { mutableStateMapOf<String, Boolean>() }
     var creating by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     // Folders opened so far (uri to name); the last one is shown.
@@ -234,6 +236,7 @@ fun SavedInSheet(
                             name = pl.name,
                             subtitle = pluralStringResource(R.plurals.liked_songs_header_metadata_text, pl.trackCount, pl.trackCount),
                             saved = saved,
+                            busy = busy[pl.id] == true || (membership[pl.id] == null && song.spotifyTrackId.isNotBlank()),
                             cover = {
                                 GlideImage(
                                     modifier = Modifier
@@ -247,13 +250,20 @@ fun SavedInSheet(
                                 )
                             },
                         ) {
-                            if (song.spotifyTrackId.isBlank()) return@SavedInRow
+                            if (song.spotifyTrackId.isBlank() || busy[pl.id] == true || membership[pl.id] == null) return@SavedInRow
                             membership[pl.id] = !saved
-                            // Refused by Spotify: back to the real state, and say so.
+                            busy[pl.id] = true
+                            // Done: say where the song went. Refused by Spotify: back to the real state, and say so.
                             val done: (Boolean) -> Unit = { ok ->
-                                if (!ok) android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    membership[pl.id] = saved
-                                    android.widget.Toast.makeText(context, context.getString(R.string.playlist_change_refused), android.widget.Toast.LENGTH_SHORT).show()
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    busy.remove(pl.id)
+                                    if (!ok) membership[pl.id] = saved
+                                    val text = when {
+                                        !ok -> context.getString(R.string.playlist_change_refused)
+                                        saved -> context.getString(R.string.playlist_removed_from, pl.name)
+                                        else -> context.getString(R.string.local_added_to, pl.name)
+                                    }
+                                    android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                             if (saved) SpotifySync.removeTrackFromPlaylist(context, pl.id, song.spotifyTrackId, done)
@@ -293,6 +303,7 @@ private fun SavedInRow(
     subtitle: String,
     saved: Boolean,
     cover: @Composable () -> Unit,
+    busy: Boolean = false,
     onToggle: () -> Unit,
 ) {
     Row(
@@ -316,7 +327,9 @@ private fun SavedInRow(
                 Text(subtitle, color = Color.Gray, fontSize = 13.sp, maxLines = 1)
             }
         }
-        if (saved) {
+        if (busy) {
+            androidx.compose.material3.CircularProgressIndicator(color = SpotifyGreen, strokeWidth = 2.dp, modifier = Modifier.padding(3.dp).size(20.dp))
+        } else if (saved) {
             Icon(Icons.Default.CheckCircle, contentDescription = stringResource(R.string.curation_button_saved_text), tint = SpotifyGreen, modifier = Modifier.size(26.dp))
         } else {
             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_to_playlist_new_playlist_button_text), tint = Color(0xFFB3B3B3), modifier = Modifier.size(26.dp))

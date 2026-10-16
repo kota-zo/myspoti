@@ -255,4 +255,5 @@
     <string name="update_allow">Allow</string>
     <string name="update_failed">The update failed: %1$s</string>
     <string name="update_retry">Try again</string>
+    <string name="playlist_removed_from">Removed from %1$s</string>
 </resources>

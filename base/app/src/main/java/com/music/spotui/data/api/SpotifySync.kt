@@ -41,15 +41,18 @@ object SpotifySync {
         }
     }
 
-    /** Removes every occurrence of a track from one of the user's playlists. */
+    /**
+     * Removes every occurrence of a track from one of the user's playlists. A track that is
+     * not there (removed elsewhere, or the list was stale) is already where the user wants it.
+     */
     fun removeTrackFromPlaylist(context: Context, playlistId: String, trackId: String, onDone: (Boolean) -> Unit = {}) {
         if (playlistId.isBlank() || trackId.isBlank()) { onDone(false); return }
         scope.launch {
             val ok = runCatching {
                 val uri = "spotify:playlist:$playlistId"
                 val uids = allTracks(uri).filter { it.uri == "spotify:track:$trackId" }.mapNotNull { it.uid }
-                check(uids.isNotEmpty()) { "track not in playlist" }
-                api.playlists.removeTracks(uri, uids)
+                if (uids.isEmpty()) Log.d(TAG, "remove $trackId from $playlistId: not in it")
+                else api.playlists.removeTracks(uri, uids)
             }.onFailure { Log.w(TAG, "remove $trackId from $playlistId failed: ${it.message}") }.isSuccess
             if (ok) membershipCache[playlistId]?.remove(trackId)
             onDone(ok)
