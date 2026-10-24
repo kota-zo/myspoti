@@ -7,7 +7,7 @@
     <string name="aa_podcasts">Подкасты</string>
     <string name="settings_amoled_theme">Тема AMOLED</string>
     <string name="settings_amoled_theme_subtitle">Чистый чёрный фон для экономии заряда</string>
-    <string name="settings_lyrics_style_spotify_default">Стандартный Spotify</string>
+    <string name="settings_lyrics_style_spotify_default">Как в Spotify</string>
     <string name="settings_lyrics_style_fullscreen">На весь экран (цвета альбома)</string>
     <string name="settings_lyrics_style_compact">Компактный</string>
     <string name="settings_lyrics_style_karaoke">Караоке</string>
@@ -22,14 +22,21 @@
     <string name="notif_shuffle_enable">Включить перемешивание</string>
     <string name="notif_shuffle_disable">Выключить перемешивание</string>
     <string name="notif_shuffle_disable_smart">Выключить умное перемешивание</string>
-    <string name="notif_action_like">Нравится</string>
-    <string name="notif_action_unlike">Убрать «Нравится»</string>
+    <string name="notif_action_like">В любимые</string>
+    <string name="notif_action_unlike">Убрать из любимых</string>
     <string name="notif_unknown_name">Неизвестно</string>
-    <string name="notif_by_artist">от %1$s</string>
+    <string name="notif_by_artist">Исполнитель: %1$s</string>
     <string name="notif_repeat_disable">Выключить повтор</string>
     <string name="notif_repeat_disable_one">Выключить повтор одного трека</string>
     <string name="notif_repeat_enable">Включить повтор</string>
     <string name="bridge_player_unlocked">Плеер разблокирован</string>
     <string name="bridge_reloading">Перезагрузка…</string>
     <string name="service_disabled_message">Сервис не включён</string>
+    <string name="energy_saver_title">Экономия заряда</string>
+    <string name="energy_saver_summary">Без Canvas, с облегчёнными видео и анимацией</string>
+    <string name="video_fullscreen_enter">На весь экран</string>
+    <string name="video_fullscreen_exit">Выйти из полного экрана</string>
+    <string name="playback_seek_description">Позиция воспроизведения</string>
+    <string name="account_page_title">Аккаунт Spotify</string>
+    <string name="account_page_detail">Тариф, конфиденциальность и устройства на spotify.com</string>
 </resources>
