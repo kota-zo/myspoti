@@ -36,34 +36,6 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
     @Volatile var onDeviceRegistered: (() -> Unit)? = null
     private val main = Handler(Looper.getMainLooper())
 
-    /**
-     * The WebView's own cookies. The page's `fetch` sends them, this app's OkHttp does not: a
-     * relayed request without them is not the shape of the real Web Player's request, which
-     * Spotify can tell apart (a `402 COMMAND_FAILED` on a free account is one such refusal).
-     */
-    private val cookies = object : CookieJar {
-        override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = Unit
-        override fun loadForRequest(url: HttpUrl): List<Cookie> = runCatching {
-            val raw = android.webkit.CookieManager.getInstance().getCookie(url.toString()) ?: return emptyList()
-            raw.split(';').mapNotNull { part ->
-                val at = part.indexOf('=')
-                if (at <= 0) null
-                else Cookie.Builder()
-                    .name(part.take(at).trim())
-                    .value(part.substring(at + 1).trim())
-                    .domain(url.host)
-                    .path("/")
-                    .build()
-            }
-        }.getOrDefault(emptyList())
-    }
-
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .cookieJar(cookies)
-        .build()
-
     fun install() {
         view.exposeToPlayer("MyspotiNet", ::onMessage)
         val documentStart = androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)
@@ -237,16 +209,16 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
 
     private fun reply(id: Int, status: Int, headersJson: String, body: String) {
         val posted = android.os.SystemClock.uptimeMillis()
-        main.post { replyNow(id, status, headersJson, body, posted) }
+        // Quoted here, on the network thread: a large reply (a track-playback state machine) was
+        // quoted on the main thread, which also draws the app and runs every tap behind it.
+        val script = "window.__mspNetDone && window.__mspNetDone($id, $status, ${JSONObject.quote(headersJson)}, ${JSONObject.quote(body)})"
+        main.post { replyNow(id, script, posted) }
     }
 
-    private fun replyNow(id: Int, status: Int, headersJson: String, body: String, posted: Long) {
+    private fun replyNow(id: Int, script: String, posted: Long) {
         val waited = android.os.SystemClock.uptimeMillis() - posted
         if (waited > 30) Logbook.log("relay reply #$id waited $waited ms for the main thread")
-        view.evaluateJavascript(
-            "window.__mspNetDone && window.__mspNetDone($id, $status, ${JSONObject.quote(headersJson)}, ${JSONObject.quote(body)})",
-            null,
-        )
+        view.evaluateJavascript(script, null)
     }
 
     /** This page's playback device id, read from its registration: never logged, only compared. */
@@ -293,6 +265,50 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
     }
 
     companion object {
+        /**
+         * The WebView's own cookies. The page's `fetch` sends them, this app's OkHttp does not: a
+         * relayed request without them is not the shape of the real Web Player's request, which
+         * Spotify can tell apart (a `402 COMMAND_FAILED` on a free account is one such refusal).
+         */
+        private val cookies = object : CookieJar {
+            override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = Unit
+            override fun loadForRequest(url: HttpUrl): List<Cookie> = runCatching {
+                val raw = android.webkit.CookieManager.getInstance().getCookie(url.toString()) ?: return emptyList()
+                raw.split(';').mapNotNull { part ->
+                    val at = part.indexOf('=')
+                    if (at <= 0) null
+                    else Cookie.Builder()
+                        .name(part.take(at).trim())
+                        .value(part.substring(at + 1).trim())
+                        .domain(url.host)
+                        .path("/")
+                        .build()
+                }
+            }.getOrDefault(emptyList())
+        }
+
+        /**
+         * One client for every relay (a page rebuilt after a renderer crash gets a new relay, not a
+         * new pool), so that [resetConnections] reaches the one in use. A dead connection fails in
+         * seconds: with a 30 s read timeout, a command sent on one (the phone moving between Wi-Fi
+         * and mobile data, a connection the mobile network dropped while idle) waited that long
+         * before anything tried again. Spotify answers these requests in well under a second, so
+         * 10 s without a byte is a dead connection; the ping finds one before a command does.
+         */
+        private val http: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .pingInterval(15, TimeUnit.SECONDS)
+            .cookieJar(cookies)
+            .build()
+
+        /**
+         * The phone moved to another network: the idle connections belong to the old one, and the
+         * next request opens a fresh one instead of waiting on them. Not from the main thread
+         * (closing a socket can write to it).
+         */
+        fun resetConnections() = http.connectionPool.evictAll()
+
         /**
          * The page's own API calls. Every request the WebView makes carries
          * "X-Requested-With: <our package>" — no browser does that, and it was measured on the wire

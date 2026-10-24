@@ -56,6 +56,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
     private val _adPlaying = MutableStateFlow(false)
     /** An ad is playing (the page plays it to its end). */
     val adPlaying: StateFlow<Boolean> = _adPlaying
+    private val _stalled = MutableStateFlow(false)
+    /**
+     * The state says this phone plays, but its sound stands still: the media element waits for
+     * data (a slow network) or is paused. The page's own state often goes on as playing then,
+     * its clock running over the silence; the screens stop theirs on this instead.
+     */
+    val stalled: StateFlow<Boolean> = _stalled
     @Volatile private var adSince = 0L
     @Volatile private var adState: PlayerState? = null
     /**
@@ -200,8 +207,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         ownReload = true
         try {
             runCatching {
-                reload()
-                withTimeoutOrNull(45_000) { delay(1_500); bridge.ready.first { it } } ?: return@runCatching
+                if (!reloadAndWait(reload)) return@runCatching
                 if (s == null) return@runCatching
                 if (next) { delay(1_500); playOn(s) } else resumeAfterReload(s)
             }
@@ -220,12 +226,26 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         if (recoveryHeld()) { bridge.logger?.invoke("reload held: a sign-in page is open or Spotify is limiting playback"); return false }
         ownReload = true
         try {
-            reload()
-            return withTimeoutOrNull(45_000) { delay(1_500); bridge.ready.first { it } } != null
+            return reloadAndWait(reload)
         } finally {
             ownReload = false
             playingAtLoss = null
         }
+    }
+
+    /**
+     * Reloads the page and waits for the new one. The old page says "ready" until the new one
+     * starts loading, which on a slow network comes later than the 1.5 s once waited here: the
+     * play after it went to the page being thrown away, and was lost (ReloadTest). The old page's
+     * going is waited for first, then the new page's ready.
+     */
+    private suspend fun reloadAndWait(reload: suspend () -> Unit): Boolean {
+        reload()
+        if (withTimeoutOrNull(RELOAD_START_MS) { bridge.ready.first { !it } } == null) {
+            bridge.logger?.invoke("reload: the page did not start loading again in ${RELOAD_START_MS / 1000} s")
+            return false
+        }
+        return withTimeoutOrNull(RELOAD_READY_MS) { bridge.ready.first { it } } != null
     }
 
     /**
@@ -311,6 +331,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val level: Double,
         val own: Double,
         val time: Double,
+        /** The element's readyState: below [HAVE_FUTURE_DATA] it waits for data. */
+        val readyState: Int,
         /** What the page player itself is set to; null when the page did not say. */
         val playerVolume: Double?,
         val active: Boolean?,
@@ -325,6 +347,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             level = p("level")?.doubleOrNull ?: 1.0,
             own = p("own")?.doubleOrNull ?: 1.0,
             time = p("time")?.doubleOrNull ?: 0.0,
+            readyState = p("readyState")?.doubleOrNull?.toInt() ?: HAVE_FUTURE_DATA,
             playerVolume = p("playerVolume")?.doubleOrNull,
             // The device list is read at most every few seconds in the page: what it did not
             // answer this time is what it answered last time.
@@ -349,6 +372,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         var tick = 0
         var lastMediaTime = -1.0
         var silentSince = 0L
+        /** Since when the sound stands still, for [stalled]. */
+        var stillSince = 0L
+        fun notStalled() { stillSince = 0L; _stalled.value = false }
         while (true) {
             // A song plays (or an ad is on): the watcher looks every [WATCH_TICK_MS] to hear a
             // stall in seconds. Nothing plays: there is less to see, so it looks less often.
@@ -359,12 +385,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             tick++
             // Repairs held (a sign-in page open, playback limited): nothing is judged, not even a
             // silent page, which is what a sign-in page looks like from here.
-            if (!bridge.ready.value || ownReload || recoveryHeld()) { key = null; attempts = 0; silentSince = 0L; frozenMisses = 0; continue }
+            if (!bridge.ready.value || ownReload || recoveryHeld()) { key = null; attempts = 0; silentSince = 0L; frozenMisses = 0; notStalled(); continue }
             val now = System.currentTimeMillis()
             // The page answers nothing, not even a ping: frozen (a stuck renderer). Reloaded
             // at once, the song going on where it was.
             val read = runCatching { readMedia() }
             if (read.isFailure && bridge.ready.value && !bridge.ping() && bridge.ready.value) {
+                notStalled()
                 // Paused: a page that does not answer is most often one Android froze with the
                 // app in the background (seen: "freezing <renderer pid>" in the system log, then
                 // a reload every minute that could not help). Nothing is lost while paused: the
@@ -403,6 +430,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             tickCrossfade(s, media, now)
             if (tick % VOLUME_CHECK_TICKS == 0) guardVolume(s, media)
             if (_adPlaying.value) {
+                // The screens show the break (or the song before it, waiting), not a stall.
+                notStalled()
                 val ad = adState
                 // The break just started: the page's own ad managers are switched off once more
                 // (the bridge also does it on every state push). This does not keep the server from
@@ -433,6 +462,21 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     }
                     key = null; silentSince = 0L
                     continue
+                }
+                // The page's state push that ends the break can be lost on the way (the events buffer
+                // drops the oldest under a stalled main thread), leaving the screen on "Advertisement"
+                // through the next song: the page is asked again when it has said nothing for a while.
+                if (now - adStateAt > AD_STATE_RECHECK_MS) {
+                    val asked = runCatching { bridge.call("player.state", timeoutMs = MEDIA_TIMEOUT_MS, quiet = true) as? JsonObject }.getOrNull()
+                    // Only a state with an item counts: one read between the ad and the next song
+                    // ("nothing plays") would end the break and unmute the ad.
+                    val st = asked?.let { playerState(it) }
+                    if (st?.item != null) onState(st)
+                    if (!_adPlaying.value) {
+                        bridge.logger?.invoke("ad flag cleared: the page plays ${_state.value?.item?.name}")
+                        key = null; silentSince = 0L
+                        continue
+                    }
                 }
                 // A refused ad sits at 0:00, buffering; a real one plays to its end.
                 val refused = ad != null && (ad.isBuffering || ad.speed == 0.0) && now - adSince > AD_STUCK_MS
@@ -474,14 +518,24 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             if (remoteActive) {
                 if (key != null || attempts != 0) bridge.logger?.invoke("another device plays: nothing repaired from here")
                 key = null; attempts = 0; silentSince = 0L
+                notStalled()
                 continue
             }
             // Silent: the state says this phone plays, yet its media element stands still.
             val fading = fadeBackTo != null || fadeBack?.isActive == true
-            val playingHere = s != null && !s.isPaused && !s.isBuffering && media != null && media.active != false && !fading
+            val heardHere = s != null && !s.isPaused && !s.isBuffering && media != null && media.active != false
+            val playingHere = heardHere && !fading
             val moved = media != null && !media.paused && kotlin.math.abs(media.time - lastMediaTime) > 0.25
             lastMediaTime = media?.time ?: -1.0
             silentSince = if (playingHere && !moved) (if (silentSince == 0L) now else silentSince) else 0L
+            // Reported: the clock counted on while nothing was heard. Still over one tick and
+            // waiting for data (or paused) is a stall at once; still over two, whatever the element
+            // says. Not one still tick alone: a song resumed just before it has not moved yet.
+            // Judged through a resume's rise too (a slow network holds the sound right there),
+            // and not reset by a repair as [silentSince] is: the sound is not back yet.
+            stillSince = if (heardHere && !moved) (if (stillSince == 0L) now else stillSince) else 0L
+            val waiting = media != null && (media.paused || media.readyState < HAVE_FUTURE_DATA)
+            _stalled.value = stillSince != 0L && (waiting || now - stillSince >= WATCH_TICK_MS)
             val silent = silentSince != 0L && now - silentSince >= SILENT_MS
             val reason = s?.let { stallOf(it, now, pausedByUser) } ?: (if (silent) SILENT else null)
             if (recoveryHeld()) { key = null; attempts = 0; continue }
@@ -885,6 +939,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         refusalStep = 0
         if (s?.item != null) lastSong = s
         else if (lastTrackState?.item != null) lastSongUntil = System.currentTimeMillis()
+        // Another song: the stall was the last one's (the watcher judges this one on its next tick).
+        if (s?.item?.uri != lastTrackState?.item?.uri) _stalled.value = false
         lastTrackState = s
         _state.value = s
         // Reported: the repeat button forgets what it was. A play command (and a reloaded page) starts
@@ -1544,6 +1600,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         /** A song the page says it plays here while its media element stands still that long. */
         const val SILENT_MS = 6_000L
         const val SILENT = "silent"
+        /** HTMLMediaElement.HAVE_FUTURE_DATA: below it, the element cannot play on. */
+        const val HAVE_FUTURE_DATA = 3
         /** The next song is preloaded once the current one has played that long. */
         const val PRELOAD_AFTER_MS = 2_000L
         /** Longer than any ad break: the page is stuck in it. */
@@ -1641,6 +1699,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val BUFFERING_STALL_MS = 25_000L
         /** An ad still there after a reload: tries at playing on before the next reload. */
         const val AD_SKIPS_AFTER_RELOAD = 2
+        /** An ad break the page has said nothing about for this long is read again (see [watchStalls]). */
+        const val AD_STATE_RECHECK_MS = 4_000L
+        /** A reload whose old page is still there after this never started (see [reloadAndWait]). */
+        const val RELOAD_START_MS = 20_000L
+        /** A reloaded page not ready after this is left to the page watchdogs. */
+        const val RELOAD_READY_MS = 45_000L
 
         /**
          * What the [attempt]-th try on a stuck ad does: "reload" first (the only lever a refused
