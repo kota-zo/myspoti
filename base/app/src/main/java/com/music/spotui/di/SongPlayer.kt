@@ -52,9 +52,15 @@ object SongPlayer {
     private const val TRANSPORT_STUCK_MS = 3_000L
     /**
      * The longest a skip is shown ahead of the page: its burst gap, its turn behind a stuck command
-     * and its own timeout. Once it is answered, the page has [PENDING_MS] (see [skipDone]).
+     * and its own timeout. Once it is answered, the page has [SKIP_ANSWERED_MS] (see [skipDone]).
      */
     private const val SKIP_PENDING_MAX_MS = TRANSPORT_TIMEOUT_MS + 5_000L
+    /**
+     * An answered skip whose song has not come by then: the old song is heard again (the engine
+     * brings its sound back 2.5 s after the skip, SpotifyPlayer.FADE_BACK_MAX_MS), so the screen
+     * shows it again too. Reported: the next song's cover on screen, the old song playing on.
+     */
+    private const val SKIP_ANSWERED_MS = 3_000L
     /** How long a play has to show up in the page's state before it is sent again. */
     private const val PLAY_CHECK_MS = 4_000L
     /** A resume of an episode that the page did not take is asked for again after that. */
@@ -67,6 +73,20 @@ object SongPlayer {
     private const val AD_SHOW_AFTER_MS = 2_000L
     /** After a local file starts, engine states this recent still predate the pause. */
     private const val LOCAL_GRACE_MS = 2500L
+    /** An answered command's state reaches the app within this (see [reconcile]). */
+    private const val COMMAND_SETTLE_MS = 1_500L
+    /** A hold's end is checked this long after it, so the hold is over by then (see [reconcile]). */
+    private const val RECONCILE_MARGIN_MS = 100L
+    /** The page's state is read again that long at most before the screen is put right. */
+    private const val RECONCILE_READ_MS = 3_000L
+    /** A seek is sent within this, or given up for this try (see [seekTo]). */
+    private const val SEEK_SEND_MS = 5_000L
+    /** How long a seek has to show up in the page's state before it is sent again. */
+    private const val SEEK_CHECK_MS = 3_000L
+    /** The longest a seek holds the clock against the page (both tries and their sends). */
+    private const val SEEK_HOLD_MS = 2 * (SEEK_SEND_MS + SEEK_CHECK_MS)
+    /** A page position this close to a seek's target (or past it by the time played) is the seek. */
+    private const val SEEK_NEAR_MS = 2_000L
     private const val TAG = "MspPlayer"
     private const val LIKED_CONTEXT = "spotify:collection:tracks"
 
@@ -88,6 +108,8 @@ object SongPlayer {
     @Volatile private var durationMs = 0L
     @Volatile private var positionMs = 0L
     @Volatile private var positionAt = 0L
+    /** The page says it plays, but nothing is heard (see [onSoundStalled]): the clock waits. */
+    @Volatile private var soundStalled = false
     @Volatile var currentTrackId: String = ""
         private set
     @Volatile var currentContextUri: String = ""
@@ -104,8 +126,50 @@ object SongPlayer {
     @Volatile private var wantPlayingUntil = 0L
     @Volatile private var wantPausedUntil = 0L
 
-    private fun intendPlaying() { wantPlayingUntil = SystemClock.elapsedRealtime() + 4000; wantPausedUntil = 0 }
-    private fun intendPaused() { wantPausedUntil = SystemClock.elapsedRealtime() + 1500; wantPlayingUntil = 0 }
+    private fun intendPlaying() { wantPlayingUntil = SystemClock.elapsedRealtime() + 4000; wantPausedUntil = 0; reconcileAfter(intentEnded, 4000) }
+    private fun intendPaused() { wantPausedUntil = SystemClock.elapsedRealtime() + 1500; wantPlayingUntil = 0; reconcileAfter(intentEnded, 1500) }
+
+    /**
+     * Puts the screen back on what the page last said once a hold is over (a play or pause
+     * wanted, a song shown before it plays). The page pushes changes only, and a state read again
+     * that did not change is no news either: a play the page never took left the clock counting
+     * over silence, and a skip that never landed left the next song on screen while the old one
+     * played on (reported).
+     */
+    private fun reconcile() {
+        // A command still on its way: its own end puts the screen right (see [transport]).
+        fun leftAlone() = !acceptsSessionUpdates() || LocalPlayer.active.value || transportsInFlight.get() > 0
+        if (leftAlone()) return
+        scope.launch {
+            // Read again first: the page's last push can be lost on the way (its events buffer
+            // drops the oldest when its main thread stalls), and the screen must not go back to
+            // "paused" over a song that plays.
+            kotlinx.coroutines.withTimeoutOrNull(RECONCILE_READ_MS) { runCatching { MyspotiRuntime.spotify.player.refresh() } }
+            if (leftAlone()) return@launch
+            val s = api.player.state.value
+            if (s != null) { applyState(s); return@launch }
+            // The page never reported anything (it did not load): nothing plays, whatever was tapped.
+            if (playing) {
+                playing = false
+                bufferingState.value = false
+                boundState?.updatePlayingState(false)
+                pushNotification(null, boundState?.likeState?.value ?: false)
+            }
+        }
+    }
+    private val intentEnded = Runnable { reconcile() }
+    private val pendingEnded = Runnable { reconcile() }
+    private val commandSettled = Runnable { reconcile() }
+    private fun reconcileAfter(check: Runnable, ms: Long) {
+        main.removeCallbacks(check)
+        main.postDelayed(check, ms.coerceAtLeast(0L) + RECONCILE_MARGIN_MS)
+    }
+
+    /**
+     * Not heard yet: the page buffers, its sound stands still, or a play is wanted that the page
+     * has not started. The clock waits and the screens show the song loading.
+     */
+    private fun waiting(s: PlayerState) = s.isBuffering || soundStalled || (playing && s.isPaused)
 
     private fun resolvePlaying(paused: Boolean): Boolean {
         val now = SystemClock.elapsedRealtime()
@@ -190,6 +254,7 @@ object SongPlayer {
             }
         }
         scope.launch { api.player.queue.collect { q -> if (acceptsSessionUpdates()) applyQueue(q) } }
+        scope.launch { MyspotiRuntime.spotify.player.stalled.collect { on -> onSoundStalled(on) } }
         // Smart shuffle plays a mixed order as the list and leaves Spotify's own shuffle off, so
         // turning it off sends no shuffle command at all (the button finds shuffle already off):
         // the list's own order comes back here.
@@ -311,6 +376,8 @@ object SongPlayer {
         pendingUntil = 0L
         intentUri = ""; intentUntil = 0L
         wantPlayingUntil = 0L; wantPausedUntil = 0L
+        // Its own end puts nothing back on screen: the seq it ends with is no longer the last.
+        seekSeq++; seekJob?.cancel(); seekUntil = 0L; seekUri = ""
         stateSeen = false
         playing = false; bufferingState.value = false; adState.value = false; durationMs = 0L; positionMs = 0L
         currentTrackId = ""; currentContextUri = ""
@@ -347,6 +414,25 @@ object SongPlayer {
             durationMs = n.durationMs.toInt(),
             albumId = n.album?.uri?.substringAfterLast(':').orEmpty(),
         )
+    }
+
+    /**
+     * The page says it plays but its sound stands still (a slow network), or plays again. The page's
+     * own clock goes on over the silence (reported: "the time was counting, the song not playing"):
+     * the screen's clock stops where it is and goes on from there once the sound does.
+     */
+    private fun onSoundStalled(on: Boolean) {
+        if (on == soundStalled) return
+        // Read before the flag changes: the running clock as it stands, or the held one.
+        positionMs = getCurrentPosition()
+        positionAt = SystemClock.elapsedRealtime()
+        soundStalled = on
+        // A song shown before the page plays it is waiting already (see [markPending]).
+        if (LocalPlayer.active.value || pendingTrackId != null) return
+        val s = api.player.state.value ?: return
+        bufferingState.value = waiting(s)
+        pushNotification(null, boundState?.likeState?.value ?: false)
+        com.music.spotui.video.MusicVideoController.onAudioBuffering(isBuffering, currentTrackId)
     }
 
     /** An ad break starts or ends: the notification, the widget and the screens follow (T4). */
@@ -412,13 +498,16 @@ object SongPlayer {
         val wasPlaying = playing
         val wasBuffering = isBuffering
         val predicted = getCurrentPosition()
-        bufferingState.value = s.isBuffering
         playing = resolvePlaying(s.isPaused)
+        bufferingState.value = waiting(s)
         SpeakerKeepAlive.set(playing && _activeDevice.value == null)
         durationMs = item?.durationMs ?: 0L
         val reported = s.positionAt(System.currentTimeMillis())
+        // A seek on its way: the page's old position does not take the clock back (see [seekTo]).
+        if (seekHeld(uri) && seekLanded(s)) seekUntil = 0L
+        val seeking = seekHeld(uri)
         // Keep the running clock when the player only nudges it (< 1 s).
-        if (!(wasPlaying && playing && !wasBuffering && !isBuffering && kotlin.math.abs(reported - predicted) < 1000)) {
+        if (!seeking && !(wasPlaying && playing && !wasBuffering && !isBuffering && kotlin.math.abs(reported - predicted) < 1000)) {
             positionMs = reported
             positionAt = SystemClock.elapsedRealtime()
         }
@@ -604,6 +693,9 @@ object SongPlayer {
                 told = true
                 done?.invoke(ok)
             }
+            var answered = false
+            // Counted from inside: a coroutine cancelled before it starts never runs its finally.
+            transportsInFlight.incrementAndGet()
             try {
                 transportLock.withLock {
                     if (gen != transportGen.get()) return@withLock
@@ -622,6 +714,7 @@ object SongPlayer {
                     // transport's own timeout and a real failure are logged here.
                     try {
                         kotlinx.coroutines.withTimeout(TRANSPORT_TIMEOUT_MS) { block { gen == transportGen.get() } }
+                        answered = true
                         tell(true)
                     } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                         Log.w(TAG, "transport timed out after ${TRANSPORT_TIMEOUT_MS} ms")
@@ -636,9 +729,22 @@ object SongPlayer {
                 // A newer transport may hold the lock already: only this one's own mark is cleared.
                 if (runningTransport === self) runningTransport = null
                 tell(false)
+                transportsInFlight.decrementAndGet()
+                // An answered play or pause: the page gets a moment to say so before the screen
+                // is put back on what it says (a slow network answers late, its state later).
+                // One that failed is put right then too, whatever was wanted.
+                if (answered) {
+                    val until = SystemClock.elapsedRealtime() + COMMAND_SETTLE_MS
+                    if (wantPlayingUntil != 0L) wantPlayingUntil = maxOf(wantPlayingUntil, until)
+                    if (wantPausedUntil != 0L) wantPausedUntil = maxOf(wantPausedUntil, until)
+                }
+                reconcileAfter(commandSettled, COMMAND_SETTLE_MS)
             }
         }
     }
+
+    /** Transports started and not over yet: [reconcile] leaves the screen to them meanwhile. */
+    private val transportsInFlight = java.util.concurrent.atomic.AtomicInteger()
 
     /** The transport holding [transportLock], and since when (see [TRANSPORT_STUCK_MS]). */
     @Volatile private var runningTransport: kotlinx.coroutines.Job? = null
@@ -694,6 +800,7 @@ object SongPlayer {
         intendPlaying()
         pendingTrackId = trackId
         pendingUntil = SystemClock.elapsedRealtime() + holdMs
+        reconcileAfter(pendingEnded, holdMs)
         playing = true
         positionMs = 0
         positionAt = SystemClock.elapsedRealtime()
@@ -740,6 +847,9 @@ object SongPlayer {
         // Smart shuffle was turned off while paused: the list's order comes back as it plays on.
         plainOrderDue?.let { if (restorePlainOrder(it)) return }
         Haptics.click(); intendPlaying(); playing = true; positionAt = SystemClock.elapsedRealtime()
+        // Loading until the page plays: the clock ran from the tap before, over silence when the
+        // resume came late or never (reported on a slow network).
+        if (api.player.state.value?.isPaused != false) bufferingState.value = true
         // Tapped on the restored mini player while the Web Player is still loading.
         if (!stateSeen) resumeWhenReady = true
         val uri = _nowPlaying.value.uri
@@ -856,7 +966,7 @@ object SongPlayer {
     }
 
     /**
-     * The skip shown as [token] was answered ([ok]): the page now has [PENDING_MS] to report the
+     * The skip shown as [token] was answered ([ok]): the page now has [SKIP_ANSWERED_MS] to report the
      * song. Not answered (failed, timed out, dropped): the screen goes back at once to what the
      * page really plays, instead of showing a song nothing is going to play. A newer skip or a
      * pick shown since owns the screen, and is left alone.
@@ -864,7 +974,9 @@ object SongPlayer {
     private fun skipDone(token: Int, ok: Boolean) {
         if (token == 0 || token != pendingSkip || pendingTrackId == null) return
         if (ok) {
-            pendingUntil = minOf(pendingUntil, SystemClock.elapsedRealtime() + PENDING_MS)
+            val now = SystemClock.elapsedRealtime()
+            pendingUntil = minOf(pendingUntil, now + SKIP_ANSWERED_MS)
+            reconcileAfter(pendingEnded, pendingUntil - now)
             return
         }
         Log.w(TAG, "skip not taken by the page: the screen shows what it plays")
@@ -1187,12 +1299,65 @@ object SongPlayer {
     /** The in-app swipe and button: [next], which shows the song it lands on at once. */
     fun swipeNext() = next()
 
+    /**
+     * A seek the page has not shown yet: the song, the position asked for, when it was asked and
+     * until when it holds. States of that song from before the seek (the old position) do not move
+     * the clock back meanwhile. Reported: the bar dragged to a new place jumped back, the song
+     * playing on from where it was — a state still on the old position, taken over the seek.
+     */
+    @Volatile private var seekUri = ""
+    @Volatile private var seekTarget = 0L
+    @Volatile private var seekAt = 0L
+    @Volatile private var seekUntil = 0L
+    private var seekJob: kotlinx.coroutines.Job? = null
+    private var seekSeq = 0
+    private val seekEnded = Runnable { reconcile() }
+
+    /** [s] is the song a seek was asked on, somewhere it can have got to since. */
+    private fun seekLanded(s: PlayerState): Boolean {
+        if (s.item?.uri != seekUri) return false
+        val at = s.positionAt(System.currentTimeMillis())
+        val played = SystemClock.elapsedRealtime() - seekAt
+        return at >= seekTarget - SEEK_NEAR_MS && at <= seekTarget + played + SEEK_NEAR_MS
+    }
+
+    private fun seekHeld(uri: String) = uri == seekUri && SystemClock.elapsedRealtime() < seekUntil
+
     fun seekTo(ms: Long) {
         if (LocalPlayer.active.value) { LocalPlayer.seekTo(ms); return }
         cancelBurst()
+        val now = SystemClock.elapsedRealtime()
         positionMs = ms
-        positionAt = SystemClock.elapsedRealtime()
-        command { api.player.seek(ms) }
+        positionAt = now
+        seekUri = _nowPlaying.value.uri
+        seekTarget = ms
+        seekAt = now
+        seekUntil = now + SEEK_HOLD_MS
+        reconcileAfter(seekEnded, SEEK_HOLD_MS)
+        // The newest seek only: a drag that ends while the last one is still on its way replaces it.
+        val seq = ++seekSeq
+        seekJob?.cancel()
+        seekJob = scope.launch {
+            try {
+                // Sent once more when the page does not show it (busy, a slow network); after that
+                // the page's word stands, wherever it is.
+                repeat(2) { attempt ->
+                    runCatching { kotlinx.coroutines.withTimeoutOrNull(SEEK_SEND_MS) { api.player.seek(ms) } }
+                        .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; Log.w(TAG, "seek failed: ${it.message}") }
+                    val landed = kotlinx.coroutines.withTimeoutOrNull(SEEK_CHECK_MS) {
+                        api.player.state.first { it != null && (it.item?.uri != seekUri || seekLanded(it)) }
+                    }
+                    if (landed != null) return@launch
+                    Log.w(TAG, "seek to $ms not taken by the page${if (attempt == 0) ": sent again" else ""}")
+                }
+            } finally {
+                if (seq == seekSeq) {
+                    seekUntil = 0L
+                    main.removeCallbacks(seekEnded)
+                    main.post { reconcile() }
+                }
+            }
+        }
     }
 
     /** Which of [uris] are saved in the user's library (Liked Songs / saved albums…). */
