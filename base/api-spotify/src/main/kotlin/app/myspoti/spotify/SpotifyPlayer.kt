@@ -200,8 +200,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         ownReload = true
         try {
             runCatching {
-                reload()
-                withTimeoutOrNull(45_000) { delay(1_500); bridge.ready.first { it } } ?: return@runCatching
+                if (!reloadAndWait(reload)) return@runCatching
                 if (s == null) return@runCatching
                 if (next) { delay(1_500); playOn(s) } else resumeAfterReload(s)
             }
@@ -220,12 +219,26 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         if (recoveryHeld()) { bridge.logger?.invoke("reload held: a sign-in page is open or Spotify is limiting playback"); return false }
         ownReload = true
         try {
-            reload()
-            return withTimeoutOrNull(45_000) { delay(1_500); bridge.ready.first { it } } != null
+            return reloadAndWait(reload)
         } finally {
             ownReload = false
             playingAtLoss = null
         }
+    }
+
+    /**
+     * Reloads the page and waits for the new one. The old page says "ready" until the new one
+     * starts loading, which on a slow network comes later than the 1.5 s once waited here: the
+     * play after it went to the page being thrown away, and was lost (ReloadTest). The old page's
+     * going is waited for first, then the new page's ready.
+     */
+    private suspend fun reloadAndWait(reload: suspend () -> Unit): Boolean {
+        reload()
+        if (withTimeoutOrNull(RELOAD_START_MS) { bridge.ready.first { !it } } == null) {
+            bridge.logger?.invoke("reload: the page did not start loading again in ${RELOAD_START_MS / 1000} s")
+            return false
+        }
+        return withTimeoutOrNull(RELOAD_READY_MS) { bridge.ready.first { it } } != null
     }
 
     /**
@@ -433,6 +446,21 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     }
                     key = null; silentSince = 0L
                     continue
+                }
+                // The page's state push that ends the break can be lost on the way (the events buffer
+                // drops the oldest under a stalled main thread), leaving the screen on "Advertisement"
+                // through the next song: the page is asked again when it has said nothing for a while.
+                if (now - adStateAt > AD_STATE_RECHECK_MS) {
+                    val asked = runCatching { bridge.call("player.state", timeoutMs = MEDIA_TIMEOUT_MS, quiet = true) as? JsonObject }.getOrNull()
+                    // Only a state with an item counts: one read between the ad and the next song
+                    // ("nothing plays") would end the break and unmute the ad.
+                    val st = asked?.let { playerState(it) }
+                    if (st?.item != null) onState(st)
+                    if (!_adPlaying.value) {
+                        bridge.logger?.invoke("ad flag cleared: the page plays ${_state.value?.item?.name}")
+                        key = null; silentSince = 0L
+                        continue
+                    }
                 }
                 // A refused ad sits at 0:00, buffering; a real one plays to its end.
                 val refused = ad != null && (ad.isBuffering || ad.speed == 0.0) && now - adSince > AD_STUCK_MS
@@ -1641,6 +1669,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val BUFFERING_STALL_MS = 25_000L
         /** An ad still there after a reload: tries at playing on before the next reload. */
         const val AD_SKIPS_AFTER_RELOAD = 2
+        /** An ad break the page has said nothing about for this long is read again (see [watchStalls]). */
+        const val AD_STATE_RECHECK_MS = 4_000L
+        /** A reload whose old page is still there after this never started (see [reloadAndWait]). */
+        const val RELOAD_START_MS = 20_000L
+        /** A reloaded page not ready after this is left to the page watchdogs. */
+        const val RELOAD_READY_MS = 45_000L
 
         /**
          * What the [attempt]-th try on a stuck ad does: "reload" first (the only lever a refused

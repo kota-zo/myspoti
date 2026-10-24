@@ -44,6 +44,17 @@ object SongPlayer {
     private const val SONG_END_GRACE_MS = 1_500L
     /** A transport command that has not answered by then is given up (the next one runs). */
     private const val TRANSPORT_TIMEOUT_MS = 15_000L
+    /**
+     * A transport command still running this long when a newer one comes is stuck (a dead
+     * connection, a page that does not answer): it is given up at once rather than holding the
+     * newer one for the rest of [TRANSPORT_TIMEOUT_MS]. A skip normally answers well within it.
+     */
+    private const val TRANSPORT_STUCK_MS = 3_000L
+    /**
+     * The longest a skip is shown ahead of the page: its burst gap, its turn behind a stuck command
+     * and its own timeout. Once it is answered, the page has [PENDING_MS] (see [skipDone]).
+     */
+    private const val SKIP_PENDING_MAX_MS = TRANSPORT_TIMEOUT_MS + 5_000L
     /** How long a play has to show up in the page's state before it is sent again. */
     private const val PLAY_CHECK_MS = 4_000L
     /** A resume of an episode that the page did not take is asked for again after that. */
@@ -566,35 +577,72 @@ object SongPlayer {
      * then is pulled back as before; with another device known to be active, the check still
      * comes first, since the pull-back has to happen before the command.
      */
-    private fun transport(pullBack: Boolean = true, waitReady: Boolean = true, checkAfter: Boolean = false, block: suspend (isLatest: () -> Boolean) -> Unit) {
+    /**
+     * [done]: told once, on the main thread, whether the command was answered (true) or not
+     * (failed, timed out, dropped for a newer one or for a page that never loaded).
+     */
+    private fun transport(
+        pullBack: Boolean = true,
+        waitReady: Boolean = true,
+        checkAfter: Boolean = false,
+        done: ((ok: Boolean) -> Unit)? = null,
+        block: suspend (isLatest: () -> Boolean) -> Unit,
+    ) {
         val gen = transportGen.incrementAndGet()
+        runningTransport?.let { job ->
+            val held = SystemClock.elapsedRealtime() - runningSince
+            if (job.isActive && held >= TRANSPORT_STUCK_MS) {
+                Log.w(TAG, "transport stuck for $held ms: given up for the newer one")
+                job.cancel()
+            }
+        }
         scope.launch {
-            transportLock.withLock {
-                if (gen != transportGen.get()) return@withLock
-                // A tap while the page loads (cold start, a reload): sent once it is there,
-                // instead of failing at once with "not ready".
-                if (waitReady && !api.ready.value && kotlinx.coroutines.withTimeoutOrNull(READY_WAIT_MS) { api.ready.first { it } } == null) {
-                    Log.w(TAG, "transport dropped: the player page is not ready")
-                    return@withLock
+            val self = coroutineContext[kotlinx.coroutines.Job]
+            var told = false
+            fun tell(ok: Boolean) {
+                if (told) return
+                told = true
+                done?.invoke(ok)
+            }
+            try {
+                transportLock.withLock {
+                    if (gen != transportGen.get()) return@withLock
+                    runningTransport = self
+                    runningSince = SystemClock.elapsedRealtime()
+                    // A tap while the page loads (cold start, a reload): sent once it is there,
+                    // instead of failing at once with "not ready".
+                    if (waitReady && !api.ready.value && kotlinx.coroutines.withTimeoutOrNull(READY_WAIT_MS) { api.ready.first { it } } == null) {
+                        Log.w(TAG, "transport dropped: the player page is not ready")
+                        return@withLock
+                    }
+                    if (gen != transportGen.get()) return@withLock
+                    val checkLater = pullBack && checkAfter && _activeDevice.value == null
+                    if (pullBack && !checkLater && api.ready.value) takeBackPlayback()
+                    // A cancellation of the caller is never swallowed (it must unwind); only the
+                    // transport's own timeout and a real failure are logged here.
+                    try {
+                        kotlinx.coroutines.withTimeout(TRANSPORT_TIMEOUT_MS) { block { gen == transportGen.get() } }
+                        tell(true)
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        Log.w(TAG, "transport timed out after ${TRANSPORT_TIMEOUT_MS} ms")
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "transport failed: ${e.message}")
+                    }
+                    if (checkLater && gen == transportGen.get() && api.ready.value) takeBackPlayback()
                 }
-                if (gen != transportGen.get()) return@withLock
-                val checkLater = pullBack && checkAfter && _activeDevice.value == null
-                if (pullBack && !checkLater && api.ready.value) takeBackPlayback()
-                // A cancellation of the caller is never swallowed (it must unwind); only the
-                // transport's own timeout and a real failure are logged here.
-                try {
-                    kotlinx.coroutines.withTimeout(TRANSPORT_TIMEOUT_MS) { block { gen == transportGen.get() } }
-                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                    Log.w(TAG, "transport timed out after ${TRANSPORT_TIMEOUT_MS} ms")
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w(TAG, "transport failed: ${e.message}")
-                }
-                if (checkLater && gen == transportGen.get() && api.ready.value) takeBackPlayback()
+            } finally {
+                // A newer transport may hold the lock already: only this one's own mark is cleared.
+                if (runningTransport === self) runningTransport = null
+                tell(false)
             }
         }
     }
+
+    /** The transport holding [transportLock], and since when (see [TRANSPORT_STUCK_MS]). */
+    @Volatile private var runningTransport: kotlinx.coroutines.Job? = null
+    @Volatile private var runningSince = 0L
 
     /**
      * Plays [itemUri], then checks that the page really moved to it; a play the page lost
@@ -633,13 +681,19 @@ object SongPlayer {
     /** Liked Songs plays as its own context: Spotify maps it to the account's liked list. */
     fun registerLikedSongs(urls: List<String>) = registerContext(urls, LIKED_CONTEXT)
 
-    private fun markPending(trackId: String, itemUri: String? = trackId.takeIf { it.isNotBlank() }?.let { SPOTIFY_TRACK_PREFIX + it }) {
+    /** [holdMs]: how long states of another song are ignored, at most, while this one comes. */
+    private fun markPending(
+        trackId: String,
+        itemUri: String? = trackId.takeIf { it.isNotBlank() }?.let { SPOTIFY_TRACK_PREFIX + it },
+        holdMs: Long = PENDING_MS,
+    ) {
+        pendingSkip = 0
         pendingItemUri = itemUri
         bufferingState.value = true
         itemUri?.let { boundState?.likeState?.value = library[it] ?: false }
         intendPlaying()
         pendingTrackId = trackId
-        pendingUntil = SystemClock.elapsedRealtime() + PENDING_MS
+        pendingUntil = SystemClock.elapsedRealtime() + holdMs
         playing = true
         positionMs = 0
         positionAt = SystemClock.elapsedRealtime()
@@ -717,6 +771,14 @@ object SongPlayer {
     }
 
     fun stop() = pause()
+
+    /**
+     * Next, from any control: the player, the mini player, the notification, headphones, the car,
+     * the widget. The song it lands on is shown at once ([showSkipTarget]) and stays shown until the
+     * page plays it or the skip fails. Only the in-app buttons showed it before, for [PENDING_MS] at
+     * most: on a slow network the skip took longer and the screen went back to the old song
+     * (reported: "Next does not move").
+     */
     fun next() {
         Log.d(TAG, "next tapped")
         Haptics.click()
@@ -742,7 +804,10 @@ object SongPlayer {
             burstTaps = 1
             pendingSkips = 0
             skipSentAt = now
-            transport(waitReady = !stateSeen) { api.player.next() }
+            val shown = showSkipTarget()
+            // The device check after the skip, as for a resume: before it, a slow network held
+            // every skip for the device list's round trip (up to DEVICES_WAIT_MS).
+            transport(waitReady = !stateSeen, checkAfter = true, done = { ok -> skipDone(shown, ok) }) { api.player.next() }
             return
         }
         burstAt = now
@@ -754,8 +819,59 @@ object SongPlayer {
         }
         burstTaps++
         pendingSkips++
+        showSkipTarget()
         main.removeCallbacks(sendSkips)
         main.postDelayed(sendSkips, maxOf(SKIP_BURST_MS, MIN_SKIP_GAP_MS - sinceSent))
+    }
+
+    /** Hands out the tokens of [showSkipTarget]; 0 is never one. */
+    private var skipShownSeq = 0
+    /** The skip whose song is pending on screen; 0 when the pending song is not a skip's (a pick). */
+    private var pendingSkip = 0
+
+    /**
+     * Shows the song the taps so far land on, before the page plays it: the song after the one
+     * playing at the first tap, or [burstTaps] songs after it. -> the token [skipDone] is told
+     * with, 0 when the target is unknown (the page's own states then show where it lands).
+     */
+    private fun showSkipTarget(): Int {
+        val token = ++skipShownSeq
+        // Reported (beta.9): each fast tap showed `nowPlaying.next` — the same second song every
+        // time, held as pending, so the screen stayed on it for seconds while the page went on to
+        // the fifth. A burst shows the song its taps add up to.
+        val n = if (burstTaps <= 1) _nowPlaying.value.next
+            else burstUpcoming.getOrNull(burstTaps - 1)?.let(::songOf)
+        if (n == null) {
+            pendingTrackId = null
+            pendingItemUri = null
+            pendingSkip = 0
+            return 0
+        }
+        markPending(n.spotifyTrackId, holdMs = SKIP_PENDING_MAX_MS)
+        pendingSkip = token
+        boundState?.updateSongState(n.coverUri, n.title, n.singer, true, n.id, 0, n.album)
+        durationMs = n.durationMs.toLong()
+        pushNotification(n, false)
+        return token
+    }
+
+    /**
+     * The skip shown as [token] was answered ([ok]): the page now has [PENDING_MS] to report the
+     * song. Not answered (failed, timed out, dropped): the screen goes back at once to what the
+     * page really plays, instead of showing a song nothing is going to play. A newer skip or a
+     * pick shown since owns the screen, and is left alone.
+     */
+    private fun skipDone(token: Int, ok: Boolean) {
+        if (token == 0 || token != pendingSkip || pendingTrackId == null) return
+        if (ok) {
+            pendingUntil = minOf(pendingUntil, SystemClock.elapsedRealtime() + PENDING_MS)
+            return
+        }
+        Log.w(TAG, "skip not taken by the page: the screen shows what it plays")
+        pendingSkip = 0
+        pendingTrackId = null
+        pendingItemUri = null
+        applyState(api.player.state.value)
     }
 
     /** When the last skip command left (see [next]). */
@@ -772,7 +888,10 @@ object SongPlayer {
         skipSentAt = SystemClock.elapsedRealtime()
         // The song [burstTaps] after the one playing at the first tap.
         val target = burstUpcoming.getOrNull(burstTaps - 1)
-        transport(waitReady = !stateSeen) { if (target == null) api.player.next() else api.player.skipTo(target) }
+        val shown = pendingSkip
+        transport(waitReady = !stateSeen, checkAfter = true, done = { ok -> skipDone(shown, ok) }) {
+            if (target == null) api.player.next() else api.player.skipTo(target)
+        }
         if (target != null) {
             burstTarget = target
             burstContext = _nowPlaying.value.contextUri
@@ -855,7 +974,7 @@ object SongPlayer {
         }
         cancelBurst()
         skipSentAt = SystemClock.elapsedRealtime()
-        transport(waitReady = !stateSeen) { api.player.previous() }
+        transport(waitReady = !stateSeen, checkAfter = true) { api.player.previous() }
     }
 
     /** Tracks shufflePlay plays without a context: the first one, plus up to 49 queued. */
@@ -1065,26 +1184,8 @@ object SongPlayer {
         if (wantedSaved.add(uri)) { main.removeCallbacks(flushSaved); main.postDelayed(flushSaved, 32) }
     }
 
-    /** Swipe to the next track: show it right away, then skip. */
-    fun swipeNext() {
-        if (LocalPlayer.active.value) { next(); return }
-        next()
-        // The song this tap lands on, the one [next]'s burst will skip to. Reported (beta.9): each
-        // fast tap showed `nowPlaying.next` — the same second song every time, held as pending,
-        // so the screen stayed on it for seconds while the page went on to the fifth.
-        val n = if (burstTaps <= 1) _nowPlaying.value.next
-            else burstUpcoming.getOrNull(burstTaps - 1)?.let(::songOf)
-        if (n == null) {
-            // Unknown target: the page's own states show where it lands.
-            pendingTrackId = null
-            pendingItemUri = null
-            return
-        }
-        markPending(n.spotifyTrackId)
-        boundState?.updateSongState(n.coverUri, n.title, n.singer, true, n.id, 0, n.album)
-        durationMs = n.durationMs.toLong()
-        pushNotification(n, false)
-    }
+    /** The in-app swipe and button: [next], which shows the song it lands on at once. */
+    fun swipeNext() = next()
 
     fun seekTo(ms: Long) {
         if (LocalPlayer.active.value) { LocalPlayer.seekTo(ms); return }
