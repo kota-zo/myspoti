@@ -140,7 +140,7 @@ dependencies {
     // MediaTransferReceiver: lets the system output switcher transfer to our Connect routes
     implementation("androidx.mediarouter:mediarouter:1.8.1")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation(libs.serialization.json)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
