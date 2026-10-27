@@ -205,7 +205,7 @@ object BasicHttp {
                 }
             }
             val responseHeaders = r.headers.names().associate { it.lowercase() to r.headers.values(it).joinToString(", ") }
-            return HttpResponse(r.code, responseHeaders, out.toString(Charsets.UTF_8))
+            return HttpResponse(r.code, responseHeaders, out.toString(Charsets.UTF_8.name()))
         }
     }
 }
