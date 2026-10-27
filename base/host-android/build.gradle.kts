@@ -27,7 +27,7 @@ dependencies {
     implementation(libs.okhttp.brotli)
     implementation(libs.okhttp.zstd)
     implementation(libs.play.services.cronet)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     testImplementation("junit:junit:4.13.2")
     // The real org.json in unit tests (android.jar only has stubs).
