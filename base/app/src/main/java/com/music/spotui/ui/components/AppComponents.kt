@@ -306,11 +306,11 @@ fun MiniPlayer(navController: NavHostController) {
                     val remote = SongPlayer.activeDevice.value
                     Column(modifier = Modifier.padding(start = 12.dp, end = 8.dp)) {
                         if (remote == null) {
-                            Text(text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             if (!adPlaying) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 // The artist yields the width: the output's name stays whole.
                                 Text(
-                                    text = m.singer, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp,
+                                    text = m.singer, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, lineHeight = 15.sp,
                                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false),
                                 )

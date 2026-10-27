@@ -211,7 +211,7 @@ private fun shareLyrics(context: Context, title: String, artist: String, line: S
 }
 
 @Composable
-private fun rememberLyricsState(vm: LyricsViewModel, title: String, artist: String): LyricsViewModel.State {
+internal fun rememberLyricsState(vm: LyricsViewModel, title: String, artist: String): LyricsViewModel.State {
     // currentTrackId is plain data, not Compose state: the playing item's uri re-runs the load on a skip.
     val playingUri = SongPlayer.nowPlaying.value.uri
     LaunchedEffect(title, artist, playingUri, SongPlayer.currentTrackId) {

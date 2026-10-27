@@ -390,6 +390,11 @@ fun PlayerScreen(navController: NavController) {
         // bar's, to size the page item itself: a LazyColumn item cannot ask for "parent minus x".
         val pageHeight = maxHeight
         val statusTop = androidx.compose.foundation.layout.WindowInsets.Companion.statusBars.asPaddingValues().calculateTopPadding()
+        // The lyrics card peeks in under the buttons only where it will show (it stays hidden for an
+        // ad and for a song without lyrics): otherwise that strip is empty space below the controls.
+        // The state is read here too, as the card sits below the page and is not composed to load it.
+        val lyricsState = rememberLyricsState(viewModel<com.music.spotui.ui.viewmodel.LyricsViewModel>(), songTitle, songSinger)
+        val lyricsPeek = if (adPlaying || lyricsState is com.music.spotui.ui.viewmodel.LyricsViewModel.State.NotFound) 0 else PLAYER_PEEK_DP
         val pillAboveTitle = canvasUrl != null && !videoOn
         if (canvasUrl != null && !videoOn) {
             CanvasVideo(
@@ -437,7 +442,7 @@ fun PlayerScreen(navController: NavController) {
                 // The page stops short of the screen's bottom so the lyrics card peeks in under
                 // the buttons, as in the official app (scroll to open it).
                 else Modifier.height(
-                    (pageHeight - statusTop - PLAYER_PEEK_DP.dp).coerceAtLeast(300.dp)
+                    (pageHeight - statusTop - lyricsPeek.dp).coerceAtLeast(300.dp)
                 )).fillMaxWidth(),
             contentAlignment = Alignment.TopCenter,
         ) {

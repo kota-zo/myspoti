@@ -119,12 +119,13 @@ fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modif
         Column(Modifier.weight(1f)) {
             Text(
                 text = if (adPlaying) stringResource(R.string.immersive_player_ad) else title,
-                style = Immersive.BodyStrong.copy(fontSize = 15.sp),
+                // Title and artist set close, as the official mini player: the default line heights left a gap.
+                style = Immersive.BodyStrong.copy(fontSize = 15.sp, lineHeight = 19.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             if (!adPlaying) {
-                Text(text = singer, style = Immersive.Subhead, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = singer, style = Immersive.Subhead.copy(lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (buffering) {

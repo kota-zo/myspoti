@@ -70,6 +70,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Edge to edge on every Android version (15+ enforces it, 14 and older do not): the pages draw
+        // under the status bar and handle its inset, otherwise a band of the window's colour sits
+        // above their gradient on 14 and older.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         // The user's rotation choice (portrait by default); changes are applied from the UI below.
         requestedOrientation = com.music.spotui.data.preferences.OrientationPref.requested()
         signedIn = prefs.getBoolean("LoggedIn", false)
