@@ -35,6 +35,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.music.spotui.di.SongPlayer
+import com.music.spotui.ui.immersive.shell.LocalImmersiveBackdrop
+import com.music.spotui.ui.immersive.shell.LocalImmersiveFrostPage
+import com.music.spotui.ui.immersive.shell.backdrop.backdrops.LocalBackdropSourceAlpha
+import com.music.spotui.ui.immersive.shell.backdrop.backdrops.layerBackdrop
+import com.music.spotui.ui.immersive.shell.backdrop.backdrops.rememberLayerBackdrop
 import com.music.spotui.ui.navigation.LocalPageSettled
 import com.music.spotui.ui.navigation.PlayerSheet
 import kotlinx.coroutines.flow.drop
@@ -160,13 +165,28 @@ fun ImmersivePlayerOverlay(navController: NavController) {
             // Nothing under the player may take a touch the player leaves alone.
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
     ) {
-        CompositionLocalProvider(LocalPageSettled provides settled, LocalPlayerSheetDrag provides sheetDrag) {
-            // A podcast episode gets the podcast player (15 s skips, speed); everything else the music one.
-            if (SongPlayer.isEpisode) {
-                ImmersivePodcastPlayer(navController)
-            } else {
-                val bridge = rememberImmersivePlayer(navController)
-                ImmersivePlayer(bridge.state, bridge.actions, navController = navController)
+        // The glass sheets opened from the player (sound quality, devices…) sample the player, not
+        // the page under it: the player records itself and stands in for the page recording.
+        // Nothing recorded while neither Liquid Glass nor the recorded frost reads it.
+        val outerGlass = LocalImmersiveBackdrop.current
+        val outerFrost = LocalImmersiveFrostPage.current
+        val playerPage = if (outerGlass != null || outerFrost != null) rememberLayerBackdrop() else null
+        CompositionLocalProvider(
+            LocalPageSettled provides settled,
+            LocalPlayerSheetDrag provides sheetDrag,
+            LocalImmersiveBackdrop provides outerGlass?.let { playerPage },
+            LocalImmersiveFrostPage provides outerFrost?.let { playerPage },
+            // Hidden until primed, like the player itself: no frame of it at rest in the glass.
+            LocalBackdropSourceAlpha provides { if (primed) 1f else 0f },
+        ) {
+            Box(Modifier.fillMaxSize().then(if (playerPage != null) Modifier.layerBackdrop(playerPage) else Modifier)) {
+                // A podcast episode gets the podcast player (15 s skips, speed); everything else the music one.
+                if (SongPlayer.isEpisode) {
+                    ImmersivePodcastPlayer(navController)
+                } else {
+                    val bridge = rememberImmersivePlayer(navController)
+                    ImmersivePlayer(bridge.state, bridge.actions, navController = navController)
+                }
             }
         }
     }
