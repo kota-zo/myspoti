@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -145,10 +150,174 @@ fun ImmersivePodcastPlayer(navController: NavController) {
         if (showId.isNotBlank()) navController.navigate(showRoute(showId, showName))
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    val coverArt: @Composable (Dp) -> Unit = { size ->
+        Box(
+            Modifier
+                .size(size)
+                .graphicsLayer {
+                    // The pause step back, as on the music player.
+                    val scale = if (reduce) 1f else pauseScale.value
+                    scaleX = scale
+                    scaleY = scale
+                    shadowElevation = 10.dp.toPx()
+                    shape = ArtCorner
+                    clip = true
+                }
+                .background(Color.Black.copy(alpha = 0.18f))
+                .dragToClose(),
+        ) {
+            GlideImage(
+                model = state.coverUrl.takeIf { it.isNotBlank() },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                transition = CrossFade,
+                loading = placeholder(R.drawable.placeholder),
+                failure = placeholder(R.drawable.placeholder),
+                modifier = Modifier.fillMaxSize(),
+                requestBuilderTransform = { it.override(COVER_DECODE_PX) },
+            )
+        }
+    }
+    // The episode and its show, the star of the saved episodes and the episode's menu.
+    val credits: @Composable RowScope.() -> Unit = {
+        val sourceLabel = playingSourceLabel()
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = Immersive.Title.copy(fontSize = 20.sp, lineHeight = if (sourceLabel.isNotBlank()) 22.sp else 24.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .then(if (reduce) Modifier else Modifier.basicMarquee(iterations = Int.MAX_VALUE))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                        navController.navigate(episodeRoute(episodeId, title))
+                    },
+            )
+            Text(
+                text = showName,
+                style = Immersive.Title.copy(
+                    fontSize = 20.sp,
+                    lineHeight = if (sourceLabel.isNotBlank()) 22.sp else 24.sp,
+                    fontWeight = FontWeight.W500,
+                ),
+                color = tint.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .then(if (reduce) Modifier else Modifier.basicMarquee(iterations = Int.MAX_VALUE))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { openShow() },
+            )
+            // What the sound is when Myspoti's own player plays it; a tap opens its quality.
+            if (sourceLabel.isNotBlank()) Text(
+                text = sourceLabel,
+                style = Immersive.Caption.copy(lineHeight = 14.sp),
+                color = tint.copy(alpha = 0.45f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showQuality = true },
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        CircleGlyph(
+            icon = if (saved) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+            contentDescription = stringResource(if (saved) R.string.immersive_player_unlike else R.string.immersive_player_like),
+            onClick = { SongPlayer.setSaved(uri, !saved) },
+            active = saved,
+        )
+        Spacer(Modifier.width(8.dp))
+        CircleGlyph(
+            icon = Icons.Rounded.MoreHoriz,
+            contentDescription = stringResource(R.string.episode_options),
+            onClick = { showMenu = true },
+        )
+    }
+    // Scrubber, podcast transport and the row of speed, sleep timer, devices and queue.
+    val controls: @Composable () -> Unit = {
+        PlayerScrubber(state = state, onSeek = actions.seekTo)
+        Spacer(Modifier.height(8.dp))
+        PodcastTransportRow(
+            isPlaying = state.playing,
+            isLoading = state.buffering,
+            onBack = { SongPlayer.skipBy(-SKIP_MS) },
+            onPlayPause = actions.playPause,
+            onForward = { SongPlayer.skipBy(SKIP_MS) },
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SpeedChip(label = stringResource(R.string.player_speed_chip, speedLabel(SongPlayer.speed.value)), onClick = { showSpeed = true })
+            BottomGlyph(
+                icon = Icons.Rounded.Timer,
+                contentDescription = stringResource(R.string.player_sleep_timer),
+                onClick = { showSleep = true },
+                highlighted = SongPlayer.sleepEndsAt.value != null,
+            )
+            BottomGlyph(
+                icon = Icons.Rounded.Devices,
+                contentDescription = stringResource(R.string.immersive_player_devices),
+                onClick = { showDevices = true },
+                highlighted = state.deviceName != null,
+            )
+            BottomGlyph(
+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                contentDescription = stringResource(R.string.immersive_player_queue),
+                onClick = { showQueue = true },
+            )
+        }
+        Spacer(Modifier.height(18.dp))
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
+        // Wider than tall (a phone on its side, a tablet): the cover beside the controls.
+        val landscape = maxWidth > maxHeight
         MeshGradientBackground(palette = palette, trackKey = state.coverUrl)
         CompositionLocalProvider(LocalPlayerTint provides tint) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            if (landscape) Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                // The handle: always hands its drags to the sheet.
+                Box(
+                    Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
+                }
+                Row(
+                    Modifier.weight(1f).fillMaxWidth().padding(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(PLAYER_GUTTER),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                        coverArt(minOf(maxWidth, maxHeight))
+                    }
+                    // Scrolls if a small window cannot hold the right-hand side: no control is out of reach.
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                        Column(Modifier.widthIn(max = PLAYER_MAX_WIDTH).verticalScroll(rememberScrollState())) {
+                            // Where the episode plays from: a tap opens the show.
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { openShow() },
+                            ) {
+                                Text(stringResource(R.string.podcast_playing_from), style = Immersive.Caption, color = tint.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    showName,
+                                    style = Immersive.BodyStrong.copy(fontSize = 14.sp, lineHeight = 18.sp),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Row(Modifier.fillMaxWidth().height(TITLE_HEIGHT), verticalAlignment = Alignment.CenterVertically) { credits() }
+                            Spacer(Modifier.height(8.dp))
+                            controls()
+                        }
+                    }
+                }
+            } else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
                 Box(
                     Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
@@ -190,88 +359,14 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Box(
-                            Modifier
-                                .size(art)
-                                .graphicsLayer {
-                                    // The pause step back, as on the music player.
-                                    val scale = if (reduce) 1f else pauseScale.value
-                                    scaleX = scale
-                                    scaleY = scale
-                                    shadowElevation = 10.dp.toPx()
-                                    shape = ArtCorner
-                                    clip = true
-                                }
-                                .background(Color.Black.copy(alpha = 0.18f))
-                                .dragToClose(),
-                        ) {
-                            GlideImage(
-                                model = state.coverUrl.takeIf { it.isNotBlank() },
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                transition = CrossFade,
-                                loading = placeholder(R.drawable.placeholder),
-                                failure = placeholder(R.drawable.placeholder),
-                                modifier = Modifier.fillMaxSize(),
-                                requestBuilderTransform = { it.override(COVER_DECODE_PX) },
-                            )
-                        }
+                        coverArt(art)
                         Spacer(Modifier.height(ART_TITLE_GAP))
                         // The episode and its show, the star of the saved episodes and the episode's menu.
                         Row(
                             modifier = Modifier.width(contentWidth).height(TITLE_HEIGHT).dragToClose(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            val sourceLabel = playingSourceLabel()
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    text = title,
-                                    style = Immersive.Title.copy(fontSize = 20.sp, lineHeight = if (sourceLabel.isNotBlank()) 22.sp else 24.sp),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .then(if (reduce) Modifier else Modifier.basicMarquee(iterations = Int.MAX_VALUE))
-                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                                            navController.navigate(episodeRoute(episodeId, title))
-                                        },
-                                )
-                                Text(
-                                    text = showName,
-                                    style = Immersive.Title.copy(
-                                        fontSize = 20.sp,
-                                        lineHeight = if (sourceLabel.isNotBlank()) 22.sp else 24.sp,
-                                        fontWeight = FontWeight.W500,
-                                    ),
-                                    color = tint.copy(alpha = 0.55f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .then(if (reduce) Modifier else Modifier.basicMarquee(iterations = Int.MAX_VALUE))
-                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { openShow() },
-                                )
-                                // What the sound is when Myspoti's own player plays it; a tap opens its quality.
-                                if (sourceLabel.isNotBlank()) Text(
-                                    text = sourceLabel,
-                                    style = Immersive.Caption.copy(lineHeight = 14.sp),
-                                    color = tint.copy(alpha = 0.45f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showQuality = true },
-                                )
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            CircleGlyph(
-                                icon = if (saved) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                                contentDescription = stringResource(if (saved) R.string.immersive_player_unlike else R.string.immersive_player_like),
-                                onClick = { SongPlayer.setSaved(uri, !saved) },
-                                active = saved,
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            CircleGlyph(
-                                icon = Icons.Rounded.MoreHoriz,
-                                contentDescription = stringResource(R.string.episode_options),
-                                onClick = { showMenu = true },
-                            )
+                            credits()
                         }
                     }
                 }
@@ -284,41 +379,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                         .padding(horizontal = PLAYER_GUTTER)
                         .align(Alignment.CenterHorizontally),
                 ) {
-                    PlayerScrubber(state = state, onSeek = actions.seekTo)
-                    Spacer(Modifier.height(8.dp))
-                    PodcastTransportRow(
-                        isPlaying = state.playing,
-                        isLoading = state.buffering,
-                        onBack = { SongPlayer.skipBy(-SKIP_MS) },
-                        onPlayPause = actions.playPause,
-                        onForward = { SongPlayer.skipBy(SKIP_MS) },
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        SpeedChip(label = stringResource(R.string.player_speed_chip, speedLabel(SongPlayer.speed.value)), onClick = { showSpeed = true })
-                        BottomGlyph(
-                            icon = Icons.Rounded.Timer,
-                            contentDescription = stringResource(R.string.player_sleep_timer),
-                            onClick = { showSleep = true },
-                            highlighted = SongPlayer.sleepEndsAt.value != null,
-                        )
-                        BottomGlyph(
-                            icon = Icons.Rounded.Devices,
-                            contentDescription = stringResource(R.string.immersive_player_devices),
-                            onClick = { showDevices = true },
-                            highlighted = state.deviceName != null,
-                        )
-                        BottomGlyph(
-                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = stringResource(R.string.immersive_player_queue),
-                            onClick = { showQueue = true },
-                        )
-                    }
-                    Spacer(Modifier.height(18.dp))
+                    controls()
                 }
             }
         }

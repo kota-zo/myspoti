@@ -12,10 +12,8 @@
  */
 package com.music.spotui.ui.immersive.player
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -24,7 +22,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -348,7 +345,8 @@ internal fun VolumeRow(volume: PlayerVolume) {
 }
 
 private val BOTTOM_ACTION_SIZE = 44.dp
-private val PILL_SEGMENT_WIDTH = 64.dp
+// Three segments (shuffle, repeat, devices) have to fit between the glyphs on a 320dp screen.
+private val PILL_SEGMENT_WIDTH = 56.dp
 private val PILL_ICON_SIZE = 24.dp
 
 /** How long the capsule takes to cross from the middle of the row to the lyrics glyph's place as the queue opens, and back. */
@@ -457,10 +455,9 @@ private fun BottomGlyph(
 /**
  * Lyrics, the capsule, and the queue: the row the player ends on.
  *
- * The capsule swaps: the devices button normally, shuffle and repeat while the queue is up,
- * since that is when they are what you are about to reach for. With the queue up the lyrics
- * glyph steps aside and the capsule slides over into its place, leaving the queue glyph, lit,
- * as the way back.
+ * The capsule always holds shuffle, repeat and devices, so the playback modes are in reach
+ * whatever is up. With the queue up the lyrics glyph steps aside and the capsule slides over
+ * into its place, leaving the queue glyph, lit, as the way back.
  */
 @Composable
 internal fun PlayerActionRow(
@@ -477,9 +474,7 @@ internal fun PlayerActionRow(
     onOpenDevices: () -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        // Sized for the wider of the two capsules in both states, so the lyrics and queue glyphs
-        // do not slide as they swap.
-        val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(2)
+        val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(3)
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)
         // 0 with the capsule centred between lyrics and queue, 1 with it moved over to where the
         // lyrics glyph sits. Read only while placing, so the slide relays out the row and recomposes nothing.
@@ -492,7 +487,7 @@ internal fun PlayerActionRow(
             modifier = Modifier.fillMaxWidth().padding(horizontal = edgeInset),
             contentAlignment = Alignment.CenterStart,
         ) {
-            // Gone while the queue is up: the playback modes take its place.
+            // Gone while the queue is up: the capsule slides over into its place.
             AnimatedVisibility(
                 visible = !queueOpen,
                 enter = fadeIn(tween(180, delayMillis = 120)),
@@ -508,60 +503,48 @@ internal fun PlayerActionRow(
                     highlighted = lyricsOpen,
                 )
             }
-            AnimatedContent(
-                // Laid out across the whole row and placed by hand: centred at 0, flush with the
-                // lyrics glyph's left edge at 1.
-                modifier = Modifier.layout { measurable, constraints ->
+            // Laid out across the whole row and placed by hand: centred at 0, flush with the
+            // lyrics glyph's left edge at 1.
+            Box(
+                Modifier.layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints.copy(minWidth = 0))
                     layout(constraints.maxWidth, placeable.height) {
                         val centred = (constraints.maxWidth - placeable.width) / 2f
                         placeable.place((centred * (1f - toStart.value)).roundToInt(), 0)
                     }
                 },
-                targetState = queueOpen,
-                transitionSpec = {
-                    (fadeIn(tween(180, delayMillis = 140)) togetherWith fadeOut(tween(140)))
-                        // Unclipped: the capsule's rounded ends are what the eye follows through the width change.
-                        .using(SizeTransform(clip = false) { _, _ -> tween(220) })
-                },
-                label = "playerBottomPill",
-            ) { showQueueModes ->
-                if (showQueueModes) {
-                    Pill {
-                        PillSegment(
-                            icon = if (smartEnabled) Icons.Rounded.AutoAwesome else Icons.Rounded.Shuffle,
-                            contentDescription = stringResource(
-                                when {
-                                    smartEnabled -> R.string.smart_shuffle_title
-                                    shuffleEnabled -> R.string.immersive_player_shuffle_on
-                                    else -> R.string.immersive_player_shuffle_off
-                                },
-                            ),
-                            onClick = onToggleShuffle,
-                            highlighted = shuffleEnabled,
-                        )
-                        PillDivider()
-                        PillSegment(
-                            icon = if (repeatMode == ImmersiveRepeat.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                            contentDescription = when (repeatMode) {
-                                ImmersiveRepeat.ONE -> stringResource(R.string.immersive_player_repeat_one)
-                                ImmersiveRepeat.ALL -> stringResource(R.string.immersive_player_repeat_all)
-                                else -> stringResource(R.string.immersive_player_repeat_off)
+            ) {
+                Pill {
+                    PillSegment(
+                        icon = if (smartEnabled) Icons.Rounded.AutoAwesome else Icons.Rounded.Shuffle,
+                        contentDescription = stringResource(
+                            when {
+                                smartEnabled -> R.string.smart_shuffle_title
+                                shuffleEnabled -> R.string.immersive_player_shuffle_on
+                                else -> R.string.immersive_player_shuffle_off
                             },
-                            onClick = onCycleRepeat,
-                            highlighted = repeatMode != ImmersiveRepeat.OFF,
-                        )
-                    }
-                } else {
-                    Pill {
-                        PillSegment(
-                            icon = Icons.Rounded.Devices,
-                            contentDescription = stringResource(R.string.immersive_player_devices),
-                            onClick = onOpenDevices,
-                            highlighted = deviceActive,
-                            width = pillWidth(2),
-                        )
-                    }
+                        ),
+                        onClick = onToggleShuffle,
+                        highlighted = shuffleEnabled,
+                    )
+                    PillDivider()
+                    PillSegment(
+                        icon = if (repeatMode == ImmersiveRepeat.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                        contentDescription = when (repeatMode) {
+                            ImmersiveRepeat.ONE -> stringResource(R.string.immersive_player_repeat_one)
+                            ImmersiveRepeat.ALL -> stringResource(R.string.immersive_player_repeat_all)
+                            else -> stringResource(R.string.immersive_player_repeat_off)
+                        },
+                        onClick = onCycleRepeat,
+                        highlighted = repeatMode != ImmersiveRepeat.OFF,
+                    )
+                    PillDivider()
+                    PillSegment(
+                        icon = Icons.Rounded.Devices,
+                        contentDescription = stringResource(R.string.immersive_player_devices),
+                        onClick = onOpenDevices,
+                        highlighted = deviceActive,
+                    )
                 }
             }
             Box(Modifier.align(Alignment.CenterEnd)) {
