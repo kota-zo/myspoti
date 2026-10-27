@@ -52,9 +52,9 @@ import com.music.spotui.ui.immersive.components.immersiveClickable
 import com.music.spotui.ui.immersive.motion.immersiveItemPlacement
 import com.music.spotui.ui.immersive.screens.ImmersiveRowDivider
 import com.music.spotui.ui.immersive.components.SectionHeader
-import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.screens.ReleaseTile
+import com.music.spotui.ui.screens.route
 import com.music.spotui.ui.screens.rangeLabels
 import com.music.spotui.ui.theme.AppAccent
 import kotlinx.coroutines.Dispatchers
@@ -71,7 +71,8 @@ fun ImmersiveNewReleasesScreen(navController: NavController) {
         value = runCatching {
             MyspotiRuntime.api.home.whatsNew(0, 50).items.map { a ->
                 ReleaseTile(a.uri.substringAfterLast(':'), a.name, a.artists.joinToString(", ") { it.name },
-                    a.images.best(300)?.url.orEmpty(), listOfNotNull(a.type.lowercase().replaceFirstChar { it.uppercase() }, a.releaseDate?.take(10)).joinToString(" • "))
+                    a.images.best(300)?.url.orEmpty(), listOfNotNull(a.type.lowercase().replaceFirstChar { it.uppercase() }, a.releaseDate?.take(10)).joinToString(" • "),
+                    a.uri.split(':').getOrElse(1) { "album" })
             }
         }.getOrDefault(emptyList())
     }
@@ -96,7 +97,7 @@ fun ImmersiveNewReleasesScreen(navController: NavController) {
                         pair.forEach { t ->
                             ImmersiveShelfCard(
                                 title = t.name, subtitle = t.detail.ifBlank { t.artists }, imageUrl = t.cover,
-                                onClick = { navController.navigate(albumRoute(t.name, t.artists, t.id)) },
+                                onClick = { navController.navigate(t.route()) },
                                 modifier = Modifier.weight(1f),
                             )
                         }
