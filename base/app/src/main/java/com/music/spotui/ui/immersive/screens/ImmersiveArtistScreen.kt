@@ -109,7 +109,7 @@ private val TrackColumnMaxWidth = 400.dp
 private fun grouped(n: Long): String = "%,d".format(n)
 
 /** "2024" or "2024-05-17" -> "2024". */
-private fun releaseYear(album: AlbumsModel): String = album.time.take(4)
+private fun releaseYear(album: AlbumsModel): String = album.year
 
 /** "2024 · Single": what a release card says under its name. */
 @Composable

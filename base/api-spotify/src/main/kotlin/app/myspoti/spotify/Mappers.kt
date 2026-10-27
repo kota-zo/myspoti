@@ -9,6 +9,7 @@ import app.myspoti.api.Artist
 import app.myspoti.api.ArtistRef
 import app.myspoti.api.Image
 import app.myspoti.api.ItemKind
+import app.myspoti.api.LocalFile
 import app.myspoti.api.NowPlaying
 import app.myspoti.api.Page
 import app.myspoti.api.PlayerRestrictions
@@ -53,7 +54,16 @@ internal fun track(d: JsonElement?, uid: String? = null): Track? {
 
 /** A playlist row: a track, or an episode shaped as a `Track` (show name as the artist, show/episode art as the album). */
 internal fun playlistItem(d: JsonElement?, uid: String? = null): Track? {
-    if (d.str("uri")?.startsWith("spotify:episode:") != true) return track(d, uid)
+    val uri = d.str("uri")
+    // A local file (#80): its tags are in the uri; the row's own name and duration win when it has them.
+    if (uri != null && LocalFile.isLocal(uri)) {
+        val local = LocalFile.track(uri, uid) ?: return null
+        return local.copy(
+            name = d.str("name")?.takeIf { it.isNotBlank() } ?: local.name,
+            durationMs = d.long("trackDuration.totalMilliseconds") ?: d.long("duration.totalMilliseconds") ?: local.durationMs,
+        )
+    }
+    if (uri?.startsWith("spotify:episode:") != true) return track(d, uid)
     val e = episode(d) ?: return null
     val cover = e.images.ifEmpty { e.show?.images.orEmpty() }
     return Track(

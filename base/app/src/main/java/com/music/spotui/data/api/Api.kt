@@ -8,6 +8,7 @@ import app.myspoti.api.Album
 import app.myspoti.api.Artist
 import app.myspoti.api.Image
 import app.myspoti.api.LibraryFilter
+import app.myspoti.api.LocalFile
 import app.myspoti.api.MediaCard
 import app.myspoti.api.MediaKind
 import app.myspoti.api.MyspotiApi
@@ -29,6 +30,8 @@ import com.music.spotui.data.entity.PodcastModel
 import com.music.spotui.data.entity.SearchResults
 import com.music.spotui.data.entity.ShowPage
 import com.music.spotui.data.entity.SongsModel
+import com.music.spotui.data.local.LocalFileMatch
+import com.music.spotui.data.local.LocalMusic
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import kotlinx.coroutines.async
@@ -166,6 +169,20 @@ class Api constructor(
             playable = t.playable,
             rowUid = t.uid.orEmpty(),
         )
+        // A local file of the user's computer: the uri holds its tags, nothing else. Greyed out
+        // until [LocalFileMatch] finds the same song on this device.
+        if (LocalFile.isLocal(t.uri)) return SongsModel(
+            id = stableId("local:${t.uri}"),
+            title = t.name.take(128),
+            album = t.album?.name.orEmpty(),
+            singer = singer,
+            coverUri = "",
+            url = t.uri,
+            durationMs = t.durationMs.toInt(),
+            addedAt = t.addedAt.orEmpty(),
+            playable = false,
+            rowUid = t.uid.orEmpty(),
+        )
         return SongsModel(
             id = stableId("track:$id"),
             title = t.name.take(128),
@@ -182,6 +199,12 @@ class Api constructor(
             artistIds = t.artists.map { it.uri.substringAfterLast(':') },
             rowUid = t.uid.orEmpty(),
         )
+    }
+
+    /** [songs] with the playlist's local files played from this device's own copy, when there is one. */
+    private suspend fun withDeviceFiles(songs: List<SongsModel>): List<SongsModel> {
+        if (songs.none { it.url.startsWith(LocalFileMatch.SPOTIFY_PREFIX) }) return songs
+        return LocalFileMatch.resolve(songs, LocalMusic.tracks(context))
     }
 
     private fun episodeSong(e: app.myspoti.api.Episode): SongsModel {
@@ -212,7 +235,7 @@ class Api constructor(
         artists = a.artists.joinToString(", ") { it.name },
         coverUri = cover(a.images),
         name = a.name,
-        time = a.releaseDate?.take(4).orEmpty(),
+        time = a.releaseDate?.take(10).orEmpty(),
         type = a.type,
     )
 
@@ -628,7 +651,8 @@ class Api constructor(
             headerImage = big(page.headerImages).ifBlank { avatar },
             avatarImage = avatar,
             topTracks = top.map { (song, plays) -> ArtistTrackUi(song, plays) },
-            popularReleases = page.popularReleases.map(::albumOf),
+            // Newest first (the sort is stable: same-day releases keep Spotify's order).
+            popularReleases = page.popularReleases.sortedByDescending { it.releaseDate.orEmpty().take(10) }.map(::albumOf),
             appearsOn = page.appearsOn.map(::albumOf),
             relatedArtists = page.related.map(::artistOf),
         )
@@ -650,7 +674,7 @@ class Api constructor(
         }.getOrNull().orEmpty()
         val known = page.popularReleases.map { it.uri }.toSet()
         if (all.any { it.uri !in known }) {
-            val merged = (page.popularReleases + all).distinctBy { it.uri }.sortedByDescending { it.releaseDate.orEmpty() }
+            val merged = (page.popularReleases + all).distinctBy { it.uri }.sortedByDescending { it.releaseDate.orEmpty().take(10) }
             val full = model.copy(popularReleases = merged.map(::albumOf))
             ArtistCache.map[uri] = System.currentTimeMillis() to full
             emit(Response.Success(full))
@@ -947,7 +971,7 @@ class Api constructor(
         }
         val first = firstPage.await().getOrElse { failed = true; null }
         if (first != null) {
-            songs += first.items.map(::songOf)
+            songs += withDeviceFiles(first.items.map(::songOf))
             val offsets = generateSequence(first.nextOffset) { (it + PLAYLIST_PAGE).takeIf { n -> n < first.total } }.toList()
             emit(publish(done = offsets.isEmpty()))
             if (offsets.isNotEmpty()) {
@@ -958,7 +982,7 @@ class Api constructor(
                     for ((i, job) in jobs.withIndex()) {
                         val page = job.await()
                         if (page == null) { failed = true; jobs.drop(i + 1).forEach { it.cancel() }; break }
-                        songs += page.items.map(::songOf)
+                        songs += withDeviceFiles(page.items.map(::songOf))
                         val last = i == jobs.lastIndex
                         if (last || System.currentTimeMillis() - lastEmit >= PLAYLIST_EMIT_MS) {
                             emit(publish(done = last)); lastEmit = System.currentTimeMillis()
@@ -993,7 +1017,7 @@ class Api constructor(
         var offset = 0
         while (true) {
             val page = runCatching { api.playlists.tracks(uri, offset, 100) }.getOrNull() ?: break
-            songs += page.items.map(::songOf)
+            songs += withDeviceFiles(page.items.map(::songOf))
             SongPlayer.registerContext(songs.map { it.url }, uri)
             emit(Response.Success(songs.toList()))
             offset = page.nextOffset ?: break

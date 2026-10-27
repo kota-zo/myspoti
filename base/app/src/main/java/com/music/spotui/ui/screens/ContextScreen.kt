@@ -446,6 +446,26 @@ class ContextViewModel(
     }
 
     fun play(p: ContextPageModel, song: SongsModel, sort: TrackOrder = TrackOrder()) {
+        // Local files of the playlist (Spotify holds their tags only): one found on this device
+        // plays from there, with the other such files of the list; one not found cannot play,
+        // the next song that can does.
+        with(com.music.spotui.data.local.LocalFileMatch) {
+            val sorted = sort.apply(p.tracks)
+            if (song.isUnmatchedLocal) {
+                val after = sorted.drop(sorted.indexOfFirst { it.id == song.id && it.rowUid == song.rowUid } + 1)
+                val next = (after + sorted).firstOrNull { !it.isUnmatchedLocal } ?: return
+                return play(p, next, sort)
+            }
+            if (song.isDeviceFile) {
+                viewModelScope.launch {
+                    val files = com.music.spotui.data.local.LocalMusic.tracks(Graph.app).associateBy { key(it) }
+                    val list = sorted.mapNotNull { files[it.url] }
+                    val at = list.indexOfFirst { key(it) == song.url }.coerceAtLeast(0)
+                    if (list.isNotEmpty()) com.music.spotui.di.LocalPlayer.play(list, at, shuffle = state.shuffle.value, context = p.name, contextUri = p.uri)
+                }
+                return
+            }
+        }
         // No connection (the Web Player cannot stream), or the data saver on mobile data:
         // the page's downloaded songs play from the phone. Online, a downloaded song also plays
         // from its file when the whole list is downloaded (it used to stream anyway).
@@ -484,7 +504,7 @@ class ContextViewModel(
         if (p.type == "liked" || p.type == "liked-artist") SongPlayer.registerLikedSongs(p.tracks.map { it.url })
         // Sorted by the user: Spotify plays the list in that order, not the playlist's. An
         // artist's liked songs are a part of Liked Songs: always given, so only they play.
-        val order = if (sort.isCustom && p.type != "liked-artist") null else sort.apply(p.tracks).map { "spotify:track:${it.spotifyTrackId}" }
+        val order = if (sort.isCustom && p.type != "liked-artist") null else sort.apply(p.tracks).filter { it.spotifyTrackId.isNotBlank() }.map { "spotify:track:${it.spotifyTrackId}" }
         if (order != null) state.updateQueue(sort.apply(p.tracks))
         // The audio-source extensions were asked already (or the phone is offline): Spotify plays.
         SongPlayer.playSong(song.url, contextUri = p.uri, order = order, askExtensions = false)
