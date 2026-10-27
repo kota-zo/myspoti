@@ -929,7 +929,13 @@ class Api constructor(
             // Kept before the emit: a collector that stops at the complete page ends the flow there.
             if (done && !failed) PlaylistFresh.put(uri, songs.toList())
             val total = songs.sumOf { it.durationMs.toLong() }
-            val meta = listOf(saves, if (total > 0) durationLabel(total) else "").filter { it.isNotBlank() }.joinToString(" • ")
+            // The song count rides along with the duration ("1 h 2 min / 12 songs") so the two
+            // numbers that grow together as pages arrive stay next to each other.
+            val durationAndCount = if (songs.isNotEmpty()) {
+                val count = context.resources.getQuantityString(R.plurals.liked_songs_header_metadata_text, songs.size, songs.size)
+                if (total > 0) "${durationLabel(total)} / $count" else count
+            } else ""
+            val meta = listOf(saves, durationAndCount).filter { it.isNotBlank() }.joinToString(" • ")
             // A playlist without a cover of its own shows the mosaic of its songs' albums, as in the official app.
             val cover = header.coverUri.ifBlank { com.music.spotui.ui.components.mosaicCoverFor(songs.take(200).map { it.coverUri }) }
             return Response.Success(header.copy(coverUri = cover, metaLine = meta, tracks = songs.toList(), complete = done))
