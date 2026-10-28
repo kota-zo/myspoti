@@ -186,6 +186,7 @@
     <string name="extension_update_needs_ok">Η ενημέρωση χρειάζεται την έγκρισή σου: %1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">Αυτή η έκδοση ζητά περισσότερα από όσα αποδέχτηκες. Η τρέχουσα συνεχίζει να λειτουργεί μέχρι να αποφασίσεις.</string>
     <string name="extension_update_accept">Αποδοχή</string>
+    <string name="extension_accept_tick_first">Επίλεξε το πλαίσιο παραπάνω για αποδοχή.</string>
     <string name="extension_update_keep">Διατήρηση της τρέχουσας</string>
     <string name="extension_refused_title">Περιμένει την έγκρισή σας</string>
     <string name="extension_refused_body">Εγκαταστάθηκε όταν οι ενέργειες μπορούσαν να αποεπιλεγούν, και κάποιες αποεπιλέχθηκαν. Πλέον μια επέκταση λαμβάνει όλες τις ενέργειες που δηλώνει: μένει απενεργοποιημένη μέχρι να τις αποδεχτείτε.</string>

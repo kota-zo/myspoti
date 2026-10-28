@@ -186,6 +186,7 @@
     <string name="extension_update_needs_ok">Обновление требует вашего согласия: %1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">Эта версия запрашивает больше, чем вы принимали. Текущая продолжает работать, пока вы не решите.</string>
     <string name="extension_update_accept">Принять</string>
+    <string name="extension_accept_tick_first">Отметьте флажок выше, чтобы принять.</string>
     <string name="extension_update_keep">Оставить текущую</string>
     <string name="extension_refused_title">Ждёт вашего согласия</string>
     <string name="extension_refused_body">Оно было установлено, когда действия можно было отключать, и некоторые были отключены. Теперь расширение получает все заявленные действия: оно выключено, пока вы их не примете.</string>

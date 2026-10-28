@@ -186,6 +186,7 @@
     <string name="extension_update_needs_ok">La actualización necesita tu aprobación: %1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">Esta versión pide más de lo que aceptaste. La actual sigue funcionando hasta que decidas.</string>
     <string name="extension_update_accept">Aceptar</string>
+    <string name="extension_accept_tick_first">Marca la casilla de arriba para aceptar.</string>
     <string name="extension_update_keep">Conservar la actual</string>
     <string name="extension_refused_title">Espera tu aprobación</string>
     <string name="extension_refused_body">Se instaló cuando se podían desmarcar acciones, y se desmarcaron algunas. Ahora una extensión recibe todas las acciones que declara: queda desactivada hasta que las aceptes.</string>

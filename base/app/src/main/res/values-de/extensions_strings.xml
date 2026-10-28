@@ -186,6 +186,7 @@
     <string name="extension_update_needs_ok">Update braucht dein OK: %1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">Diese Version fordert mehr an, als du akzeptiert hast. Die aktuelle läuft weiter, bis du dich entscheidest.</string>
     <string name="extension_update_accept">Akzeptieren</string>
+    <string name="extension_accept_tick_first">Setze oben das Häkchen, um zu akzeptieren.</string>
     <string name="extension_update_keep">Aktuelle behalten</string>
     <string name="extension_refused_title">Wartet auf Ihr OK</string>
     <string name="extension_refused_body">Sie wurde installiert, als sich Aktionen abwählen ließen, und einige wurden abgewählt. Erweiterungen erhalten jetzt alle Aktionen, die sie angeben: Sie bleibt aus, bis Sie sie annehmen.</string>

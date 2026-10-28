@@ -465,12 +465,32 @@ internal fun UpdateNeedsOk(name: String, from: String, p: com.music.spotui.exten
         if (critical && !codeOnly) Text(stringResource(R.string.actions_critical_warning), color = Warning, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
         var risk by remember(p) { mutableStateOf(false) }
         if (!codeOnly) RiskBox(risk) { risk = it }
-        Row(Modifier.padding(top = 6.dp)) {
-            TextButton(enabled = risk || codeOnly, onClick = onAccept) {
-                Text(stringResource(if (codeOnly) R.string.update_code_update else R.string.extension_update_accept), color = if (risk || codeOnly) tint else AppMuted)
-            }
-            TextButton(onClick = onKeep) { Text(stringResource(if (codeOnly) R.string.update_code_later else R.string.extension_update_keep), color = AppText) }
-        }
+        AcceptRow(
+            accept = stringResource(if (codeOnly) R.string.update_code_update else R.string.extension_update_accept),
+            enabled = risk || codeOnly,
+            tint = tint,
+            onAccept = onAccept,
+            keep = stringResource(if (codeOnly) R.string.update_code_later else R.string.extension_update_keep),
+            onKeep = onKeep,
+        )
+    }
+}
+
+/**
+ * Accept as a filled button, there before the box is ticked (greyed, with what to tick), and the
+ * other choice beside it. Reported: a greyed text-only Accept was not seen as a button at all.
+ */
+@Composable
+private fun AcceptRow(accept: String, enabled: Boolean, tint: Color, onAccept: () -> Unit, keep: String? = null, onKeep: () -> Unit = {}) {
+    if (!enabled) Text(stringResource(R.string.extension_accept_tick_first), color = AppMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Button(
+            onClick = onAccept,
+            enabled = enabled,
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = tint, contentColor = Color.Black, disabledContainerColor = AppMuted.copy(alpha = 0.25f), disabledContentColor = AppText.copy(alpha = 0.6f)),
+            modifier = Modifier.weight(1f),
+        ) { Text(accept, fontWeight = FontWeight.SemiBold) }
+        if (keep != null) androidx.compose.material3.OutlinedButton(onClick = onKeep, modifier = Modifier.weight(1f)) { Text(keep, color = AppText) }
     }
 }
 
@@ -488,9 +508,7 @@ internal fun RefusedNeedsOk(refused: List<Ask>, onAccept: () -> Unit) {
         if (refused.any { it.critical }) Text(stringResource(R.string.actions_critical_warning), color = Warning, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
         var risk by remember { mutableStateOf(false) }
         RiskBox(risk) { risk = it }
-        TextButton(enabled = risk, onClick = onAccept, modifier = Modifier.padding(top = 6.dp)) {
-            Text(stringResource(R.string.extension_update_accept), color = if (risk) Warning else AppMuted)
-        }
+        AcceptRow(stringResource(R.string.extension_update_accept), enabled = risk, tint = Warning, onAccept = onAccept)
     }
 }
 

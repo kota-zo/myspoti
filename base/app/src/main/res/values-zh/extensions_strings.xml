@@ -186,6 +186,7 @@
     <string name="extension_update_needs_ok">更新需要你确认：%1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">此版本请求的权限超出你已接受的范围。在你选择之前，当前版本会继续运行。</string>
     <string name="extension_update_accept">接受</string>
+    <string name="extension_accept_tick_first">勾选上方的复选框以接受。</string>
     <string name="extension_update_keep">保留当前版本</string>
     <string name="extension_refused_title">等待你的确认</string>
     <string name="extension_refused_body">它安装时还可以取消勾选操作，且有些被取消了。现在扩展会获得它声明的全部操作：在你接受之前它保持关闭。</string>

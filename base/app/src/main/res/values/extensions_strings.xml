@@ -191,6 +191,7 @@
     <string name="extension_update_needs_ok">Update needs your OK: %1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">This version asks for more than you accepted. The current one keeps running until you choose.</string>
     <string name="extension_update_accept">Accept</string>
+    <string name="extension_accept_tick_first">Tick the box above to accept.</string>
     <string name="extension_update_keep">Keep current</string>
     <string name="extension_refused_title">Waits for your OK</string>
     <string name="extension_refused_body">It was installed when actions could be unticked, and some were. Extensions now get every action they list: it stays off until you accept them.</string>

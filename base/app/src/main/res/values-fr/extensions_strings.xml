@@ -190,6 +190,7 @@
     <string name="extension_update_needs_ok">Mise à jour à valider : %1$s → %2$s</string>
     <string name="extension_update_needs_ok_body">Cette version demande plus que ce que vous avez accepté. L\'actuelle continue de tourner jusqu\'à votre choix.</string>
     <string name="extension_update_accept">Accepter</string>
+    <string name="extension_accept_tick_first">Coche la case ci-dessus pour accepter.</string>
     <string name="extension_update_keep">Garder l\'actuelle</string>
     <string name="extension_refused_title">Attend votre accord</string>
     <string name="extension_refused_body">Elle a été installée quand on pouvait décocher des actions, et vous en avez décoché. Une extension reçoit désormais toutes les actions qu\'elle demande : elle reste éteinte tant que vous ne les acceptez pas.</string>
