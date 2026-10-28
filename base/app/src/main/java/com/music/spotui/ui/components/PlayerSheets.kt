@@ -153,7 +153,7 @@ fun playingExtensionName(): String? {
 
 private fun deviceIcon(type: String): ImageVector = when (type.uppercase()) {
     "SMARTPHONE", "TABLET" -> Icons.Default.Smartphone
-    "SPEAKER", "AVR", "STB", "AUDIO_DONGLE" -> Icons.Default.Speaker
+    "SPEAKER", "AVR", "STB", "AUDIO_DONGLE", "CAST_AUDIO" -> Icons.Default.Speaker
     "TV", "CAST_VIDEO", "GAME_CONSOLE" -> Icons.Default.Tv
     else -> Icons.Default.Computer
 }
