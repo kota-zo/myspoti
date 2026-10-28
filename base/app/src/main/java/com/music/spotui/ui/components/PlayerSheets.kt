@@ -128,18 +128,38 @@ fun activeDeviceIcon(): ImageVector {
 
 /**
  * Where the sound comes from while Myspoti's own player plays a song (an extension's stream: its
- * name and the quality it announced; a download), shown under the output device; "" when Spotify
- * plays (a song it plays for want of the extensions included) or while a song is being asked for.
+ * name and the quality it announced; a download; Spotify's codec and bitrate), shown under the
+ * output device; "" while a song is being asked for or on another device.
  */
 @Composable
 fun playingSourceLabel(): String {
     val uri = SongPlayer.nowPlaying.value.uri
     val answers = com.music.spotui.extensions.ExtensionAudio.answers.intValue
     val downloaded = stringResource(R.string.player_source_downloaded)
-    if (!com.music.spotui.di.LocalPlayer.active.value || SongPlayer.routing) return ""
+    if (SongPlayer.routing) return ""
+    if (!com.music.spotui.di.LocalPlayer.active.value) return spotifyQualityLabel(uri)
     return remember(uri, answers, downloaded) {
         com.music.spotui.di.LocalPlayer.current()?.let { com.music.spotui.extensions.ExtensionAudio.sourceLabel(it, downloaded) }.orEmpty()
     }
+}
+
+/**
+ * What Spotify streams while its own player plays here: "Spotify · AAC · 160 kbit/s", read from the
+ * page once the song has loaded (it reports the stream a moment after the start); "" on another
+ * device or while it is not known. Same line, same tap (the quality sheet) as an extension's source.
+ */
+@Composable
+private fun spotifyQualityLabel(uri: String): String {
+    if (SongPlayer.activeDevice.value != null || uri.isBlank()) return ""
+    val label by androidx.compose.runtime.produceState("", uri) {
+        value = ""
+        for (wait in longArrayOf(1500, 3500)) {
+            kotlinx.coroutines.delay(wait)
+            val (bitrate, mime) = app.myspoti.host.android.MyspotiRuntime.spotify.player.audioInfo()
+            if (bitrate > 0) { value = "${codecName(mime)} · ${bitrate / 1000} kbit/s"; return@produceState }
+        }
+    }
+    return if (label.isBlank()) "" else stringResource(R.string.player_source_spotify, label)
 }
 
 /** The name of the extension streaming the song playing, for the mini player; null otherwise (see [playingSourceLabel]). */

@@ -52,6 +52,9 @@ fun App() {
         com.music.spotui.ui.screens.Setup.openAfter?.let { r -> com.music.spotui.ui.screens.Setup.openAfter = null; runCatching { navController.navigate(r) } }
     }
 
+    // "See the extensions" in the dialog a download shows when no download extension is installed.
+    LaunchedEffect(Unit) { com.music.spotui.ui.components.DownloadAsk.openRoute.collect { r -> runCatching { navController.navigateSingleTop(r) } } }
+
     UpdatePrompt()
     SupportPrompt()
     // The playlists at the top of the library, fetched ahead on Wi-Fi (see PagePrefetch).

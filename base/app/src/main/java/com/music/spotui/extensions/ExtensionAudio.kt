@@ -47,12 +47,12 @@ object ExtensionAudio {
     /**
      * Where the sound of [t] comes from, for the player: "<extension> · FLAC · 24-bit · 96 kHz" for
      * a stream (the name in its manifest, then the quality it announced, nothing it did not say),
-     * "Downloaded · <source> · <extension>" for a download; "" for the phone's own files and while
+     * "Downloaded · <FLAC, MP3…> · <source> · <extension>" for a download; "" for the phone's own files and while
      * the stream's answer is not known yet.
      */
     fun sourceLabel(t: LocalTrack, downloaded: String): String {
         OfflineStore.byLocalId(t.id)?.takeIf { t.uri.scheme == "file" }?.let { o ->
-            return listOfNotNull(downloaded, o.source.ifBlank { null }, extensionName(o.providerId)).distinct().joinToString(" · ")
+            return listOfNotNull(downloaded, o.file.substringAfterLast('.', "").uppercase().ifBlank { null }, o.source.ifBlank { null }, extensionName(o.providerId)).distinct().joinToString(" · ")
         }
         if (t.uri.scheme != SCHEME) return ""
         val s = known[t.uri.lastPathSegment.orEmpty()]?.stream ?: return ""

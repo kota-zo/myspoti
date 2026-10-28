@@ -5,6 +5,12 @@ import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
 import com.music.spotui.ui.theme.AppAccent
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
+import com.music.spotui.ui.immersive.Immersive
+import com.music.spotui.ui.immersive.pages.ImmersiveChoiceRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -85,6 +91,20 @@ private fun <T> QualityGroup(
     title: String, detail: String, options: List<Option<T>>, selected: T,
     onSelect: (T) -> Unit, modifier: Modifier = Modifier,
 ) {
+    // Immersive: the same choices as its Settings pages, a grouped list with a check.
+    if (com.music.spotui.ui.navigation.isImmersive()) {
+        Column(modifier.fillMaxWidth().padding(horizontal = 20.dp).selectableGroup()) {
+            Text(title, style = Immersive.Headline, modifier = Modifier.padding(top = 4.dp))
+            Text(detail, style = Immersive.Caption.copy(color = Color.White.copy(alpha = 0.72f)), modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+            Column(Modifier.fillMaxWidth().clip(Immersive.Card).background(Immersive.Raised.copy(alpha = 0.92f))) {
+                options.forEachIndexed { i, o ->
+                    ImmersiveChoiceRow(stringResource(o.label), selected = o.value == selected, detail = stringResource(o.detail), onClick = { onSelect(o.value) })
+                    if (i < options.lastIndex) Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(0.5.dp).background(Immersive.Separator))
+                }
+            }
+        }
+        return
+    }
     Column(modifier.fillMaxWidth().selectableGroup()) {
         Text(title, color = AppText, fontSize = 17.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
@@ -116,15 +136,24 @@ private fun <T> QualityGroup(
  */
 object DownloadAsk {
     internal var pending by mutableStateOf<((DownloadQuality) -> Unit)?>(null)
+    /** No download extension is installed: the pointer to the Extensions store is shown instead of a download that cannot run. */
+    internal var needSource by mutableStateOf(false)
+    /** Route the pointer's button asks the app to open (taken by [com.music.spotui.App]). */
+    val openRoute = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 1)
 
     /** Runs [start] now with the Settings quality (null), or after the user picked one. */
     fun start(context: android.content.Context, start: (DownloadQuality?) -> Unit) {
+        if (com.music.spotui.data.preferences.isDownloadsEnabled(context) && !com.music.spotui.extensions.Extensions.hasDownloadSource()) {
+            needSource = true
+            return
+        }
         if (getDownloadQuality(context) == DownloadQuality.ASK) pending = { start(it) } else start(null)
     }
 }
 
 @Composable
 fun DownloadAskHost() {
+    if (DownloadAsk.needSource) NeedSourceDialog()
     val action = DownloadAsk.pending ?: return
     val choices = listOf(
         Option(DownloadQuality.SMALL, R.string.quality_download_small, R.string.quality_download_small_detail),
@@ -157,6 +186,31 @@ fun DownloadAskHost() {
             androidx.compose.material3.TextButton(onClick = { DownloadAsk.pending = null }) {
                 Text(stringResource(R.string.add_to_playlist_button_cancel), color = AppText)
             }
+        },
+    )
+}
+
+/** Downloads come from extensions: say so where the tap happened, and lead to the store. */
+@Composable
+private fun NeedSourceDialog() {
+    val immersive = com.music.spotui.ui.navigation.isImmersive()
+    val close = { DownloadAsk.needSource = false }
+    val ink = if (immersive) Immersive.Text else AppText
+    val accent = if (immersive) Immersive.Accent else AppAccent
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = close,
+        containerColor = if (immersive) Color(0xFF2C2C2E) else tone(0xFF282828),
+        shape = if (immersive) androidx.compose.foundation.shape.RoundedCornerShape(20.dp) else androidx.compose.material3.AlertDialogDefaults.shape,
+        title = { Text(stringResource(R.string.downloads_need_source_title), color = ink) },
+        text = { Text(stringResource(R.string.downloads_need_source_detail), color = if (immersive) Immersive.TextSecondary else AppMuted, fontSize = 14.sp) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                close()
+                DownloadAsk.openRoute.tryEmit(com.music.spotui.ui.navigation.Routes.Extensions.route)
+            }) { Text(stringResource(R.string.setup_ext_browse), color = accent, fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = close) { Text(stringResource(R.string.add_to_playlist_button_cancel), color = ink) }
         },
     )
 }

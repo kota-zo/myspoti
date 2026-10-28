@@ -81,6 +81,8 @@ import app.myspoti.engine.R
 import app.myspoti.power.BatteryExemption
 import com.music.spotui.data.local.LocalMusic
 import com.music.spotui.ui.theme.AppBackground
+import com.music.spotui.ui.immersive.Immersive
+import com.music.spotui.ui.navigation.isImmersive
 
 /**
  * Shown once after signing in: what Myspoti needs from the phone, each with its own button.
@@ -108,8 +110,9 @@ private fun granted(context: Context, permission: String) =
 @Composable
 fun SetupScreen(onDone: () -> Unit) {
     val context = LocalContext.current
-    // How Myspoti works (first setup only), the look, the sound quality, the extensions, then the
-    // permissions; each skipped when done before an update.
+    // How Myspoti works (first setup only), the look, the sound quality, the permissions, then the
+    // extensions (last, so the end of the setup leads straight to their page); each skipped when
+    // done before an update. Every step after the look is drawn in the look chosen there.
     val needPerms = remember { !Setup.permissionsDone(context) }
     val needQuality = remember { !com.music.spotui.data.preferences.isQualityChosen(context) }
     val needLook = remember { !com.music.spotui.data.preferences.LookPref.isChosen(context) }
@@ -117,15 +120,24 @@ fun SetupScreen(onDone: () -> Unit) {
     val order = remember {
         listOfNotNull(
             STEP_INTRO.takeIf { needPerms }, STEP_LOOK.takeIf { needLook }, STEP_QUALITY.takeIf { needQuality },
-            STEP_EXTENSIONS.takeIf { needExtensions }, STEP_PERMISSIONS.takeIf { needPerms },
+            STEP_PERMISSIONS.takeIf { needPerms }, STEP_EXTENSIONS.takeIf { needExtensions },
         ).ifEmpty { listOf(STEP_PERMISSIONS) }
     }
     var index by remember { mutableIntStateOf(0) }
     val steps = order.size
     fun next() { if (index + 1 < order.size) index++ else onDone() }
     val reduce = com.music.spotui.ui.look.rememberReduceMotion()
-    Box(Modifier.fillMaxSize().background(AppBackground)) {
-        Glow(Modifier.fillMaxSize(), alpha = 0.16f)
+    // Back goes to the previous step (the look can be changed again from there).
+    androidx.activity.compose.BackHandler(enabled = index > 0) { index-- }
+    val immersive = isImmersive()
+    Box(Modifier.fillMaxSize().background(if (immersive) Immersive.Page else AppBackground)) {
+        // The page takes the look picked in the look step, live.
+        androidx.compose.animation.Crossfade(immersive, animationSpec = tween(350), label = "setupBackdrop") { imm ->
+            if (imm) Box(Modifier.fillMaxSize()) {
+                com.music.spotui.ui.look.MeshGradientBackground(com.music.spotui.ui.look.LookMeshPalettes.first(), animated = false)
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+            } else Glow(Modifier.fillMaxSize(), alpha = 0.16f)
+        }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             // Several steps to go through: dots say where the user is.
             if (steps > 1) StepDots(count = steps, current = index, Modifier.padding(start = 20.dp, top = 16.dp))
@@ -158,7 +170,7 @@ fun SetupScreen(onDone: () -> Unit) {
                         },
                         onLater = { Setup.setExtensionsSeen(context); next() },
                     )
-                    else -> PermissionsStep(onDone)
+                    else -> PermissionsStep(onNext = { Setup.done(context); next() })
                 }
             }
         }
@@ -178,7 +190,8 @@ private fun StepDots(count: Int, current: Int, modifier: Modifier = Modifier) {
         for (i in 0 until count) {
             val reduce = com.music.spotui.ui.look.rememberReduceMotion()
             val w by animateDpAsState(if (i == current) 22.dp else 8.dp, if (reduce) snap() else tween(350), label = "dot")
-            val c by animateColorAsState(if (i == current) AppAccent else AppText.copy(alpha = 0.25f), if (reduce) snap() else tween(350), label = "dotColor")
+            val on = if (isImmersive()) Color.White else AppAccent
+            val c by animateColorAsState(if (i == current) on else AppText.copy(alpha = 0.25f), if (reduce) snap() else tween(350), label = "dotColor")
             Box(Modifier.height(6.dp).width(w).clip(RoundedCornerShape(50)).background(c))
         }
     }
@@ -194,7 +207,7 @@ private fun Modifier.riseIn(index: Int): Modifier {
 }
 
 @Composable
-private fun PermissionsStep(onDone: () -> Unit) {
+private fun PermissionsStep(onNext: () -> Unit) {
     val context = LocalContext.current
     // Re-read when coming back from a system dialog or the settings.
     var tick by remember { mutableIntStateOf(0) }
@@ -205,8 +218,8 @@ private fun PermissionsStep(onDone: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         var row = 0
-        Text(stringResource(R.string.setup_title), color = AppText, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.riseIn(row++))
-        Text(stringResource(R.string.setup_subtitle), color = AppMuted, fontSize = 14.sp, modifier = Modifier.riseIn(row++))
+        SetupTitle(stringResource(R.string.setup_title), Modifier.riseIn(row++))
+        SetupSubtitle(stringResource(R.string.setup_subtitle), Modifier.riseIn(row++))
         Spacer(Modifier.height(8.dp))
         @Suppress("UNUSED_EXPRESSION") tick
         if (Build.VERSION.SDK_INT >= 33) SetupRow(
@@ -227,11 +240,7 @@ private fun PermissionsStep(onDone: () -> Unit) {
         ) { BatteryExemption.request(context) }
         Spacer(Modifier.height(12.dp))
         Box(Modifier.riseIn(row)) {
-            Button(
-                onClick = { Setup.done(context); onDone() },
-                colors = ButtonDefaults.buttonColors(containerColor = AppAccent, contentColor = Color.Black),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-            ) { Text(stringResource(R.string.setup_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            SetupButton(stringResource(R.string.setup_continue), onNext)
         }
     }
 }
@@ -243,17 +252,11 @@ private fun QualityStep(onNext: () -> Unit) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.setup_quality_title), color = AppText, fontSize = 26.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 20.dp).riseIn(0))
-        Text(stringResource(R.string.setup_quality_subtitle), color = AppMuted, fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 20.dp).riseIn(1))
+        SetupTitle(stringResource(R.string.setup_quality_title), Modifier.padding(horizontal = 20.dp).riseIn(0))
+        SetupSubtitle(stringResource(R.string.setup_quality_subtitle), Modifier.padding(horizontal = 20.dp).riseIn(1))
         Box(Modifier.riseIn(2)) { com.music.spotui.ui.components.StreamingQualityPicker(Modifier.padding(top = 8.dp)) }
         Box(Modifier.riseIn(3)) { com.music.spotui.ui.components.DownloadQualityPicker() }
-        Button(
-            onClick = onNext,
-            colors = ButtonDefaults.buttonColors(containerColor = AppAccent, contentColor = Color.Black),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(50.dp).riseIn(4),
-        ) { Text(stringResource(R.string.setup_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        SetupButton(stringResource(R.string.setup_continue), onNext, Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(50.dp).riseIn(4))
     }
 }
 
@@ -265,27 +268,24 @@ private fun IntroStep(onNext: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         var row = 0
-        Text(stringResource(R.string.setup_intro_title), color = AppText, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.riseIn(row++))
-        Text(stringResource(R.string.setup_intro_subtitle), color = AppMuted, fontSize = 14.sp, modifier = Modifier.riseIn(row++))
+        SetupTitle(stringResource(R.string.setup_intro_title), Modifier.riseIn(row++))
+        SetupSubtitle(stringResource(R.string.setup_intro_subtitle), Modifier.riseIn(row++))
         Spacer(Modifier.height(8.dp))
         InfoRow(Icons.Rounded.GraphicEq, stringResource(R.string.setup_intro_spotify_title), stringResource(R.string.setup_intro_spotify_detail), Modifier.riseIn(row++))
         InfoRow(Icons.Rounded.AutoAwesome, stringResource(R.string.setup_intro_more_title), stringResource(R.string.setup_intro_more_detail), Modifier.riseIn(row++))
         InfoRow(Icons.Rounded.Extension, stringResource(R.string.setup_intro_ext_title), stringResource(R.string.setup_intro_ext_detail), Modifier.riseIn(row++))
         Spacer(Modifier.height(12.dp))
         Box(Modifier.riseIn(row)) {
-            Button(
-                onClick = onNext,
-                colors = ButtonDefaults.buttonColors(containerColor = AppAccent, contentColor = Color.Black),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-            ) { Text(stringResource(R.string.setup_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            SetupButton(stringResource(R.string.setup_continue), onNext, Modifier.fillMaxWidth().height(50.dp))
         }
     }
 }
 
 /**
- * What extensions are, shown once to everyone (new installs and updates): optional, written by
- * the community, permission-checked, where to find them. "See the extensions" opens their page
- * once the setup is over.
+ * What extensions are, shown once to everyone (new installs and updates) as the last step: optional,
+ * written by the community, permission-checked, and where downloads come from (Mornye is the one
+ * most people install). "See the extensions" ends the setup on their page (the Store, in the chosen
+ * look); "Skip to Home" ends it on Home.
  */
 @Composable
 private fun ExtensionsStep(onBrowse: () -> Unit, onLater: () -> Unit) {
@@ -294,55 +294,94 @@ private fun ExtensionsStep(onBrowse: () -> Unit, onLater: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         var row = 0
-        Text(stringResource(R.string.setup_ext_title), color = AppText, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.riseIn(row++))
-        Text(stringResource(R.string.setup_ext_subtitle), color = AppMuted, fontSize = 14.sp, modifier = Modifier.riseIn(row++))
+        SetupTitle(stringResource(R.string.setup_ext_title), Modifier.riseIn(row++))
+        SetupSubtitle(stringResource(R.string.setup_ext_subtitle), Modifier.riseIn(row++))
         Spacer(Modifier.height(8.dp))
+        InfoRow(Icons.Rounded.Download, stringResource(R.string.setup_ext_download_title), stringResource(R.string.setup_ext_download_mornye_detail), Modifier.riseIn(row++))
         InfoRow(Icons.Rounded.Headphones, stringResource(R.string.setup_ext_audio_title), stringResource(R.string.setup_ext_audio_detail), Modifier.riseIn(row++))
-        InfoRow(Icons.Rounded.Download, stringResource(R.string.setup_ext_download_title), stringResource(R.string.setup_ext_download_detail), Modifier.riseIn(row++))
         InfoRow(Icons.Rounded.Widgets, stringResource(R.string.setup_ext_more_title), stringResource(R.string.setup_ext_more_detail), Modifier.riseIn(row++))
         InfoRow(Icons.Rounded.VerifiedUser, stringResource(R.string.setup_ext_safe_title), stringResource(R.string.setup_ext_safe_detail), Modifier.riseIn(row++))
-        Text(stringResource(R.string.setup_ext_where), color = AppMuted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp).riseIn(row++))
+        SetupSubtitle(stringResource(R.string.setup_ext_where), Modifier.padding(horizontal = 4.dp).riseIn(row++), size = 13.sp)
         Spacer(Modifier.height(4.dp))
         Column(Modifier.riseIn(row), horizontalAlignment = Alignment.CenterHorizontally) {
-            Button(
-                onClick = onBrowse,
-                colors = ButtonDefaults.buttonColors(containerColor = AppAccent, contentColor = Color.Black),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-            ) { Text(stringResource(R.string.setup_ext_browse), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-            TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text(stringResource(R.string.setup_ext_later), color = AppText, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            }
+            SetupButton(stringResource(R.string.setup_ext_browse), onBrowse, Modifier.fillMaxWidth().height(50.dp))
+            SetupLinkButton(stringResource(R.string.setup_ext_home), onLater, Modifier.fillMaxWidth().height(48.dp))
         }
     }
 }
 
+/** The setup's title, drawn in the chosen look. */
+@Composable
+private fun SetupTitle(text: String, modifier: Modifier = Modifier) {
+    if (isImmersive()) Text(text, style = Immersive.Title.copy(fontSize = 26.sp, fontWeight = FontWeight.SemiBold), modifier = modifier)
+    else Text(text, color = AppText, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = modifier)
+}
+
+@Composable
+private fun SetupSubtitle(text: String, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.TextUnit = 14.sp) {
+    if (isImmersive()) Text(text, style = Immersive.Subhead.copy(fontSize = size, color = Color.White.copy(alpha = 0.72f)), modifier = modifier)
+    else Text(text, color = AppMuted, fontSize = size, modifier = modifier)
+}
+
+/** The step's main button: green and square-ish in Classic, white and rounded in Immersive (as the look step's). */
+@Composable
+private fun SetupButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier.fillMaxWidth().height(50.dp)) {
+    val immersive = isImmersive()
+    Button(
+        onClick = onClick,
+        shape = if (immersive) Immersive.Button else ButtonDefaults.shape,
+        colors = ButtonDefaults.buttonColors(containerColor = if (immersive) Color.White else AppAccent, contentColor = Color.Black),
+        modifier = modifier,
+    ) {
+        Text(text, fontFamily = if (immersive) com.music.spotui.ui.look.ImmersiveSans else null, fontSize = 16.sp,
+            fontWeight = if (immersive) FontWeight.SemiBold else FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SetupLinkButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onClick, modifier = modifier) {
+        Text(text, color = if (isImmersive()) Color.White else AppText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            fontFamily = if (isImmersive()) com.music.spotui.ui.look.ImmersiveSans else null)
+    }
+}
+
+/** A card of the setup: Classic's dark grey, Immersive's raised grouped-list fill. */
+@Composable
+private fun Modifier.setupCard(): Modifier =
+    if (isImmersive()) this.fillMaxWidth().clip(Immersive.Card).background(Immersive.Raised.copy(alpha = 0.92f))
+    else this.fillMaxWidth().background(tone(0xFF1E1E1E), RoundedCornerShape(12.dp))
+
 /** A card of the intro and extensions steps: an accent icon, a title and a line of detail. */
 @Composable
 private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, detail: String, modifier: Modifier = Modifier) {
+    val immersive = isImmersive()
+    val accent = if (immersive) Immersive.Accent else AppAccent
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth().background(tone(0xFF1E1E1E), RoundedCornerShape(12.dp)).padding(16.dp),
+        modifier = modifier.setupCard().padding(16.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(40.dp).background(AppAccent.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
-        ) { Icon(icon, contentDescription = null, tint = AppAccent, modifier = Modifier.size(22.dp)) }
+            modifier = Modifier.size(40.dp).background(accent.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+        ) { Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp)) }
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
-            Text(title, color = AppText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = AppMuted, fontSize = 13.sp, lineHeight = 18.sp)
+            CardTitle(title)
+            CardDetail(detail)
         }
     }
 }
 
 @Composable
 private fun SetupRow(title: String, detail: String, on: Boolean, modifier: Modifier = Modifier, onEnable: () -> Unit) {
+    val accent = if (isImmersive()) Immersive.Accent else AppAccent
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth().background(tone(0xFF1E1E1E), RoundedCornerShape(12.dp)).padding(16.dp),
+        modifier = modifier.setupCard().padding(16.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = AppText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = AppMuted, fontSize = 13.sp)
+            CardTitle(title)
+            CardDetail(detail, lineHeight = 17.sp)
         }
         // Allowed: the button gives way to a green check that pops in.
         AnimatedContent(
@@ -350,8 +389,20 @@ private fun SetupRow(title: String, detail: String, on: Boolean, modifier: Modif
             transitionSpec = { (scaleIn(spring(dampingRatio = 0.5f)) + fadeIn()) togetherWith (scaleOut() + fadeOut()) },
             label = "allowed",
         ) { allowed ->
-            if (allowed) Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AppAccent, modifier = Modifier.padding(start = 12.dp).size(28.dp))
-            else TextButton(onClick = onEnable) { Text(stringResource(R.string.setup_enable), color = AppAccent, fontWeight = FontWeight.Bold) }
+            if (allowed) Icon(Icons.Default.CheckCircle, contentDescription = null, tint = accent, modifier = Modifier.padding(start = 12.dp).size(28.dp))
+            else TextButton(onClick = onEnable) { Text(stringResource(R.string.setup_enable), color = accent, fontWeight = FontWeight.Bold) }
         }
     }
+}
+
+@Composable
+private fun CardTitle(text: String) {
+    if (isImmersive()) Text(text, style = Immersive.BodyStrong)
+    else Text(text, color = AppText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
+private fun CardDetail(text: String, lineHeight: androidx.compose.ui.unit.TextUnit = 18.sp) {
+    if (isImmersive()) Text(text, style = Immersive.Caption.copy(fontSize = 13.sp, lineHeight = lineHeight))
+    else Text(text, color = AppMuted, fontSize = 13.sp, lineHeight = lineHeight)
 }
