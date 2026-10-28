@@ -142,6 +142,7 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
     fun pageGone() {
         pagesGone++
         gone = true
+        PageDevice.pageGone()
         _ready.value = false
         pending.values.forEach { it.completeExceptionally(BridgeException("page reloaded")) }
     }

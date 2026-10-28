@@ -329,6 +329,9 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
         // The page's connect-state PUT (joining the cluster): its status and its answer's header names.
         if (method == "PUT" && url.contains("/connect-state/v1/devices/"))
             app.myspoti.spotify.report.Refusal402.connectStatePut(it.code, it.headers.map { h -> h.first.lowercase() }.distinct().sorted().joinToString(","))
+        // Joined: the page's device now takes commands (the app's mirror waits for this after a reload).
+        if (method == "PUT" && url.contains("/connect-state/v1/devices/") && it.code in 200..299)
+            app.myspoti.spotify.bridge.PageDevice.joined()
         if (registration && it.code in 200..299) runCatching { JSONObject(text).optLong("initial_seq_num", 0) }.getOrNull()?.let(devices::answered)
         if (method == "DELETE" && it.code in 200..299 && url.contains("/track-playback/v1/devices/")) devices.deregistered(url)
         if (registration) Logbook.fact("registration", "${it.code}" + (Regex("\"effective_license\"\\s*:\\s*\"([^\"]*)\"").find(text)?.let { m -> " effective_license=${m.groupValues[1]}" } ?: ""))

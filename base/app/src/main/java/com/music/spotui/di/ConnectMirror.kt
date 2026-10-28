@@ -5,6 +5,7 @@ import android.os.Looper
 import android.os.SystemClock
 import app.myspoti.api.PlayerState
 import app.myspoti.host.android.MyspotiRuntime
+import app.myspoti.spotify.bridge.PageDevice
 import com.music.spotui.data.local.LocalTrack
 import com.music.spotui.data.preferences.ConnectMirrorPref
 import com.music.spotui.di.MirrorRules.Follow
@@ -117,13 +118,31 @@ object ConnectMirror {
         MyspotiRuntime.scope.launch { page.playsElsewhere.collect { away -> if (away) wentAway() else cameBack() } }
         // Commands are held during an ad and while the page reloads (it refuses them: "local player
         // is disabled"); the page usable again gets the song the local player is on, where it is.
+        // A page ready again takes commands only once its device has joined Spotify Connect: the
+        // song is sent then (or after JOIN_WAIT_MS without a join).
         MyspotiRuntime.scope.launch {
-            combine(api.ready, page.adPlaying) { ready, ad -> ready && !ad }.distinctUntilChanged().collect { usable -> if (usable) pageBack() }
+            combine(api.ready, page.adPlaying, PageDevice.joined) { ready, ad, joined ->
+                if (!ready) { joinWaitedOut = false; main.removeCallbacks(joinWait) }
+                else if (!ad && !joined && PageDevice.reported && !joinWaitedOut) { main.removeCallbacks(joinWait); main.postDelayed(joinWait, MirrorRules.JOIN_WAIT_MS) }
+                pageUsable()
+            }.distinctUntilChanged().collect { usable -> if (usable) pageBack() }
         }
     }
 
-    /** The page can take commands: loaded, and no ad on. */
-    private fun pageUsable(): Boolean = api.ready.value && !page.adPlaying.value
+    /** The page's device has not joined [MirrorRules.JOIN_WAIT_MS] after it was ready: commanded anyway. */
+    private var joinWaitedOut = false
+    private val joinWait = Runnable {
+        if (!api.ready.value || page.adPlaying.value || PageDevice.joined.value) return@Runnable
+        joinWaitedOut = true
+        if (want != null && running) log("the page's device has not joined Spotify Connect ${MirrorRules.JOIN_WAIT_MS / 1000} s after the page was back: its song is sent anyway")
+        pageBack()
+    }
+
+    /** The page can take commands: loaded, no ad on, its device joined (see [MirrorRules.pageUsable]). */
+    private fun pageUsable(): Boolean = MirrorRules.pageUsable(
+        ready = api.ready.value, ad = page.adPlaying.value,
+        joined = PageDevice.joined.value, joinReported = PageDevice.reported, waitedOut = joinWaitedOut,
+    )
 
     /** The local player's song or state changed (SongPlayer.onLocalState, main thread). */
     fun onLocal(t: LocalTrack, playing: Boolean, positionMs: Long, durationMs: Long) {

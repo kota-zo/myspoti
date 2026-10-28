@@ -178,6 +178,18 @@ object MirrorRules {
     fun backHere(playingHere: Boolean, handedAway: Boolean, moved: Boolean, intended: Boolean, on: Boolean): Boolean =
         on && playingHere && !intended && (handedAway || moved)
 
+    /** How long a page ready again is given for its device to join Spotify Connect before it is commanded anyway. */
+    const val JOIN_WAIT_MS = 8_000L
+
+    /**
+     * Whether the page takes the mirror's commands: loaded ([ready]), no [ad] on, and its device
+     * [joined] to Spotify Connect (a play sent between "ready" and the join was refused:
+     * DEVICE_NOT_FOUND). The join is only waited for when the host reports joins ([joinReported]),
+     * and no longer than [JOIN_WAIT_MS] ([waitedOut]).
+     */
+    fun pageUsable(ready: Boolean, ad: Boolean, joined: Boolean, joinReported: Boolean, waitedOut: Boolean): Boolean =
+        ready && !ad && (joined || !joinReported || waitedOut)
+
     /**
      * The loop guard: a command the mirror sends is answered by Web Player states that must not be
      * taken for a remote device's commands. Until [sent]'s window is over, its states are its echo.

@@ -265,4 +265,17 @@ class MirrorRulesTest {
         assertEquals(Follow.Retry, onWeb(Web(d, paused = false, positionMs = 0), landed = false))
         assertEquals(Follow.Nothing, onWeb(Web(a, paused = false, positionMs = 60_000), landed = false))
     }
+
+    @Test fun pageBackAfterAReloadWaitsForItsDeviceToJoin() {
+        // Ready, no ad, but the device not joined yet: a play now was refused (DEVICE_NOT_FOUND).
+        assertFalse(MirrorRules.pageUsable(ready = true, ad = false, joined = false, joinReported = true, waitedOut = false))
+        assertTrue(MirrorRules.pageUsable(ready = true, ad = false, joined = true, joinReported = true, waitedOut = false))
+        // No join came within the wait: commanded anyway.
+        assertTrue(MirrorRules.pageUsable(ready = true, ad = false, joined = false, joinReported = true, waitedOut = true))
+        // A host that never reports joins is not waited on.
+        assertTrue(MirrorRules.pageUsable(ready = true, ad = false, joined = false, joinReported = false, waitedOut = false))
+        // An ad or a page not loaded: never.
+        assertFalse(MirrorRules.pageUsable(ready = true, ad = true, joined = true, joinReported = true, waitedOut = true))
+        assertFalse(MirrorRules.pageUsable(ready = false, ad = false, joined = true, joinReported = true, waitedOut = true))
+    }
 }

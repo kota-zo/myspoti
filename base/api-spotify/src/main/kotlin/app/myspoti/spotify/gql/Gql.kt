@@ -2,7 +2,11 @@ package app.myspoti.spotify.gql
 
 import app.myspoti.spotify.bridge.Bridge
 import app.myspoti.spotify.bridge.BridgeException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -148,9 +152,27 @@ class SpotifyHttp(
         // Bytes keep the content type exactly as given (OkHttp appends a charset to String bodies,
         // which some Spotify endpoints reject with 400).
         builder.method(method, body?.toByteArray()?.toRequestBody(contentType.toMediaType()) ?: if (method == "GET" || method == "DELETE") null else ByteArray(0).toRequestBody(null))
-        val result = withContext(Dispatchers.IO) { http.newCall(builder.build()).execute().use { it.code to it.body.string() } }
+        val call = http.newCall(builder.build())
+        // A read is given up with its caller (a timeout, a song skipped): a blocking execute ignores
+        // the coroutine's cancellation, and a caller's 3 s timeout then lasted the client's 10 s
+        // (log seen: an extension asked for a skipped-to song 10 s late, behind its ISRC lookup).
+        // Writes still run to their end: a caller gone must not leave one half sent.
+        val result = if (method == "GET") call.executeCancellable() else withContext(Dispatchers.IO) { call.execute().use { it.code to it.body.string() } }
         if (result.first == 401) lock.withLock { web = null }
         return result
+    }
+
+    /** Runs the call on the IO pool; the coroutine cancelled, the call is cancelled too (it then fails at once). */
+    private suspend fun okhttp3.Call.executeCancellable(): Pair<Int, String> = coroutineScope {
+        val call = this@executeCancellable
+        val done = java.util.concurrent.atomic.AtomicBoolean(false)
+        val watch = launch(start = CoroutineStart.UNDISPATCHED) { try { awaitCancellation() } finally { if (!done.get()) call.cancel() } }
+        try {
+            withContext(Dispatchers.IO) { call.execute().use { it.code to it.body.string() } }
+        } finally {
+            done.set(true)
+            watch.cancel()
+        }
     }
 
     /** What [sendRaw] got back: the status, lower-case header names (values joined by ", "), the body text. */

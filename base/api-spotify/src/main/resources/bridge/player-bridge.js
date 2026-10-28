@@ -460,9 +460,11 @@
       window.__mspMuted = !!a.on;
       const player = await localPlayer().catch(() => null);
       const els = new Set([...(window.__mspMedia || []), ...document.querySelectorAll('audio, video'), ...await playerMedia()]);
+      // The end of an ad's mute leaves a hushed page unheard ('media.hush'): seen, the page heard
+      // over the local player it mirrors after an ad, on an element the hush had not reached yet.
       for (const el of els) {
         el.muted = false;
-        el.volume = a.on ? SILENT : (player && el === player._player ? ownLevel(player) : 1);
+        el.volume = a.on || window.__mspHushed ? SILENT : (player && el === player._player ? ownLevel(player) : 1);
       }
       return els.size;
     },
