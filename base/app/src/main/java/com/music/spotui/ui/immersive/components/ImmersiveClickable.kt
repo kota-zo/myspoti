@@ -5,6 +5,7 @@
  */
 package com.music.spotui.ui.immersive.components
 
+import com.music.spotui.ui.components.secondaryClick
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -45,6 +46,8 @@ fun Modifier.immersiveClickable(
             scaleX = scale
             scaleY = scale
         }
+        // A mouse's right click opens the same menu as the long press (DeX, tablets).
+        .secondaryClick(if (enabled) onLongClick else null)
         .combinedClickable(
             interactionSource = interaction,
             indication = null,

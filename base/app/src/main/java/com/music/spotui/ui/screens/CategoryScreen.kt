@@ -110,7 +110,7 @@ private fun CategoryGrid(entries: List<LibraryEntry>, navController: NavControll
         return
     }
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(com.music.spotui.ui.components.windowSize().columns(2, 200.dp)),
         contentPadding = PaddingValues(12.dp, 8.dp, 12.dp, com.music.spotui.ui.components.bottomBarsSpace()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

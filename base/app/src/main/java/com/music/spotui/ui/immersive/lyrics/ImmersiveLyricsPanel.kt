@@ -11,6 +11,7 @@
  */
 package com.music.spotui.ui.immersive.lyrics
 
+import com.music.spotui.ui.components.secondaryClick
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
@@ -580,6 +581,7 @@ private fun PanelRow(
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(0.1f, 5.dp.toPx())),
             )
         } else Modifier)
+        .secondaryClick(onHold)
         .combinedClickable(
             enabled = synced || onHold != null, interactionSource = interaction, indication = null,
             onLongClick = onHold,

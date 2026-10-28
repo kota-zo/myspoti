@@ -28,6 +28,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.sizeIn
@@ -456,16 +457,14 @@ fun PlayerScreen(navController: NavController) {
             contentAlignment = Alignment.TopCenter,
         ) {
         val wide = maxWidth > 600.dp && maxWidth > maxHeight
-        val contentWidth = if (wide) maxWidth.coerceAtMost(520.dp) else maxWidth
+        // Large windows wider than tall (tablets, foldables, DeX) and large portrait tablets: the
+        // cover on the left, the title and controls on the right, each in a capped half.
+        val twoPane = !immersive && com.music.spotui.ui.components.windowSize().twoPane
+        val contentWidth = if (twoPane) ((maxWidth - 72.dp) / 2).coerceIn(0.dp, 560.dp)
+            else if (wide) maxWidth.coerceAtMost(520.dp) else maxWidth
         // Immersive: the artwork takes the whole height instead of leaving room for controls.
         val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-        Column(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(contentWidth)
-                .navigationBarsPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        val topBar: @Composable () -> Unit = {
             // Immersive mode has no top bar: only the artwork and the compact strip remain.
             if (!immersive) {
                 PlayerTopBar(
@@ -477,6 +476,8 @@ fun PlayerScreen(navController: NavController) {
                 // Official: the cover starts closer to the header.
                 Spacer(modifier = Modifier.height(14.dp))
             }
+        }
+        val mediaArea: @Composable (Modifier, Alignment) -> Unit = { mediaModifier, mediaAlignment ->
             // Media area: artwork (swipe to change track) or the music video, with
             // Spotify's "Passer à la vidéo" pill over it (black, like the official app).
             // Square, but never taller than what the controls leave (foldables, landscape-ish
@@ -488,8 +489,8 @@ fun PlayerScreen(navController: NavController) {
             // peek, with or without Canvas / clip pill, on short screens too. The art shrinks, the
             // controls do not; on tall screens the slot's spare height sits under the art.
             androidx.compose.foundation.layout.BoxWithConstraints(
-                modifier = if (immersive) Modifier else Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.TopCenter,
+                modifier = mediaModifier,
+                contentAlignment = mediaAlignment,
             ) {
             val artSide = if (immersive) screenHeight
                 else minOf(contentWidth, maxHeight).coerceAtLeast(0.dp)
@@ -589,6 +590,8 @@ fun PlayerScreen(navController: NavController) {
             }
             }
             }
+        }
+        val controls: @Composable ColumnScope.() -> Unit = {
             // The slot (pill 32dp + 20dp gap) is reserved in every non-immersive layout, Canvas or
             // not, and before the clip is even known: the title, seek bar and buttons then sit at
             // the same height on every track, and a skip between the two kinds no longer moves
@@ -708,6 +711,33 @@ fun PlayerScreen(navController: NavController) {
                 // 8dp card margin + this = the official 37dp from the buttons' centre to the card.
                 Spacer(modifier = Modifier.height(12.dp))
             }
+        }
+        if (twoPane) Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(Modifier.width(contentWidth * 2 + 72.dp)) { Column { topBar() } }
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(72.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                mediaArea(Modifier.width(contentWidth).fillMaxHeight(), Alignment.Center)
+                Column(Modifier.width(contentWidth), horizontalAlignment = Alignment.CenterHorizontally) { controls() }
+            }
+        } else Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(contentWidth)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            topBar()
+            mediaArea(if (immersive) Modifier else Modifier.fillMaxWidth().weight(1f), Alignment.TopCenter)
+            controls()
         }
         }
         }

@@ -75,17 +75,19 @@ class MainActivity : AppCompatActivity() {
         // above their gradient on 14 and older.
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         // The user's rotation choice (portrait by default); changes are applied from the UI below.
-        requestedOrientation = com.music.spotui.data.preferences.OrientationPref.requested()
+        requestedOrientation = orientationFor(resources.configuration)
         signedIn = prefs.getBoolean("LoggedIn", false)
         setupNeeded = com.music.spotui.ui.screens.Setup.needed(this)
         lookOffered = com.music.spotui.data.preferences.LookPref.isOffered(this)
         root = FrameLayout(this)
         val compose = ComposeView(this).apply {
             setContent {
-                SpotuiTheme { com.music.spotui.ui.look.ProvideLook {
+                SpotuiTheme { com.music.spotui.ui.look.ProvideLook { com.music.spotui.ui.components.ProvideWindowSize {
                     val orientation = com.music.spotui.data.preferences.OrientationPref.mode
-                    androidx.compose.runtime.LaunchedEffect(orientation) {
-                        requestedOrientation = com.music.spotui.data.preferences.OrientationPref.requested()
+                    // Re-checked when the window changes (unfolded, moved to DeX, split screen).
+                    val config = androidx.compose.ui.platform.LocalConfiguration.current
+                    androidx.compose.runtime.LaunchedEffect(orientation, config.smallestScreenWidthDp, config.screenLayout) {
+                        requestedOrientation = orientationFor(config)
                     }
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
                         when {
@@ -138,7 +140,7 @@ class MainActivity : AppCompatActivity() {
                         // so coming back finds the same screen).
                         if (inPip) com.music.spotui.ui.components.PipVideo()
                     }
-                } }
+                } } }
             }
         }
         root.addView(compose, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -159,6 +161,62 @@ class MainActivity : AppCompatActivity() {
         // Only on a fresh start: on recreation (theme, locale, process restore)
         // the same intent would play its link again. New links arrive in onNewIntent.
         if (savedInstanceState == null) handle(intent)
+    }
+
+    /**
+     * The rotation setting applies to phones only: tablets, unfolded foldables, split screen and
+     * Samsung DeX windows follow the window (a forced portrait there letterboxes or rotates a
+     * desktop window).
+     */
+    private fun orientationFor(config: android.content.res.Configuration): Int {
+        val large = config.smallestScreenWidthDp >= 600 || isInMultiWindowMode || isDesktopMode(config)
+        return if (large) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else com.music.spotui.data.preferences.OrientationPref.requested()
+    }
+
+    /** Samsung DeX (its own Configuration field), or a desktop-class window (Android 16 desktop windowing). */
+    private fun isDesktopMode(config: android.content.res.Configuration): Boolean {
+        val dex = runCatching {
+            val c = config.javaClass
+            c.getField("SEM_DESKTOP_MODE_ENABLED").getInt(c) == c.getField("semDesktopModeEnabled").getInt(config)
+        }.getOrDefault(false)
+        return dex || (config.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) == android.content.res.Configuration.UI_MODE_TYPE_DESK
+    }
+
+    /**
+     * Keyboard shortcuts with a keyboard attached (DeX, tablets): keys the pages leave unused
+     * (a text field takes its own space, a focused button its own Enter). Space plays or pauses,
+     * media keys drive the player, Ctrl + arrows (and plain arrows nothing else took) seek 10 s.
+     */
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        if (signedIn && !inPip && handleShortcut(keyCode, event)) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    // Ctrl + arrows before the pages: plain arrows move the keyboard focus there.
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && event.isCtrlPressed && signedIn && !inPip &&
+            (event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT || event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
+            && handleShortcut(event.keyCode, event)) return true
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun handleShortcut(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        val player = com.music.spotui.di.SongPlayer
+        if (com.music.spotui.di.Graph.currentSongState.title.value.isBlank()) return false
+        when (keyCode) {
+            android.view.KeyEvent.KEYCODE_SPACE, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                if (event.repeatCount == 0) { if (player.isPlaying()) player.pause(by = "keyboard") else player.play(by = "keyboard") }
+            }
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> if (event.repeatCount == 0) player.play(by = "keyboard")
+            android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> if (event.repeatCount == 0) player.pause(by = "keyboard")
+            android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> if (event.repeatCount == 0) player.next(by = "keyboard")
+            android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> if (event.repeatCount == 0) player.previous(by = "keyboard")
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> player.skipBy(-10_000L)
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> player.skipBy(10_000L)
+            else -> return false
+        }
+        return true
     }
 
     // Leaving the app (Home, recents) while a music video plays: it goes on in a small window.

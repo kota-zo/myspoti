@@ -125,9 +125,16 @@ fun App() {
         com.music.spotui.ui.immersive.shell.LocalImmersiveFrostPage provides if (frostPage) glassPage else null,
         com.music.spotui.ui.immersive.shell.LocalImmersiveChrome provides if (immersive) chrome else null,
     ) {
+    // Large windows (tablets, foldables, DeX): Classic's tabs in a rail at the side, the
+    // Immersive tab bar on the left edge (ImmersiveBottomChrome); phones keep the bottom bars.
+    val large = com.music.spotui.ui.components.windowSize().large
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+      androidx.compose.foundation.layout.Row(Modifier.fillMaxSize()) {
+        // Before the Scaffold, in a group of its own: the nav host keeps its place when the
+        // window grows or shrinks past the threshold (back stack and pages kept).
+        if (large && !immersive) com.music.spotui.ui.navigation.MainNavigationRail(navController)
         Scaffold(
-            modifier = Modifier,
+            modifier = Modifier.weight(1f),
             bottomBar = {
                 if (!immersive) MainBottomNavigation(navController = navController, bottomBarState = bottomBarState, bottomBarPlayerState)
             }
@@ -139,6 +146,7 @@ fun App() {
                 modifier = if (immersive) Modifier.background(com.music.spotui.ui.immersive.Immersive.Page) else Modifier,
             )
         }
+      }
         if (immersive) ImmersiveShell(navController)
         // Over the pages and the bottom bar: pulling it down shows them, already in place.
         else com.music.spotui.ui.navigation.PlayerOverlay(navController)

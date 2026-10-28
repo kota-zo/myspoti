@@ -272,7 +272,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         // Wider than tall (a phone on its side, a tablet): the cover beside the controls.
-        val landscape = maxWidth > maxHeight
+        val landscape = maxWidth > maxHeight || com.music.spotui.ui.components.windowSize().twoPane
         MeshGradientBackground(palette = palette, trackKey = state.coverUrl)
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {

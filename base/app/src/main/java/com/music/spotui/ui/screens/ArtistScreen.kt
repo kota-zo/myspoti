@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.secondaryClick
 import com.music.spotui.ui.components.widePressable
 import com.music.spotui.ui.components.wideClickable
 import com.music.spotui.ui.theme.tone
@@ -594,6 +595,8 @@ private fun PopularTrackRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            // A mouse's right click opens the same menu as the long press (DeX, tablets).
+            .secondaryClick(onMore)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

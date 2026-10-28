@@ -169,6 +169,8 @@ fun ImmersiveSearchScreen(navController: NavController) {
         vm.updateSongState(song.coverUri, song.title, song.singer, true, song.id, 0, song.album)
     }
 
+    // Large windows: more browse tiles per row (two on phones).
+    val browseCols = com.music.spotui.ui.components.windowSize().columns(2, 220.dp)
     Box(Modifier.fillMaxSize().background(Immersive.Page)) {
         LazyColumn(
             state = listState,
@@ -221,8 +223,8 @@ fun ImmersiveSearchScreen(navController: NavController) {
                     )
                 } else {
                     item(key = "search:browse-header") { SectionHeader(stringResource(R.string.browse_all)) }
-                    items(tiles.chunked(2), key = { row -> "browse:" + row.first().key }) { row ->
-                        BrowseTileRow(row = row, columns = 2) { tile ->
+                    items(tiles.chunked(browseCols), key = { row -> "browse:" + row.first().key }) { row ->
+                        BrowseTileRow(row = row, columns = browseCols) { tile ->
                             // A genre opens a catalogue (a page of curated playlists), not a keyword search.
                             if (tile.key == ImmersiveNewReleasesGenre) navController.navigate(Routes.NewReleases.route)
                             else navController.navigate(categoryRoute(tile.key, tile.title))

@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.secondaryClick
 import com.music.spotui.ui.components.pressable
 import androidx.compose.ui.res.stringResource
 
@@ -269,7 +270,7 @@ private fun LyricLineText(
     val lineModifier = modifier
         .fillMaxWidth()
         .then(
-            if (onTap != null || onHold != null) Modifier.combinedClickable(
+            if (onTap != null || onHold != null) Modifier.secondaryClick(onHold).combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onLongClick = onHold,

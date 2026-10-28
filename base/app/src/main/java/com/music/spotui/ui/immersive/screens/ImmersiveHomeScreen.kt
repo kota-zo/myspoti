@@ -337,7 +337,9 @@ private fun ShortcutGrid(navController: NavController, items: List<HomeItem>, pl
         modifier = Modifier.padding(horizontal = Immersive.Gutter).padding(bottom = 22.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items.chunked(2).forEach { rowItems ->
+        // Large windows: more tiles per row (two on phones).
+        val cols = com.music.spotui.ui.components.windowSize().columns(2, 280.dp)
+        items.chunked(cols).forEach { rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 rowItems.forEach { item ->
                     val playing = item.isPlayingIn(playingContext.value)
@@ -370,7 +372,7 @@ private fun ShortcutGrid(navController: NavController, items: List<HomeItem>, pl
                         )
                     }
                 }
-                if (rowItems.size == 1) Box(Modifier.weight(1f))
+                repeat(cols - rowItems.size) { Box(Modifier.weight(1f)) }
             }
         }
     }

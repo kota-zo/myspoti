@@ -30,6 +30,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Myspoti"
         android:usesCleartextTraffic="false">
+        <!-- Samsung DeX: the app keeps running (and playing) when the window moves to or from DeX. -->
+        <meta-data android:name="com.samsung.android.keepalive.density" android:value="true" />
+        <meta-data android:name="com.samsung.android.multidisplay.keep_process_alive" android:value="true" />
         <!-- Cover art for Android Auto (content:// only); Spotify image CDN hosts only. -->
         <provider
             android:name="com.music.spotui.di.ArtworkProvider"
@@ -80,10 +83,16 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="unspecified"
+            android:resizeableActivity="true"
             android:supportsPictureInPicture="true"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|density"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Myspoti">
+            <!-- Desktop windows (Samsung DeX, freeform): opens in a landscape window, resizable. -->
+            <layout
+                android:defaultWidth="1100dp"
+                android:defaultHeight="760dp"
+                android:gravity="center" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

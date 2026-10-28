@@ -82,6 +82,8 @@ fun ImmersiveNewReleasesScreen(navController: NavController) {
             Graph.api.newReleases().map { ReleaseTile(it.spotifyId, it.name, it.artists, it.coverUri, it.artists) }
         }.getOrDefault(emptyList())
     }
+    // Large windows: more releases per row (two on phones).
+    val cols = com.music.spotui.ui.components.windowSize().columns(2, 220.dp)
     ImmersivePage(title = stringResource(R.string.browse_new_releases), onBack = { navController.popBackStack() }) {
         fun section(key: String, title: Int, list: List<ReleaseTile>?) {
             item(key = "$key:header") { SectionHeader(stringResource(title)) }
@@ -90,7 +92,7 @@ fun ImmersiveNewReleasesScreen(navController: NavController) {
                 list.isEmpty() -> item(key = "$key:empty") {
                     Text(stringResource(R.string.nothing_here), style = Immersive.Subhead, modifier = Modifier.padding(horizontal = Immersive.Gutter, vertical = 4.dp))
                 }
-                else -> items(list.chunked(2), key = { row -> "$key:" + row.first().id }) { pair ->
+                else -> items(list.chunked(cols), key = { row -> "$key:" + row.first().id }) { pair ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = Immersive.Gutter).padding(bottom = 18.dp),
@@ -102,7 +104,7 @@ fun ImmersiveNewReleasesScreen(navController: NavController) {
                                 modifier = Modifier.weight(1f),
                             )
                         }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        repeat(cols - pair.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }

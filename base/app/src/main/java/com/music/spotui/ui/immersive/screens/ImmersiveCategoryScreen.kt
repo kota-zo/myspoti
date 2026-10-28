@@ -59,7 +59,7 @@ fun ImmersiveCategoryScreen(navController: NavController, genre: String, title: 
     Box(Modifier.fillMaxSize().background(Immersive.Page)) {
         LazyVerticalGrid(
             state = gridState,
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Fixed(com.music.spotui.ui.components.windowSize().columns(2, 200.dp)),
             contentPadding = PaddingValues(
                 start = Immersive.Gutter, end = Immersive.Gutter,
                 top = immersiveTopContentPadding(), bottom = Immersive.BottomChrome,

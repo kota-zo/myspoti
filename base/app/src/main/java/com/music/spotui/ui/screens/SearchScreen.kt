@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.secondaryClick
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
@@ -575,6 +576,8 @@ fun SearchSongRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp, 8.dp)
+            // A mouse's right click opens the same menu as the long press (DeX, tablets).
+            .secondaryClick(onLongClick)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -782,7 +785,9 @@ fun BrowseAllSection(onCategoryClick: (genre: String, title: String) -> Unit) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp),
         )
-        tiles.chunked(2).forEach { rowItems ->
+        // Large windows: more tiles per row (two on phones).
+        val cols = com.music.spotui.ui.components.windowSize().columns(2, 220.dp)
+        tiles.chunked(cols).forEach { rowItems ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -792,8 +797,8 @@ fun BrowseAllSection(onCategoryClick: (genre: String, title: String) -> Unit) {
                 rowItems.forEach { t ->
                     BrowseCategoryTile(t.title, t.color, t.image, Modifier.weight(1f)) { onCategoryClick(t.key, t.title) }
                 }
-                // Keep a half-width spacer if the last row has a single tile.
-                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                // Keep the tiles' width on a last row that is not full.
+                repeat(cols - rowItems.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

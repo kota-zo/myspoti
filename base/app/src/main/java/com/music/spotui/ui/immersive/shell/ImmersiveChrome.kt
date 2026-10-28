@@ -146,6 +146,8 @@ private val CHROME_GAP = 8.dp
 
 /** The mini player's margin to the screen edges; the tab bar sits [TAB_INSET] further in. */
 private val MINI_MARGIN = 14.dp
+/** Large windows: the mini player beside the tab bar, never wider than this. */
+private val LargeMiniPlayerWidth = 560.dp
 private val TAB_INSET = Immersive.Gutter - MINI_MARGIN
 
 /**
@@ -163,6 +165,26 @@ fun ImmersiveBottomChrome(
 ) {
     val tabs = rememberTabNavigation(navController)
     if (tabs.fullScreen) return
+    // Large windows (tablets, foldables, DeX): the tab bar and the mini player side by side in one
+    // floating row, centred, each at its own capped width; there is room, so it never folds.
+    if (com.music.spotui.ui.components.windowSize().large) {
+        Box(
+            modifier.fillMaxWidth().windowInsetsPadding(ImmersiveBarInsets)
+                .padding(horizontal = MINI_MARGIN).padding(bottom = 2.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(CHROME_GAP),
+            ) {
+                Box(Modifier.widthIn(max = ImmersiveBarMaxWidth)) {
+                    TabBarContent(selectedTab = tabs.selectedTab, onTabClick = tabs.onTabClick, modifier = Modifier)
+                }
+                Box(Modifier.weight(1f, fill = false).widthIn(max = LargeMiniPlayerWidth)) { miniPlayer(Modifier) }
+            }
+        }
+        return
+    }
     val chrome = LocalImmersiveChrome.current
     val reduceMotion = rememberReduceMotion()
     val minimized = chrome?.minimized == true

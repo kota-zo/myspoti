@@ -232,8 +232,12 @@ fun ImmersivePlayer(
     BackHandler(enabled = panel != Panel.NONE) { panel = Panel.NONE }
 
     BoxWithConstraints(modifier.fillMaxSize().background(Color.Black)) {
-        // Wider than tall (a phone on its side, a tablet): the cover beside the controls.
-        val landscape = maxWidth > maxHeight
+        // Wider than tall (a phone on its side, a tablet), or a large portrait tablet: the cover
+        // beside the controls. Very wide windows (DeX, large tablets): the lyrics and the queue
+        // open in a third pane instead of over the cover.
+        val window = com.music.spotui.ui.components.windowSize()
+        val landscape = maxWidth > maxHeight || window.twoPane
+        val sidePane = window.large && maxWidth >= SIDE_PANE_MIN_WIDTH
         PlayerBackdrop(palette, outgoingPalette, blend, state.coverUrl)
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) LandscapePlayer(
@@ -248,6 +252,7 @@ fun ImmersivePlayer(
                 onOpenDevices = { showDevices = true },
                 onMore = if (navController != null && state.song != null) ({ showMenu = true }) else null,
                 onSource = { showQuality = true },
+                sidePane = sidePane,
             ) else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
                 Box(
@@ -590,6 +595,7 @@ private fun LandscapePlayer(
     onOpenDevices: () -> Unit,
     onMore: (() -> Unit)?,
     onSource: () -> Unit,
+    sidePane: Boolean = false,
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         // The handle: always hands its drags to the sheet.
@@ -607,7 +613,8 @@ private fun LandscapePlayer(
         ) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 val side = minOf(maxWidth, maxHeight)
-                Crossfade(targetState = panel, animationSpec = tween(250), modifier = Modifier.fillMaxSize(), label = "playerLandscapePanel") { shown ->
+                // With a side pane the cover stays: the panels open in the third column.
+                Crossfade(targetState = if (sidePane) Panel.NONE else panel, animationSpec = tween(250), modifier = Modifier.fillMaxSize(), label = "playerLandscapePanel") { shown ->
                     when (shown) {
                         Panel.LYRICS -> ImmersiveLyricsPanel(Modifier.fillMaxSize(), PaddingValues(vertical = 4.dp))
                         Panel.QUEUE -> ImmersiveQueuePanel(Modifier.fillMaxSize(), PaddingValues(vertical = 4.dp))
@@ -657,9 +664,21 @@ private fun LandscapePlayer(
                     )
                 }
             }
+            if (sidePane && panel != Panel.NONE) Box(Modifier.weight(1.1f).fillMaxHeight()) {
+                Crossfade(targetState = panel, animationSpec = tween(250), modifier = Modifier.fillMaxSize(), label = "playerSidePane") { shown ->
+                    when (shown) {
+                        Panel.LYRICS -> ImmersiveLyricsPanel(Modifier.fillMaxSize(), PaddingValues(vertical = 4.dp))
+                        Panel.QUEUE -> ImmersiveQueuePanel(Modifier.fillMaxSize(), PaddingValues(vertical = 4.dp))
+                        else -> Box(Modifier.fillMaxSize())
+                    }
+                }
+            }
         }
     }
 }
+
+/** A window at least this wide shows the lyrics and the queue beside the cover and the controls. */
+private val SIDE_PANE_MIN_WIDTH = 1100.dp
 
 /** The right-hand column needs about this much height to show the volume bar as well. */
 private val LANDSCAPE_VOLUME_MIN_HEIGHT = 400.dp

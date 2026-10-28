@@ -338,8 +338,10 @@ private fun HomePill(label: String, selected: Boolean = false, onClick: () -> Un
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun HomeShortcutGrid(navController: NavController, items: List<HomeItem>) {
+    // Large windows: more tiles per row (two on phones).
+    val cols = com.music.spotui.ui.components.windowSize().columns(2, 280.dp)
     Column(modifier = Modifier.padding(8.dp, 4.dp)) {
-        items.chunked(2).forEach { rowItems ->
+        items.chunked(cols).forEach { rowItems ->
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
@@ -376,7 +378,7 @@ private fun HomeShortcutGrid(navController: NavController, items: List<HomeItem>
                         )
                     }
                 }
-                if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
+                repeat(cols - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }

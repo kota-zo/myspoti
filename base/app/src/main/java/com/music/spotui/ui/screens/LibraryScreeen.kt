@@ -722,7 +722,7 @@ fun LibraryGridScreen(
 
     LazyVerticalGrid(
         state = gridState,
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(com.music.spotui.ui.components.windowSize().columns(3, 170.dp)),
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)

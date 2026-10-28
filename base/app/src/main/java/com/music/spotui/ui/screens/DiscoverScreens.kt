@@ -125,7 +125,7 @@ fun NewReleasesScreen(navController: NavController) {
     Column(Modifier.fillMaxSize().background(Background).statusBarsPadding()) {
         ScreenHeader(stringResource(R.string.browse_new_releases), navController)
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Fixed(com.music.spotui.ui.components.windowSize().columns(2, 200.dp)),
             contentPadding = PaddingValues(12.dp, 0.dp, 12.dp, com.music.spotui.ui.components.bottomBarsSpace()),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -51,6 +51,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBarsPadding
 
 /**
  * What re-tapping the tab you are already on does in the official app: Home and Library
@@ -96,11 +99,6 @@ class NoRippleInteractionSource : MutableInteractionSource {
 @Composable
 fun MainBottomNavigation(navController: NavHostController, bottomBarState: MutableState<Boolean>, bottomBarPlayerState : MutableState<Boolean>) {
 
-    val navItems = listOf(
-        Routes.Home,
-        Routes.Search,
-        Routes.Library
-    )
     // Visibility follows the screen actually shown (not flags each screen sets,
     // which raced during transitions and left the mini player over the full one).
     val shownRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -138,19 +136,21 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
                         enter = slideInVertically(initialOffsetY = { it }),
                         exit = slideOutVertically(targetOffsetY = { it }),
                         content = {
-                            MiniPlayer(navController)
+                            // Large windows: a capped, centred capsule, not a bar across a desktop window.
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Box(if (com.music.spotui.ui.components.windowSize().large) Modifier.widthIn(max = com.music.spotui.ui.components.WindowSize.MaxMiniPlayerWidth) else Modifier) {
+                                    MiniPlayer(navController)
+                                }
+                            }
                         }
                     )
 
 
 
                     Spacer(modifier = Modifier.height(4.dp))
-                    val navStack by navController.currentBackStackEntryAsState()
-                    val currentRoute = navStack?.destination?.route
-                    // The tab the user is in, even on one of its sub-pages (album, artist…).
-                    var selectedTab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(Routes.Home.route) }
-                    if (currentRoute in navItems.map { it.route }) selectedTab = currentRoute!!
-
+                    val tabs = rememberTabNavigation(navController)
+                    // Large windows: the tabs are in the rail at the side (MainNavigationRail).
+                    if (!com.music.spotui.ui.components.windowSize().large) {
                     // Official bar proportions: a 58 dp strip (the gesture inset is added by
                     // navigationBarsPadding above), three equal thirds edge to edge, so the
                     // tabs spread over the full width instead of clustering in the middle.
@@ -160,36 +160,15 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
                             .height(NavBarHeight),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        navItems.forEach { item ->
+                        TabItems.forEach { item ->
                             NavBarTab(
                                 iconRes = item.icon,
                                 label = if (item.labelRes != 0) stringResource(item.labelRes) else item.label,
-                                selected = selectedTab == item.route,
-                                onClick = {
-                                    // Standard bottom-tab navigation: each tab keeps its
-                                    // state (no reload, scroll kept) when you come back.
-                                    if (item.route == selectedTab) {
-                                        if (currentRoute == item.route) {
-                                            // Already on the tab's own page: nothing to reload, only
-                                            // the re-tap shortcut (scroll to top, or focus search).
-                                            TabReselect.emit(item.route)
-                                        } else if (!navController.popBackStack(item.route, inclusive = false)) {
-                                            // On one of its sub-pages: back to its root page first.
-                                            navController.navigate(item.route) { launchSingleTop = true }
-                                        }
-                                    } else {
-                                        selectedTab = item.route
-                                        navController.navigate(item.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                            // Home always opens Home itself (its scroll kept), not the
-                                            // page last left open from it (a playlist, an artist…).
-                                            restoreState = item.route != Routes.Home.route
-                                        }
-                                    }
-                                },
+                                selected = tabs.selected == item.route,
+                                onClick = { tabs.open(item) },
                             )
                         }
+                    }
                     }
 
 
@@ -201,6 +180,80 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
             }
         }
     )
+}
+
+private val TabItems = listOf(Routes.Home, Routes.Search, Routes.Library)
+
+/** The tab shown (also on its sub-pages) and what a tap on a tab does; shared by the bar and the rail. */
+private class TabNavigation(private val navController: NavHostController, private val state: androidx.compose.runtime.MutableState<String>, private val currentRoute: String?) {
+    val selected: String get() = state.value
+
+    fun open(item: Routes) {
+        // Standard bottom-tab navigation: each tab keeps its
+        // state (no reload, scroll kept) when you come back.
+        if (item.route == state.value) {
+            if (currentRoute == item.route) {
+                // Already on the tab's own page: nothing to reload, only
+                // the re-tap shortcut (scroll to top, or focus search).
+                TabReselect.emit(item.route)
+            } else if (!navController.popBackStack(item.route, inclusive = false)) {
+                // On one of its sub-pages: back to its root page first.
+                navController.navigate(item.route) { launchSingleTop = true }
+            }
+        } else {
+            state.value = item.route
+            navController.navigate(item.route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                // Home always opens Home itself (its scroll kept), not the
+                // page last left open from it (a playlist, an artist…).
+                restoreState = item.route != Routes.Home.route
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberTabNavigation(navController: NavHostController): TabNavigation {
+    val navStack by navController.currentBackStackEntryAsState()
+    val currentRoute = navStack?.destination?.route
+    // The tab the user is in, even on one of its sub-pages (album, artist…).
+    val selectedTab = androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(Routes.Home.route) }
+    if (currentRoute in TabItems.map { it.route }) selectedTab.value = currentRoute!!
+    return TabNavigation(navController, selectedTab, currentRoute)
+}
+
+/**
+ * Large windows (tablets, foldables, DeX): the three tabs in a rail down the left side instead
+ * of a phone bar stretched across the window. Hidden with the bar on the full-screen routes.
+ */
+@Composable
+fun MainNavigationRail(navController: NavHostController) {
+    val shownRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    if (shownRoute == Routes.Player.route || shownRoute == Routes.Queue.route) return
+    val tabs = rememberTabNavigation(navController)
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(88.dp)
+            .background(AppShade)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(top = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        TabItems.forEach { item ->
+            Row(Modifier.fillMaxWidth().height(72.dp)) {
+                NavBarTab(
+                    iconRes = item.icon,
+                    label = if (item.labelRes != 0) stringResource(item.labelRes) else item.label,
+                    selected = tabs.selected == item.route,
+                    onClick = { tabs.open(item) },
+                )
+            }
+        }
+    }
 }
 
 // Official app metrics. Material3's NavigationBarItem measures its icon slot at a

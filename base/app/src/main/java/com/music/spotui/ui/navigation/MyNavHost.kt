@@ -19,6 +19,11 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -479,12 +484,31 @@ private fun NavGraphBuilder.page(
         LocalPageSettled provides settled,
         com.music.spotui.ui.immersive.shell.backdrop.backdrops.LocalBackdropSourceAlpha provides alpha,
     ) {
+        // Large windows: detail pages (album, playlist, artist, settings…) keep a readable width,
+        // centred, instead of rows 2000 px wide; the tab pages and grids use the whole width
+        // (more columns). The inner box is always there, so a resize never rebuilds the page.
+        val capped = com.music.spotui.ui.components.windowSize().large &&
+            entry.destination.route?.substringBefore('/')?.substringBefore('?') !in FullWidthRoutes
         // Immersive look: every page (Classic fallbacks too) sits on its black page colour.
         Box(Modifier.fillMaxSize()
             .then(if (fade == null) Modifier else Modifier.graphicsLayer { this.alpha = fade.value })
-            .background(if (immersive) com.music.spotui.ui.immersive.Immersive.Page else AppBackground)) { scope.content(entry) }
+            .background(if (immersive) com.music.spotui.ui.immersive.Immersive.Page else AppBackground)) {
+            Box(
+                Modifier.fillMaxHeight().then(
+                    if (capped) Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)
+                        .widthIn(max = com.music.spotui.ui.components.WindowSize.MaxPageWidth)
+                    else Modifier.fillMaxWidth()
+                )
+            ) { scope.content(entry) }
+        }
     }
 }
+
+/** Pages that use a large window's whole width (grids, the tabs' own pages, the player). */
+private val FullWidthRoutes = setOf(
+    Routes.Home.route, Routes.Search.route, Routes.Library.route, Routes.Player.route, Routes.Queue.route,
+    Routes.Category.route, Routes.NewReleases.route,
+)
 
 /**
  * false while this page is sliding in or out. Heavy views (video players, surfaces)
