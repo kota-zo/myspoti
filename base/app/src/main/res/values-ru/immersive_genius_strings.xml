@@ -2,5 +2,4 @@
 <resources>
     <string name="immersive_genius_none">На Genius нет информации об этом треке.</string>
     <string name="immersive_genius_error">Genius сейчас недоступен.</string>
-    <string name="immersive_genius_view">Открыть на Genius</string>
 </resources>

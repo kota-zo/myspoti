@@ -2,5 +2,4 @@
 <resources>
     <string name="immersive_genius_none">Το Genius δεν έχει τίποτα για αυτό το τραγούδι.</string>
     <string name="immersive_genius_error">Το Genius δεν είναι προσβάσιμο αυτή τη στιγμή.</string>
-    <string name="immersive_genius_view">Προβολή στο Genius</string>
 </resources>

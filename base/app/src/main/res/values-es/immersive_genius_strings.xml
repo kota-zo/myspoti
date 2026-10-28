@@ -2,5 +2,11 @@
 <resources>
     <string name="immersive_genius_none">Genius no tiene nada sobre esta canción.</string>
     <string name="immersive_genius_error">No se puede conectar con Genius ahora mismo.</string>
-    <string name="immersive_genius_view">Ver en Genius</string>
+    <string name="immersive_genius_read">Leer en Genius</string>
+    <string name="immersive_genius_note_open">Lo que dice Genius de esta línea</string>
+    <string name="immersive_genius_source">Anotación de Genius</string>
+    <plurals name="immersive_genius_upvotes">
+        <item quantity="one">%1$d voto positivo</item>
+        <item quantity="other">%1$d votos positivos</item>
+    </plurals>
 </resources>

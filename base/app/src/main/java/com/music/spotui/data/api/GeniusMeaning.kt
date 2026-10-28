@@ -24,7 +24,8 @@ import java.util.concurrent.TimeUnit
  * and its annotations. The last few songs asked for are kept in memory (small texts).
  */
 object GeniusMeaning {
-    data class Note(val fragment: String, val explanation: String, val votes: Int = 0)
+    /** One line's explanation; [url] is its own page on Genius (empty when Genius gave none). */
+    data class Note(val fragment: String, val explanation: String, val votes: Int = 0, val url: String = "")
     data class Meaning(val url: String, val title: String, val artist: String, val about: String?, val notes: List<Note>) {
         val isEmpty get() = about.isNullOrBlank() && notes.isEmpty()
     }
@@ -67,10 +68,11 @@ object GeniusMeaning {
                         val fragment = r.str("fragment")?.trim().orEmpty()
                         // The best liked explanation of the line; one voted down (negative) is never shown.
                         val best = r["annotations"]?.jsonArray.orEmpty().map { it.jsonObject }
-                            .map { a -> a.obj("body")?.str("plain")?.trim().orEmpty() to (a.str("votes_total")?.toIntOrNull() ?: 0) }
+                            .map { a -> Triple(a.obj("body")?.str("plain")?.trim().orEmpty(), a.str("votes_total")?.toIntOrNull() ?: 0, a.str("url").orEmpty()) }
                             .filter { (body, votes) -> body.isNotBlank() && body != "?" && votes >= 0 }
                             .maxByOrNull { it.second }
-                        if (fragment.isBlank() || best == null) null else Note(fragment, best.first, best.second)
+                        if (fragment.isBlank() || best == null) null
+                        else Note(fragment, best.first, best.second, best.third.ifBlank { r.str("url").orEmpty() })
                     }
             }
             Meaning(

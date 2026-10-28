@@ -2,5 +2,4 @@
 <resources>
     <string name="immersive_genius_none">Genius nie ma nic o tym utworze.</string>
     <string name="immersive_genius_error">Genius jest teraz niedostępny.</string>
-    <string name="immersive_genius_view">Zobacz w Genius</string>
 </resources>

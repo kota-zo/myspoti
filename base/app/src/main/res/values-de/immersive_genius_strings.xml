@@ -2,5 +2,11 @@
 <resources>
     <string name="immersive_genius_none">Genius hat nichts zu diesem Titel.</string>
     <string name="immersive_genius_error">Genius ist gerade nicht erreichbar.</string>
-    <string name="immersive_genius_view">Auf Genius ansehen</string>
+    <string name="immersive_genius_read">Auf Genius lesen</string>
+    <string name="immersive_genius_note_open">Was Genius zu dieser Zeile sagt</string>
+    <string name="immersive_genius_source">Genius-Anmerkung</string>
+    <plurals name="immersive_genius_upvotes">
+        <item quantity="one">%1$d positive Stimme</item>
+        <item quantity="other">%1$d positive Stimmen</item>
+    </plurals>
 </resources>

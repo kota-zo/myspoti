@@ -74,8 +74,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -115,6 +113,17 @@ import com.music.spotui.ui.viewmodel.LyricsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material3.Icon
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
+import com.music.spotui.ui.immersive.components.immersiveClickable
 
 /**
  * The lyrics of the playing track, inside the player: big tight type, the playing line crisp
@@ -285,7 +294,8 @@ private fun LyricsList(
     val clock = head.clock
 
     // Genius's notes on the lines, read in the background when the song started (App.kt) and kept
-    // by track id; a line it explains is dotted and opens the note on a long press. Tap still seeks.
+    // by track id. A line it explains sits on a soft pill with a small quote mark after its last
+    // word; the mark opens the note, and so does a long press anywhere on the line. Tap still seeks.
     val trackId = SongPlayer.nowPlaying.value.uri.substringAfterLast(':')
     val genTitle = Graph.currentSongState.title.value
     val genArtist = Graph.currentSongState.singer.value
@@ -300,8 +310,11 @@ private fun LyricsList(
     var noteOpen by remember(trackKey) { mutableStateOf<Int?>(null) }
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     noteOpen?.let { n ->
-        com.music.spotui.ui.immersive.sheets.ImmersiveMeaningSheet(trackId, genTitle, genArtist, n) { noteOpen = null }
+        com.music.spotui.ui.immersive.sheets.ImmersiveMeaningSheet(
+            trackId, genTitle, genArtist, n, coverUrl = Graph.currentSongState.coverUri.value,
+        ) { noteOpen = null }
     }
+    val noteMeasurer = rememberTextMeasurer(cacheSize = 16)
 
     val activeRow by remember(rows, isSynced) {
         derivedStateOf { if (!isSynced) -1 else activeRow(rows, clock.longValue) }
@@ -439,7 +452,8 @@ private fun LyricsList(
                 blurOk = blurOk,
                 glowing = blurOk,
                 clock = clock,
-                annotated = index in notes,
+                noteMeasurer = noteMeasurer,
+                onNote = notes[index]?.let { n -> { noteOpen = n } },
                 onHold = notes[index]?.let { n ->
                     {
                         haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
@@ -473,7 +487,9 @@ private fun PanelRow(
     blurOk: Boolean,
     glowing: Boolean,
     clock: MutableLongState,
-    annotated: Boolean,
+    noteMeasurer: TextMeasurer,
+    /** Opens the Genius note on this line; null when Genius has none. */
+    onNote: (() -> Unit)?,
     onHold: (() -> Unit)?,
     onSeek: (Long) -> Unit,
 ) {
@@ -523,6 +539,7 @@ private fun PanelRow(
     } else {
         Immersive.Lyric.copy(fontSize = 26.sp, lineHeight = 33.sp)
     }
+    val lineStyle = remember(style, row.text) { voiceStyle(style, row.text) }
     // The stack sits fractionally back and the playing line comes forward to meet you. Rows
     // behind the one being scrolled to are the ones that fan out; the ones it is moving away
     // from arrive together.
@@ -572,15 +589,24 @@ private fun PanelRow(
         }
         .blur(blur, BlurredEdgeTreatment.Unbounded)
         .clip(RoundedCornerShape(10.dp))
-        .then(if (annotated) Modifier.drawBehind {
-            // Genius explains this line: a faint dotted line under it, quiet beside the singing.
-            val y = size.height - GLOW_ROOM.toPx() + 2.dp.toPx()
-            drawLine(
-                color = Color.White.copy(alpha = 0.22f),
-                start = Offset(GLOW_ROOM.toPx(), y), end = Offset(size.width - GLOW_ROOM.toPx(), y),
-                strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round,
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(0.1f, 5.dp.toPx())),
-            )
+        .then(if (onNote != null) Modifier.drawWithCache {
+            // Genius explains this line: each row of its words sits on a faint pill, as Genius
+            // marks the lines it explains. Drawn behind the words, inside the row, so the sweep
+            // and the glow are untouched and the pill dims and blurs with its line.
+            val text = measureNoteLine(noteMeasurer, row.text, lineStyle, size.width.toInt(), GLOW_ROOM.roundToPx())
+            val room = GLOW_ROOM.toPx()
+            val padH = NOTE_PILL_PAD_H.toPx()
+            val inset = NOTE_PILL_INSET.toPx()
+            val radius = CornerRadius(NOTE_PILL_RADIUS.toPx())
+            val pills = (0 until text.lineCount).mapNotNull { i ->
+                val left = text.getLineLeft(i)
+                val right = text.getLineRight(i)
+                if (right - left < 1f) null
+                else Rect(room + left - padH, room + text.getLineTop(i) + inset, room + right + padH, room + text.getLineBottom(i) - inset)
+            }
+            onDrawBehind {
+                pills.forEach { r -> drawRoundRect(NOTE_PILL_COLOR, r.topLeft, r.size, radius) }
+            }
         } else Modifier)
         .secondaryClick(onHold)
         .combinedClickable(
@@ -590,11 +616,17 @@ private fun PanelRow(
         )
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Column(modifier = shape) {
+        NoteLayout(
+            text = row.text,
+            style = lineStyle,
+            measurer = noteMeasurer,
+            onNote = onNote,
+            modifier = shape,
+        ) {
             PanelVoice(
                 row = row,
                 clock = clock,
-                style = voiceStyle(style, row.text),
+                style = lineStyle,
                 isActive = isActive,
                 sung = sung,
                 synced = synced,
@@ -602,6 +634,114 @@ private fun PanelRow(
                 glowAlpha = glow,
                 room = GLOW_ROOM,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+// ─── Genius notes on the lines ───────────────────────────────────────────────────────────
+
+private val NOTE_PILL_COLOR = Color.White.copy(alpha = 0.09f)
+private val NOTE_PILL_PAD_H = 7.dp
+private val NOTE_PILL_INSET = 3.dp
+private val NOTE_PILL_RADIUS = 12.dp
+/** The quote mark after an explained line, and the gap before it. */
+private val NOTE_MARK_SIZE = 22.dp
+private val NOTE_MARK_GAP = 6.dp
+/** What the finger has to hit to open the note: larger than the mark it shows. */
+private val NOTE_MARK_TOUCH = 40.dp
+
+/**
+ * The line's words laid out as the row lays them out: the row's width less the glow room on
+ * each side, left to right. The measurer keeps the result, so the pills and the mark share it.
+ */
+private fun measureNoteLine(measurer: TextMeasurer, text: String, style: TextStyle, rowWidth: Int, room: Int): TextLayoutResult =
+    measurer.measure(
+        text = text,
+        style = style,
+        constraints = Constraints(maxWidth = (rowWidth - room * 2).coerceAtLeast(0)),
+        layoutDirection = LayoutDirection.Ltr,
+    )
+
+/**
+ * A lyric row, and when Genius explains it ([onNote] set) the small quote mark that opens the
+ * note: just after the last word, centred on that row of text (before it for right-to-left
+ * lines). When the last row of words runs too close to the edge for it, the mark goes on a row of
+ * its own under the words rather than over them, so nothing the singing lights is ever covered.
+ */
+@Composable
+private fun NoteLayout(
+    text: String,
+    style: TextStyle,
+    measurer: TextMeasurer,
+    onNote: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    voice: @Composable () -> Unit,
+) {
+    Layout(
+        modifier = modifier,
+        content = {
+            voice()
+            if (onNote != null) NoteMark(onNote)
+        },
+    ) { measurables, constraints ->
+        val line = measurables[0].measure(constraints)
+        val markMeasurable = measurables.getOrNull(1)
+        if (markMeasurable == null) {
+            return@Layout layout(line.width, line.height) { line.place(0, 0) }
+        }
+        val mark = markMeasurable.measure(Constraints())
+        val room = GLOW_ROOM.roundToPx()
+        val laid = measureNoteLine(measurer, text, style, line.width, room)
+        val last = (laid.lineCount - 1).coerceAtLeast(0)
+        val radius = NOTE_MARK_SIZE.toPx() / 2f
+        val lead = NOTE_PILL_PAD_H.toPx() + NOTE_MARK_GAP.toPx() + radius
+        val rtl = isRtl(text)
+        val inlineX = if (rtl) room + laid.getLineLeft(last) - lead else room + laid.getLineRight(last) + lead
+        val fits = if (rtl) inlineX - radius >= 0f else inlineX + radius <= line.width
+        val centerX: Float
+        val centerY: Float
+        val height: Int
+        if (fits) {
+            centerX = inlineX
+            centerY = room + (laid.getLineTop(last) + laid.getLineBottom(last)) / 2f
+            height = line.height
+        } else {
+            centerX = if (rtl) line.width - room - radius else room + radius
+            centerY = room + laid.size.height + NOTE_MARK_GAP.toPx() + radius
+            height = maxOf(line.height, (centerY + radius + room / 2f).toInt())
+        }
+        layout(line.width, height) {
+            line.place(0, 0)
+            mark.place((centerX - mark.width / 2f).toInt(), (centerY - mark.height / 2f).toInt())
+        }
+    }
+}
+
+/** The quote mark itself: a small frosted disc, with a finger-sized target around it. */
+@Composable
+private fun NoteMark(onOpen: () -> Unit) {
+    val label = stringResource(R.string.immersive_genius_note_open)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(NOTE_MARK_TOUCH)
+            .clip(CircleShape)
+            .immersiveClickable(onClick = onOpen, pressedScale = 0.85f)
+            .semantics { contentDescription = label },
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(NOTE_MARK_SIZE)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.16f)),
+        ) {
+            Icon(
+                Icons.Rounded.FormatQuote,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(15.dp),
             )
         }
     }

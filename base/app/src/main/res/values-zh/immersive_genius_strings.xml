@@ -2,5 +2,4 @@
 <resources>
     <string name="immersive_genius_none">Genius 上没有关于这首歌的内容。</string>
     <string name="immersive_genius_error">目前无法连接到 Genius。</string>
-    <string name="immersive_genius_view">在 Genius 上查看</string>
 </resources>

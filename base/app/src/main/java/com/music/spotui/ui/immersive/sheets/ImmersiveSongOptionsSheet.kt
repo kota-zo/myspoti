@@ -82,7 +82,7 @@ fun ImmersiveSongOptionsSheet(
     var showMeaning by remember { mutableStateOf(false) }
     if (showCredits) { CreditsSheet(song = song, onDismiss = { showCredits = false; onDismiss() }); return }
     if (showMeaning) {
-        ImmersiveMeaningSheet(song.spotifyTrackId, song.title, song.singer, null) { showMeaning = false; onDismiss() }
+        ImmersiveMeaningSheet(song.spotifyTrackId, song.title, song.singer, null, coverUrl = song.coverUri) { showMeaning = false; onDismiss() }
         return
     }
     if (showSpeed) { SpeedSheet(onDismiss = { showSpeed = false; onDismiss() }); return }
