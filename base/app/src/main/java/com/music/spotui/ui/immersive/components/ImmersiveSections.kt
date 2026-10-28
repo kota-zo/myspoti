@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -184,6 +185,8 @@ fun ImmersiveShelfCard(
     round: Boolean = false,
     playing: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    /** Drawn over the cover (a "new episode" dot). */
+    badge: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier.immersiveClickable(onClick = onClick, onLongClick = onLongClick),
@@ -196,6 +199,7 @@ fun ImmersiveShelfCard(
                 if (round) CircleShape else Immersive.CoverMedium,
             )
             if (playing) ImmersivePlayingBars(Modifier.align(Alignment.Center))
+            badge?.invoke(this)
         }
         Spacer(Modifier.height(10.dp))
         Text(

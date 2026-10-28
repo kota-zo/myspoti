@@ -428,17 +428,22 @@ private fun HomeFeedCard(item: HomeItem, onClick: () -> Unit) {
             .padding(6.dp)
             ,
     ) {
-        GlideImage(
-            transition = CrossFade,
-            modifier = Modifier
-                .size(150.dp)
-                .clip(if (isArtist) CircleShape else RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop,
-            model = item.imageUrl,
-            loading = placeholder(R.drawable.placeholder),
-            failure = placeholder(R.drawable.placeholder),
-            contentDescription = "",
-        )
+        Box {
+            GlideImage(
+                transition = CrossFade,
+                modifier = Modifier
+                    .size(150.dp)
+                    .clip(if (isArtist) CircleShape else RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop,
+                model = item.imageUrl,
+                loading = placeholder(R.drawable.placeholder),
+                failure = placeholder(R.drawable.placeholder),
+                contentDescription = "",
+            )
+            if (item is HomeItem.Show && !item.isEpisode) {
+                com.music.spotui.ui.components.NewEpisodeDot(item.id, AppAccent, Modifier.align(Alignment.TopEnd).padding(8.dp))
+            }
+        }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = item.name,

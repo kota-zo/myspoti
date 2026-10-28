@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +48,9 @@ import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.Haptics
 import com.music.spotui.di.SongPlayer
+import com.music.spotui.data.preferences.EpisodeFilter
 import com.music.spotui.ui.components.EpisodeOptionsSheet
+import com.music.spotui.ui.components.episodeFilterLabel
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.components.ImmersiveButton
 import com.music.spotui.ui.immersive.components.ImmersiveCover
@@ -98,7 +101,10 @@ fun ImmersiveShowScreen(navController: NavController, showId: String, showName: 
         vm.updateSongState(song.coverUri, song.title, song.singer, true, song.id, index, song.album)
     }
 
-    val rows = remember(items, oldestFirst) { if (oldestFirst) items.reversed() else items }
+    val filter = vm.filter.value
+    val rows by remember(items, oldestFirst, filter) {
+        derivedStateOf { filter.apply(if (oldestFirst) items.reversed() else items) { vm.isFinished(it) } }
+    }
 
     menuSong?.let { sel ->
         EpisodeOptionsSheet(
@@ -143,27 +149,49 @@ fun ImmersiveShowScreen(navController: NavController, showId: String, showName: 
                         ImmersiveChip(stringResource(R.string.show_tab_about), selected = tab == 1, onClick = { tab = 1 })
                     }
                 }
-                if (tab == 0 && rows.isNotEmpty()) item(key = "sort") {
+                if (tab == 0 && items.isNotEmpty()) item(key = "sort") {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .immersiveClickable(onClick = { oldestFirst = !oldestFirst }, pressedScale = 0.96f)
-                            .padding(horizontal = Immersive.Gutter, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Immersive.Gutter),
                     ) {
-                        Icon(Icons.Rounded.SwapVert, contentDescription = null, tint = Immersive.Accent, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .weight(1f)
+                                .immersiveClickable(onClick = { oldestFirst = !oldestFirst }, pressedScale = 0.96f)
+                                .padding(vertical = 12.dp),
+                        ) {
+                            Icon(Icons.Rounded.SwapVert, contentDescription = null, tint = Immersive.Accent, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(
+                                    when {
+                                        audiobook && oldestFirst -> R.string.show_sort_chapters_oldest
+                                        audiobook -> R.string.show_sort_chapters_newest
+                                        oldestFirst -> R.string.show_sort_oldest
+                                        else -> R.string.show_sort_newest
+                                    },
+                                ),
+                                style = Immersive.Subhead.copy(color = Immersive.Accent, fontWeight = FontWeight.Medium),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Text(
-                            text = stringResource(
-                                when {
-                                    audiobook && oldestFirst -> R.string.show_sort_chapters_oldest
-                                    audiobook -> R.string.show_sort_chapters_newest
-                                    oldestFirst -> R.string.show_sort_oldest
-                                    else -> R.string.show_sort_newest
-                                },
+                            text = stringResource(episodeFilterLabel(filter)),
+                            style = Immersive.Subhead.copy(
+                                color = if (filter == EpisodeFilter.ALL) Immersive.TextSecondary else Immersive.Accent,
+                                fontWeight = FontWeight.Medium,
                             ),
-                            style = Immersive.Subhead.copy(color = Immersive.Accent, fontWeight = FontWeight.Medium),
+                            maxLines = 1,
+                            modifier = Modifier
+                                .immersiveClickable(onClick = { vm.setFilter(showId, filter.next()) }, pressedScale = 0.96f)
+                                .padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
                         )
                     }
+                }
+                if (tab == 0 && items.isNotEmpty() && rows.isEmpty()) item(key = "all-played") {
+                    ImmersiveMessageState(stringResource(R.string.show_filter_all_played))
                 }
                 if (pageState is Response.Loading && page == null) immersiveSongListSkeleton(count = 5, keyPrefix = "skeleton:show", alpha = 0.5f)
                 if (pageState is Response.Error && items.isEmpty()) item(key = "error") {
@@ -178,6 +206,7 @@ fun ImmersiveShowScreen(navController: NavController, showId: String, showName: 
                         episode = ep,
                         playing = np.uri == "spotify:episode:${ep.url.removePrefix("episode:")}" && SongPlayer.isPlaying(),
                         finished = vm.isFinished(ep),
+                        isNew = vm.isNew(ep),
                         onPlay = {
                             val index = items.indexOfFirst { it.url == ep.url }
                             if (index >= 0) playAt(index)

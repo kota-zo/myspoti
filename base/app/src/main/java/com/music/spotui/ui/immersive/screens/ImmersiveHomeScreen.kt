@@ -322,6 +322,9 @@ private fun ShelfSection(navController: NavController, section: HomeSection, pla
                     .pressHint(hint),
                 round = item is HomeItem.Artist,
                 playing = item.isPlayingIn(playingContext.value),
+                badge = if (item is HomeItem.Show && !item.isEpisode) ({
+                    com.music.spotui.ui.components.NewEpisodeDot(item.id, Immersive.Accent, Modifier.align(Alignment.TopEnd).padding(8.dp))
+                }) else null,
             )
         }
     }

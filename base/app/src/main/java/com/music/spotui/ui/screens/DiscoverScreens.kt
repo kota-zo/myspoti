@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -159,13 +160,32 @@ fun NewReleasesScreen(navController: NavController) {
 @Composable
 fun EpisodesScreen(navController: NavController) {
     val episodes by produceState<List<com.music.spotui.data.entity.SongsModel>?>(null) { value = Graph.api.getSavedEpisodes() }
+    var filter by remember { mutableStateOf(com.music.spotui.data.preferences.PodcastPrefs.libraryFilter()) }
     Column(Modifier.fillMaxSize().background(Background).statusBarsPadding()) {
         ScreenHeader(stringResource(R.string.your_episodes_title), navController)
         when (val list = episodes) {
             null -> Loading()
             else -> if (list.isEmpty()) Text(stringResource(R.string.your_episodes_empty), color = Subtle, fontSize = 14.sp, modifier = Modifier.padding(20.dp))
             else LazyColumn(contentPadding = PaddingValues(bottom = com.music.spotui.ui.components.bottomBarsSpace())) {
-                items(list, key = { it.url }) { e ->
+                item(key = "filter") {
+                    Text(
+                        text = stringResource(com.music.spotui.ui.components.episodeFilterLabel(filter)),
+                        color = if (filter == com.music.spotui.data.preferences.EpisodeFilter.ALL) AppText.copy(alpha = 0.8f) else AppAccent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clickable {
+                                filter = filter.next()
+                                com.music.spotui.data.preferences.PodcastPrefs.setLibraryFilter(filter)
+                            }
+                            .padding(16.dp, 12.dp),
+                    )
+                }
+                val shown = filter.apply(list) { it.played }
+                if (shown.isEmpty()) item(key = "all-played") {
+                    Text(stringResource(R.string.show_filter_all_played), color = Subtle, fontSize = 14.sp, modifier = Modifier.padding(20.dp))
+                }
+                items(shown, key = { it.url }) { e ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().clickable {
@@ -178,7 +198,12 @@ fun EpisodesScreen(navController: NavController) {
                         Column(Modifier.padding(start = 12.dp).weight(1f)) {
                             Text(e.title, color = AppText, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(e.singer + " • " + formatMinutes(e.durationMs / 60_000L), color = Subtle, fontSize = 12.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            if (!e.played) {
+                                Spacer(Modifier.height(4.dp))
+                                com.music.spotui.ui.components.EpisodeProgressBar(e.playedPositionMs, e.durationMs, AppAccent, AppText.copy(alpha = 0.15f))
+                            }
                         }
+                        if (e.played) Icon(Icons.Default.Check, contentDescription = stringResource(R.string.episode_marked_played), tint = AppAccent, modifier = Modifier.padding(start = 8.dp).size(18.dp))
                     }
                 }
             }

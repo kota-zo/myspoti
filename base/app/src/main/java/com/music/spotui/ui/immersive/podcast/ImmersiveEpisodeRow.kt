@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -35,6 +36,7 @@ import app.myspoti.engine.R
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.Haptics
 import com.music.spotui.ui.components.EpisodeDownloadButton
+import com.music.spotui.ui.components.EpisodeProgressBar
 import com.music.spotui.ui.components.episodeClock
 import com.music.spotui.ui.components.episodeDateLabel
 import com.music.spotui.ui.components.episodeMinutes
@@ -53,6 +55,7 @@ internal fun ImmersiveEpisodeRow(
     episode: SongsModel,
     playing: Boolean,
     finished: Boolean,
+    isNew: Boolean,
     onPlay: () -> Unit,
     onOpen: () -> Unit,
     onMenu: () -> Unit,
@@ -84,6 +87,18 @@ internal fun ImmersiveEpisodeRow(
                     Spacer(Modifier.height(4.dp))
                     val started = episode.playedPositionMs > 0 && !finished
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isNew) {
+                            Text(
+                                text = stringResource(R.string.episode_new),
+                                style = Immersive.Caption.copy(color = Immersive.Accent, fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                modifier = Modifier.padding(end = 6.dp),
+                            )
+                        }
+                        if (finished) {
+                            Icon(Icons.Rounded.Check, contentDescription = null, tint = Immersive.Accent, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
                         val meta = buildString {
                             if (finished) append(stringResource(R.string.episode_marked_played)).append(" · ")
                             append(if (date.isBlank()) minutes else "$date · $minutes")
@@ -97,6 +112,10 @@ internal fun ImmersiveEpisodeRow(
                                 modifier = Modifier.padding(start = 8.dp),
                             )
                         }
+                    }
+                    if (started) {
+                        Spacer(Modifier.height(6.dp))
+                        EpisodeProgressBar(episode.playedPositionMs, episode.durationMs, Immersive.Accent, Immersive.TextSecondary.copy(alpha = 0.2f))
                     }
                 }
             }

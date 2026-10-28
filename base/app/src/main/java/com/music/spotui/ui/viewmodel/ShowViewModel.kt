@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.music.spotui.data.api.Api
 import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SongsModel
+import com.music.spotui.data.preferences.EpisodeFilter
+import com.music.spotui.data.preferences.PodcastPrefs
 import com.music.spotui.data.entity.ShowPage
 import com.music.spotui.di.CurrentSongState
 import com.music.spotui.di.Graph
@@ -51,11 +53,30 @@ class ShowViewModel constructor(
         currentSongState.updateSongState(coverUri, title, singer, playingState, songId, songIndex, album)
     }
 
+    /**
+     * When the user opened this show before this visit (ms, 0 = never): episodes released after
+     * it carry the "New" mark, which stays for the whole visit.
+     */
+    val previousOpened = mutableStateOf(0L)
+
+    /** The episode filter of this show (remembered per show). */
+    val filter = mutableStateOf(EpisodeFilter.ALL)
+
+    fun setFilter(showId: String, value: EpisodeFilter) {
+        filter.value = value
+        PodcastPrefs.setFilter(showId, value)
+    }
+
+    /** True when [episode] came out since the user last opened the show. */
+    fun isNew(episode: SongsModel): Boolean = !isFinished(episode) && PodcastPrefs.releasedAfter(episode.releaseDate, previousOpened.value)
+
     private var showKey: String? = null
 
     fun loadShow(showId: String) {
         if (showKey == showId) return
         showKey = showId
+        previousOpened.value = PodcastPrefs.lastOpened(showId)
+        filter.value = PodcastPrefs.filter(showId)
         viewModelScope.launch(Dispatchers.IO) {
             repository.provideShowPage(showId).collect { response ->
                 _page.value = response
@@ -63,6 +84,9 @@ class ShowViewModel constructor(
                 if (response is Response.Error) showKey = null
                 val loaded = (response as? Response.Success)?.data ?: return@collect
                 following.value = loaded.show.saved || SongPlayer.library["spotify:show:$showId"] == true
+                if (!loaded.audiobook && loaded.items.isNotEmpty()) {
+                    PodcastPrefs.markOpened(showId, loaded.items.maxOf { it.releaseDate }, following.value)
+                }
             }
         }
         // The page's own "finished" marks are a separate set: read once, then the rows carry
@@ -94,6 +118,7 @@ class ShowViewModel constructor(
 
     fun setFollow(showId: String, on: Boolean) {
         following.value = on
+        PodcastPrefs.setFollowed(showId, on)
         SongPlayer.setSaved("spotify:show:$showId", on)
     }
 }

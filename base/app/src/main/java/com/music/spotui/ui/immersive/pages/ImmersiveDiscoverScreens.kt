@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -115,23 +116,52 @@ fun ImmersiveNewReleasesScreen(navController: NavController) {
 @Composable
 fun ImmersiveEpisodesScreen(navController: NavController) {
     val episodes by produceState<List<com.music.spotui.data.entity.SongsModel>?>(null) { value = Graph.api.getSavedEpisodes() }
+    var filter by remember { mutableStateOf(com.music.spotui.data.preferences.PodcastPrefs.libraryFilter()) }
     ImmersivePage(title = stringResource(R.string.your_episodes_title), onBack = { navController.popBackStack() }) {
         val list = episodes
         when {
             list == null -> immersiveSongListSkeleton(count = 7)
             list.isEmpty() -> item(key = "empty") { ImmersiveMessageState(stringResource(R.string.your_episodes_empty)) }
-            else -> items(list, key = { it.url }) { e ->
+            else -> {
+                item(key = "filter") {
+                    Text(
+                        text = stringResource(com.music.spotui.ui.components.episodeFilterLabel(filter)),
+                        style = Immersive.Subhead.copy(
+                            color = if (filter == com.music.spotui.data.preferences.EpisodeFilter.ALL) Immersive.TextSecondary else Immersive.Accent,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        ),
+                        modifier = Modifier
+                            .immersiveClickable(onClick = {
+                                filter = filter.next()
+                                com.music.spotui.data.preferences.PodcastPrefs.setLibraryFilter(filter)
+                            }, pressedScale = 0.96f)
+                            .padding(horizontal = Immersive.Gutter, vertical = 12.dp),
+                    )
+                }
+                val shown = filter.apply(list) { it.played }
+                if (shown.isEmpty()) item(key = "all-played") { ImmersiveMessageState(stringResource(R.string.show_filter_all_played)) }
+                items(shown, key = { it.url }) { e ->
                 Column(immersiveItemPlacement()) {
                     ImmersiveListRow(
                         title = e.title,
-                        subtitle = e.singer + " • " + episodeMinutesLabel(e.durationMs / 60_000L),
+                        subtitle = e.singer + " • " + episodeMinutesLabel(e.durationMs / 60_000L) +
+                            if (!e.played && e.playedPositionMs > 0) " • " + stringResource(R.string.episode_remaining, com.music.spotui.ui.components.episodeClock(e.durationMs - e.playedPositionMs)) else "",
                         imageUrl = e.coverUri,
                         round = false,
+                        trailing = if (e.played) ({
+                            androidx.compose.material3.Icon(
+                                androidx.compose.material.icons.Icons.Rounded.Check,
+                                contentDescription = stringResource(R.string.episode_marked_played),
+                                tint = Immersive.Accent,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }) else null,
                         onClick = {
                             SongPlayer.registerContext(list.map { it.url }, "spotify:collection:your-episodes")
                             SongPlayer.playSong(e.url)
                         },
                     )
+                }
                 }
             }
         }

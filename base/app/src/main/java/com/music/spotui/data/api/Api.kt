@@ -551,6 +551,12 @@ class Api constructor(
         return runCatching { api.podcasts.savedEpisodes(limit = 100).items.map(::episodeSong) }.getOrDefault(emptyList())
     }
 
+    /** Release date of a show's newest episode (one episode asked for), "" when unknown. */
+    suspend fun latestEpisodeDate(showId: String): String {
+        if (!ready()) return ""
+        return runCatching { api.podcasts.episodes("spotify:show:$showId", 0, 1).items.firstOrNull()?.releaseDate.orEmpty() }.getOrDefault("")
+    }
+
     // ── Radio and categories ──
 
     /** The song radio after [seedTrackIds]' last track: Spotify's own radio playlist. */
