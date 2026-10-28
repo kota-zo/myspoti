@@ -50,6 +50,8 @@ interface Player {
     suspend fun skipTo(item: NowPlaying)
     /** "Play next": before everything already queued. */
     suspend fun playNext(uris: List<Uri>)
+    /** Queues [uris] just before [before], a queued item of [Queue.queued]. */
+    suspend fun insertInQueue(uris: List<Uri>, before: NowPlaying)
     /** Moves [item] just before or after [target], in the same part of the queue. */
     suspend fun moveInQueue(item: NowPlaying, target: NowPlaying, after: Boolean)
 

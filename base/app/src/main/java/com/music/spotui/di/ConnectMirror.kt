@@ -64,6 +64,10 @@ object ConnectMirror {
     private val main = Handler(Looper.getMainLooper())
     private val echo = MirrorRules.Echo(SystemClock::elapsedRealtime)
     private val lock = Mutex()
+    /** The device list's read before a play or a followed move is not waited for longer. */
+    private const val DEVICES_WAIT_MS = 1_500L
+    /** A pull of playback here is not waited for longer (a device that went away can leave it pending). */
+    private const val PULL_WAIT_MS = 5_000L
     /** Bumped when the mirror ends: commands still waiting for the lock are dropped. */
     private var generation = 0
 
@@ -106,6 +110,10 @@ object ConnectMirror {
     private var recoverUntil = 0L
     /** Playback went to another device while mirrored: it comes back through the extensions. */
     private var handedAway = false
+    /** The mirror's first play of this run is still to be sent: playback is pulled here first when elsewhere. */
+    private var firstPlay = false
+    /** The play waiting in [sendPlay] is for a new song of the local player (not a play sent again). */
+    private var newSong = false
     private var driftJob: Job? = null
     /** The end of the last mirror (page heard again, quality back): the next command waits for it. */
     private var ending: Job? = null
@@ -224,6 +232,8 @@ object ConnectMirror {
         if (item.uri == w.uri) lastWeb = s
         if (item.uri == w.uri && !s.isPaused) {
             if (failedUri == w.uri) log("the page plays ${w.uri} again")
+            // On the song now: Spotify's queue is checked against the local one.
+            if (!landed) QueueSync.mirrorLanded()
             landed = true; failedUri = null; backoffStep = 0
         }
         val t = LocalPlayer.current() ?: return
@@ -254,13 +264,13 @@ object ConnectMirror {
             Follow.Pause -> { log("paused on another device"); want = w.copy(paused = true); LocalPlayer.pause() }
             Follow.Resume -> { log("resumed on another device"); want = w.copy(paused = false); LocalPlayer.resume() }
             is Follow.Seek -> { log("moved to ${f.ms} ms on another device"); LocalPlayer.seekTo(f.ms) }
-            Follow.Next -> { log("next on another device"); moved(web, s); LocalPlayer.next() }
-            Follow.Previous -> { log("previous on another device"); moved(web, s); LocalPlayer.previousItem() }
+            Follow.Next -> { moved(web, s); followIfHere(web.uri, "next on another device") { LocalPlayer.next() } }
+            Follow.Previous -> { moved(web, s); followIfHere(web.uri, "previous on another device") { LocalPlayer.previousItem() } }
             Follow.Resend -> if (pendingContext != null) Unit else if (resends++ < MAX_RESENDS) {
                 log("the page is still on ${web.uri}, played earlier by the mirror: ${w.uri} sent again")
                 playNow(w.uri, w.uri)
             } else backOff(w)
-            is Follow.Play -> { log("${f.uri} picked on another device"); moved(web, s); SongPlayer.followRemotePlay(item, s.contextUri, f.positionMs) }
+            is Follow.Play -> { moved(web, s); followIfHere(f.uri, "${f.uri} picked on another device") { SongPlayer.followRemotePlay(item, s.contextUri, f.positionMs) } }
             is Follow.Align -> command(ECHO_MS) { api.player.seek(f.ms) }
             Follow.Back -> if (pendingContext != null) Unit else {
                 log("the page went on to ${web.uri} by itself while ${t.title} is to play again here: put back on ${w.uri}, not followed")
@@ -280,6 +290,38 @@ object ConnectMirror {
     }
 
     /**
+     * Another song on the page, by a remote command: followed only while this phone is still Spotify
+     * Connect's active device. The page shows the active device's playback, and the watcher reports
+     * a takeover a few seconds late: a song another device (or another install of the app) took
+     * playback with is not followed, the local player stops (followed, the mirror's play would be a
+     * remote command to that device, which takes it as its own, and the two fight over it).
+     */
+    private fun followIfHere(uri: String, line: String, follow: () -> Unit) {
+        val gen = generation
+        MyspotiRuntime.scope.launch {
+            val device = activeElsewhere()
+            main.post {
+                if (gen != generation || !running) return@post
+                if (!MirrorRules.followsRemote(device != null)) {
+                    log("$uri plays on $device, which took playback: the local player stops, not followed")
+                    handedAway = true
+                    LocalPlayer.stop()
+                    return@post
+                }
+                log(line)
+                follow()
+            }
+        }
+    }
+
+    /** The name of the device of the account that is Spotify Connect's active one when it is not this page, or null. */
+    private suspend fun activeElsewhere(): String? {
+        if (page.playsElsewhere.value) return api.devices.devices.value.firstOrNull { it.active && !it.local }?.name ?: "another device"
+        kotlinx.coroutines.withTimeoutOrNull(DEVICES_WAIT_MS) { runCatching { api.devices.refresh() } }
+        return api.devices.devices.value.firstOrNull { it.active && !it.local }?.name
+    }
+
+    /**
      * The page would not take [w]'s song (twice): never given up for good. It is paused meanwhile
      * (unheard, at its lowest quality, nothing else plays on the account) and the song is played there
      * again after [MirrorRules.backoffMs], or at the next play, resume or seek of the local player.
@@ -292,7 +334,7 @@ object ConnectMirror {
         // One try each time from now on: a miss goes to the next, longer wait.
         retries = MAX_RETRIES; resends = MAX_RESENDS
         command(ECHO_MS) { api.player.pause() }
-        pendingContext = w.uri
+        pendingContext = w.uri; newSong = false
         main.removeCallbacks(sendPlay); main.postDelayed(sendPlay, delayMs)
     }
 
@@ -303,7 +345,7 @@ object ConnectMirror {
         landed = false; retries = 0; resends = 0; lastWeb = null; gapFrom = null
         recoverUntil = SystemClock.elapsedRealtime() + RECOVER_MS
         // The track alone: the list the page had went with the ad's or the reload's own plays.
-        pendingContext = w.uri
+        pendingContext = w.uri; newSong = false
         echo.sent(PLAY_ECHO_MS)
         main.removeCallbacks(sendPlay); main.postDelayed(sendPlay, START_COALESCE_MS)
     }
@@ -320,6 +362,7 @@ object ConnectMirror {
     private fun start(uri: String, at: Long) {
         if (!running) {
             running = true
+            firstPlay = true
             // An extension's own mirror (playback.mirror) gives way: two would fight over the page.
             com.music.spotui.extensions.Extensions.mirrorReset("Myspoti plays the song on Spotify itself")
             // The page asks Android for the audio focus as it plays: the local player must not yield it.
@@ -333,6 +376,7 @@ object ConnectMirror {
         failedUri = null; backoffStep = 0
         // In the list the local queue came from, as the phone would play it: other devices see that queue after it.
         pendingContext = MirrorRules.playContext(LocalPlayer.contextUri, uri, missedContexts)
+        newSong = true
         log("$uri plays unheard on Spotify from $at ms")
         // A skip right after this one replaces it: one play for a burst of skips (they landed out of order).
         echo.sent(PLAY_ECHO_MS)
@@ -346,12 +390,19 @@ object ConnectMirror {
         // The local player paused or stalled meanwhile: played when it plays (Lead.Resume).
         if (w.paused) return@Runnable
         pendingContext = null
-        playNow(w.uri, context)
+        playNow(w.uri, context, newSong)
+        newSong = false
     }
 
-    /** Plays [uri] (in [context]) on the page from the local position, unheard, noted as the mirror's own play. */
-    private fun playNow(uri: String, context: String) {
+    /**
+     * Plays [uri] (in [context]) on the page from the local position, unheard, noted as the mirror's own play.
+     * [newSong]: the local player's new song, which may be queued on Spotify (see [QueueSyncRules.way]).
+     * The run's first play pulls playback here first when another device has it ([QueueSyncRules.pullsHere]).
+     */
+    private fun playNow(uri: String, context: String, newSong: Boolean = false) {
         val at = LocalPlayer.position()
+        val first = firstPlay
+        firstPlay = false
         val now = SystemClock.elapsedRealtime()
         recentPlays.addLast(uri to now)
         while (recentPlays.size > MAX_RECENT) recentPlays.removeFirst()
@@ -363,8 +414,31 @@ object ConnectMirror {
             // Before the play: the page picks the song's file with the quality it has then.
             page.setMirroring(true)
             if (!api.player.localMute) api.player.setLocalMute(true)
+            val device = if (first) activeElsewhere() else null
+            if (QueueSyncRules.pullsHere(first, elsewhere = device != null)) {
+                log("$device has playback: pulled here before the page plays")
+                val pulled = kotlinx.coroutines.withTimeoutOrNull(PULL_WAIT_MS) { runCatching { api.devices.pullHere() } }
+                if (pulled?.isSuccess != true) log("pull here failed: ${pulled?.exceptionOrNull()?.message ?: "no answer"}")
+            }
             // Ended meanwhile: no play that would be heard next to the local player.
-            if (live()) api.player.play(context, trackUri = uri.takeIf { it != context }, positionMs = at)
+            if (!live()) return@command
+            val s = page.state.value
+            val queued = api.player.queue.value?.queued.orEmpty()
+            val way = if (newSong) QueueSyncRules.way(uri, s?.item?.uri, s?.isPaused == false, queued.map { it.uri }) else QueueSyncRules.Way.Play
+            when (way) {
+                QueueSyncRules.Way.Already -> {
+                    log("the page plays $uri already (gone on to its queued copy): kept in step")
+                    val web = s?.positionAt(System.currentTimeMillis()) ?: at
+                    if (kotlin.math.abs(web - at) > MirrorRules.DRIFT_MS) api.player.seek(at)
+                }
+                is QueueSyncRules.Way.Skip -> {
+                    log("$uri played from Spotify's queue")
+                    api.player.skipTo(queued[way.index])
+                    QueueSync.consumed(uri)
+                    if (at > MirrorRules.DRIFT_MS) api.player.seek(at)
+                }
+                QueueSyncRules.Way.Play -> api.player.play(context, trackUri = uri.takeIf { it != context }, positionMs = at)
+            }
         }
     }
 
@@ -407,6 +481,9 @@ object ConnectMirror {
 
     /** Waits until the last mirror's end reached the page (see [stop]). */
     suspend fun awaitEnded() { ending?.join() }
+
+    /** The page plays [uri] for the mirror (it landed there). */
+    fun landedOn(uri: String): Boolean = running && landed && want?.uri == uri
 
     /** Playback was handed to another device and has not come back to play here yet (see [onEngine]). */
     val waitsBack: Boolean get() = handedAway
@@ -451,7 +528,20 @@ object ConnectMirror {
         if (!playingHere) return
         val back = MirrorRules.backHere(playingHere, handedAway, moved, intended, ConnectMirrorPref.on)
         handedAway = false
-        if (back) SongPlayer.backThroughExtensions()
+        if (!back) return
+        // Checked against the device list: the page shows the active device's song as playing, and
+        // the watcher reports another device's takeover a few seconds late.
+        MyspotiRuntime.scope.launch {
+            val device = activeElsewhere()
+            main.post {
+                if (MirrorRules.backHere(playingHere, true, moved, intended, ConnectMirrorPref.on, activeElsewhere = device != null)) SongPlayer.backThroughExtensions()
+                else if (device != null) {
+                    // Still away: its next state here (a real transfer back) is judged again.
+                    handedAway = true
+                    log("playback plays on $device, not on this phone: not taken back")
+                }
+            }
+        }
     }
 
     /** The local player as it is now, judged as a state of it. */

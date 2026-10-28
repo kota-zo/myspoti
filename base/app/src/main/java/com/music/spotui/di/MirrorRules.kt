@@ -173,10 +173,16 @@ object MirrorRules {
      * Whether a song the engine plays heard on this phone goes back to the extensions (and so to the
      * mirror): Connect playback came back here after the mirror had handed it away ([handedAway]), or
      * another device moved the engine here (a resume, a skip, a pick: [moved]) without Myspoti having
-     * asked for it ([intended]). Only while it plays here ([playingHere]) with the setting [on].
+     * asked for it ([intended]). Only while it plays here ([playingHere]) with the setting [on], and
+     * never while the device list says another device is the active one ([activeElsewhere]): the
+     * page then shows that device's song as playing (another install of the app that resumed it),
+     * and taking it back would start a fight between the two.
      */
-    fun backHere(playingHere: Boolean, handedAway: Boolean, moved: Boolean, intended: Boolean, on: Boolean): Boolean =
-        on && playingHere && !intended && (handedAway || moved)
+    fun backHere(playingHere: Boolean, handedAway: Boolean, moved: Boolean, intended: Boolean, on: Boolean, activeElsewhere: Boolean = false): Boolean =
+        on && playingHere && !intended && (handedAway || moved) && !activeElsewhere
+
+    /** A remote move of the page (next, previous, a pick) is followed only while no other device is the active one. */
+    fun followsRemote(activeElsewhere: Boolean): Boolean = !activeElsewhere
 
     /** How long a page ready again is given for its device to join Spotify Connect before it is commanded anyway. */
     const val JOIN_WAIT_MS = 8_000L

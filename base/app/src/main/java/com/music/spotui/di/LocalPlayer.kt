@@ -243,8 +243,11 @@ object LocalPlayer {
         }
         SongPlayer.pauseEngineForLocal()
         forgetRadio(); this.continues = continues
-        tracks.clear(); tracks.addAll(list); unshuffled = null
+        // Spotify's queued songs (the account's: maybe queued on another device or install) play first.
+        val (all, fromSpotify) = QueueSync.withSpotifyQueue(list, index.coerceIn(0, list.lastIndex))
+        tracks.clear(); tracks.addAll(all); unshuffled = null
         queued.clear(); playingQueued = null; radioSongs.clear()
+        queued += fromSpotify
         listName = context ?: Graph.app.getString(app.myspoti.engine.R.string.local_files_title)
         listUri = contextUri
         active.value = true
@@ -255,7 +258,7 @@ object LocalPlayer {
         replaying = null
         repeat = SongPlayer.repeatMode.value
         applyRepeat(p)
-        p.setMediaItems(list.map(::item), index.coerceIn(0, list.lastIndex), startMs.coerceAtLeast(0L))
+        p.setMediaItems(all.map(::item), index.coerceIn(0, list.lastIndex), startMs.coerceAtLeast(0L))
         p.prepare()
         if (shuffle) setShuffle(true)
         p.play()
@@ -476,6 +479,13 @@ object LocalPlayer {
 
     /** How many of [upcoming] the user queued (they come first). */
     fun queuedCount(): Int = exo?.let { LocalQueueOrder.queuedAfter(tracks, it.currentMediaItemIndex, isQueued) } ?: 0
+
+    /** The Spotify uris of the queued songs after the current one, in order (a device file has none: left out). */
+    fun queuedUris(): List<String> {
+        val i = exo?.currentMediaItemIndex ?: return emptyList()
+        val from = (i + 1).coerceAtMost(tracks.size)
+        return tracks.subList(from, (from + queuedCount()).coerceAtMost(tracks.size)).map(::spotifyId).filter { it.isNotBlank() }.map { "spotify:track:$it" }
+    }
 
     /** The current song is one the user queued ("Playing from the queue"). */
     fun fromQueue(): Boolean = playingQueued?.let { it === current() } == true
@@ -893,5 +903,6 @@ object LocalPlayer {
         if (CastPlayback.active) CastPlayback.follow(t, exo?.currentPosition ?: 0L)
         SongPlayer.onLocalState(t, playWhenReady(), position(), duration())
         SongPlayer.onLocalQueue(t, upcoming(), queuedCount())
+        QueueSync.localChanged(queuedUris())
     }
 }

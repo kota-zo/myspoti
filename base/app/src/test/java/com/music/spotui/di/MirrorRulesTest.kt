@@ -278,4 +278,14 @@ class MirrorRulesTest {
         assertFalse(MirrorRules.pageUsable(ready = true, ad = true, joined = true, joinReported = true, waitedOut = true))
         assertFalse(MirrorRules.pageUsable(ready = false, ad = false, joined = true, joinReported = true, waitedOut = true))
     }
+
+    @Test fun `another install of the app that resumed playback is not fought over`() {
+        // The page shows the other device's song as playing: the device list says it is not this phone.
+        assertFalse(MirrorRules.backHere(playingHere = true, handedAway = false, moved = true, intended = false, on = true, activeElsewhere = true))
+        assertFalse(MirrorRules.backHere(playingHere = true, handedAway = true, moved = false, intended = false, on = true, activeElsewhere = true))
+        assertTrue(MirrorRules.backHere(playingHere = true, handedAway = true, moved = false, intended = false, on = true, activeElsewhere = false))
+        // A remote next, previous or pick is followed only while this phone has playback.
+        assertTrue(MirrorRules.followsRemote(activeElsewhere = false))
+        assertFalse(MirrorRules.followsRemote(activeElsewhere = true))
+    }
 }

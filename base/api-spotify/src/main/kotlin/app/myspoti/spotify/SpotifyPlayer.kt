@@ -1764,9 +1764,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
     override suspend fun playNext(uris: List<Uri>) {
         val first = _queue.value?.queued?.firstOrNull()
         if (first == null) { addToQueue(uris); return }
+        insertInQueue(uris, first)
+    }
+
+    override suspend fun insertInQueue(uris: List<Uri>, before: NowPlaying) {
         bridge.call("queue.insert", buildJsonObject {
             putJsonArray("uris") { uris.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
-            put("before", ref(first))
+            put("before", ref(before))
         })
     }
 

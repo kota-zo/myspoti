@@ -455,7 +455,7 @@ object SongPlayer {
     private fun songIdFor(trackId: String, fallback: String) =
         (if (trackId.isNotBlank()) "track:$trackId" else "uri:$fallback").hashCode() and 0x7fffffff
 
-    private fun songOf(n: app.myspoti.api.NowPlaying): SongsModel {
+    internal fun songOf(n: app.myspoti.api.NowPlaying): SongsModel {
         val id = trackIdOf(n.uri)
         val artists = n.artists.joinToString(", ") { it.name }
         return SongsModel(
