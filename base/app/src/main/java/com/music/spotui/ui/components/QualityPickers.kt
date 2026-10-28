@@ -22,6 +22,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -153,6 +154,9 @@ object DownloadAsk {
 
 @Composable
 fun DownloadAskHost() {
+    // A download extension was installed meanwhile: the pointer to the store has done its job.
+    val hasSource = com.music.spotui.extensions.Extensions.hasDownloadSource()
+    LaunchedEffect(hasSource) { if (hasSource) DownloadAsk.needSource = false }
     if (DownloadAsk.needSource) NeedSourceDialog()
     val action = DownloadAsk.pending ?: return
     val choices = listOf(

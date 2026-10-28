@@ -252,7 +252,7 @@ object ExtensionUpdates {
                 Result.WAITING
             }
             UpdateGate.Decision.Apply -> {
-                val plan = InstallPlan.of(m, e, accepted.toManifest()) as? InstallPlan.Update ?: return Result.UP_TO_DATE
+                val plan = updatePlan(m, e, accepted.toManifest()) ?: return Result.UP_TO_DATE
                 Extensions.install(f.zip, f.pkg, Grants.replacing(m, plan.refused), e.source, origin = f.origin, accepted = false)
                 val pinned = accepted.copy(scriptSha = next.scriptSha ?: accepted.scriptSha)
                 Extensions.update { r -> r.find(id)?.let { r.put(it.copy(accepted = pinned, pendingUpdate = null, updateBlocked = null, seenSha = null, seenAt = 0)) } ?: r }
@@ -268,6 +268,19 @@ object ExtensionUpdates {
         }
     }
 
+    /**
+     * [m] as an update of [e]: a newer version code, or (a branch can change under the same version
+     * code) the same one with other code. [InstallPlan.of] calls the latter [InstallPlan.NotNewer],
+     * which left Accept doing nothing on a same-version code update.
+     */
+    private fun updatePlan(m: Manifest, e: InstalledExtension, installed: Manifest?): InstallPlan.Update? =
+        when (val plan = InstallPlan.of(m, e, installed)) {
+            is InstallPlan.Update -> plan
+            is InstallPlan.NotNewer -> if (m.versionCode == e.versionCode)
+                (InstallPlan.of(m, e.copy(versionCode = e.versionCode - 1), installed) as? InstallPlan.Update)?.copy(from = e) else null
+            is InstallPlan.Fresh -> null
+        }
+
     /** The staged update of [id], read and checked against what was staged. */
     private fun staged(id: String): ExtensionPackage? {
         val e = Extensions.registry.value.find(id) ?: return null
@@ -276,28 +289,52 @@ object ExtensionUpdates {
         return runCatching { ExtensionPackage.read(bytes) }.getOrNull()?.takeIf { it.sha256 == p.kept.sha256 }
     }
 
+    /** Ids whose Accept runs: a second tap meanwhile does nothing. */
+    private val accepting = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     /**
      * The user read the card and accepted: the staged version is installed with all it lists
      * granted (but the actions unticked before, still waiting on their own card), and becomes the
-     * accepted snapshot.
+     * accepted snapshot. Each outcome goes to the extension's log and the Logbook.
      */
     suspend fun accept(id: String) = withContext(Dispatchers.IO) {
-        val e = Extensions.registry.value.find(id) ?: return@withContext
-        e.updateBlocked?.let { throw ExtensionException("update refused: the repository changed owner") }
-        val p = staged(id) ?: run { Extensions.update { r -> r.put(e.copy(pendingUpdate = null)) }; throw ExtensionException("the update is no longer on the phone: check again") }
-        val accepted = e.accepted?.toManifest() ?: Extensions.manifest(id)
-        val plan = InstallPlan.of(p.manifest, e, accepted) as? InstallPlan.Update ?: return@withContext
-        val grant = Grants.replacing(p.manifest, plan.refused)
-        val zip = File(Extensions.dir, "$id/staging.zip").readBytes()
-        Extensions.install(zip, p, grant, e.source, clashes = Extensions.clashes(p.manifest), origin = e.pendingUpdate?.kept?.origin, accepted = true)
-        Extensions.update { r -> r.find(id)?.let { r.put(it.copy(pendingUpdate = null)) } ?: r }
+        if (!accepting.add(id)) return@withContext Logbook.log("ext $id: update Accept ignored: already running")
+        try {
+            val e = Extensions.registry.value.find(id) ?: return@withContext Logbook.log("ext $id: update Accept: not installed")
+            val wanted = e.pendingUpdate?.kept?.version
+            e.updateBlocked?.let {
+                Extensions.log(id, "update to $wanted not accepted: the repository changed owner ($it)")
+                throw ExtensionException("update refused: the repository changed owner")
+            }
+            val p = staged(id) ?: run {
+                Extensions.update { r -> r.find(id)?.let { r.put(it.copy(pendingUpdate = null)) } ?: r }
+                Extensions.log(id, "update to $wanted not accepted: the staged package is missing or changed")
+                throw ExtensionException("the update is no longer on the phone: check again")
+            }
+            val accepted = e.accepted?.toManifest() ?: Extensions.manifest(id)
+            val plan = updatePlan(p.manifest, e, accepted) ?: run {
+                Extensions.update { r -> r.find(id)?.let { r.put(it.copy(pendingUpdate = null)) } ?: r }
+                File(Extensions.dir, "$id/staging.zip").delete()
+                Extensions.log(id, "update to ${p.manifest.version} (${p.manifest.versionCode}) not accepted: not newer than ${e.version} (${e.versionCode})")
+                throw ExtensionException("this version is not newer than the one installed: check again")
+            }
+            val grant = Grants.replacing(p.manifest, plan.refused)
+            val zip = File(Extensions.dir, "$id/staging.zip").readBytes()
+            runCatching {
+                Extensions.install(zip, p, grant, e.source, clashes = Extensions.clashes(p.manifest), origin = e.pendingUpdate?.kept?.origin, accepted = true)
+            }.onFailure { Extensions.log(id, "update to ${p.manifest.version} accepted but failed: ${it.message ?: it}") }.getOrThrow()
+            Extensions.update { r -> r.find(id)?.let { r.put(it.copy(pendingUpdate = null)) } ?: r }
+            Extensions.log(id, "update to ${p.manifest.version} accepted and installed")
+        } finally {
+            accepting.remove(id)
+        }
     }
 
     /** "Keep current": the staged version is dropped and not offered again (a newer one will be). */
     fun keepCurrent(id: String) {
         val e = Extensions.registry.value.find(id) ?: return
         File(Extensions.dir, "$id/staging.zip").delete()
-        Extensions.update { r -> r.put(e.copy(pendingUpdate = null, declinedVersionCode = e.pendingUpdate?.kept?.versionCode ?: e.declinedVersionCode, declinedSha = e.pendingUpdate?.kept?.sha256 ?: e.declinedSha)) }
+        Extensions.update { r -> r.find(id)?.let { r.put(it.copy(pendingUpdate = null, declinedVersionCode = e.pendingUpdate?.kept?.versionCode ?: it.declinedVersionCode, declinedSha = e.pendingUpdate?.kept?.sha256 ?: it.declinedSha)) } ?: r }
         Extensions.log(id, "kept ${e.version}: ${e.pendingUpdate?.kept?.version} declined")
     }
 

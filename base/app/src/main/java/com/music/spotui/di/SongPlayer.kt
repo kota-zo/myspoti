@@ -1075,6 +1075,28 @@ object SongPlayer {
     /** How long before its end the last song is played by Spotify, so its autoplay goes on at once. */
     private const val END_LEAD_MS = 1_000L
 
+    /**
+     * The audio-source extensions changed (one installed, turned on, updated or removed, or the
+     * order of the sources): [added] gives audio now and did not, [any]: one gives audio. The songs
+     * they had nothing for this session are asked again; the answers kept for the songs to come are
+     * dropped (asked again in the new order). The local queue asks again for its next song, and the
+     * song it stopped on for want of a source; with a new source while Spotify plays, the song after
+     * the one playing goes to the extensions (as after a fallback), asked ahead. On the main thread.
+     */
+    fun audioSourcesChanged(added: List<String>, any: Boolean) {
+        spotifyPlayed.clear()
+        if (!any) return
+        val local = LocalPlayer.active.value
+        com.music.spotui.extensions.ExtensionAudio.forgetAllBut(if (local) LocalPlayer.current()?.let(LocalPlayer::spotifyIdOf) else null)
+        if (local) { LocalPlayer.sourcesChanged(); return }
+        if (added.isEmpty() || _activeDevice.value != null || routing || com.music.spotui.data.DataSaver.active) return
+        val id = trackIdOf(_nowPlaying.value.uri).ifBlank { return }
+        spotifyFallbackId = id
+        val next = _queue.value.let { it.queued + it.nextUp }.map { it.song }.firstOrNull { it.spotifyTrackId.isNotBlank() && it.spotifyTrackId != id }
+        app.myspoti.host.android.Logbook.log("audio: ${added.joinToString()} gives audio now: the song after $id goes to the extensions${next?.let { ", ${it.title} asked ahead" } ?: ""}")
+        if (next != null) scope.launch { runCatching { com.music.spotui.extensions.ExtensionAudio.warm(listOf(next)) } }
+    }
+
     /** The songs the extensions had nothing for this session: a resume of one goes straight to Spotify. */
     private val spotifyPlayed = java.util.Collections.synchronizedSet(HashSet<String>())
 
@@ -1589,6 +1611,9 @@ object SongPlayer {
     // before it took the tap flipped the button back, and the two screens then disagreed; the
     // value asked for holds until the page reports it (or for SHUFFLE_HOLD_MS).
     @Volatile private var shuffleWanted = false
+    /** The repeat mode last tapped, held against the page's older reports like [shuffleWanted]. */
+    @Volatile private var repeatWanted = 0
+    @Volatile private var repeatWantedUntil = 0L
     @Volatile private var shuffleWantedUntil = 0L
     private const val SHUFFLE_HOLD_MS = 2_500L
 
@@ -1602,6 +1627,8 @@ object SongPlayer {
         if (LocalPlayer.active.value) { _repeatMode.value = mode; LocalPlayer.setRepeatMode(mode); return }
         Haptics.toggle(mode != 0)
         _repeatMode.value = mode
+        repeatWanted = mode
+        repeatWantedUntil = SystemClock.elapsedRealtime() + SHUFFLE_HOLD_MS
         boundState?.repeat?.value = mode != 0
         lastTrackPrefs().edit().putInt("repeat", mode.coerceIn(0, 2)).apply()
         command { api.player.setRepeat(Repeat.entries[mode.coerceIn(0, 2)]) }
@@ -1611,9 +1638,6 @@ object SongPlayer {
      * Reported: the repeat button forgets what it was. The mode is the user's choice, kept from
      * one run of the app to the next (the page always starts with repeat off): shown at once and
      * set again on the first song the page reports.
-    /** The repeat mode last tapped, held against the page's older reports like [shuffleWanted]. */
-    @Volatile private var repeatWanted = 0
-    @Volatile private var repeatWantedUntil = 0L
      */
     private fun restoreRepeat(state: CurrentSongState) {
         val p = lastTrackPrefs()
@@ -1627,8 +1651,6 @@ object SongPlayer {
     fun cycleRepeat() = setRepeatMode((_repeatMode.value + 1) % 3)
 
     /** Podcast playback speed (Spotify refuses it on music). */
-        repeatWanted = mode
-        repeatWantedUntil = SystemClock.elapsedRealtime() + SHUFFLE_HOLD_MS
     fun setSpeed(speed: Double) {
         _speed.value = speed
         command { api.player.setSpeed(speed) }

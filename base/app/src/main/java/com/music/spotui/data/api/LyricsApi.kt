@@ -89,6 +89,20 @@ object LyricsApi {
     /** A setting changed what is looked for: every song is read again when next shown. */
     fun forgetAll() { cache.clear(); scope.launch { LyricsDisk.clear() } }
 
+    /** Bumped when the lyrics extensions changed and the cache was dropped: an open lyrics view reads its song again. */
+    val sourcesTick = kotlinx.coroutines.flow.MutableStateFlow(0L)
+
+    /**
+     * The lyrics extensions changed (one installed, turned on or off, updated, removed): the songs
+     * not found are asked again, and, but for [keepFound] (the ones on at launch just loaded), the
+     * lyrics found too, from memory and storage, so the new set of sources answers. Off the main thread.
+     */
+    fun sourcesChanged(keepFound: Boolean) {
+        if (keepFound) synchronized(cache) { cache.values.removeAll { it is Miss } }
+        else { cache.clear(); LyricsDisk.clear() }
+        sourcesTick.value++
+    }
+
     suspend fun fetch(track: Track): Lyrics? {
         when (val c = cache[track.key]) {
             is Lyrics -> return c

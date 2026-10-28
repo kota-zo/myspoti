@@ -195,6 +195,22 @@ object LocalPlayer {
 
     private const val AHEAD_DELAY_MS = 10_000L
 
+    /**
+     * The audio-source extensions changed (see SongPlayer.audioSourcesChanged): the next song is
+     * asked again ahead, and a song the queue stopped on for want of a source is tried again.
+     */
+    fun sourcesChanged() {
+        val p = exo ?: return
+        if (CastPlayback.active) return
+        errors.played()
+        val item = p.currentMediaItem?.localConfiguration?.uri
+        if (p.playerError != null && item?.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) {
+            log("${current()?.title}: the audio sources changed, asked again")
+            p.prepare(); p.play()
+        }
+        prefetchNext(p)
+    }
+
     /** The most a song's start read ahead is kept (less when its address expires sooner). */
     private const val HEAD_KEEP_MS = 10 * 60_000L
 

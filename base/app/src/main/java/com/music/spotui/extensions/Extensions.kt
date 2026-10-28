@@ -116,6 +116,23 @@ object Extensions {
     /** Bumped when an extension's log gets a line, so an open log view reads it again. */
     val logTick = MutableStateFlow(0L)
 
+    /**
+     * The running extensions giving songs' audio, download files and lyrics, in the order they are
+     * asked; [ready]: the ones on at launch have all been started. [refreshProvided] keeps it in step
+     * when one loads or stops (installed, updated, turned on or off, removed), its status changes or
+     * the user's order changes; what depends on it (the player's routing, downloads, lyrics) reacts
+     * at once, without a restart ([providersChanged]).
+     */
+    data class Provided(
+        val audio: List<String> = emptyList(), val download: List<String> = emptyList(),
+        val lyrics: List<String> = emptyList(), val ready: Boolean = false,
+    )
+    private val _provided = MutableStateFlow(Provided())
+    val provided: StateFlow<Provided> = _provided.asStateFlow()
+    /** The same, read by [hasAudioSource], [hasDownloadSource] and [hasLyrics]: a screen calling them is drawn again when it changes. */
+    private val providedState = androidx.compose.runtime.mutableStateOf(Provided())
+    private val providedLock = Any()
+
     private val runtimes = ConcurrentHashMap<String, ExtensionRuntime>()
     internal val packages = ConcurrentHashMap<String, ExtensionPackage>()
     private val stores = ConcurrentHashMap<String, FileStore>()
@@ -144,6 +161,7 @@ object Extensions {
             // One after the other, their sources asked only once all are loaded: a cold start is busy enough.
             _registry.value.extensions.filter { it.enabled }.forEach { start(it, probe = false) }
             started.complete(Unit)
+            refreshProvided()
             probeAll()
             ExtensionUpdates.daily()
         }
@@ -151,6 +169,48 @@ object Extensions {
         watchPlayback()
         watchNetwork()
         watchStatus()
+        watchProvided()
+    }
+
+    /**
+     * Reads again which extensions give audio, downloads and lyrics; when that changed, the songs
+     * none had lately are asked again, and [providersChanged] runs.
+     */
+    private fun refreshProvided() {
+        if (!isReady) return
+        synchronized(providedLock) {
+            val now = Provided(
+                providing(Hook.AUDIO_SOURCE).map { it.first }, providing(Hook.DOWNLOAD_SOURCE).map { it.first },
+                providing(Hook.LYRICS).map { it.first }, started.isCompleted,
+            )
+            if (now == _provided.value) return
+            if (now.audio != _provided.value.audio || now.download != _provided.value.download) misses.clear()
+            _provided.value = now
+            providedState.value = now
+        }
+    }
+
+    private fun watchProvided() = scope.launch {
+        var before = Provided()
+        _provided.collect { now -> if (now != before) { val was = before; before = now; providersChanged(was, now) } }
+    }
+
+    /**
+     * What depends on which extensions give what, brought in step at once: the player (the song
+     * playing and the ones after it), the lyrics cache, the downloads waiting for a source. Not at
+     * launch (the extensions on before load then, nothing was asked of them yet) but for the misses.
+     */
+    private fun providersChanged(before: Provided, now: Provided) {
+        Logbook.log("ext: sources now: audio ${now.audio.ifEmpty { "none" }}, downloads ${now.download.ifEmpty { "none" }}, lyrics ${now.lyrics.ifEmpty { "none" }}")
+        if (now.audio != before.audio && before.ready) {
+            val added = now.audio.filter { it !in before.audio }
+            main.post { runCatching { com.music.spotui.di.SongPlayer.audioSourcesChanged(added, now.audio.isNotEmpty()) }
+                .onFailure { Logbook.log("audio: sources changed, player not updated: $it") } }
+        }
+        if (now.lyrics != before.lyrics) com.music.spotui.data.api.LyricsApi.sourcesChanged(keepFound = !before.ready)
+        // Lists kept downloaded skipped their songs for want of a source: synced now.
+        if (before.ready && before.download.isEmpty() && now.download.isNotEmpty())
+            com.music.spotui.data.offline.OfflineCollections.refreshAll(ctx, force = true)
     }
 
     // ── Writes allowed for good ──
@@ -566,13 +626,13 @@ object Extensions {
     /** The extensions that have a page (webview.page granted). */
     fun hasPage(id: String): Boolean = runtimes[id]?.provides(Hook.PAGE) == true
 
-    fun hasLyrics(): Boolean = isReady && providing(Hook.LYRICS).isNotEmpty()
+    fun hasLyrics(): Boolean { providedState.value; return isReady && providing(Hook.LYRICS).isNotEmpty() }
 
     /**
      * An audio-source extension is asked for songs: one runs and is not inactive, or one that is on
      * is still being started at launch (the song then waits for it, see [audio]).
      */
-    fun hasAudioSource(): Boolean = isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource())
+    fun hasAudioSource(): Boolean { providedState.value; return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource()) }
 
     /** The app is still starting the extensions on at launch, an audio source among them. */
     private fun startingAudioSource(): Boolean =
@@ -595,7 +655,7 @@ object Extensions {
     fun statusOf(id: String): app.myspoti.extensions.ExtensionStatus? = health.last(id)
 
     /** An enabled extension gives songs' download files (without one, downloads say to install one). */
-    fun hasDownloadSource(): Boolean = isReady && providing(Hook.DOWNLOAD_SOURCE).isNotEmpty()
+    fun hasDownloadSource(): Boolean { providedState.value; return isReady && providing(Hook.DOWNLOAD_SOURCE).isNotEmpty() }
 
     /**
      * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
@@ -757,6 +817,7 @@ object Extensions {
         val ms = System.currentTimeMillis() - t0
         val changed = health.record(id, s)
         if (changed && s.live) misses.clear()
+        if (changed) refreshProvided()
         if (changed) log(id, when (s.state) {
             "live" -> "status: live${s.detail?.let { " ($it)" } ?: ""} in $ms ms"
             "inactive" -> "status: inactive: ${s.detail ?: "no detail"} in $ms ms"
@@ -1038,6 +1099,7 @@ object Extensions {
             runtimes[e.id] = rt
             runningSha[e.id] = e.sha256
             misses.clear()
+            refreshProvided()
             log(e.id, "loaded ${p.manifest.version} (granted: ${e.granted.sorted().joinToString().ifBlank { "nothing" }})")
             if (onlineMarker(e.id).exists() && isOnline()) deliverOnline(e.id)
             if (probe) scope.launch { probe(e.id, rt) }
@@ -1053,6 +1115,7 @@ object Extensions {
         runtimes.remove(id)?.close(); ExtensionAuth.cancel(id)
         health.forget(id); _statuses.value = health.inactiveNow()
         misses.clear()
+        refreshProvided()
     }
 
     /** Delivers a sign-in page's outcome to [id] ([ExtensionAuth]). */
@@ -1083,10 +1146,14 @@ object Extensions {
     private fun setError(id: String, message: String) { _errors.value = _errors.value + (id to message) }
     private fun clearError(id: String) { _errors.value = _errors.value - id }
 
-    internal fun update(change: (Registry) -> Registry) = synchronized(lock) {
-        val r = change(_registry.value)
-        _registry.value = r
-        runCatching { Registry.write(File(dir, "registry.json"), r) }.onFailure { Logbook.log("ext: registry not saved: ${it.message}") }
+    internal fun update(change: (Registry) -> Registry) {
+        synchronized(lock) {
+            val r = change(_registry.value)
+            _registry.value = r
+            runCatching { Registry.write(File(dir, "registry.json"), r) }.onFailure { Logbook.log("ext: registry not saved: ${it.message}") }
+        }
+        // Turned on or off, the order of the sources, the active one: who gives what may have changed.
+        refreshProvided()
     }
 
     fun log(id: String, message: String) {
