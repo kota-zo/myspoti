@@ -209,8 +209,9 @@ object ConnectMirror {
         }
         val t = LocalPlayer.current() ?: return
         val (previousId, nextId) = LocalPlayer.neighbourIds()
+        // The end the local player really knows (its audio's), not Spotify's length: unknown, it is never near.
         val local = MirrorRules.Local(
-            SPOTIFY_TRACK_PREFIX + LocalPlayer.spotifyIdOf(t), LocalPlayer.playWhenReady(), LocalPlayer.position(), LocalPlayer.duration(),
+            SPOTIFY_TRACK_PREFIX + LocalPlayer.spotifyIdOf(t), LocalPlayer.playWhenReady(), LocalPlayer.position(), LocalPlayer.knownLength() ?: 0L,
             nextUri = nextId.takeIf { it.isNotBlank() }?.let { SPOTIFY_TRACK_PREFIX + it },
             previousUri = previousId.takeIf { it.isNotBlank() }?.let { SPOTIFY_TRACK_PREFIX + it },
         )
@@ -219,7 +220,8 @@ object ConnectMirror {
         if (quiet) { main.removeCallbacks(recheck); main.postDelayed(recheck, echo.remainingMs() + RECHECK_SLACK_MS) }
         // Recovering from an ad or a reload: a song other than the asked one is the player's own play, sent back.
         val sure = landed && SystemClock.elapsedRealtime() >= recoverUntil
-        when (val f = MirrorRules.onWeb(web, w, local, quiet, sure, predicted, previousUri, gap, wantAt, wantLength, recentUris())) {
+        val repeats = LocalPlayer.repeatsCurrent()
+        when (val f = MirrorRules.onWeb(web, w, local, quiet, sure, predicted, previousUri, gap, wantAt, wantLength, recentUris(), repeats)) {
             Follow.Nothing -> {}
             // A play waits already (coalescing, backing off): not another one.
             Follow.Retry -> if (pendingContext != null) Unit else if (retries++ < MAX_RETRIES) {
@@ -241,6 +243,10 @@ object ConnectMirror {
             } else backOff(w)
             is Follow.Play -> { log("${f.uri} picked on another device"); moved(web, s); SongPlayer.followRemotePlay(item, s.contextUri, f.positionMs) }
             is Follow.Align -> command(ECHO_MS) { api.player.seek(f.ms) }
+            Follow.Back -> if (pendingContext != null) Unit else {
+                log("the page went on to ${web.uri} by itself while ${t.title} is to play again here: put back on ${w.uri}, not followed")
+                playNow(w.uri, w.uri)
+            }
         }
     }
 

@@ -17,7 +17,7 @@
     <string name="immersive_player_shuffle_off">Aléatoire : désactivé</string>
     <string name="immersive_player_repeat_off">Répétition : désactivée</string>
     <string name="immersive_player_repeat_all">Répétition : tout</string>
-    <string name="immersive_player_repeat_one">Répétition : un titre</string>
+    <string name="immersive_player_repeat_one">Répéter une fois</string>
     <string name="immersive_player_volume_down">Volume moins</string>
     <string name="immersive_player_volume_up">Volume plus</string>
     <string name="immersive_player_ad">Publicité</string>

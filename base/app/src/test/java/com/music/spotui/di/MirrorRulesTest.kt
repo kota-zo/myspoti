@@ -24,8 +24,30 @@ class MirrorRulesTest {
     private fun onWeb(
         web: Web, want: Want = Want(a, false), local: Local = local(), quiet: Boolean = false, landed: Boolean = true,
         predicted: Long? = web.positionMs, previousUri: String? = null, gapFromMs: Long? = null, wantAtMs: Long? = null, wantLengthMs: Long = 0,
-        recentUris: List<String> = emptyList(),
-    ) = MirrorRules.onWeb(web, want, local, quiet, landed, predicted, previousUri, gapFromMs, wantAtMs, wantLengthMs, recentUris)
+        recentUris: List<String> = emptyList(), repeats: Boolean = false,
+    ) = MirrorRules.onWeb(web, want, local, quiet, landed, predicted, previousUri, gapFromMs, wantAtMs, wantLengthMs, recentUris, repeats)
+
+    // ── A local song to play again (repeat once, a one-song queue repeated) ──
+
+    @Test fun `the page going on at the end of a song to repeat is put back, never followed`() {
+        // The report: Mentir sought to its end (130999 of 131000 ms), the page went on to the next song.
+        val ending = local(at = 130_999, length = 131_000)
+        assertEquals(Follow.Back, onWeb(Web(b, paused = false, positionMs = 12), local = ending, repeats = true))
+        // The page's own end (another song than the queue's next, Spotify's relinked id): put back as well.
+        assertEquals(Follow.Back, onWeb(Web(d, paused = false, positionMs = 0), local = local(at = 100_000), wantAtMs = 178_000, wantLengthMs = 180_000, repeats = true))
+        // Without a repeat the local player goes on by itself: nothing to follow.
+        assertEquals(Follow.Nothing, onWeb(Web(b, paused = false, positionMs = 12), local = ending))
+    }
+
+    @Test fun `a skip on another device mid-song is still followed with a repeat on`() {
+        assertEquals(Follow.Next, onWeb(Web(b, paused = false, positionMs = 0), repeats = true))
+    }
+
+    @Test fun `a song whose length the player does not know is never near its end`() {
+        // The mirror passes 0 when the audio's length is unknown: Spotify's length does not decide the end.
+        assertFalse(local(at = 130_999, length = 0).nearEnd)
+        assertEquals(Follow.Next, onWeb(Web(b, paused = false, positionMs = 0), local = local(at = 130_999, length = 0), repeats = true))
+    }
 
     // ── Which songs are mirrored ──
 

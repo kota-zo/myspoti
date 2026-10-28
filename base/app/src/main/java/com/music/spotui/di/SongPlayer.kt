@@ -562,6 +562,7 @@ object SongPlayer {
         playing = resolvePlaying(s.isPaused)
         bufferingState.value = waiting(s)
         SpeakerKeepAlive.set(playing && _activeDevice.value == null)
+        val lengthBefore = durationMs
         durationMs = item?.durationMs ?: 0L
         val reported = s.positionAt(System.currentTimeMillis())
         // A seek on its way: the page's old position does not take the clock back (see [seekTo]).
@@ -574,6 +575,18 @@ object SongPlayer {
         }
         val leftId = trackIdOf(_nowPlaying.value.uri)
         val trackChanged = uri != _nowPlaying.value.uri
+        // Repeat once on a Spotify song: the page's repeat-track loops for good. The page seen
+        // starting the song again is its one replay: repeat goes off there, and that replay ends
+        // into the next song. Another song under repeat-track (a skip, a pick) cancels it.
+        if (item != null && s.repeat == Repeat.TRACK && _repeatMode.value == LocalRepeat.ONE) {
+            if (LocalRepeat.pageRestarted(!trackChanged, predicted, lengthBefore, reported)) {
+                app.myspoti.host.android.Logbook.log("repeat once: ${item.name} replayed, back to off")
+                setRepeatMode(LocalRepeat.OFF)
+            } else if (trackChanged && _nowPlaying.value.uri.isNotBlank() && !seeking) {
+                app.myspoti.host.android.Logbook.log("repeat once: cancelled (${item.name} plays now), back to off")
+                setRepeatMode(LocalRepeat.OFF)
+            }
+        }
         // Autoplay off: stop once, when the player moves on to a track it picked itself.
         // Tracks only: this is the music setting (similar songs). An episode the page rolls on
         // to after the previous one belongs to the show, not to that recommendation autoplay —
@@ -1281,6 +1294,7 @@ object SongPlayer {
         app.myspoti.host.android.Logbook.log("next asked by $by")
         Haptics.click()
         if (LocalPlayer.active.value) { LocalPlayer.next(); return }
+        cancelRepeatOnce("next")
         com.music.spotui.extensions.Extensions.skipAsked("forward")
         // Spotify is refusing licences: every skip asks for one more and makes the limit last
         // (a tester's log: 183 refusals in 8 min of fast skipping, the page then skipping on its
@@ -1483,6 +1497,7 @@ object SongPlayer {
         app.myspoti.host.android.Logbook.log("previous asked by $by")
         Haptics.click()
         if (LocalPlayer.active.value) { LocalPlayer.previous(); return }
+        cancelRepeatOnce("previous")
         if (getCurrentPosition() <= 3_000) com.music.spotui.extensions.Extensions.skipAsked("backward")
         intendPlaying()
         // A previous counts as -1 in the burst. Skips still waiting to be sent (nexts tapped
@@ -1624,7 +1639,7 @@ object SongPlayer {
     fun setRepeat(on: Boolean) = setRepeatMode(if (on) 1 else 0)
 
     fun setRepeatMode(mode: Int) {
-        if (LocalPlayer.active.value) { _repeatMode.value = mode; LocalPlayer.setRepeatMode(mode); return }
+        if (LocalPlayer.active.value) { _repeatMode.value = mode; boundState?.repeat?.value = mode != 0; LocalPlayer.setRepeatMode(mode); return }
         Haptics.toggle(mode != 0)
         _repeatMode.value = mode
         repeatWanted = mode
@@ -1649,6 +1664,13 @@ object SongPlayer {
     }
 
     fun cycleRepeat() = setRepeatMode((_repeatMode.value + 1) % 3)
+
+    /** A manual move on a Spotify song cancels repeat once: it was for the song left. */
+    private fun cancelRepeatOnce(why: String) {
+        if (_repeatMode.value != LocalRepeat.ONE) return
+        app.myspoti.host.android.Logbook.log("repeat once: cancelled ($why), back to off")
+        setRepeatMode(LocalRepeat.OFF)
+    }
 
     /** Podcast playback speed (Spotify refuses it on music). */
     fun setSpeed(speed: Double) {

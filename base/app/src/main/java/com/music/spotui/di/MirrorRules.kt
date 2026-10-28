@@ -57,6 +57,11 @@ object MirrorRules {
         data class Play(val uri: String, val positionMs: Long) : Follow
         /** Only drift: the unheard Web Player is put on the local position (no jump is heard). */
         data class Align(val ms: Long) : Follow
+        /**
+         * The Web Player went on by itself (its song ended, or its own repeat moved it) while the
+         * local song is to play again: put back on the local song, the local player not moved.
+         */
+        data object Back : Follow
     }
 
     /**
@@ -69,11 +74,13 @@ object MirrorRules {
      * [wantAtMs], [wantLengthMs]: where the Web Player is in [want]'s song and that song's length as it
      * has it (a stream of the extension can be longer than Spotify's track). [recentUris]: the songs
      * the mirror itself asked the Web Player to play lately: a state on one of them is a late answer.
+     * [repeats]: the local song plays again at its end (repeat once still to replay it, or a queue
+     * of one song repeated): the Web Player going on at the end is never followed, it is put back.
      */
     fun onWeb(
         web: Web, want: Want, local: Local, quiet: Boolean, landed: Boolean, predictedMs: Long?,
         previousUri: String? = null, gapFromMs: Long? = null, wantAtMs: Long? = null, wantLengthMs: Long = 0,
-        recentUris: Collection<String> = emptyList(),
+        recentUris: Collection<String> = emptyList(), repeats: Boolean = false,
     ): Follow {
         val late = web.uri != want.uri && web.uri in recentUris
         // During an echo, only a third song once it landed is remote (a double skip on another
@@ -87,6 +94,8 @@ object MirrorRules {
         // The local player went on by itself, or the song is ending (on either side): the Web
         // Player's move is that end, and the local side sends what comes next.
         val pageEnding = wantLengthMs > 0 && wantAtMs != null && wantLengthMs - wantAtMs < END_WINDOW_MS
+        // The local song plays again: the Web Player ending it and going on is its own move, undone.
+        if (repeats && local.uri == want.uri && web.uri != want.uri && (local.nearEnd || pageEnding)) return Follow.Back
         if (local.uri != want.uri || local.nearEnd || pageEnding) return Follow.Nothing
         if (web.uri != want.uri) return when (web.uri) {
             local.nextUri -> Follow.Next

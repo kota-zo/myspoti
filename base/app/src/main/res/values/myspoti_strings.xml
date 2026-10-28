@@ -10,7 +10,7 @@
     <string name="welcome_privacy">You sign in on Spotify\'s own page. Myspoti never sees your password.</string>
     <string name="remove_from_liked">Remove from Liked Songs</string>
     <string name="repeat_on">Repeat: on</string>
-    <string name="repeat_one">Repeat one</string>
+    <string name="repeat_one">Repeat once</string>
     <string name="repeat_off">Repeat: off</string>
     <string name="headphones">Headphones</string>
     <string name="listen_on">Listen on</string>

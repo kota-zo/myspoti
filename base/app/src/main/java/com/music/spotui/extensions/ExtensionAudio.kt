@@ -118,6 +118,9 @@ object ExtensionAudio {
     /** The quality the extension announced for the song [trackId] ("FLAC · 24-bit · 96 kHz"), or null. */
     fun qualityOf(trackId: String): String? = known[trackId]?.stream?.qualityLabel()
 
+    /** The length the extension announced for the song [trackId]'s audio, ms, or null (none said, not answered). */
+    fun announcedLengthOf(trackId: String): Long? = known[trackId]?.stream?.durationMs
+
     /** How the audio of the song [trackId] comes, for the diagnostic ("dash", "url audio/flac"), or null. */
     fun deliveryOf(trackId: String): String? =
         known[trackId]?.stream?.let { if (it.manifest != null) "dash" else "url ${it.mimeType ?: "untyped"}" }

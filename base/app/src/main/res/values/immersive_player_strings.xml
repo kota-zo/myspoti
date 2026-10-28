@@ -17,7 +17,7 @@
     <string name="immersive_player_shuffle_off">Shuffle: off</string>
     <string name="immersive_player_repeat_off">Repeat: off</string>
     <string name="immersive_player_repeat_all">Repeat: all</string>
-    <string name="immersive_player_repeat_one">Repeat: one</string>
+    <string name="immersive_player_repeat_one">Repeat once</string>
     <string name="immersive_player_volume_down">Volume down</string>
     <string name="immersive_player_volume_up">Volume up</string>
     <string name="immersive_player_ad">Advertisement</string>
