@@ -345,6 +345,14 @@ object LocalPlayer {
     }
     fun pause() { exo?.pause() }
     fun next() {
+        // In the first half of a crossfade the main player is on the next song already, while the
+        // screens (and the ear) are still on the one going out: a skip there went two songs on.
+        // It lands on the song coming in, at full volume.
+        if (outgoing != null && fadeProgress() < 0.5f) {
+            com.music.spotui.extensions.Extensions.skipAsked("forward")
+            log("skip during the crossfade: the song coming in plays")
+            return endFade()
+        }
         endFade()
         exo?.let {
             if (it.hasNextMediaItem()) { com.music.spotui.extensions.Extensions.skipAsked("forward"); it.seekToNextMediaItem() }

@@ -1283,9 +1283,21 @@ object SongPlayer {
             positionMs = 0L
             positionAt = now
             val shown = showSkipTarget()
+            // Reported: one skip went two songs on. A song that ends while the skip waits its turn
+            // (the device check, a command still running, a slow page) is left by the page on its
+            // own, and the skip then left the next song too. The skip is for the song it was
+            // tapped on: gone already, it is not sent.
+            val tappedOn = api.player.state.value?.item?.uri
             // The device check after the skip, as for a resume: before it, a slow network held
             // every skip for the device list's round trip (up to DEVICES_WAIT_MS).
-            transport(waitReady = !stateSeen, checkAfter = true, done = { ok -> skipDone(shown, ok) }) { api.player.next() }
+            transport(waitReady = !stateSeen, checkAfter = true, done = { ok -> skipDone(shown, ok) }) {
+                val now = api.player.state.value?.item?.uri
+                if (tappedOn != null && now != null && now != tappedOn) {
+                    app.myspoti.host.android.Logbook.log("next not sent: the song it was tapped on had already ended")
+                    return@transport
+                }
+                api.player.next()
+            }
             return
         }
         burstAt = now
@@ -1930,7 +1942,7 @@ object SongPlayer {
             runCatching { api.devices.refresh() }
             val active = api.devices.devices.value.firstOrNull { it.active }
             _activeDevice.value = active?.takeIf { !it.local }?.let { ConnectDevice(it.id, it.name, it.type, false, true) }
-            active?.volume?.let { if (SystemClock.elapsedRealtime() > volumeHoldUntil) remoteVolume = (it * 100).toInt().coerceIn(0, 100) }
+            active?.volume?.let { if (SystemClock.elapsedRealtime() > volumeHoldUntil) _remoteVolume.intValue = (it * 100).toInt().coerceIn(0, 100) }
             PlaybackService.setPlaybackDevice(_activeDevice.value != null, remoteVolume)
         }
     }
@@ -2035,16 +2047,31 @@ object SongPlayer {
         command { if (device.isSelf) api.devices.pullHere() else api.devices.transfer(device.id) }
     }
 
-    /** Volume (0..100) of the device that plays, as last reported. */
-    @Volatile var remoteVolume = 100
-        private set
+    /** Volume (0..100) of the device that plays, as last reported. State: the player's volume bar follows it. */
+    private val _remoteVolume = androidx.compose.runtime.mutableIntStateOf(100)
+    val remoteVolume: Int get() = _remoteVolume.intValue
     @Volatile private var volumeHoldUntil = 0L
 
-    /** Set the volume of the device that plays (volume keys, system slider). */
+    /**
+     * The newest volume asked for, sent one at a time by [volumeSender]. A drag on the player's
+     * volume bar asks for dozens of levels a second: sent each in its own command they could
+     * reach the device out of order and leave it on an older level.
+     */
+    private val volumeToSend = kotlinx.coroutines.flow.MutableStateFlow<Int?>(null)
+    private val volumeSender by lazy {
+        scope.launch {
+            volumeToSend.collect { v ->
+                if (v != null) runCatching { api.player.setVolume(v / 100.0) }.onFailure { Log.w(TAG, "volume failed: ${it.message}") }
+            }
+        }
+    }
+
+    /** Set the volume of the device that plays (volume keys, system slider, the player's volume bar). */
     fun setRemoteVolume(volume: Int) {
-        remoteVolume = volume.coerceIn(0, 100)
+        _remoteVolume.intValue = volume.coerceIn(0, 100)
         volumeHoldUntil = SystemClock.elapsedRealtime() + 1500
-        command { api.player.setVolume(remoteVolume / 100.0) }
+        volumeSender
+        volumeToSend.value = remoteVolume
         PlaybackService.setPlaybackDevice(_activeDevice.value != null, remoteVolume)
     }
 

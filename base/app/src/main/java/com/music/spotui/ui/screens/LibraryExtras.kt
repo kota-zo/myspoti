@@ -524,7 +524,7 @@ fun AddLocalToPlaylistSheet(track: LocalTrack, onDismiss: () -> Unit) {
     var spotifyLists by remember { mutableStateOf<List<com.music.spotui.data.api.EditablePlaylist>?>(null) }
     var creating by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        spotifyLists = com.music.spotui.data.api.EditablePlaylists.load()
+        spotifyLists = com.music.spotui.data.api.EditablePlaylists.loadWithCovers()
     }
     fun added(name: String) {
         Toast.makeText(context, context.getString(R.string.local_added_to, name), Toast.LENGTH_SHORT).show()

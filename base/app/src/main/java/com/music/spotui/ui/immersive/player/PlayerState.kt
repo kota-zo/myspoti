@@ -105,7 +105,11 @@ internal fun rememberPlayerScrub(trackKey: Any, position: () -> Long, durationMs
     return scrub
 }
 
-/** The volume bar's state: the system music level, tweened to what the system reports, followed under a finger. */
+/**
+ * The volume bar's state: the system music level, tweened to what the system reports, followed
+ * under a finger. While a Spotify Connect device plays, the bar is that device's volume, as the
+ * volume keys are (reported: the bar only changed the phone's volume).
+ */
 @Stable
 internal class PlayerVolume(
     private val audio: AudioManager,
@@ -118,13 +122,22 @@ internal class PlayerVolume(
     var dragging by mutableStateOf(false)
         private set
 
-    fun read(): Float = audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max
+    private val remote: Boolean get() = com.music.spotui.di.SongPlayer.activeDevice.value != null
+
+    fun read(): Float =
+        if (remote) com.music.spotui.di.SongPlayer.remoteVolume / 100f
+        else audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max
 
     fun drag(to: Float) {
         dragging = true
         // Follow the finger exactly; only external changes tween.
         scope.launch { level.snapTo(to) }
-        audio.setStreamVolume(AudioManager.STREAM_MUSIC, (to * max).roundToInt().coerceIn(0, max), 0)
+        if (remote) {
+            val v = (to * 100).roundToInt().coerceIn(0, 100)
+            if (v != com.music.spotui.di.SongPlayer.remoteVolume) com.music.spotui.di.SongPlayer.setRemoteVolume(v)
+        } else {
+            audio.setStreamVolume(AudioManager.STREAM_MUSIC, (to * max).roundToInt().coerceIn(0, max), 0)
+        }
     }
 
     fun release() {
@@ -150,9 +163,12 @@ internal fun rememberPlayerVolume(): PlayerVolume {
         androidx.core.content.ContextCompat.registerReceiver(context, receiver, IntentFilter(VOLUME_CHANGED_ACTION), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
         onDispose { context.unregisterReceiver(receiver) }
     }
-    // Glide to the level the system reports, but never fight the finger.
-    LaunchedEffect(system) {
-        if (!volume.dragging) volume.level.animateTo(system, tween(durationMillis = 220, easing = FastOutSlowInEasing))
+    // Read here so the bar follows a Connect device appearing and its reported volume.
+    val remote = com.music.spotui.di.SongPlayer.activeDevice.value != null
+    val remoteLevel = com.music.spotui.di.SongPlayer.remoteVolume
+    // Glide to the level the system (or the device) reports, but never fight the finger.
+    LaunchedEffect(system, remote, remoteLevel) {
+        if (!volume.dragging) volume.level.animateTo(volume.read(), tween(durationMillis = 220, easing = FastOutSlowInEasing))
     }
     return volume
 }

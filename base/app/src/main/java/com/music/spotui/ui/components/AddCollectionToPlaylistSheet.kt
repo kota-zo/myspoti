@@ -61,7 +61,7 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
     var query by remember { mutableStateOf("") }
     var reading by remember { mutableStateOf(false) }
     var asking by remember { mutableStateOf<Pair<EditablePlaylist, MergePlan>?>(null) }
-    LaunchedEffect(Unit) { playlists = EditablePlaylists.load() }
+    LaunchedEffect(Unit) { playlists = EditablePlaylists.loadWithCovers() }
     val shown = remember(playlists, query) {
         playlists.orEmpty().filter { "spotify:playlist:${it.id}" != sourceUri && matchesFind(query, it.name) }
     }

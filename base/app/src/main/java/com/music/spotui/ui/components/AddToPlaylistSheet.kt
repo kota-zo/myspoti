@@ -76,7 +76,7 @@ fun AddToPlaylistSheet(
     var query by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
         // Folders flattened: adding to a playlist does not need the folder tree.
-        playlists = EditablePlaylists.load()
+        playlists = EditablePlaylists.loadWithCovers()
     }
     // Filtered in one pass; accent-insensitive like the other "find" fields of the app.
     val shown = remember(playlists, query) {

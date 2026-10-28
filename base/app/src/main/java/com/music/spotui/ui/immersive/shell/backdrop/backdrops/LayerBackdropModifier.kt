@@ -24,6 +24,7 @@ import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
 import com.music.spotui.ui.immersive.shell.backdrop.internal.recordLayer
+import kotlinx.coroutines.launch
 
 fun Modifier.layerBackdrop(backdrop: LayerBackdrop): Modifier =
     this then LayerBackdropElement(backdrop)
@@ -107,6 +108,19 @@ private class LayerBackdropNode(
         source.alpha = currentValueOf(LocalBackdropSourceAlpha)
         backdrop.sources.add(source)
         backdrop.moves++
+        // Reported: after a tab change the glass kept what it showed until the page was scrolled.
+        // The glass draws this page's recording inside its own blurred layer, which the renderer
+        // does not redraw when only the page (or a row of it) changes: the recording is drawn in
+        // two places and its damage counts in one. A page that just arrived fills in over its first
+        // moments (its data, its covers), so the glass is redrawn on every frame while it settles.
+        // Only then: a page animating on its own (a playing row) does not keep the blur running.
+        coroutineScope.launch {
+            val end = android.os.SystemClock.uptimeMillis() + SETTLE_MS
+            while (android.os.SystemClock.uptimeMillis() < end) {
+                androidx.compose.runtime.withFrameNanos { }
+                (registeredIn ?: backdrop).moves++
+            }
+        }
     }
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
@@ -130,3 +144,6 @@ private class LayerBackdropNode(
         source.layer = null
     }
 }
+
+/** How long a page that just arrived keeps redrawing the glass as it fills in. */
+private const val SETTLE_MS = 3_000L

@@ -38,6 +38,40 @@ object EditablePlaylists {
         }
 
     /**
+     * [load] for the pickers that show covers. Reported: "Add to another playlist" showed grey
+     * squares. Spotify's playlist list has no cover for a playlist without one of its own (the
+     * mosaic of its albums); the library has it, so those are read from there, folders walked.
+     */
+    suspend fun loadWithCovers(): List<EditablePlaylist> {
+        val list = load()
+        if (list.all { it.imageUrl != null }) return list
+        val covers = libraryCovers()
+        return list.map { if (it.imageUrl != null) it else it.copy(imageUrl = covers["spotify:playlist:${it.id}"]) }
+    }
+
+    /** Playlist uri → cover, as the library shows them, folders included. */
+    private suspend fun libraryCovers(): Map<String, String> {
+        val api = MyspotiRuntime.api
+        val out = HashMap<String, String>()
+        suspend fun walk(folderUri: String?, depth: Int) {
+            var offset = 0
+            repeat(40) {
+                val page = runCatching {
+                    api.library.items(filter = LibraryFilter.ALL, folderUri = folderUri, offset = offset, limit = 50)
+                }.getOrNull() ?: return
+                for (item in page.items) when (item.kind) {
+                    MediaKind.FOLDER -> if (depth < 5) walk(item.uri, depth + 1)
+                    MediaKind.PLAYLIST -> item.images.best(160)?.url?.let { out[item.uri] = it }
+                    else -> Unit
+                }
+                offset = page.nextOffset ?: return
+            }
+        }
+        walk(null, 0)
+        return out
+    }
+
+    /**
      * One level of the library as Spotify shows it: its folders, then the playlists the user
      * can change, with their covers (Spotify's playlist list has none for mosaic covers;
      * the library has them). Falls back to [load] when the library cannot be read.

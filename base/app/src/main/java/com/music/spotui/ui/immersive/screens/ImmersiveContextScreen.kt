@@ -407,8 +407,11 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
             if (isThisContext) vm.playSmart(p, p.tracks.firstOrNull { it.id == currentSongId })
         }
     }
-    // What the Shuffle pill does: start the list shuffled, or, while it plays, step through
-    // shuffle → smart shuffle (playlists, Liked Songs) → off, as the Classic shuffle icon does.
+    // What the Shuffle pill does: start the list shuffled, or, while it plays, turn shuffle on
+    // or off. Reported (3 people): a tap on the lit pill stepped to smart shuffle, which deals
+    // the queue again and starts the song over, so shuffle never seemed to turn off. Smart
+    // shuffle has its own button under the pill (as the Classic page's shuffle icon, off is
+    // one tap away from either).
     fun onShuffle() {
         if (p.tracks.isEmpty()) return
         when {
@@ -418,7 +421,6 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                 vm.play(p, p.tracks.random(), sort)
             }
             smart -> { SmartShuffle.on.value = null; playerVm.updateShuffleState(false) }
-            shuffle && SmartShuffle.canPlay(p.uri) -> toggleSmart()
             else -> playerVm.updateShuffleState(!shuffle)
         }
     }
@@ -763,7 +765,7 @@ private fun ContextHeader(
                     text = stringResource(R.string.immersive_shell_shuffle),
                     icon = if (shuffled && smart) Icons.Rounded.AutoAwesome else Icons.Rounded.Shuffle,
                     onClick = onShuffle,
-                    // Lit while this list plays shuffled: a tap then steps to smart shuffle or off.
+                    // Lit while this list plays shuffled (or smart-shuffled): a tap then turns it off.
                     filled = shuffled,
                     modifier = Modifier.weight(1f),
                 )

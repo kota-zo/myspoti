@@ -86,6 +86,10 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
     val np by SongPlayer.nowPlaying
     val playingHere = LocalPlayer.active.value && LocalPlayer.contextName == title
     var menuSong by remember { mutableStateOf<SongsModel?>(null) }
+    // Reported: the search of the Immersive look found songs in the whole catalogue, not here.
+    // The page's own find field, as Local Files has.
+    var find by remember { mutableStateOf("") }
+    val shown = if (find.isBlank()) tracks else tracks.filter { com.music.spotui.ui.components.matchesFind(find, it.title, it.artist, it.album) }
     menuSong?.let { sel ->
         ImmersiveSongOptionsSheet(song = sel, navController = navController, context = context, onDismiss = { menuSong = null })
     }
@@ -150,6 +154,13 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
                         modifier = Modifier.padding(bottom = 14.dp),
                     )
                 }
+                if (tracks.isNotEmpty()) item(key = "downloads:find") {
+                    com.music.spotui.ui.immersive.components.ImmersiveSearchField(
+                        query = find, onQueryChange = { find = it }, onSubmit = {},
+                        placeholder = stringResource(R.string.immersive_detail_find),
+                        modifier = Modifier.padding(horizontal = Immersive.Gutter, vertical = 6.dp),
+                    )
+                }
                 // No extension gives download files: say it where downloads would fail.
                 if (!com.music.spotui.extensions.Extensions.hasDownloadSource()) item(key = "source") {
                     NoticeCard(
@@ -199,7 +210,10 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
                         },
                     )
                 }
-                itemsIndexed(tracks, key = { _, t -> t.trackId }) { i, t ->
+                if (shown.isEmpty() && find.isNotBlank()) item(key = "downloads:find-empty") {
+                    com.music.spotui.ui.immersive.components.ImmersiveMessageState(stringResource(R.string.assisted_curation_search_empty_view_no_result_title, find.trim()))
+                }
+                itemsIndexed(shown, key = { _, t -> t.trackId }) { i, t ->
                     val current = LocalPlayer.active.value && np.uri == "local:${OfflineStore.localIdOf(t.trackId)}"
                     val song = OfflineStore.toSong(t)
                     Column(Modifier.animateItem()) {
@@ -215,11 +229,12 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
                                 song = song,
                                 playing = current && SongPlayer.isPlaying(),
                                 current = current,
-                                onClick = { play(i) },
+                                // The whole list plays from this song, even when it is filtered.
+                                onClick = { play(tracks.indexOf(t).coerceAtLeast(0)) },
                                 onMore = { menuSong = song },
                             )
                         }
-                        if (i < tracks.lastIndex) ImmersiveRowDivider(ImmersiveRowDividerInset)
+                        if (i < shown.lastIndex) ImmersiveRowDivider(ImmersiveRowDividerInset)
                     }
                 }
             }
