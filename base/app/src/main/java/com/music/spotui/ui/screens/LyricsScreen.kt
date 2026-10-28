@@ -1,6 +1,9 @@
 package com.music.spotui.ui.screens
 
 import com.music.spotui.ui.components.secondaryClick
+import com.music.spotui.ui.look.lastPress
+import com.music.spotui.ui.look.tapTime
+import com.music.spotui.ui.look.toSwept
 import com.music.spotui.ui.components.pressable
 import androidx.compose.ui.res.stringResource
 
@@ -263,7 +266,8 @@ private fun LyricLineText(
     fontSize: TextUnit,
     position: () -> Long,
     translation: String?,
-    onTap: (() -> Unit)?,
+    /** Gets the time to play from: the start of the word tapped on a word-synced line. */
+    onTap: ((Long) -> Unit)?,
     modifier: Modifier = Modifier,
     annotated: Boolean = false,
     onHold: (() -> Unit)? = null,
@@ -273,18 +277,22 @@ private fun LyricLineText(
         else -> palette.highlight
     }
     val color by animateColorAsState(target, tween(220), label = "lyricColor")
+    // Explained by Genius: a light dotted line under each row of the text.
+    var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    var pressAt by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val swept = remember(line) { line.toSwept() }
     val lineModifier = modifier
         .fillMaxWidth()
         .then(
-            if (onTap != null || onHold != null) Modifier.secondaryClick(onHold).combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onLongClick = onHold,
-                onClick = { onTap?.invoke() },
-            ) else Modifier
+            if (onTap != null || onHold != null) Modifier.secondaryClick(onHold)
+                .lastPress { at, _ -> pressAt = at }
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onLongClick = onHold,
+                    onClick = { onTap?.invoke(layout?.let { tapTime(swept, it, pressAt) } ?: line.timeMs) },
+                ) else Modifier
         )
-    // Explained by Genius: a light dotted line under each row of the text.
-    var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
     val underline = if (!annotated) Modifier else Modifier.drawBehind {
         val t = layout ?: return@drawBehind
         val dot = 2.dp.toPx()
@@ -538,7 +546,7 @@ fun LyricsScreen(
                                 fontSize = 24.sp,
                                 position = position,
                                 translation = if (state.showTranslation) state.translations?.getOrNull(i) else null,
-                                onTap = if (l.synced) ({ jumpTo(line.timeMs) }) else null,
+                                onTap = if (l.synced) ({ jumpTo(it) }) else null,
                                 annotated = i in notes,
                                 onHold = notes[i]?.let { n -> {
                                     haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)

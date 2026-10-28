@@ -94,6 +94,16 @@ data class SweptLine(
     }
 
     /**
+     * Where a tap at character [offset] of [text] plays from: the start of the word under it,
+     * or of the word before when it lands between two. The first word, and a line without
+     * word timings, play from where the line starts.
+     */
+    fun startAtChar(offset: Int): Long {
+        val index = wordSpans.indexOfLast { it.first <= offset }
+        return if (index <= 0) minOf(timeMs, words.firstOrNull()?.startMs ?: timeMs) else words[index].startMs
+    }
+
+    /**
      * Where each separately timed piece of the line sits in [text]: a word's
      * syllables where the source split it, the word itself where it did not.
      * The sweep crosses each of these at a steady pace of its own.
