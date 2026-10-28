@@ -520,6 +520,15 @@
     <string name="add_collection_reading">Reading the songs…</string>
     <string name="add_collection_nothing">Nothing to add</string>
     <string name="add_collection_done">Added %1$d songs to %2$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d song added to queue</item>
+        <item quantity="other">%d songs added to queue</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d song will play next</item>
+        <item quantity="other">%d songs will play next</item>
+    </plurals>
+    <string name="queue_list_none">None of these songs can be queued</string>
     <string name="duplicate_title_some">Some are already added</string>
     <string name="duplicate_title_all">Already added</string>
     <string name="duplicate_text_some">Some of these songs are already in %1$s.</string>

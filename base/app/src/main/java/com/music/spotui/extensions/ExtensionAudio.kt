@@ -207,6 +207,14 @@ object ExtensionAudio {
         return true
     }
 
+    /**
+     * [enqueue] for a song the caller already has (a list being queued): no look-up. Its download,
+     * else the extension's stream; null when neither has it, Spotify's queue takes it then.
+     */
+    fun queueTrack(s: SongsModel): LocalTrack? =
+        OfflineStore.tracks[s.spotifyTrackId]?.takeIf { OfflineStore.isDownloaded(s.spotifyTrackId) }?.let(OfflineStore::toLocalTrack)
+            ?: if (Extensions.hasAudioSource()) localTrack(s) else null
+
     /** The song's title, artists, album and length from Spotify, for a play that knows only its uri. */
     private suspend fun lookup(trackId: String): SongsModel? = runCatching {
         kotlinx.coroutines.withTimeout(LOOKUP_MS) {

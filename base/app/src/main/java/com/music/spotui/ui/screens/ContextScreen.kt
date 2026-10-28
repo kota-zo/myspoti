@@ -616,7 +616,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
         dismissButton = { androidx.compose.material3.TextButton(onClick = { leaveAsk = false }) { Text(stringResource(R.string.cancel), color = AppText) } },
     )
     if (addingSongs) com.music.spotui.ui.components.AddSongsScreen(p) { added -> addingSongs = false; if (added) vm.reload() }
-    if (albumMenu) com.music.spotui.ui.components.AlbumOptionsSheet(p.uri, p.name) { albumMenu = false }
+    if (albumMenu) com.music.spotui.ui.components.AlbumOptionsSheet(p.uri, p.name, known = p) { albumMenu = false }
     if (playlistMenu) com.music.spotui.ui.components.PlaylistOptionsSheet(
         page = p,
         onAddSongs = if (p.type == "playlist" && vm.editableContext.value && !p.isBlend) ({ addingSongs = true }) else null,
@@ -876,7 +876,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                             }
                         }
                     }
-                    if (p.type == "playlist" || p.type == "album") {
+                    if (p.type == "playlist" || p.type == "album" || p.type == "liked" || p.type == "liked-artist") {
                         Spacer(Modifier.width(16.dp))
                         Icon(Icons.Default.MoreVert, stringResource(R.string.content_description_context_menu), tint = AppText.copy(alpha = 0.8f),
                             modifier = Modifier.size(26.dp).pressable(0.9f) { if (p.type == "playlist") playlistMenu = true else albumMenu = true })

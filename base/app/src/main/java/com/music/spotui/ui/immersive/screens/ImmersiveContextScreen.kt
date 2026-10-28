@@ -319,7 +319,7 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
     }
 
     if (addingSongs) com.music.spotui.ui.components.AddSongsScreen(p) { added -> addingSongs = false; if (added) vm.reload() }
-    if (albumMenu) com.music.spotui.ui.components.AlbumOptionsSheet(p.uri, p.name) { albumMenu = false }
+    if (albumMenu) com.music.spotui.ui.components.AlbumOptionsSheet(p.uri, p.name, known = p) { albumMenu = false }
     if (playlistMenu) com.music.spotui.ui.components.PlaylistOptionsSheet(
         page = p,
         onAddSongs = if (p.type == "playlist" && vm.editableContext.value && !p.isBlend) ({ addingSongs = true }) else null,
@@ -592,7 +592,7 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                             onSort = { sort = it; TrackOrder.save(context, p.uri, it) },
                         )
                     }
-                    if (p.type == "playlist" || p.type == "album") ImmersiveBarAction(
+                    if (p.type == "playlist" || p.type == "album" || p.type == "liked" || p.type == "liked-artist") ImmersiveBarAction(
                         icon = Icons.Rounded.MoreHoriz,
                         contentDescription = stringResource(R.string.content_description_context_menu),
                         onClick = { if (p.type == "playlist") playlistMenu = true else albumMenu = true },

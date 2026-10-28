@@ -454,6 +454,22 @@ object LocalPlayer {
         publish()
     }
 
+    /**
+     * [enqueue] for a whole list, in the list's order: one insertion and one report (a long list
+     * added song by song re-published the queue for each). Copies, so a song twice in [list] is two
+     * queue rows ([queued] holds items by identity).
+     */
+    fun enqueueAll(list: List<LocalTrack>, next: Boolean) {
+        val p = exo ?: return
+        if (list.isEmpty()) return
+        val songs = list.map { it.copy() }
+        val at = LocalQueueOrder.insertIndex(tracks, p.currentMediaItemIndex, next, isQueued)
+        queued += songs
+        p.addMediaItems(at, songs.map(::item))
+        tracks.addAll(at, songs)
+        publish()
+    }
+
     /** "Clear queue": the songs the user queued go; the list's own stay. */
     fun clearQueued() {
         val p = exo ?: return

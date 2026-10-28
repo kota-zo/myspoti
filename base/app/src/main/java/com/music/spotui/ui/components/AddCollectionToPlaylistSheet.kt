@@ -143,17 +143,19 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
     }
 }
 
-/** The ⋯ menu of an album page: the album's "Add to playlist". */
+/** The ⋯ menu of an album page (or Liked Songs): play it next, queue it, and the album's "Add to playlist". */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AlbumOptionsSheet(albumUri: String, name: String, onDismiss: () -> Unit) {
+fun AlbumOptionsSheet(albumUri: String, name: String, known: com.music.spotui.data.entity.ContextPageModel? = null, onDismiss: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     if (adding) { AddCollectionToPlaylistSheet(albumUri, name, onDismiss); return }
     com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = tone(0xFF282828)) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
             Text(name, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(20.dp, 0.dp, 20.dp, 8.dp))
-            OptionRow(Icons.Outlined.AddCircleOutline, stringResource(R.string.context_menu_add_to_playlist)) { adding = true }
+            QueueListRows(albumUri, known, onDismiss)
+            // Liked Songs has no playlist to copy from: only the albums.
+            if (albumUri.startsWith("spotify:album:")) OptionRow(Icons.Outlined.AddCircleOutline, stringResource(R.string.context_menu_add_to_playlist)) { adding = true }
         }
     }
 }

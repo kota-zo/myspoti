@@ -15,7 +15,11 @@ import app.myspoti.host.android.MyspotiRuntime
 import app.myspoti.host.android.NowPlayingInfo
 import app.myspoti.host.android.PlaybackService
 import com.music.spotui.data.entity.SongsModel
+import com.music.spotui.data.local.LocalFileMatch.isDeviceFile
+import com.music.spotui.data.local.LocalFileMatch.isUnmatchedLocal
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
@@ -2146,6 +2150,57 @@ object SongPlayer {
             if (com.music.spotui.extensions.ExtensionAudio.enqueue(trackId, next)) return@launch
             val uris = listOf(SPOTIFY_TRACK_PREFIX + trackId)
             command { if (next) api.player.playNext(uris) else api.player.addToQueue(uris) }
+        }
+    }
+
+    /** Songs per call of Spotify's queue: a whole playlist in one call is a long wait for the page. */
+    private const val QUEUE_BATCH = 100
+
+    /**
+     * "Play next" / "Add to queue" for a whole list, in the list's order; [done] is told how many
+     * songs joined a queue (on the main thread). Every song goes where its single-song action
+     * would send it: while the local player plays, a device file, a download or an extension's song
+     * joins the local queue and the others Spotify's; otherwise Spotify's queue takes everything it
+     * can stream (tracks and episodes). A device file cannot be streamed by Spotify: it is left
+     * out then, as a Spotify local file nothing matched and a greyed song are. The two queues
+     * are separate, so a mixed list is split between them, each part in order.
+     */
+    fun queueSongs(songs: List<SongsModel>, next: Boolean, done: (Int) -> Unit) {
+        Haptics.confirm()
+        scope.launch {
+            val local = LocalPlayer.active.value
+            val rows = songs.filter { it.playable && !it.isUnmatchedLocal }
+            val files = if (local && rows.any { it.isDeviceFile })
+                runCatching { com.music.spotui.data.local.LocalMusic.tracks(Graph.app) }.getOrDefault(emptyList()).associateBy { com.music.spotui.data.local.LocalFileMatch.key(it) }
+            else emptyMap()
+            val toLocal = ArrayList<com.music.spotui.data.local.LocalTrack>()
+            val toSpotify = ArrayList<String>()
+            for (s in rows) {
+                val uri = when {
+                    s.isDeviceFile -> { if (local) files[s.url]?.let { toLocal += it }; continue }
+                    s.url.startsWith("episode:") -> "spotify:episode:" + s.url.removePrefix("episode:")
+                    s.spotifyTrackId.isNotBlank() -> SPOTIFY_TRACK_PREFIX + s.spotifyTrackId
+                    else -> continue
+                }
+                val own = if (local && !s.url.startsWith("episode:")) com.music.spotui.extensions.ExtensionAudio.queueTrack(s) else null
+                if (own != null) toLocal += own else toSpotify += uri
+            }
+            if (toLocal.isNotEmpty()) withContext(Dispatchers.Main) { LocalPlayer.enqueueAll(toLocal, next) }
+            if (toSpotify.isNotEmpty()) {
+                val batches = toSpotify.chunked(QUEUE_BATCH)
+                queueCommand {
+                    if (!next) batches.forEach { api.player.addToQueue(it) }
+                    // Each batch goes in front of the one sent before it, so the last is sent first;
+                    // Spotify's queue is shown again between two (playNext reads its first row).
+                    else batches.asReversed().forEachIndexed { i, batch ->
+                        val before = api.player.queue.value
+                        api.player.playNext(batch)
+                        if (i < batches.lastIndex) awaitQueue { it !== before }
+                    }
+                }
+            }
+            val count = toLocal.size + toSpotify.size
+            withContext(Dispatchers.Main) { done(count) }
         }
     }
 

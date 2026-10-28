@@ -35,6 +35,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Delete
@@ -608,6 +610,15 @@ fun LibraryItemSheet(entry: LibraryEntry, onDismiss: () -> Unit, onChanged: () -
             Text(entry.name, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(20.dp, 0.dp, 20.dp, 8.dp))
             if (!moving) {
+                // A saved playlist or album: all its songs into the queue (read to the end first).
+                if (entry.uri.startsWith("spotify:playlist:") || entry.uri.startsWith("spotify:album:")) {
+                    SheetRow(Icons.AutoMirrored.Outlined.PlaylistPlay, stringResource(R.string.context_menu_play_next)) {
+                        com.music.spotui.di.CollectionQueue.queue(entry.uri, next = true); onDismiss()
+                    }
+                    SheetRow(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.context_menu_add_to_queue)) {
+                        com.music.spotui.di.CollectionQueue.queue(entry.uri, next = false); onDismiss()
+                    }
+                }
                 SheetRow(Icons.Outlined.PushPin, stringResource(if (entry.pinned) R.string.library_unpin else R.string.library_pin)) {
                     act(LibraryEdits.Pin(entry.uri, !entry.pinned)) { if (entry.pinned) api.library.unpin(entry.uri) else api.library.pin(entry.uri) }
                 }

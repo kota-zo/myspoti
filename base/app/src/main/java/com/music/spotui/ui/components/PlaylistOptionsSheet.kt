@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Group
@@ -165,6 +167,8 @@ fun PlaylistOptionsSheet(
             androidx.compose.material3.HorizontalDivider(color = AppText.copy(alpha = 0.08f))
             Spacer(Modifier.height(6.dp))
             val share = { SpotifyCode.show(ShareTarget(page.uri, page.name, page.ownerName, page.coverUri)); onDismiss() }
+            // The whole playlist into the queue, in its order (a long one is read to its end first).
+            QueueListRows(page.uri, page, onDismiss)
             // Every song of this playlist into another one of yours (Web Player: "Add playlist to other playlist").
             if (page.uri.startsWith("spotify:playlist:")) OptionRow(Icons.Outlined.AddCircleOutline, stringResource(R.string.add_playlist_to_playlist)) { mergingInto = true }
             if (page.isBlend) {
@@ -442,3 +446,15 @@ internal fun OptionRow(icon: ImageVector, label: String, enabled: Boolean = true
     }
 }
 
+/** "Play next" and "Add to queue" for the whole list [uri]; [known] is its page when the screen has it. */
+@Composable
+internal fun QueueListRows(uri: String, known: ContextPageModel?, onDismiss: () -> Unit) {
+    OptionRow(Icons.AutoMirrored.Outlined.PlaylistPlay, stringResource(R.string.context_menu_play_next)) {
+        com.music.spotui.di.CollectionQueue.queue(uri, next = true, known = known)
+        onDismiss()
+    }
+    OptionRow(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.context_menu_add_to_queue)) {
+        com.music.spotui.di.CollectionQueue.queue(uri, next = false, known = known)
+        onDismiss()
+    }
+}
