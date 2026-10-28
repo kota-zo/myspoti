@@ -144,6 +144,8 @@ object LocalPlayer {
                 }
             })
             exo = p
+            // A new local session takes the repeat the player shows (it started off).
+            setRepeatMode(SongPlayer.repeatMode.value)
         }
 
     /**

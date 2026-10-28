@@ -608,8 +608,15 @@ object SongPlayer {
         if (!holding || s.shuffle == shuffleWanted) state.shuffle.value = s.shuffle
         // The page reports a speed other than 1 only for episodes: music stays at 1.
         _speed.value = s.speed.takeIf { it > 0.0 } ?: 1.0
-        _repeatMode.value = s.repeat.ordinal
-        state.repeat.value = s.repeat != Repeat.OFF
+        // A song from an extension keeps its own repeat: the muted Spotify copy that counts it
+        // reports repeat off and turned the button back off right after a tap (reported: loop
+        // button does nothing). A tap on a Spotify song is held until the page shows it.
+        val repeatHeld = SystemClock.elapsedRealtime() < repeatWantedUntil
+        if (repeatHeld && s.repeat.ordinal == repeatWanted) repeatWantedUntil = 0L
+        if (!LocalPlayer.active.value && (!repeatHeld || s.repeat.ordinal == repeatWanted)) {
+            _repeatMode.value = s.repeat.ordinal
+            state.repeat.value = s.repeat != Repeat.OFF
+        }
         if (item == null) {
             state.updatePlayingState(playing)
             pushNotification(null, state.likeState.value)
@@ -1604,6 +1611,9 @@ object SongPlayer {
      * Reported: the repeat button forgets what it was. The mode is the user's choice, kept from
      * one run of the app to the next (the page always starts with repeat off): shown at once and
      * set again on the first song the page reports.
+    /** The repeat mode last tapped, held against the page's older reports like [shuffleWanted]. */
+    @Volatile private var repeatWanted = 0
+    @Volatile private var repeatWantedUntil = 0L
      */
     private fun restoreRepeat(state: CurrentSongState) {
         val p = lastTrackPrefs()
@@ -1617,6 +1627,8 @@ object SongPlayer {
     fun cycleRepeat() = setRepeatMode((_repeatMode.value + 1) % 3)
 
     /** Podcast playback speed (Spotify refuses it on music). */
+        repeatWanted = mode
+        repeatWantedUntil = SystemClock.elapsedRealtime() + SHUFFLE_HOLD_MS
     fun setSpeed(speed: Double) {
         _speed.value = speed
         command { api.player.setSpeed(speed) }
