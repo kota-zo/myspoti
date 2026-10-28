@@ -579,4 +579,9 @@
     <string name="aa_home">Home</string>
     <string name="aa_library">Library</string>
     <string name="aa_downloads">Downloads</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_spotify_via_connect">Spotify songs play on Cast devices through Spotify Connect</string>
+    <string name="cast_connecting">Connecting…</string>
+    <string name="cast_failed">Could not play on %1$s</string>
+    <string name="cast_lost">Lost %1$s: back on this phone</string>
 </resources>

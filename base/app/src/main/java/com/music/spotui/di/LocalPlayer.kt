@@ -11,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.music.spotui.data.local.LocalTrack
 import com.music.spotui.data.preferences.CrossfadePref
+import com.music.spotui.cast.CastPlayback
 
 /**
  * Plays the device's own audio files (Local Files). While it plays, the Spotify engine is
@@ -78,12 +79,15 @@ object LocalPlayer {
                 // Each change of what the player does, one line each, so a song that never starts says why.
                 override fun onPlaybackStateChanged(state: Int) {
                     log("state ${stateName(state)} at ${p.currentPosition} ms, item ${p.currentMediaItemIndex + 1}/${p.mediaItemCount}")
+                    // Casting: this player keeps the queue only, stopped; the song plays on the device.
+                    if (CastPlayback.active && state != Player.STATE_IDLE) { p.stop(); return }
                     if (state == Player.STATE_ENDED) atEnd(p)
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                     log("playWhenReady $playWhenReady (${PLAY_WHEN_READY_REASONS.getOrElse(reason - 1) { "reason $reason" }})")
                     // A pause (or a lost focus) during a fade stops the fading-out song too.
                     outgoing?.playWhenReady = playWhenReady
+                    if (playWhenReady && CastPlayback.active) { p.pause(); CastPlayback.play() }
                 }
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     log("isPlaying $isPlaying at ${p.currentPosition} ms")
@@ -217,6 +221,7 @@ object LocalPlayer {
     /** Back to Spotify: stop and forget the local queue. */
     fun stop() {
         if (!active.value) return
+        CastPlayback.stop(back = false)
         endFade()
         active.value = false
         // A page left muted by an extension's mirror must not stay silent once Spotify plays again.
@@ -261,7 +266,7 @@ object LocalPlayer {
 
     private fun canFade(p: ExoPlayer): Boolean =
         CrossfadePref.seconds > 0 && p.repeatMode != Player.REPEAT_MODE_ONE && p.nextMediaItemIndex != C.INDEX_UNSET &&
-            p.currentMediaItem != null && p.playWhenReady
+            p.currentMediaItem != null && p.playWhenReady && !CastPlayback.active
 
     private fun beginFade(p: ExoPlayer) {
         val item = p.currentMediaItem ?: return
@@ -339,11 +344,12 @@ object LocalPlayer {
 
     /** A player stopped by an error (idle) is prepared again first: a play alone does nothing there. */
     fun resume() {
+        if (CastPlayback.active) return CastPlayback.play()
         val p = exo ?: return
         if (p.playbackState == Player.STATE_IDLE && p.mediaItemCount > 0) { log("resume after an error: preparing again"); p.prepare() }
         p.play()
     }
-    fun pause() { exo?.pause() }
+    fun pause() { if (CastPlayback.active) CastPlayback.pause() else exo?.pause() }
     fun next() {
         // In the first half of a crossfade the main player is on the next song already, while the
         // screens (and the ear) are still on the one going out: a skip there went two songs on.
@@ -362,7 +368,7 @@ object LocalPlayer {
     fun previous() {
         endFade()
         exo?.let {
-            if (it.currentPosition > 3000 || !it.hasPreviousMediaItem()) it.seekTo(0)
+            if (position() > 3000 || !it.hasPreviousMediaItem()) seekTo(0)
             else { com.music.spotui.extensions.Extensions.skipAsked("backward"); it.seekToPreviousMediaItem() }
         }
     }
@@ -383,6 +389,7 @@ object LocalPlayer {
         exo?.let { p ->
             // A seek into the tail of a song is the user's choice: that song then ends as usual.
             if (CrossfadeRamp.shouldStart(CrossfadePref.seconds, duration(), ms)) noFadeFor = p.currentMediaItemIndex
+            if (CastPlayback.active) CastPlayback.seek(ms)
             p.seekTo(ms)
         }
     }
@@ -592,13 +599,13 @@ object LocalPlayer {
         com.music.spotui.data.offline.OfflineStore.byLocalId(t.id)?.trackId
             ?: t.uri.takeIf { it.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME }?.lastPathSegment.orEmpty()
 
-    fun isPlaying() = exo?.isPlaying == true
+    fun isPlaying() = if (CastPlayback.active) CastPlayback.isPlaying() else exo?.isPlaying == true
     /** Waiting for audio (a stream that does not keep up, a seek still loading). */
-    fun isBuffering() = exo?.playbackState == Player.STATE_BUFFERING
+    fun isBuffering() = if (CastPlayback.active) CastPlayback.isBuffering() else exo?.playbackState == Player.STATE_BUFFERING
     /** For the diagnostic (`status`): whether it is to play, and its state (idle, buffering, ready, ended). */
-    fun playWhenReady() = exo?.playWhenReady == true
-    fun playbackState(): String = exo?.let { stateName(it.playbackState) } ?: "none"
-    fun position() = exo?.currentPosition ?: 0L
+    fun playWhenReady() = if (CastPlayback.active) CastPlayback.playWhenReady() else exo?.playWhenReady == true
+    fun playbackState(): String = if (CastPlayback.active) CastPlayback.state() else exo?.let { stateName(it.playbackState) } ?: "none"
+    fun position() = if (CastPlayback.active) CastPlayback.position() else exo?.currentPosition ?: 0L
     fun duration() = exo?.duration?.takeIf { it > 0 } ?: current()?.durationMs ?: 0L
     fun current(): LocalTrack? = exo?.currentMediaItemIndex?.let { tracks.getOrNull(it) }
 
@@ -615,6 +622,49 @@ object LocalPlayer {
     /** Player.PLAY_WHEN_READY_CHANGE_REASON_*, from 1. */
     private val PLAY_WHEN_READY_REASONS = listOf("asked", "audio focus lost", "audio becoming noisy", "remote", "end of item", "suppressed too long")
 
+    // ── Cast (see CastPlayback): this player keeps the queue, the device plays ──
+
+    /** A Cast device takes the songs: this player stops where it was and the device goes on from there. */
+    internal fun castStarted() {
+        val p = exo ?: return
+        endFade()
+        val at = p.currentPosition
+        val playing = p.playWhenReady
+        p.pause(); p.stop()
+        log("casting from ${at / 1000} s")
+        CastPlayback.follow(current(), at, playing)
+        publish()
+    }
+
+    /** Back from the Cast device: this player goes on at [atMs], playing if the device was. */
+    internal fun castEnded(atMs: Long, playing: Boolean) {
+        val p = exo ?: return
+        if (!active.value || p.mediaItemCount == 0) return
+        log("back from casting at ${atMs / 1000} s")
+        p.seekTo(atMs.coerceAtLeast(0))
+        p.prepare()
+        p.playWhenReady = playing
+        publish()
+    }
+
+    /** The Cast device finished the song: the next one, as this player's own end would. */
+    internal fun castFinished() {
+        val p = exo ?: return
+        when {
+            p.repeatMode == Player.REPEAT_MODE_ONE -> CastPlayback.replay()
+            p.hasNextMediaItem() -> {
+                val before = current()
+                p.seekToNextMediaItem()
+                // A list of one song on repeat: the same song again.
+                if (current() === before) CastPlayback.replay()
+            }
+            else -> atEnd(p)
+        }
+    }
+
+    /** The Cast device's state changed (position, play/pause): the screens follow. */
+    internal fun castChanged() = publish()
+
     private var arranging = false
 
     private fun publish() {
@@ -623,7 +673,8 @@ object LocalPlayer {
         // A queued song that started (or was skipped past) leaves the queue: it plays from there now.
         if (t in queued) playingQueued = t
         exo?.currentMediaItemIndex?.let { cur -> for (i in 0..minOf(cur, tracks.lastIndex)) queued -= tracks[i] }
-        SongPlayer.onLocalState(t, exo?.playWhenReady == true, position(), duration())
+        if (CastPlayback.active) CastPlayback.follow(t, exo?.currentPosition ?: 0L)
+        SongPlayer.onLocalState(t, playWhenReady(), position(), duration())
         SongPlayer.onLocalQueue(t, upcoming(), queuedCount())
     }
 }

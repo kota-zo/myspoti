@@ -68,3 +68,11 @@ https://github.com/rsms/inter
 The Immersive look's typeface (`base/app/src/main/res/font/inter.ttf`), Copyright 2020 The Inter
 Project Authors. Cut down to Latin with its weight axis only. Licence text in
 `base/licenses/Inter-OFL.txt`.
+
+## Chromium `cast_channel.proto` — BSD-3-Clause
+https://chromium.googlesource.com/chromium/src/+/main/components/cast_channel/proto/cast_channel.proto
+
+Copyright The Chromium Authors. Casting to Google Cast devices
+(`base/app/src/main/java/com/music/spotui/cast/`) is Myspoti's own CastV2 sender, without the
+Google Cast SDK. `CastMessage.kt` codes by hand the `CastMessage` message that this file defines
+(its field numbers and types); no Chromium code is included.

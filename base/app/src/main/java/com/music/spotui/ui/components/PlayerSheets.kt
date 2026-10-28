@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Delete
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
@@ -104,6 +105,7 @@ private val SheetColor: androidx.compose.ui.graphics.Color get() = tone(0xFF2828
  */
 @Composable
 fun activeDeviceLabel(): String {
+    com.music.spotui.cast.CastPlayback.device.value?.let { return it.name }
     SongPlayer.activeDevice.value?.let { return it.name }
     val route = rememberAudioRoute()
     return when (route.kind) {
@@ -118,6 +120,7 @@ fun activeDeviceLabel(): String {
 /** The icon of the output playing now, matching [activeDeviceLabel]: a phone when this phone plays. */
 @Composable
 fun activeDeviceIcon(): ImageVector {
+    if (com.music.spotui.cast.CastPlayback.device.value != null) return Icons.Default.Cast
     SongPlayer.activeDevice.value?.let { return deviceIcon(it.type) }
     return when (rememberAudioRoute().kind) {
         AudioRoute.Kind.SPEAKER -> Icons.Default.Smartphone
@@ -224,6 +227,7 @@ fun DevicesSheet(onDismiss: () -> Unit) {
                 }
                 Icon(
                     when {
+                        com.music.spotui.cast.CastPlayback.device.value != null -> Icons.Default.Cast
                         remote != null -> deviceIcon(remote.type)
                         headphones -> Icons.Default.Headphones
                         else -> Icons.Default.Smartphone
@@ -257,9 +261,12 @@ fun DevicesSheet(onDismiss: () -> Unit) {
                 list.filter { !it.isSelf && !it.isActive }.forEach { d ->
                     DeviceRow(deviceIcon(d.type), d.name, null) { SongPlayer.transferTo(d); onDismiss() }
                 }
-                if (list.none { !it.isSelf } && !headphones && remote == null)
+                if (list.none { !it.isSelf } && !headphones && remote == null && com.music.spotui.cast.CastDiscovery.devices.isEmpty() &&
+                    com.music.spotui.cast.CastPlayback.device.value == null)
                     Text(stringResource(R.string.no_devices), color = AppText.copy(alpha = 0.7f), modifier = Modifier.padding(20.dp))
             }
+            // Cast devices, for Myspoti's own songs (Spotify's go through Spotify Connect above).
+            com.music.spotui.cast.CastDeviceRows(onDismiss)
             JamSection(onDismiss)
             // Bluetooth: pair or pick headphones and speakers in the system settings.
             Column(
