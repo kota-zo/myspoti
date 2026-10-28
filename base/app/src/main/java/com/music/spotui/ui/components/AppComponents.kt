@@ -47,6 +47,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -208,6 +209,11 @@ fun MiniPlayer(navController: NavHostController) {
 
     // A new song cross-fades the card's colour instead of snapping to it.
     val animatedTint by androidx.compose.animation.animateColorAsState(tint, androidx.compose.animation.core.tween(400), label = "miniTint")
+    // A real crossfade (see SongBlend): cover and colour go from the outgoing song to this one with
+    // the fade's progress; the words and the progress line switch once, half way.
+    val blend = rememberSongBlend()
+    val outgoing = blend?.takeIf { it.outgoingWords }?.song
+    val outgoingTint = remember(blend) { animatedTint }
 
     // The Canvas of the song playing is looked up and loaded now, so the full player
     // opens on it directly instead of showing the cover first.
@@ -264,7 +270,8 @@ fun MiniPlayer(navController: NavHostController) {
             .onGloballyPositioned { com.music.spotui.ui.navigation.PlayerSheet.miniTop = it.boundsInWindow().top }
             .padding(horizontal = 8.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(animatedTint)
+            // Drawn: the colour follows a crossfade frame by frame without recomposing the card.
+            .drawBehind { drawRect(blend?.let { androidx.compose.ui.graphics.lerp(outgoingTint, animatedTint, it.progress()) } ?: animatedTint) }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -285,26 +292,30 @@ fun MiniPlayer(navController: NavHostController) {
                 // the notification) crossfades instead of swapping in one frame. After a swipe the
                 // new song is already on screen (the page swiped to): no fade then, or the page
                 // jumped back to would show the old song fading out.
-                val shown = MiniSong(s?.title ?: songTitle, s?.singer ?: songSinger, s?.coverUri ?: songCoverUri)
+                // Through a crossfade the blend below is the transition: no fade of its own.
+                val shown = MiniSong(s?.title ?: outgoing?.title ?: songTitle, s?.singer ?: outgoing?.artist ?: songSinger, s?.coverUri ?: songCoverUri)
                 androidx.compose.animation.Crossfade(
                     targetState = shown,
-                    animationSpec = androidx.compose.animation.core.tween(if (page == 1 && pager.currentPage == 1) 220 else 0),
+                    animationSpec = androidx.compose.animation.core.tween(if (page == 1 && pager.currentPage == 1 && blend == null) 220 else 0),
                     label = "miniSong",
                 ) { m ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    GlideImage(
-                        transition = CrossFade,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        model = m.cover,
-                        contentScale = ContentScale.Crop,
-                        failure = placeholder(R.drawable.placeholder),
-                        loading = placeholder(R.drawable.placeholder),
-                        contentDescription = ""
-                    )
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp))) {
+                        GlideImage(
+                            transition = CrossFade,
+                            modifier = Modifier.size(40.dp),
+                            model = m.cover,
+                            contentScale = ContentScale.Crop,
+                            failure = placeholder(R.drawable.placeholder),
+                            loading = placeholder(R.drawable.placeholder),
+                            contentDescription = ""
+                        )
+                        // The outgoing cover dissolving into this one, laid over it.
+                        if (page == 1) SongBlendCover(blend, Modifier.size(40.dp))
+                    }
                     val remote = SongPlayer.activeDevice.value
-                    Column(modifier = Modifier.padding(start = 12.dp, end = 8.dp)) {
+                    Column(modifier = Modifier.padding(start = 12.dp, end = 8.dp)
+                        .graphicsLayer { alpha = if (page == 1) blend?.wordsAlpha() ?: 1f else 1f }) {
                         if (remote == null) {
                             Text(text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             if (!adPlaying) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -401,8 +412,9 @@ fun MiniPlayer(navController: NavHostController) {
                 .graphicsLayer()
         ) {
             frame.value
-            val dur = SongPlayer.getDuration().toFloat()
-            val p = if (dur > 0f) (SongPlayer.getCurrentPosition() / dur).coerceIn(0f, 1f) else 0f
+            val o = blend?.takeIf { it.outgoingWords }
+            val dur = (o?.song?.durationMs ?: SongPlayer.getDuration()).toFloat()
+            val p = if (dur > 0f) ((o?.positionMs() ?: SongPlayer.getCurrentPosition()) / dur).coerceIn(0f, 1f) else 0f
             drawRect(Color.White.copy(alpha = 0.25f))
             drawRect(Color.White, size = size.copy(width = size.width * p))
         }

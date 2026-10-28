@@ -104,6 +104,10 @@ import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.lyrics.ImmersiveLyricsPanel
 import com.music.spotui.ui.immersive.lyrics.ImmersiveQueuePanel
 import com.music.spotui.ui.look.MeshGradientBackground
+import com.music.spotui.ui.look.MeshPalette
+import com.music.spotui.ui.look.lerp
+import com.music.spotui.ui.components.SongBlend
+import com.music.spotui.ui.components.SongBlendCover
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
 
@@ -200,7 +204,13 @@ fun ImmersivePlayer(
 ) {
     val context = LocalContext.current
     val palette = rememberArtworkColors(state.coverUrl.takeIf { it.isNotBlank() })
-    val tint by animateColorAsState(playerTintOf(palette), tween(com.music.spotui.ui.immersive.motion.ImmersiveMotion.TINT_MS), label = "playerTint")
+    // A crossfade: the colours of the song going out, as they were when it began (the new cover's
+    // own come once it is loaded, and rememberArtworkColors keeps the old ones until then).
+    val blend = state.blend
+    val outgoingPalette = remember(blend) { palette }
+    // The tint is the words' colour: it changes with them, half way.
+    val tintPalette = if (blend?.outgoingWords == true) outgoingPalette else palette
+    val tint by animateColorAsState(playerTintOf(tintPalette), tween(com.music.spotui.ui.immersive.motion.ImmersiveMotion.TINT_MS), label = "playerTint")
 
     var panel by rememberSaveable { mutableIntStateOf(Panel.NONE) }
     var showMenu by remember { mutableStateOf(false) }
@@ -224,7 +234,7 @@ fun ImmersivePlayer(
     BoxWithConstraints(modifier.fillMaxSize().background(Color.Black)) {
         // Wider than tall (a phone on its side, a tablet): the cover beside the controls.
         val landscape = maxWidth > maxHeight
-        MeshGradientBackground(palette = palette, trackKey = state.coverUrl)
+        PlayerBackdrop(palette, outgoingPalette, blend, state.coverUrl)
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) LandscapePlayer(
                 state = state,
@@ -324,6 +334,7 @@ fun ImmersivePlayer(
                             // first measured (or reloaded) while collapsed stays a small bitmap.
                             requestBuilderTransform = { it.override(COVER_DECODE_PX) },
                         )
+                        SongBlendCover(blend, Modifier.fillMaxSize()) { it.override(COVER_DECODE_PX) }
                     }
 
                     // ---- Title + round glyphs ----
@@ -395,6 +406,21 @@ fun ImmersivePlayer(
 }
 
 /**
+ * The mesh behind the player. During a crossfade its colours go from [outgoing] to [palette] with
+ * the fade's progress, read here so only the backdrop follows it frame by frame, not the player.
+ */
+@Composable
+private fun PlayerBackdrop(palette: MeshPalette, outgoing: MeshPalette, blend: SongBlend?, trackKey: String) {
+    MeshGradientBackground(
+        palette = if (blend == null) palette else lerp(outgoing, palette, blend.progress()),
+        trackKey = trackKey,
+        // Following the fade, a short smoothing only: the new cover's colours, known a moment
+        // into it, do not jump in.
+        colorFadeMillis = if (blend == null) 1400 else 250,
+    )
+}
+
+/**
  * The credits row of the player: title (with its explicit badge), artist and the source line,
  * then the like glyph and, when [onMore] is given, the more glyph. [collapse] is the cover's
  * travel to the header (0 whole, 1 collapsed); the credits shrink with it.
@@ -424,6 +450,8 @@ private fun RowScope.PlayerCredits(
                 scaleX = scale
                 scaleY = scale
                 transformOrigin = TransformOrigin(0f, 0.5f)
+                // A crossfade: the outgoing song's words fade out, the new one's in, once.
+                alpha = state.blend?.wordsAlpha() ?: 1f
             },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -606,6 +634,7 @@ private fun LandscapePlayer(
                                     modifier = Modifier.fillMaxSize(),
                                     requestBuilderTransform = { it.override(COVER_DECODE_PX) },
                                 )
+                                SongBlendCover(state.blend, Modifier.fillMaxSize()) { it.override(COVER_DECODE_PX) }
                             }
                         }
                     }

@@ -130,7 +130,9 @@ internal fun PlayerScrubber(
     val scrub = rememberPlayerScrub(state.title, state.positionMs, state.durationMs)
     // As many ticks as the bar has pixels to move, as the Classic player's: ~5 a second on a long song.
     val frame = rememberFrameClock(state.playing && !state.buffering, fps = 15)
-    Column(Modifier.fillMaxWidth()) {
+    // A crossfade: the times go from the outgoing song to the new one half way, with the
+    // credits, dimmed through the switch rather than jumping at full strength.
+    Column(Modifier.fillMaxWidth().graphicsLayer { alpha = state.blend?.let { 0.3f + 0.7f * it.wordsAlpha() } ?: 1f }) {
         ThinSlider(
             value = { frame.value; scrub.shown(state.positionMs(), state.durationMs) },
             onValueChange = scrub::drag,

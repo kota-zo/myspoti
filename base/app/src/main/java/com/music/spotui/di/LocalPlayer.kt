@@ -275,19 +275,34 @@ object LocalPlayer {
         // The copy starts a little ahead of the main player: it is heard once it is ready.
         out.setMediaItem(item, p.currentPosition + 300)
         out.addListener(object : Player.Listener {
+            private var aligned = false
             override fun onPlaybackStateChanged(state: Int) {
                 if (state != Player.STATE_READY || exo == null) return
+                val main = exo ?: return
+                // Ready later than its lead (an extension's stream opened at an offset can take a
+                // second): started there, the copy would play again what was just heard. Moved
+                // once to where the main player is, inside what it has loaded, then started.
+                if (!aligned && main.currentMediaItemIndex == index && main.currentPosition + 50 > out.currentPosition) {
+                    aligned = true
+                    out.seekTo(main.currentPosition + 100)
+                    return
+                }
                 out.removeListener(this)
                 preparingFade = false
-                val main = exo ?: return out.release()
                 if (!active.value || main.currentMediaItemIndex != index || !main.playWhenReady || !canFade(main)) return out.release()
-                outgoing = out; fadeMs = fade
+                // What is left of the song now, not when the copy was asked for: a longer fade would
+                // run past the copy's end, the next song not yet at full volume.
+                val length = minOf(fade, (main.duration - main.currentPosition).coerceAtLeast(0))
+                if (length < 500) { noFadeFor = index; return out.release() }
+                outgoing = out; fadeMs = length
                 out.play()
                 startingFade = true
                 main.volume = 0f
                 main.seekToNextMediaItem()
                 startingFade = false
-                log("crossfade $fade ms")
+                // After the switch, synchronously: the screens' state still shows the song fading out.
+                SongPlayer.onLocalFade(true)
+                log("crossfade $length ms")
                 tick.run()
             }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -306,9 +321,21 @@ object LocalPlayer {
     private fun endFade() {
         handler.removeCallbacks(tick)
         outgoing?.let { it.stop(); it.release() }
+        if (outgoing != null) SongPlayer.onLocalFade(false)
         outgoing = null
         exo?.let { it.volume = 1f; if (it.isPlaying) handler.postDelayed(tick, 200) }
     }
+
+    /**
+     * How far the fade is, 0 (the song going out alone) to 1 (the next one alone); 1 with no fade.
+     * Follows the incoming song's own position, as the volumes do: a stall holds it.
+     */
+    fun fadeProgress(): Float {
+        val p = exo ?: return 1f
+        return if (outgoing == null) 1f else CrossfadeRamp.progress(p.currentPosition, fadeMs)
+    }
+    /** Where the song fading out is (0 with no fade). */
+    fun fadeOutPosition(): Long = outgoing?.currentPosition ?: 0L
 
     /** A player stopped by an error (idle) is prepared again first: a play alone does nothing there. */
     fun resume() {

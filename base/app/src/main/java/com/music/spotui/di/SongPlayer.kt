@@ -2400,6 +2400,24 @@ object SongPlayer {
     /** True while a crossfade is fading this song out, or the next one in (see [SpotifyPlayer]). */
     fun isCrossfadeActive(): Boolean =
         MyspotiRuntime.isStarted && MyspotiRuntime.spotify.player.isCrossfading()
+
+    /** The song a real crossfade fades out, as the screens showed it when the fade began. */
+    data class FadingSong(val title: String, val artist: String, val coverUri: String, val durationMs: Long)
+
+    private val fadingOutState = mutableStateOf<FadingSong?>(null)
+    /**
+     * Set while the local player's crossfade overlaps two songs (none for Spotify's own fades,
+     * which do not overlap): the players blend this one into the current song.
+     */
+    val fadingOut: State<FadingSong?> get() = fadingOutState
+
+    /** [LocalPlayer]'s fade starts (just after its switch to the next song) or ends. */
+    fun onLocalFade(on: Boolean) {
+        // The new song's state is posted: what the screens hold is still the song going out.
+        fadingOutState.value = if (!on) null else boundState?.let {
+            FadingSong(it.title.value, it.singer.value, it.coverUri.value, durationMs)
+        }
+    }
     fun release() {}
 
     // ── Play-key helpers (url = "spotify:track:<id>|<search text>") ──

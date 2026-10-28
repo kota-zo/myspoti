@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -83,9 +84,12 @@ private val TRACK_SWIPE_THRESHOLD = 72.dp
 @Composable
 fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modifier) {
     val vm: PlayerViewModel = viewModel()
-    val title = vm.currentSongTitle.value
+    // A crossfade: the words stay the outgoing song's until half way (see SongBlend).
+    val blend = com.music.spotui.ui.components.rememberSongBlend()
+    val outgoing = blend?.takeIf { it.outgoingWords }?.song
+    val title = outgoing?.title ?: vm.currentSongTitle.value
     if (title.isBlank()) return
-    val singer = vm.currentSongSinger.value
+    val singer = outgoing?.artist ?: vm.currentSongSinger.value
     val cover = vm.currentSongCoverUri.value
     val playing = vm.currentSongPlayingState.value
     val adPlaying = SongPlayer.adPlaying
@@ -106,17 +110,21 @@ fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modif
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GlideImage(
-            model = cover.takeIf { it.isNotBlank() },
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            transition = CrossFade,
-            loading = placeholder(R.drawable.placeholder),
-            failure = placeholder(R.drawable.placeholder),
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(ART_CORNER)).background(Color.Black.copy(alpha = 0.18f)),
-        )
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(ART_CORNER)).background(Color.Black.copy(alpha = 0.18f))) {
+            GlideImage(
+                model = cover.takeIf { it.isNotBlank() },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                transition = CrossFade,
+                loading = placeholder(R.drawable.placeholder),
+                failure = placeholder(R.drawable.placeholder),
+                modifier = Modifier.size(40.dp),
+            )
+            // The outgoing cover dissolving into this one.
+            com.music.spotui.ui.components.SongBlendCover(blend, Modifier.size(40.dp))
+        }
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).graphicsLayer { alpha = blend?.wordsAlpha() ?: 1f }) {
             Text(
                 text = if (adPlaying) stringResource(R.string.immersive_player_ad) else title,
                 // Title and artist set close, as the official mini player: the default line heights left a gap.
@@ -138,7 +146,7 @@ fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modif
                     Haptics.click()
                     // The same optimistic update as the Classic mini player: the glyph flips at once.
                     if (playing) SongPlayer.pause() else SongPlayer.play()
-                    vm.updateSongState(cover, title, singer, !playing, vm.currentSongId.value, vm.currentSongIndex.value, vm.currentSongAlbum.value)
+                    vm.updateSongState(cover, vm.currentSongTitle.value, vm.currentSongSinger.value, !playing, vm.currentSongId.value, vm.currentSongIndex.value, vm.currentSongAlbum.value)
                 },
                 contentAlignment = Alignment.Center,
             ) {

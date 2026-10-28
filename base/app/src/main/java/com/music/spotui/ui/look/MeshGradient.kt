@@ -67,6 +67,12 @@ private val FallbackColors = listOf(
 @Immutable
 data class MeshPalette(val colors: List<Color>)
 
+/** [from] blended into [to] by [fraction], colour by colour (a crossfade between two songs). */
+fun lerp(from: MeshPalette, to: MeshPalette, fraction: Float): MeshPalette {
+    fun four(p: MeshPalette) = (p.colors.ifEmpty { FallbackColors } + FallbackColors).take(4)
+    return MeshPalette(four(from).zip(four(to)) { a, b -> androidx.compose.ui.graphics.lerp(a, b, fraction) })
+}
+
 /**
  * The Immersive player's backdrop: four luminous colour blobs sampled from
  * the album art, drawn as soft radial gradients and blurred into a mesh.
@@ -236,9 +242,12 @@ fun cyclingMeshPalette(palettes: List<MeshPalette>, stepMillis: Int = MESH_CYCLE
 @Composable
 fun rememberArtworkColors(imageUrl: String?): MeshPalette {
     val context = LocalContext.current
-    var palette by remember(imageUrl) { mutableStateOf(MeshPalette(FallbackColors)) }
+    // Not reset when the url changes: the last cover's colours stay until the new ones are known,
+    // so a song change goes straight from one palette to the next, not through the stock purple.
+    var palette by remember { mutableStateOf(MeshPalette(FallbackColors)) }
 
     DisposableEffect(imageUrl) {
+        if (imageUrl == null) palette = MeshPalette(FallbackColors)
         val target = if (imageUrl == null) null else loadArtwork(context, imageUrl) { bitmap ->
             palette = MeshPalette(artworkMeshColors(bitmap))
         }

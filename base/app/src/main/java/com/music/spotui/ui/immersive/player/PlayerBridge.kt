@@ -72,6 +72,11 @@ data class ImmersivePlayerState(
     val deviceName: String? = null,
     /** The track as the options sheet wants it; null while nothing is known. */
     val song: SongsModel? = null,
+    /**
+     * A real crossfade going on: its outgoing cover is laid over [coverUrl] and the colours
+     * blend; until half way [title], [artist] and the times are still the outgoing song's.
+     */
+    val blend: com.music.spotui.ui.components.SongBlend? = null,
 )
 
 /** What the player does; nothing here touches the UI, the screen owns its sheets and panels. */
@@ -132,15 +137,18 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
         }
     }
 
+    // The words follow what is heard: the song going out until half way through a crossfade.
+    val blend = com.music.spotui.ui.components.rememberSongBlend()
+    val outgoing = blend?.takeIf { it.outgoingWords }
     val state = ImmersivePlayerState(
-        title = title,
-        artist = singer,
+        title = outgoing?.song?.title ?: title,
+        artist = outgoing?.song?.artist ?: singer,
         album = album,
         coverUrl = app.myspoti.host.android.Covers.large(cover),
         playing = playing,
         buffering = buffering,
-        positionMs = remember { { SongPlayer.getCurrentPosition() } },
-        durationMs = duration,
+        positionMs = remember(outgoing) { outgoing?.let { o -> { o.positionMs() } } ?: { SongPlayer.getCurrentPosition() } },
+        durationMs = outgoing?.song?.durationMs ?: duration,
         shuffle = shuffle,
         smart = smart,
         repeatMode = repeat,
@@ -151,6 +159,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
         contextName = np.contextName.ifBlank { SongPlayer.knownContextName(np.contextUri) }.ifBlank { album },
         deviceName = device,
         song = if (title.isBlank()) null else nowPlayingSong(vm),
+        blend = blend,
     )
 
     // Read at the moment of the tap, not captured: the lambdas below live as long as the screen.

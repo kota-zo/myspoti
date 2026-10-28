@@ -234,6 +234,12 @@ fun PlayerScreen(navController: NavController) {
         if (songCoverUri.isNotBlank()) Palette().extractFirstColorFromImageUrl(context, songCoverUri) { tintColor = it }
     }
     val backdropColor by androidx.compose.animation.animateColorAsState(tintColor ?: coverColor, androidx.compose.animation.core.tween(450), label = "backdrop")
+    // A real crossfade (see SongBlend): the cover and the backdrop go from the outgoing song to
+    // this one with the fade's progress, the words and times switch once, half way.
+    val blend = com.music.spotui.ui.components.rememberSongBlend()
+    val outgoing = blend?.takeIf { it.outgoingWords }?.song
+    // The backdrop's colour when the fade began, before this song's took over.
+    val outgoingBackdrop = remember(blend) { backdropColor }
 
     val shuffle = playerViewModel.shuffleState.value
     val repeat = playerViewModel.repeatState.value
@@ -372,19 +378,22 @@ fun PlayerScreen(navController: NavController) {
         modifier = Modifier
             .graphicsLayer { translationY = pullToClose.offset }
             .fillMaxSize()
-            .background(
+            // Drawn, not composed: the colour moves every frame of a crossfade (and of a change),
+            // and only this draw follows it.
+            .drawBehind {
                 // The tint follows the cover in BOTH modes: AMOLED used to be pure black, and the
                 // colour was asked for anyway (that replaces the halo idea). The screen keeps its
                 // gradient, the toggle still governs the rest of the app.
                 // Official look: the cover's colour at the top, fading to near-black by the
                 // bottom (still faintly tinted halfway), so white text stays readable.
-                Brush.verticalGradient(
-                    0f to backdropColor,
-                    0.55f to androidx.compose.ui.graphics.lerp(backdropColor, PLAYER_BASE, 0.40f),
-                    0.80f to androidx.compose.ui.graphics.lerp(backdropColor, PLAYER_BASE, 0.78f),
+                val top = blend?.let { androidx.compose.ui.graphics.lerp(outgoingBackdrop, backdropColor, it.progress()) } ?: backdropColor
+                drawRect(Brush.verticalGradient(
+                    0f to top,
+                    0.55f to androidx.compose.ui.graphics.lerp(top, PLAYER_BASE, 0.40f),
+                    0.80f to androidx.compose.ui.graphics.lerp(top, PLAYER_BASE, 0.78f),
                     1f to PLAYER_BASE,
-                )
-            )
+                ))
+            }
     ) {
         // The window's height (the inner constraints below shadow `maxHeight`) and the status
         // bar's, to size the page item itself: a LazyColumn item cannot ask for "parent minus x".
@@ -560,6 +569,13 @@ fun PlayerScreen(navController: NavController) {
                         model = app.myspoti.host.android.Covers.large(cover),
                         contentScale = ContentScale.Crop,
                         contentDescription = "")
+                    // The song a crossfade fades out, dissolving into this one.
+                    if (page == 1) com.music.spotui.ui.components.SongBlendCover(
+                        blend,
+                        (if (immersive) Modifier.fillMaxSize()
+                            else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
+                            .graphicsLayer { alpha = coverAlpha },
+                    )
                 }
             }
             }
@@ -595,9 +611,10 @@ fun PlayerScreen(navController: NavController) {
             // the screen replaces the title block and every control.
             if (!immersive) {
                 PlayerInfo(
-                    songTitle = songTitle,
-                    songSinger = songSinger,
-                    explicit = np.explicit || currentTrack?.explicit == true,
+                    songTitle = outgoing?.title ?: songTitle,
+                    songSinger = outgoing?.artist ?: songSinger,
+                    wordsAlpha = { blend?.wordsAlpha() ?: 1f },
+                    explicit = outgoing == null && (np.explicit || currentTrack?.explicit == true),
                     liked = isLiked.value,
                     onLikeClick = { playerViewModel.updateLikeState(!isLiked.value) },
                     likeSong = { nowPlayingSong(playerViewModel) },
@@ -629,13 +646,16 @@ fun PlayerScreen(navController: NavController) {
                 // Seek bar: follows the finger while dragging, seeks once on release.
                 var isDragging by remember { mutableStateOf(false) }
                 var dragValue by remember { mutableStateOf(0f) }
-                val duration = mv.duration()
+                // The outgoing song's times until half way through a crossfade, as its words.
+                val duration = outgoing?.durationMs ?: mv.duration()
+                val outgoingAt = blend?.takeIf { outgoing != null }
                 SpotifySeekBar(
                     fraction = {
                         frame.value // redraw each frame
                         if (isDragging) dragValue else {
-                            val d = mv.duration()
-                            if (d > 0) (mv.position().toFloat() / d).coerceIn(0f, 1f) else 0f
+                            val d = if (outgoingAt != null) duration else mv.duration()
+                            val at = outgoingAt?.positionMs() ?: mv.position()
+                            if (d > 0) (at.toFloat() / d).coerceIn(0f, 1f) else 0f
                         }
                     },
                     onDrag = { isDragging = true; dragValue = it },
@@ -655,7 +675,8 @@ fun PlayerScreen(navController: NavController) {
                         .padding(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    ElapsedLabel(songPlayingState, if (isDragging) (dragValue * duration).toLong() else null) {
+                    ElapsedLabel(songPlayingState, if (isDragging) (dragValue * duration).toLong() else null,
+                        position = outgoingAt?.let { o -> { o.positionMs() } } ?: mv::position) {
                         playerViewModel.formatDuration(it)
                     }
                     Text(
@@ -1047,6 +1068,8 @@ fun PlayerInfo(
     onTitleClick: (() -> Unit)? = null,
     /** T4: an ad break is on: what the caller passes is the song from before it, not what plays. */
     adPlaying: Boolean = false,
+    /** The words' dip through a crossfade's switch (SongBlend.wordsAlpha), read at draw. */
+    wordsAlpha: () -> Float = { 1f },
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1064,7 +1087,7 @@ fun PlayerInfo(
             textAlpha.snapTo(0f)
             textAlpha.animateTo(1f, androidx.compose.animation.core.tween(200))
         }
-        Column(modifier = Modifier.weight(1f).padding(end = 16.dp).graphicsLayer { alpha = textAlpha.value }) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp).graphicsLayer { alpha = textAlpha.value * wordsAlpha() }) {
             Text(
                 modifier = Modifier
                     // A few passes, after the sheet has settled (not an endless 120 Hz animation).
@@ -1113,21 +1136,22 @@ fun PlayerInfo(
 
 /** Elapsed time text with its own ticker (doesn't recompose the whole player). */
 @Composable
-private fun ElapsedLabel(playing: Boolean, override: Long?, format: (Long) -> String) {
+private fun ElapsedLabel(playing: Boolean, override: Long?, position: () -> Long, format: (Long) -> String) {
     val mv = com.music.spotui.video.MusicVideoController
-    var now by remember { mutableStateOf(mv.position()) }
+    val at by androidx.compose.runtime.rememberUpdatedState(position)
+    var now by remember { mutableStateOf(position()) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(playing, mv.on.value, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                now = mv.position()
+                now = at()
                 if (!playing) break
                 delay(250L)
             }
         }
     }
     // Seek while paused: pick the new position up as soon as it changes.
-    LaunchedEffect(override) { if (override == null) now = mv.position() }
+    LaunchedEffect(override, position) { if (override == null) now = position() }
     Text(text = format(override ?: now), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, lineHeight = 14.sp)
 }
 
