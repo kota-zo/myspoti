@@ -141,7 +141,12 @@ object LyricsApi {
         private const val MAX_FILES = 300
         private const val MAX_AGE_MS = 14 * 24 * 3_600_000L
         private val dir: java.io.File? by lazy {
-            runCatching { java.io.File(com.music.spotui.di.Graph.app.filesDir, "lyrics_cache1").also { it.mkdirs() } }.getOrNull()
+            runCatching {
+                val files = com.music.spotui.di.Graph.app.filesDir
+                // lyrics_cache1 kept word timings moved by a wrong pairing (God's Plan off by 74 s): dropped once.
+                java.io.File(files, "lyrics_cache1").takeIf { it.exists() }?.deleteRecursively()
+                java.io.File(files, "lyrics_cache2").also { it.mkdirs() }
+            }.getOrNull()
         }
         private var writes = 0
 
@@ -231,7 +236,7 @@ object LyricsApi {
         if (sp != null) early.value = track.key to sp
         val words = (plus.await() ?: red.await() ?: kugou.await())?.takeIf { it.wordSynced }
         when {
-            words != null -> alignTo(words, sp).copy(colors = sp?.colors)
+            words != null -> alignTo(words, sp)?.copy(colors = sp?.colors) ?: sp
             sp != null -> sp
             else -> lineFallbacks(track)
         }
@@ -242,29 +247,45 @@ object LyricsApi {
      * a little longer or shorter than Spotify's (reported: "mal synchro"). When Spotify times the
      * same lines, the words are moved by the usual gap between the two (the median of the lines
      * found in both, in order), so they follow Spotify's own audio.
+     *
+     * Only lines that appear once on each side are paired: a chorus sung five times paired its
+     * first copy with a later one (God's Plan was moved by 74 s on three such lines). The gaps
+     * must agree and stay within an intro's length; otherwise the words are not trusted (null)
+     * and Spotify's own lines are shown.
      */
-    private fun alignTo(words: Lyrics, spotify: Lyrics?): Lyrics {
+    private fun alignTo(words: Lyrics, spotify: Lyrics?): Lyrics? {
         if (spotify == null || !spotify.synced) return words
+        fun uniqueKeys(lines: List<com.music.spotui.data.entity.LyricLine>) =
+            lines.map { matchKey(it.text) }.filter { it.length >= 6 }.groupingBy { it }.eachCount().filterValues { it == 1 }.keys
         val theirs = spotify.lines.filter { it.timeMs > 0 && matchKey(it.text).length >= 6 }
-        val gaps = ArrayList<Long>()
-        var from = 0
-        for (l in words.lines) {
-            val k = matchKey(l.text)
-            if (k.length < 6) continue
-            val i = (from until theirs.size).firstOrNull { matchKey(theirs[it].text) == k } ?: continue
-            gaps += theirs[i].timeMs - l.timeMs
-            from = i + 1
+        val shared = uniqueKeys(theirs) intersect uniqueKeys(words.lines)
+        val theirAt = theirs.associateBy { matchKey(it.text) }
+        val gaps = words.lines.mapNotNull { l -> theirAt[matchKey(l.text)]?.takeIf { matchKey(l.text) in shared }?.let { it.timeMs - l.timeMs } }
+        if (gaps.size < 3) {
+            if (gaps.isEmpty()) return words
+            Log.d("LyricsApi", "${words.provider}: only ${gaps.size} lines to compare with Spotify's timing, Spotify's lines kept")
+            return null
         }
-        if (gaps.size < 3) return words
         val shift = gaps.sorted()[gaps.size / 2]
+        val agreeing = gaps.count { kotlin.math.abs(it - shift) <= ALIGN_TOLERANCE_MS }
+        if (agreeing < maxOf(3, (gaps.size * 0.6).toInt()) || kotlin.math.abs(shift) > MAX_ALIGN_SHIFT_MS) {
+            Log.d("LyricsApi", "${words.provider}: timing off Spotify's by $shift ms, $agreeing of ${gaps.size} lines agree: Spotify's lines kept")
+            return null
+        }
         if (kotlin.math.abs(shift) < 60) return words
-        Log.d("LyricsApi", "${words.provider}: moved by $shift ms to Spotify's timing (${gaps.size} lines)")
+        Log.d("LyricsApi", "${words.provider}: moved by $shift ms to Spotify's timing ($agreeing of ${gaps.size} lines)")
         return words.copy(lines = words.lines.map { l ->
             l.copy(timeMs = (l.timeMs + shift).coerceAtLeast(0), words = l.words?.map { w ->
                 w.copy(startMs = (w.startMs + shift).coerceAtLeast(0), endMs = if (w.endMs > 0) (w.endMs + shift).coerceAtLeast(0) else 0)
             })
         })
     }
+
+    /** How far a paired line may sit from the usual gap and still agree with it. */
+    private const val ALIGN_TOLERANCE_MS = 1_500L
+
+    /** The most two recordings' intros are taken to differ by; more is another cut or a wrong pairing. */
+    private const val MAX_ALIGN_SHIFT_MS = 20_000L
 
     /** Nothing from Spotify: LRCLIB, then (opt-in) NetEase and Genius, then Kugou. */
     private suspend fun lineFallbacks(track: Track): Lyrics? = coroutineScope {
