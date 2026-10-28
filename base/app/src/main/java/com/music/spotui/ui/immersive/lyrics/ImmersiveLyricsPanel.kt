@@ -447,6 +447,7 @@ private fun LyricsList(
                     }
                 },
                 onSeek = { timeMs ->
+                    SongPlayer.logLyricJump(timeMs)
                     head.announceJump()
                     SongPlayer.seekTo(timeMs)
                     SongPlayer.play()

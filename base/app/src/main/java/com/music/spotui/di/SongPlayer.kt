@@ -2327,6 +2327,33 @@ object SongPlayer {
         return if (durationMs > 0) now.coerceAtMost(durationMs) else now
     }
 
+    /**
+     * Whether [getCurrentPosition] moves on now. Not only paused: a song that is to play but is
+     * loading (its start, a seek into what is not loaded yet, a stream that does not keep up)
+     * stands still too, for seconds with an extension's stream; the lyrics hold meanwhile.
+     */
+    fun positionMoving(): Boolean =
+        if (LocalPlayer.active.value && !routing) LocalPlayer.isPlaying() else playing && !isBuffering
+
+    /**
+     * A tap on a synced lyric line, for the diagnostic: where it jumps, which player plays (and
+     * whether its source can seek), then where the song is 300 ms and 2 s later.
+     */
+    fun logLyricJump(targetMs: Long) {
+        val log = app.myspoti.host.android.Logbook::log
+        val player = when {
+            routing -> "spotify, an extension being asked"
+            LocalPlayer.active.value -> "local, ${LocalPlayer.describe()}"
+            _activeDevice.value != null -> "spotify connect"
+            else -> "spotify"
+        }
+        log("lyrics: tap on the line at $targetMs ms, from ${getCurrentPosition()} ms ($player)")
+        for (afterMs in longArrayOf(300L, 2_000L)) main.postDelayed({
+            log("lyrics: $afterMs ms after the tap to $targetMs ms: at ${getCurrentPosition()} ms" +
+                if (positionMoving()) "" else if (isPlaying() || LocalPlayer.active.value && LocalPlayer.playWhenReady()) ", loading" else ", paused")
+        }, afterMs)
+    }
+
     /** A local file starts: Spotify pauses (wherever it plays). */
     fun pauseEngineForLocal() {
         // A song the extensions were asked for has its answer, or other files play: older answers play nothing.

@@ -196,6 +196,7 @@ private fun sungChars(words: List<LyricWord>, starts: List<Int>, p: Long): Float
 /** Seek to a tapped synced line and make sure we're playing. */
 private fun jumpTo(timeMs: Long) {
     com.music.spotui.di.Haptics.click()
+    SongPlayer.logLyricJump(timeMs)
     SongPlayer.seekTo(timeMs)
     if (!SongPlayer.isPlaying()) SongPlayer.play()
 }

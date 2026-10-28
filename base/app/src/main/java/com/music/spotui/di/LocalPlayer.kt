@@ -81,6 +81,7 @@ object LocalPlayer {
                     log("state ${stateName(state)} at ${p.currentPosition} ms, item ${p.currentMediaItemIndex + 1}/${p.mediaItemCount}")
                     // Casting: this player keeps the queue only, stopped; the song plays on the device.
                     if (CastPlayback.active && state != Player.STATE_IDLE) { p.stop(); return }
+                    if (state == Player.STATE_READY) checkLength(p)
                     if (state == Player.STATE_ENDED) atEnd(p)
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -608,6 +609,47 @@ object LocalPlayer {
     fun position() = if (CastPlayback.active) CastPlayback.position() else exo?.currentPosition ?: 0L
     fun duration() = exo?.duration?.takeIf { it > 0 } ?: current()?.durationMs ?: 0L
     fun current(): LocalTrack? = exo?.currentMediaItemIndex?.let { tracks.getOrNull(it) }
+
+    /**
+     * For the diagnostic: what plays (an extension and how it streams, a download, a file), whether
+     * its source can seek (a source that cannot plays a seek from the start), its state, and its
+     * length against the song's (Spotify's, for a stream or a download).
+     */
+    fun describe(): String {
+        val t = current() ?: return "nothing"
+        val p = exo ?: return "no player"
+        val id = t.uri.lastPathSegment.orEmpty()
+        val what = when {
+            t.uri.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME ->
+                "extension ${com.music.spotui.extensions.ExtensionAudio.providerOf(id) ?: "?"} (${com.music.spotui.extensions.ExtensionAudio.deliveryOf(id) ?: "not answered"})"
+            com.music.spotui.data.offline.OfflineStore.byLocalId(t.id) != null -> "download"
+            else -> "file"
+        }
+        val seek = when {
+            CastPlayback.active -> "casting"
+            p.isCurrentMediaItemSeekable -> "seekable"
+            else -> "NOT seekable"
+        }
+        return "$what, $seek, ${playbackState()}, ${p.duration.takeIf { it > 0 } ?: "unknown"} ms long (song ${t.durationMs} ms)"
+    }
+
+    /** The song whose length was compared with its audio's (see [checkLength]). */
+    private var lengthChecked: LocalTrack? = null
+
+    /**
+     * Once per song, when its audio is ready: an audio longer or shorter than the song (another
+     * cut, an intro) puts synced lyrics, timed on Spotify's, off by the difference. Logged only.
+     */
+    private fun checkLength(p: ExoPlayer) {
+        val t = current() ?: return
+        if (lengthChecked === t) return
+        val audio = p.duration.takeIf { it > 0 } ?: return
+        lengthChecked = t
+        if (t.durationMs > 0 && kotlin.math.abs(audio - t.durationMs) > LENGTH_GAP_MS)
+            log("${t.title}: the audio lasts $audio ms, the song ${t.durationMs} ms (synced lyrics may be off by the difference)")
+    }
+
+    private const val LENGTH_GAP_MS = 2_000L
 
     private fun log(line: String) = app.myspoti.host.android.Logbook.log("local: $line")
 

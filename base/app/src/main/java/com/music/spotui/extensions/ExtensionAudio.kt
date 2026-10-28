@@ -112,6 +112,10 @@ object ExtensionAudio {
     /** The quality the extension announced for the song [trackId] ("FLAC · 24-bit · 96 kHz"), or null. */
     fun qualityOf(trackId: String): String? = known[trackId]?.stream?.qualityLabel()
 
+    /** How the audio of the song [trackId] comes, for the diagnostic ("dash", "url audio/flac"), or null. */
+    fun deliveryOf(trackId: String): String? =
+        known[trackId]?.stream?.let { if (it.manifest != null) "dash" else "url ${it.mimeType ?: "untyped"}" }
+
     /**
      * For the player's data source: the audio of a `myspoti-ext:` item, or null. Blocks.
      * [again]: the answer kept is dropped and the extensions are asked anew (its address was refused).

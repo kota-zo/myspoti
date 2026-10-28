@@ -93,6 +93,18 @@ internal fun rememberLyricsPlayhead(trackKey: Any, playing: Boolean): LyricsPlay
                         val system = System.nanoTime()
                         val now = nanosToMs(if (abs(system - frameNanos) < SAME_CLOCK_NANOS) frameNanos else system)
                         val position = playerPosition()
+                        // To play but loading (a seek into a stream, its start): the position stands
+                        // still, and so do the words. Carried on at the learned rate, they ran ahead
+                        // of the song by the whole wait (seconds with an extension's stream) and then
+                        // crept back at half speed: a tapped line seemed not to jump, then the words
+                        // were out of step. The next frame that moves starts a fresh run from there.
+                        if (!SongPlayer.positionMoving()) {
+                            head.engine.hold(position, now)
+                            head.clock.longValue = position
+                            head.lastReadMs = position
+                            head.lastReadAtMs = Double.NaN
+                            return@withFrameNanos
+                        }
                         if (!head.lastReadAtMs.isNaN() &&
                             abs(position - (head.lastReadMs + (now - head.lastReadAtMs))) > SEEK_JUMP_MS
                         ) {
