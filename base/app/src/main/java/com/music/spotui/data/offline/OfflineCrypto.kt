@@ -153,20 +153,39 @@ object OfflineCrypto {
             // player's loading thread, then read from where it says with its headers. An address
             // the server refuses (expired or gone: 401, 403, 404, 410) is asked for once more.
             if (dataSpec.uri.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) {
-                val length = com.music.spotui.extensions.AudioRoute.openStream(
-                    ask = { again -> com.music.spotui.extensions.ExtensionAudio.resolve(dataSpec.uri, again) },
-                    open = { stream ->
-                        try {
-                            if (stream.manifest != null) openDash(dataSpec, stream) else openUrl(dataSpec, stream)
-                        } catch (e: IOException) {
-                            // Closed before it is opened again (it keeps the source that failed).
-                            runCatching { net.close() }
-                            throw e
-                        }
-                    },
-                    status = { (it as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode },
-                )
+                val status = { t: Throwable -> (t as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode }
+                // How its address opened, for the song's play attempt ("Why this source?").
+                val trackId = dataSpec.uri.lastPathSegment
+                val t0 = android.os.SystemClock.elapsedRealtime()
+                var tried: app.myspoti.extensions.AudioStream? = null
+                val length = try {
+                    com.music.spotui.extensions.AudioRoute.openStream(
+                        ask = { again -> com.music.spotui.extensions.ExtensionAudio.resolve(dataSpec.uri, again) },
+                        open = { stream ->
+                            tried = stream
+                            try {
+                                if (stream.manifest != null) openDash(dataSpec, stream) else openUrl(dataSpec, stream)
+                            } catch (e: IOException) {
+                                // Closed before it is opened again (it keeps the source that failed).
+                                runCatching { net.close() }
+                                throw e
+                            }
+                        },
+                        status = status,
+                    )
+                } catch (e: IOException) {
+                    val code = generateSequence<Throwable>(e) { it.cause }.take(8).mapNotNull(status).firstOrNull()
+                    com.music.spotui.extensions.Extensions.noteAttempt(trackId) {
+                        it.copy(open = app.myspoti.extensions.PlayAttempt.Open(false, android.os.SystemClock.elapsedRealtime() - t0, code, e.message ?: e.javaClass.simpleName, tried?.url?.ifBlank { null }))
+                    }
+                    throw e
+                }
                 usingOther = dash == null
+                val code = if (dash == null && dataSpec.position == 0L) net.responseCode.takeIf { it > 0 } else null
+                com.music.spotui.extensions.Extensions.noteAttempt(trackId) {
+                    if (it.open?.ok == true && dataSpec.position != 0L) it
+                    else it.copy(open = app.myspoti.extensions.PlayAttempt.Open(true, android.os.SystemClock.elapsedRealtime() - t0, code, null, tried?.url?.ifBlank { null } ?: "dash manifest"))
+                }
                 return length
             }
             val file = dataSpec.uri.takeIf { it.scheme == "file" }?.path?.let(::File)

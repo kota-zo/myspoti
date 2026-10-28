@@ -122,9 +122,9 @@
 
     /**
      * What this app understands beyond the first API, for an extension to adapt to: "audio.manifest",
-     * "audio.expires", "audio.quality", "audio.source", "audio.ahead", "http.all", "status", "raw.base64", "player.localMute" only when the user granted playback.mirror, and "attest" only when it granted attest.
+     * "audio.expires", "audio.quality", "audio.source", "audio.ahead", "http.all", "status", "raw.base64", "results" (source hooks may answer { outcome }), "player.localMute" only when the user granted playback.mirror, and "attest" only when it granted attest.
      */
-    features: Object.freeze(['audio.manifest', 'audio.expires', 'audio.quality', 'audio.source', 'audio.ahead', 'http.all', 'status', 'raw.base64'].concat(parse(host.info()).mirror ? ['player.localMute'] : [], parse(host.info()).attest ? ['attest'] : [])),
+    features: Object.freeze(['audio.manifest', 'audio.expires', 'audio.quality', 'audio.source', 'audio.ahead', 'http.all', 'status', 'raw.base64', 'results'].concat(parse(host.info()).mirror ? ['player.localMute'] : [], parse(host.info()).attest ? ['attest'] : [])),
 
     /**
      * A sign-in page (webview.auth): open({ url, callback, hidden }) shows url in a web view of its

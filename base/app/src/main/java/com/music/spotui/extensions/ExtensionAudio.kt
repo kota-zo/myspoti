@@ -132,7 +132,11 @@ object ExtensionAudio {
      */
     fun resolve(u: Uri, again: Boolean = false, ahead: Boolean = false): AudioStream? {
         val key = u.lastPathSegment.orEmpty()
-        if (again) known.remove(key)
+        if (again) {
+            known.remove(key)
+            // Its address was refused: the attempt says so, the new ask is an attempt of its own.
+            Extensions.noteAttempt(key) { it.copy(fallback = "asked the extensions again: its address was refused (expired or gone)") }
+        }
         known[key]?.takeIf { it.fresh }?.let { return it.stream }
         // The song skipped to while its ask ahead is still out: that answer is waited for rather
         // than a second ask (which cost the source a request and the song seconds); only a miss

@@ -25,6 +25,11 @@ import app.myspoti.extensions.ExtensionException
 import app.myspoti.extensions.ExtensionPackage
 import app.myspoti.extensions.ExtensionRuntime
 import app.myspoti.extensions.Hook
+import app.myspoti.extensions.HookBudgets
+import app.myspoti.extensions.Outcome
+import app.myspoti.extensions.PlayAttempt
+import app.myspoti.extensions.PlayAttempts
+import app.myspoti.extensions.SourceCooldown
 import app.myspoti.extensions.Host
 import app.myspoti.extensions.HttpRequest
 import app.myspoti.extensions.HttpResponse
@@ -81,23 +86,24 @@ import java.util.concurrent.ConcurrentHashMap
  * the sandbox does not expect), never the app.
  */
 object Extensions {
-    /** A lyrics hook call (as the desktop runner gives it). */
-    const val LYRICS_MS = 8_000L
+    // Every hook's time is in [HookBudgets], shared with the desktop runner (`myspoti-ext`).
+    /** A lyrics hook call. */
+    const val LYRICS_MS = HookBudgets.LYRICS
     /** An audio-source hook call. */
-    const val AUDIO_MS = 15_000L
+    const val AUDIO_MS = HookBudgets.AUDIO
     /** A download-source hook call (an extension may try several places). */
-    const val DOWNLOAD_MS = 30_000L
-    private const val TRACK_MS = 3_000L
+    const val DOWNLOAD_MS = HookBudgets.DOWNLOAD
+    private const val TRACK_MS = HookBudgets.TRACK
     /** A block, tap or page-message hook call: the screen waits for it. */
-    private const val BLOCKS_MS = 3_000L
-    private const val PAGE_MS = 5_000L
+    private const val BLOCKS_MS = HookBudgets.BLOCKS
+    private const val PAGE_MS = HookBudgets.PAGE
     /** An `online` event: the extension sends what waited. */
-    private const val ONLINE_MS = 30_000L
+    private const val ONLINE_MS = HookBudgets.ONLINE
     /** A `setting` event: a button may pair again with a server. */
-    private const val SETTING_MS = 30_000L
+    private const val SETTING_MS = HookBudgets.SETTING
     private const val SETTING_PAUSE_MS = 800L
     /** An `auth` event. */
-    internal const val AUTH_MS = 10_000L
+    internal const val AUTH_MS = HookBudgets.AUTH
     private const val MAX_INDEX = 1024 * 1024
 
     private lateinit var ctx: Application
@@ -660,13 +666,14 @@ object Extensions {
     /**
      * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
      * from the first extension (priority order) that has any, with that extension's id and name.
+     * A source set aside for a while ([SourceCooldown]) is not asked.
      */
     suspend fun downloadFiles(track: TrackInfo, quality: String): Triple<String, String, List<DownloadFile>>? {
         if (!isReady) return null
         val input = DownloadQuery.toJson(track, quality)
         probeStale(Hook.DOWNLOAD_SOURCE)
-        return HookDispatch.firstInOrder(providing(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->
-            callHook(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }
+        return HookDispatch.firstInOrder(available(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->
+            ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }.value
         }?.let { (c, files) ->
             log(c.first, "download files for ${track.title}: ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}")
             did(Area.AUDIO, c.first, "Download of ${track.title} from ${c.second.manifest.name}")
@@ -678,20 +685,23 @@ object Extensions {
     suspend fun lyrics(track: TrackInfo): Lyrics? {
         if (!isReady) return null
         val input = track.toJson()
-        return HookDispatch.bestInOrder(providing(Hook.LYRICS), LyricsMerge::rank) { (id, rt) ->
-            callHook(id, rt, Hook.LYRICS, input, LYRICS_MS) { LyricsResult.parse(it, rt.manifest.name) }?.let(LyricsMerge::toLyrics)
+        return HookDispatch.bestInOrder(available(Hook.LYRICS), LyricsMerge::rank) { (id, rt) ->
+            ask(id, rt, Hook.LYRICS, input, LYRICS_MS) { LyricsResult.parse(it, rt.manifest.name) }.value?.let(LyricsMerge::toLyrics)
         }?.let { (c, l) -> log(c.first, "lyrics for ${track.title}: ${l.lines.size} lines"); did(Area.LYRICS, c.first, "Lyrics of ${track.title} from ${c.second.manifest.name}"); l }
     }
 
     /**
      * Where [track]'s audio is, from the first extension (in priority order) that knows. [ahead]:
-     * asked before the song plays (the next one of the queue), which the extension is told.
+     * asked before the song plays (the next one of the queue), which the extension is told. Each
+     * call is one [PlayAttempt] ([attempts]): the sources asked or skipped, and the one chosen.
      */
     suspend fun audio(track: TrackInfo, timeoutMs: Long = AUDIO_MS, ahead: Boolean = false): AudioStream? {
         if (!isReady) return null
+        val attempt = attempts.start(track.id, track.title, ahead)
         // None had it a moment ago: not asked again (a queue reaching it, a replay, a resume).
         if (misses.skips(track.id, ahead)) {
             Logbook.log("audio: ${track.title}${if (ahead) " (ahead)" else ""} not asked again: no extension had it under a minute ago")
+            attempts.update(attempt) { it.copy(fallback = "Spotify: no extension had it under a minute ago, not asked again") }
             return null
         }
         // Picked right after launch: the extensions still loading are waited for, not skipped.
@@ -703,23 +713,49 @@ object Extensions {
         // The same song as a download asks with: its ISRC, which an extension matches recordings by.
         val input = AudioQuery.toJson(withIsrc(track), ahead)
         probeStale(Hook.AUDIO_SOURCE)
-        val asked = providing(Hook.AUDIO_SOURCE)
+        val skipped = mutableListOf<PlayAttempt.Ask>()
         _registry.value.extensions.filter { it.enabled && health.inactive(it.id) && runtimes[it.id]?.provides(Hook.AUDIO_SOURCE) == true }
-            .forEach { Logbook.log("audio: ${it.id} skipped (inactive: ${health.last(it.id)?.detail ?: "no detail"})") }
-        if (asked.isEmpty()) return null
+            .forEach {
+                val why = "inactive: ${health.last(it.id)?.detail ?: "no detail"}"
+                Logbook.log("audio: ${it.id} skipped ($why)")
+                skipped += PlayAttempt.Ask(it.id, Outcome.Skipped().key, 0, why)
+            }
+        val asked = available(Hook.AUDIO_SOURCE, skipped)
+        if (asked.isEmpty()) {
+            attempts.update(attempt) { it.copy(asked = skipped.toList(), fallback = "Spotify: no source to ask") }
+            return null
+        }
         val label = "${track.title}${if (ahead) " (ahead)" else ""}"
         Logbook.log("audio: asked ${asked.joinToString { it.first }} for $label")
         val t0 = System.currentTimeMillis()
+        val answers = ConcurrentHashMap<String, PlayAttempt.Ask>()
         val found = HookDispatch.firstInOrder(asked) { (id, rt) ->
-            callHook(id, rt, Hook.AUDIO_SOURCE, input, timeoutMs, AudioStream::parse)
+            val a = ask(id, rt, Hook.AUDIO_SOURCE, input, timeoutMs, AudioStream::parse)
+            answers[id] = PlayAttempt.Ask(id, a.outcome.key, a.ms, detail = a.outcome.detail)
+            a.value
         }
         val ms = System.currentTimeMillis() - t0
-        if (found == null) { Logbook.log("audio: no extension had $label ($ms ms)"); misses.record(track.id, ahead); return null }
+        // A source cut short because one above it answered was not needed.
+        val all = skipped + asked.map { (id, _) -> answers[id] ?: PlayAttempt.Ask(id, Outcome.Skipped().key, ms, "not needed: a source above answered") }
+        if (found == null) {
+            Logbook.log("audio: no extension had $label ($ms ms)"); misses.record(track.id, ahead)
+            attempts.update(attempt) { it.copy(asked = all, fallback = "Spotify: no extension had it") }
+            return null
+        }
         misses.forget(track.id)
         val (c, a) = found
         log(c.first, "audio for ${track.title} ($ms ms)")
         did(Area.AUDIO, c.first, "Audio of ${track.title} from ${c.second.manifest.name}")
+        attempts.update(attempt) { it.copy(asked = all, chosen = c.first, announced = a.qualityLabel()) }
         return a.copy(providerId = c.first)
+    }
+
+    /** The last [PlayAttempt]s through the extensions (20), for "Why this source?" and the diagnostic report. */
+    val attempts = PlayAttempts(capacity = 20)
+
+    /** Notes what the player did with [trackId]'s latest attempt (its address opened, its format, an error). */
+    fun noteAttempt(trackId: String?, change: (PlayAttempt) -> PlayAttempt) {
+        if (!trackId.isNullOrBlank()) runCatching { attempts.updateLatest(trackId, change) }
     }
 
     /** The songs no extension had audio for lately, by Spotify id: forgotten when one is live again or changes. */
@@ -742,42 +778,110 @@ object Extensions {
     /** For the player's loading thread (never the main one). */
     fun audioBlocking(track: TrackInfo, ahead: Boolean = false): AudioStream? = runBlocking(Dispatchers.IO) { audio(track, ahead = ahead) }
 
-    private suspend fun <T : Any> callHook(id: String, rt: ExtensionRuntime, hook: Hook, input: String, timeoutMs: Long, parse: (String) -> T?): T? =
-        runInterruptible(Dispatchers.IO) {
-            busy.merge(id, 1, Int::plus)
-            try {
-                val raw = rt.call(hook, input, timeoutMs)
-                // An answer the app cannot use is a failure too, said in its log (the sandbox logs its own).
-                val out = try { raw?.let(parse) } catch (e: ExtensionException) { log(id, "failed: ${e.message}"); throw e }
-                failures.succeeded(id)
-                out
-            } catch (e: app.myspoti.extensions.ExtensionBusy) {
-                // It was still busy (a slow lookup before): not its fault, nothing counted.
-                log(id, "${hook.key} skipped: ${e.message}")
-                null
-            } catch (e: app.myspoti.extensions.ExtensionFault) {
-                // Out of memory, stack overflow, engine crash: turned off at once, the app goes on.
-                if (!rt.closed) disable(id, e.message ?: "crashed the sandbox")
-                null
-            } catch (e: ExtensionException) {
-                // Stopped meanwhile (updated, turned off): its cut-short call is not counted.
-                if (!rt.closed) failed(id, e.message ?: "failed")
-                null
-            } catch (e: InterruptedException) {
-                throw e
-            } catch (t: Throwable) {
-                // Not a failure the sandbox knows: the extension is stopped before it does it again.
-                disable(id, t.toString())
-                null
-            } finally {
-                busy.computeIfPresent(id) { _, n -> (n - 1).takeIf { it > 0 } }
-            }
+    // ── How a source call ended: outcomes, cooldowns, sign-in ──
+
+    /** The sources set aside after a rate limit, a server down or network failures in a row. */
+    private val cooldown = SourceCooldown()
+
+    /** The extensions whose source said the user must sign in, with what it said ("" if nothing). */
+    private val _signIns = MutableStateFlow<Map<String, String>>(emptyMap())
+    val signIns: StateFlow<Map<String, String>> = _signIns.asStateFlow()
+
+    /** The user dismissed [id]'s sign-in notice (it comes back at its next `sign-in` answer). */
+    fun dismissSignIn(id: String) { _signIns.value = _signIns.value - id }
+
+    /** Why [id] is set aside now ("rate-limited, 42 s left"), or null. */
+    fun cooldownOf(id: String): String? = cooldown.reason(id)
+
+    /** [providing] without the sources set aside ([cooldown]); each one skipped is logged and added to [skipped]. */
+    private fun available(hook: Hook, skipped: MutableList<PlayAttempt.Ask>? = null): List<Pair<String, ExtensionRuntime>> =
+        providing(hook).filter { (id, _) ->
+            val why = cooldown.reason(id) ?: return@filter true
+            Logbook.log("${hook.key}: $id skipped (set aside: $why)")
+            skipped?.add(PlayAttempt.Ask(id, Outcome.Skipped().key, 0, "set aside: $why"))
+            false
         }
+
+    /** What a hook call gave: its answer (null: none), how it ended, in how many ms. */
+    private class Answer<T>(val value: T?, val outcome: Outcome, val ms: Long)
+
+    private suspend fun <T : Any> callHook(id: String, rt: ExtensionRuntime, hook: Hook, input: String, timeoutMs: Long, parse: (String) -> T?): T? =
+        ask(id, rt, hook, input, timeoutMs, parse).value
+
+    /**
+     * Calls [hook] of [id] and classifies how it ended ([Outcome]). A source hook's outcome is
+     * logged and may set the source aside ([cooldown]) or ask the user to sign in ([signIns]).
+     */
+    private suspend fun <T : Any> ask(id: String, rt: ExtensionRuntime, hook: Hook, input: String, timeoutMs: Long, parse: (String) -> T?): Answer<T> {
+        val t0 = System.currentTimeMillis()
+        val (value, outcome) = runInterruptible(Dispatchers.IO) { callNow(id, rt, hook, input, timeoutMs, parse) }
+        val ms = System.currentTimeMillis() - t0
+        if (hook in Outcome.HOOKS) noted(id, hook, outcome, ms)
+        return Answer(value, outcome, ms)
+    }
+
+    private fun <T : Any> callNow(id: String, rt: ExtensionRuntime, hook: Hook, input: String, timeoutMs: Long, parse: (String) -> T?): Pair<T?, Outcome> {
+        busy.merge(id, 1, Int::plus)
+        try {
+            val raw = rt.call(hook, input, timeoutMs)
+            // An outcome it states (`{ outcome }`, feature `results`): its script ran well, nothing is counted.
+            raw?.let { Outcome.parse(hook, it) }?.let { stated -> failures.succeeded(id); return null to stated }
+            // An answer the app cannot use is a failure too, said in its log (the sandbox logs its own).
+            val out = try { raw?.let(parse) } catch (e: ExtensionException) { log(id, "failed: ${e.message}"); throw e }
+            failures.succeeded(id)
+            return out to (if (out != null) Outcome.Found else Outcome.NotFound)
+        } catch (e: app.myspoti.extensions.ExtensionBusy) {
+            // It was still busy (a slow lookup before): not its fault, nothing counted.
+            log(id, "${hook.key} skipped: ${e.message}")
+            return null to Outcome.of(e)
+        } catch (e: app.myspoti.extensions.ExtensionFault) {
+            // Out of memory, stack overflow, engine crash: turned off at once, the app goes on.
+            if (!rt.closed) disable(id, e.message ?: "crashed the sandbox")
+            return null to Outcome.Bug(e.message)
+        } catch (e: ExtensionException) {
+            val o = Outcome.of(e)
+            // Stopped meanwhile (updated, turned off): its cut-short call is not counted. A timeout
+            // or a network error of its requests is the server's, not the script's: not counted either.
+            if (!rt.closed) {
+                if (o.counts) failed(id, e.message ?: "failed") else log(id, "${hook.key}: ${o.key}, not counted as a failure")
+            }
+            return null to o
+        } catch (e: InterruptedException) {
+            throw e
+        } catch (t: Throwable) {
+            // Not a failure the sandbox knows: the extension is stopped before it does it again.
+            disable(id, t.toString())
+            return null to Outcome.Bug(t.toString())
+        } finally {
+            busy.computeIfPresent(id) { _, n -> (n - 1).takeIf { it > 0 } }
+        }
+    }
+
+    /** Logs [o] of [id]'s [hook] call; sets the source aside or asks for a sign-in when it says so. */
+    private fun noted(id: String, hook: Hook, o: Outcome, ms: Long) {
+        log(id, "${hook.key}: ${o.describe()} ($ms ms)")
+        cooldown.note(id, o)?.let { log(id, "set aside for ${it / 1000} s (${o.key}): not asked meanwhile") }
+        when (o) {
+            is Outcome.SignIn -> signInNeeded(id, o.detail)
+            Outcome.Found -> if (id in _signIns.value) dismissSignIn(id)
+            else -> {}
+        }
+    }
+
+    private fun signInNeeded(id: String, detail: String?) {
+        val first = id !in _signIns.value
+        _signIns.value = _signIns.value + (id to detail.orEmpty())
+        if (!first) return
+        val name = _registry.value.find(id)?.name ?: id
+        main.post {
+            android.widget.Toast.makeText(ctx, ctx.getString(app.myspoti.engine.R.string.extension_sign_in_needed, name), android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
 
     // ── Whether each extension's source answers: the `status` hook ──
 
     /** A `status` call: a probe never holds a song's audio longer than this. */
-    private const val STATUS_MS = 5_000L
+    private const val STATUS_MS = HookBudgets.STATUS
     /** How long a command waits for the extensions the app is still starting. */
     private const val START_WAIT_MS = 20_000L
     /** How long a song picked right after launch waits for them (then plays from Spotify). */
@@ -1114,6 +1218,7 @@ object Extensions {
         runningSha.remove(id)
         runtimes.remove(id)?.close(); ExtensionAuth.cancel(id)
         health.forget(id); _statuses.value = health.inactiveNow()
+        cooldown.forget(id); dismissSignIn(id)
         misses.clear()
         refreshProvided()
     }
@@ -1122,6 +1227,7 @@ object Extensions {
     internal fun authDone(id: String, result: app.myspoti.extensions.AuthResult) {
         val rt = runtimes[id] ?: return
         log(id, "sign-in ${result.id}: ${if (result.url != null) "reached the callback" else result.error}")
+        if (result.url != null) dismissSignIn(id)
         val json = kotlinx.serialization.json.Json.encodeToString(app.myspoti.extensions.AuthResult.serializer(), result)
         scope.launch { runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_AUTH, json, AUTH_MS) } }.onFailure { failed(id, it.toString()) } }
     }

@@ -1,7 +1,6 @@
 package app.myspoti.extensions.cli
 
 import app.myspoti.extensions.Attestation
-import app.myspoti.extensions.AudioQuery
 import app.myspoti.extensions.AudioStream
 import app.myspoti.extensions.Blocks
 import app.myspoti.extensions.PageContent
@@ -12,6 +11,8 @@ import app.myspoti.extensions.ExtensionPackage
 import app.myspoti.extensions.ExtensionRuntime
 import app.myspoti.extensions.ExtensionStatus
 import app.myspoti.extensions.Hook
+import app.myspoti.extensions.HookBudgets
+import app.myspoti.extensions.Outcome
 import app.myspoti.extensions.Host
 import app.myspoti.extensions.LyricsResult
 import app.myspoti.extensions.Manifest
@@ -20,7 +21,6 @@ import app.myspoti.extensions.SpotifyCall
 import app.myspoti.extensions.SpotifyDispatcher
 import app.myspoti.extensions.SpotifyRaw
 import app.myspoti.extensions.DownloadFile
-import app.myspoti.extensions.DownloadQuery
 import app.myspoti.extensions.PlaybackEvent
 import app.myspoti.extensions.Storage
 import app.myspoti.extensions.TrackInfo
@@ -41,8 +41,9 @@ import kotlin.system.exitProcess
 
 private const val USAGE = """myspoti-ext: build and try Myspoti extensions on a computer.
 
-  check <folder>                     the manifest's problems, whether the script loads, the actions the
-                                     user is asked (icon, level, why), and the blocks each drawn hook answers
+  check <folder|zip>                 package validity only: the manifest's problems, whether the script
+                                     loads, the hooks it provides, the actions the user is asked (icon,
+                                     level, why). It never calls a hook (use run or test for that)
   run <folder|zip> <hook> [options]  calls a hook as the app would, prints what it answered
       --title T --artist A [--album B] [--duration MS] [--id SPOTIFY_ID] [--isrc ISRC]
       --set key=value                a setting's value (repeatable)
@@ -56,11 +57,18 @@ private const val USAGE = """myspoti-ext: build and try Myspoti extensions on a 
   run <folder|zip> playback [options] delivers a play of the song: start, a progress every 10 s,
       [--played MS] [--leave skip|end|stop] [--context URI] [--shuffle true] [--source local|spotify]
       [--origin spotify|download|audio-source|local-file] [--provider EXTENSION_ID]
+  test <folder|zip> --scenario file.json [--state file.json]
+                                     runs a scenario: hook calls, events and page messages in order, with
+                                     the app's time limits, a request rule set that injects latency, 429 +
+                                     Retry-After, 5xx, DNS failures and resets, cancellation at a time,
+                                     storage kept across steps (and across runs with --state); checks each
+                                     step's outcome and time (docs/extensions/API.md §8). Exit 1 on a failure
   pack <folder> [out-folder]         builds <id>-<version>.zip and prints its index entry
   index <folder-of-zips> <name>      writes index.json for a repository of packages
 
 Hooks: lyrics, audio-source, download-source, trackinfo, home, search (--query Q), menu (--kind track|album|
-playlist|artist), player, page, message (--data JSON), tap (--action ID), status (live or not, within 5 s). Everything the manifest asks is granted here. Without --cdp,
+playlist|artist), player, page, message (--data JSON), tap (--action ID), status (live or not). Each hook gets the
+app's own time limit (HookBudgets). Everything the manifest asks is granted here. Without --cdp,
 myspoti.spotify has no account and its calls fail."""
 
 fun main(args: Array<String>) {
@@ -68,6 +76,7 @@ fun main(args: Array<String>) {
     try {
         when (args[0]) {
             "check" -> check(File(args.getOrElse(1) { usage() }))
+            "test" -> test(File(args.getOrElse(1) { usage() }), args.drop(2))
             "run" -> run(File(args.getOrElse(1) { usage() }), args.getOrElse(2) { usage() }, args.drop(3))
             "pack" -> pack(File(args.getOrElse(1) { usage() }), args.getOrNull(2)?.let(::File))
             "index" -> index(File(args.getOrElse(1) { usage() }), args.getOrElse(2) { usage() })
@@ -166,38 +175,27 @@ private fun check(dir: File) {
             println("  ${if (a.critical) "⚠" else "•"} [${act?.icon ?: "?"}] ${a.key} (${act?.label ?: "unknown"}, ${a.level.name.lowercase()})" +
                 (if (a.hosts.isNotEmpty()) " ${a.hosts}" else "") + " — ${a.why.ifBlank { "(no reason given)" }}")
         }
-        // Each drawn hook it provides, asked once with sample input: its blocks must parse.
-        val sample = TrackInfo("4uLU6hMCjMI75M1A2tKUQC", "spotify:track:4uLU6hMCjMI75M1A2tKUQC", "Sample", "Artist", listOf("Artist"), "Album", 200_000)
-        val asked = listOf(
-            Triple(Hook.HOME, Surface.HOME, "{}"),
-            Triple(Hook.SEARCH, Surface.SEARCH, """{"query":"sample"}"""),
-            Triple(Hook.MENU, Surface.TRACK_MENU, """{"kind":"track","uri":"${sample.uri}","title":"Sample","subtitle":"Artist"}"""),
-            Triple(Hook.PLAYER, Surface.PLAYER, sample.toJson()),
-            Triple(Hook.TRACK_INFO, Surface.TRACK_INFO, sample.toJson()),
-        )
-        var bad = false
-        asked.filter { rt.provides(it.first) }.forEach { (hook, surface, input) ->
-            val out = runCatching { rt.call(hook, input, 5_000) }.getOrElse { println("✗ $hook: ${it.message}"); bad = true; return@forEach }
-            if (out == null) println("  $hook: no blocks for the sample") else runCatching { Blocks.parse(out, surface) }
-                .onSuccess { println("✓ ${hook.key}: ${it.size} block(s) (${it.joinToString { b -> b.javaClass.simpleName }})") }
-                .onFailure { println("✗ ${hook.key}: ${it.message}"); bad = true }
-        }
-        if (rt.provides(Hook.PAGE)) runCatching { rt.call(Hook.PAGE, "{}", 5_000)?.let { PageContent.parse(it, m.name) } }
-            .onSuccess { println(if (it == null) "  page: no page" else "✓ page \"${it.title}\": ${it.html.length} characters of HTML") }
-            .onFailure { println("✗ page: ${it.message}"); bad = true }
-        ExtensionStatus.probe(rt, 5_000).let { s ->
-            println(when (s.state) {
-                "live" -> "✓ status: live${s.detail?.let { " ($it)" } ?: ""}"
-                "inactive" -> "! status: inactive (${s.detail ?: "no detail"})"
-                else -> "! status: no answer (${s.detail ?: "no detail"}): the app keeps using it"
-            })
-        }
-        if (bad && problems.isEmpty()) exitProcess(1)
+        // Never a hook call here: what it answers depends on the network and the account (run, test).
+        Hook.entries.filter { it != Hook.STATUS && rt.provides(it) }.takeIf { it.isNotEmpty() }
+            ?.let { println("Hooks it provides: ${it.joinToString { h -> h.key }}") }
     }
     m.categoryWarning()?.let { println("! $it") }
     println("In the store: ${m.category().key}${if (m.category == null) " (set \"category\" to choose)" else ""}" +
         (m.minAppVersion?.let { ", Myspoti $it or newer" } ?: "") + (if (m.tags.isNotEmpty()) ", tags ${m.tags}" else ""))
     if (problems.isNotEmpty()) exitProcess(1)
+}
+
+/** `test <dir> --scenario file.json [--state file.json]`: each step's result; exit 1 when one failed. */
+private fun test(path: File, rest: List<String>) {
+    val opts = rest.chunked(2).associate { it[0].removePrefix("--") to it.getOrElse(1) { usage() } }
+    val scenarioFile = File(opts["scenario"] ?: usage())
+    val (m, script) = load(path)
+    val scenario = runCatching { Scenario.parse(scenarioFile.readText()) }.getOrElse { System.err.println("✗ ${scenarioFile.name}: ${it.message}"); exitProcess(2) }
+    val results = ScenarioRunner(m, script, scenario, opts["state"]?.let(::File)).run()
+    results.forEach(::println)
+    val failed = results.count { !it.ok }
+    println(if (failed == 0) "✓ ${results.size} step(s) passed" else "✗ $failed of ${results.size} step(s) failed")
+    if (failed > 0) exitProcess(1)
 }
 
 private fun run(path: File, hookName: String, rest: List<String>) {
@@ -226,33 +224,17 @@ private fun run(path: File, hookName: String, rest: List<String>) {
 private fun runScript(rt: ExtensionRuntime, m: Manifest, hookName: String, track: TrackInfo, opts: Map<String, String> = emptyMap()) {
     rt.start()
     if (hookName == ExtensionRuntime.EVENT_TRACK) {
-        rt.emit(hookName, PlaybackEvent.trackEventJson(track, opts["origin"] ?: PlaybackEvent.ORIGIN_SPOTIFY, opts["provider"]))
+        rt.emit(hookName, PlaybackEvent.trackEventJson(track, opts["origin"] ?: PlaybackEvent.ORIGIN_SPOTIFY, opts["provider"]), HookBudgets.TRACK)
         println("✓ delivered"); return
     }
     if (hookName == ExtensionRuntime.EVENT_PLAYBACK) { playback(rt, track, opts); return }
     val hook = Hook.of(hookName) ?: usage()
     if (!rt.provides(hook)) throw ExtensionException("this extension does not provide $hookName (or its action is not in the manifest)")
     val started = System.currentTimeMillis()
-    val input = when (hook) {
-        Hook.DOWNLOAD_SOURCE -> DownloadQuery.toJson(track, opts["quality"] ?: "cd")
-        Hook.AUDIO_SOURCE -> AudioQuery.toJson(track, opts["ahead"] == "true")
-        Hook.SEARCH -> kotlinx.serialization.json.buildJsonObject { put("query", kotlinx.serialization.json.JsonPrimitive(opts["query"] ?: track.title)) }.toString()
-        Hook.MENU -> kotlinx.serialization.json.buildJsonObject {
-            put("kind", kotlinx.serialization.json.JsonPrimitive(opts["kind"] ?: "track"))
-            put("uri", kotlinx.serialization.json.JsonPrimitive(track.uri)); put("title", kotlinx.serialization.json.JsonPrimitive(track.title))
-            put("subtitle", kotlinx.serialization.json.JsonPrimitive(track.artist))
-        }.toString()
-        Hook.HOME, Hook.PAGE, Hook.STATUS -> "{}"
-        Hook.MESSAGE -> opts["data"] ?: "null"
-        Hook.TAP -> kotlinx.serialization.json.buildJsonObject {
-            put("action", kotlinx.serialization.json.JsonPrimitive(opts["action"] ?: usage())); put("surface", kotlinx.serialization.json.JsonPrimitive("home"))
-            put("context", kotlinx.serialization.json.JsonObject(emptyMap()))
-        }.toString()
-        else -> track.toJson()
-    }
+    val input = hookInput(hook, track, opts) ?: usage()
     if (hook == Hook.STATUS) {
         // As the app asks it: only live: false is inactive; a failure or a late answer proves nothing.
-        val s = ExtensionStatus.probe(rt, 5_000)
+        val s = ExtensionStatus.probe(rt, HookBudgets.STATUS)
         val ms = System.currentTimeMillis() - started
         println(when (s.state) {
             "live" -> "✓ live${s.detail?.let { ": $it" } ?: ""} ($ms ms)"
@@ -261,9 +243,11 @@ private fun runScript(rt: ExtensionRuntime, m: Manifest, hookName: String, track
         })
         return
     }
-    val out = rt.call(hook, input, when (hook) { Hook.LYRICS -> 8_000; Hook.DOWNLOAD_SOURCE -> 30_000; else -> 15_000 })
+    val out = rt.call(hook, input, HookBudgets.of(hook))
     val ms = System.currentTimeMillis() - started
     if (out == null) { println("— no answer ($ms ms): the app goes on without this extension"); return }
+    // `{ outcome }` (feature `results`): why it has nothing, as the app reads it.
+    Outcome.parse(hook, out)?.let { o -> println("— outcome ${o.describe()} ($ms ms)"); return }
     val surface = when (hook) {
         Hook.HOME -> Surface.HOME; Hook.SEARCH -> Surface.SEARCH; Hook.PLAYER -> Surface.PLAYER; Hook.TRACK_INFO -> Surface.TRACK_INFO
         Hook.MENU -> when (opts["kind"]) { "album" -> Surface.ALBUM_MENU; "playlist" -> Surface.PLAYLIST_MENU; "artist" -> Surface.ARTIST_MENU; else -> Surface.TRACK_MENU }
@@ -332,7 +316,7 @@ private fun playback(rt: ExtensionRuntime, track: TrackInfo, opts: Map<String, S
         }
     }
     events.forEach { e ->
-        rt.emit(ExtensionRuntime.EVENT_PLAYBACK, e.toJson(), 15_000)
+        rt.emit(ExtensionRuntime.EVENT_PLAYBACK, e.toJson(), HookBudgets.TRACK)
         println("✓ ${e.type}${e.reason?.let { " ($it)" } ?: ""} at ${e.positionMs} ms")
     }
 }

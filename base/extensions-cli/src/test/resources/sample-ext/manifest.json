@@ -1,0 +1,12 @@
+{
+  "id": "io.github.test.sample",
+  "name": "Sample Source",
+  "version": "1.0.0",
+  "author": "Test",
+  "description": "A tiny audio source for the scenario runner's tests.",
+  "actions": [
+    { "name": "audio.source", "why": "Plays songs from api.example.com" },
+    { "name": "storage", "why": "Remembers the last song asked" },
+    { "name": "network", "hosts": ["api.example.com", "cdn.example.com"], "why": "Asks api.example.com where a song is" }
+  ]
+}

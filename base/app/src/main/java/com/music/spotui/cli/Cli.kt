@@ -30,6 +30,8 @@ sealed interface CliCommand {
     data class ExtCall(val id: String, val hook: Hook, val input: String) : CliCommand
     data class ExtLog(val id: String, val lines: Int) : CliCommand
     data class ExtStorage(val id: String) : CliCommand
+    /** The last [n] play attempts through the extensions (debug builds only). */
+    data class ExtWhy(val n: Int) : CliCommand
     data class Play(val uri: String, val context: String?) : CliCommand
     data object Pause : CliCommand
     data object Resume : CliCommand
@@ -44,7 +46,7 @@ object CliParser {
     val COMMANDS = listOf(
         "status", "ext.list", "ext.install <zip path>", "ext.uninstall <id>", "ext.enable <id>", "ext.disable <id>",
         "ext.setting <id> <key> <value|null>", "ext.press <id> <key>", "ext.call <id> <hook> [json]",
-        "ext.log <id> [lines]", "ext.storage <id>", "play <spotify uri> [context uri]", "pause", "resume", "next", "previous",
+        "ext.log <id> [lines]", "ext.storage <id>", "ext.why [n]", "play <spotify uri> [context uri]", "pause", "resume", "next", "previous",
         "nav <route>",
     )
 
@@ -87,6 +89,7 @@ object CliParser {
             }
             "ext.log" -> CliCommand.ExtLog(id(), args.getOrNull(1)?.let { it.toIntOrNull()?.coerceIn(1, 1000) ?: throw CliError("ext.log: [lines] is a number") } ?: 50).also { most(2) }
             "ext.storage" -> CliCommand.ExtStorage(id()).also { most(1) }
+            "ext.why" -> CliCommand.ExtWhy(args.getOrNull(0)?.let { it.toIntOrNull()?.coerceIn(1, 20) ?: throw CliError("ext.why: [n] is a number") } ?: 1).also { most(1) }
             "play" -> {
                 most(2)
                 val uri = arg(0, "spotify uri").also { if (!URI.matches(it)) throw CliError("play: not a spotify: uri") }

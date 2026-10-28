@@ -336,6 +336,15 @@ fun QualitySheet(onDismiss: () -> Unit) {
                 },
                 color = Green, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
+            // A song an extension gives: the sources asked for it, and why this one plays.
+            val extId = if (local) com.music.spotui.di.LocalPlayer.current()?.uri
+                ?.takeIf { it.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME }?.lastPathSegment else null
+            var why by remember { androidx.compose.runtime.mutableStateOf(false) }
+            if (extId != null) {
+                Text(stringResource(R.string.why_source_title), color = AppText, fontSize = 15.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { why = true }.padding(horizontal = 20.dp, vertical = 12.dp))
+                if (why) WhySourceSheet(extId, detectedLabel(com.music.spotui.di.LocalPlayer.audioFormat())) { why = false }
+            }
             // The level of the network in use now (Wi-Fi and mobile data each keep their own).
             if (!local) StreamingQualityPicker(Modifier.padding(top = 12.dp), cellular = com.music.spotui.data.DataSaver.metered,
                 title = if (com.music.spotui.data.DataSaver.metered) R.string.quality_streaming_cell_title else R.string.quality_streaming_wifi_title)

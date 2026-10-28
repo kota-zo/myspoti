@@ -4,15 +4,27 @@
   tools/myspoti-cli status
   tools/myspoti-cli ext.install path/to/extension.zip     # a local zip is pushed first
   tools/myspoti-cli ext.call my.ext lyrics '{"title":"…"}'
+  tools/myspoti-cli ext.why 3                             # the last 3 plays through extensions (debug builds)
 
 Each command is one broadcast to the app's CliReceiver; the app writes its JSON reply to
-<external files>/cli/<request>.json, which this reads back (bounded wait). Exit codes:
-0 ok, 1 the app answered an error, 2 no reply (app not installed, release build, timeout), 3 adb failed.
+<external files>/cli/<request>.json, which this reads back (bounded wait).
+
+It always targets one device: -s SERIAL or $ANDROID_SERIAL, else the only device adb lists; with
+several devices on this adb server and none named, it refuses.
+
+Exit codes:
+  0 ok
+  1 the command failed (the app answered an error, or no reply in time)
+  2 device unreachable (not listed by adb, offline, unauthorized; or several devices and none named)
+  3 adb itself failed
+  4 the app is not installed on that device
+  5 the command is disabled in this build (a release build has no CLI receiver; ext.why is debug only)
 """
 import argparse
 import base64
 import json
 import os
+import re
 import shlex
 import subprocess
 import shutil
@@ -38,6 +50,39 @@ def shell(serial, line, check=True):
     return adb(serial, "shell", line, check=check)
 
 
+# What a receiver that answered sets (CliReceiver): a missing or disabled one leaves 0.
+ANSWERED = 1
+DISABLED = "disabled in this build"
+
+
+def pick_serial(serial):
+    """The one device to drive: the one named, else the only one listed. Exit 2 otherwise."""
+    if serial:
+        r = adb(serial, "get-state", check=False)
+        if r.returncode != 0 or r.stdout.strip() != "device":
+            sys.stderr.write(f"device {serial} unreachable: {(r.stderr.strip() or r.stdout.strip() or 'no state')}\n")
+            sys.exit(2)
+        return serial
+    r = adb(None, "devices", check=False)
+    if r.returncode != 0:
+        sys.stderr.write(f"adb failed: devices: {r.stderr.strip()}\n")
+        sys.exit(3)
+    rows = [l.split() for l in r.stdout.splitlines()[1:] if l.strip() and not l.startswith("*")]
+    if len(rows) > 1:
+        sys.stderr.write("several devices on this adb server: name one with -s SERIAL or ANDROID_SERIAL ("
+                         + ", ".join(row[0] for row in rows) + ")\n")
+        sys.exit(2)
+    if not rows or rows[0][1:2] != ["device"]:
+        sys.stderr.write("no device reachable" + (f" ({rows[0][0]} is {rows[0][1]})" if rows and len(rows[0]) > 1 else "") + "\n")
+        sys.exit(2)
+    return rows[0][0]
+
+
+def installed(serial, pkg):
+    r = shell(serial, f"pm path {shlex.quote(pkg)}", check=False)
+    return r.returncode == 0 and "package:" in r.stdout
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-p", "--package", default=os.environ.get("MYSPOTI_PACKAGE", "app.myspoti.dev"))
@@ -50,6 +95,10 @@ def main():
 
     pkg, args = o.package, list(o.args)
     files = f"/sdcard/Android/data/{pkg}/files/cli"
+    o.serial = pick_serial(o.serial)
+    if not installed(o.serial, pkg):
+        sys.stderr.write(f"{pkg} is not installed on {o.serial} (-p PACKAGE or MYSPOTI_PACKAGE for another build)\n")
+        sys.exit(4)
 
     # A zip on this computer goes to a folder the app reads without any permission.
     if o.cmd == "ext.install" and args and os.path.isfile(args[0]):
@@ -65,9 +114,14 @@ def main():
         "am", "broadcast", "-a", f"{pkg}.CLI", "-p", pkg,
         "--es", "cmd", o.cmd, "--es", "args64", args64, "--es", "req", req,
     ])
-    shell(o.serial, line)
+    # `am broadcast` returns once the receiver finished: "Broadcast completed: result=1" when it answered.
+    sent = shell(o.serial, line)
+    m = re.search(r"result=(-?\d+)", sent.stdout)
+    answered = m is not None and int(m.group(1)) == ANSWERED
+    # No answer: a release build (receiver off); an older build that wrote its reply anyway is still read.
+    wait = o.timeout if answered or m is None else min(o.timeout, 2.0)
 
-    deadline = time.monotonic() + o.timeout
+    deadline = time.monotonic() + wait
     text = None
     while time.monotonic() < deadline:
         r = shell(o.serial, f"cat {shlex.quote(reply_path)} 2>/dev/null", check=False)
@@ -76,23 +130,25 @@ def main():
             break
         time.sleep(0.25)
     if text is None:
-        sys.stderr.write(f"no reply from {pkg} after {o.timeout:g} s (installed? a debug or beta build? "
-                         f"adb logcat -s MyspotiCli)\n")
-        sys.exit(2)
+        if not answered and m is not None:
+            sys.stderr.write(f"{pkg} has no CLI in this build (a release build: use a debug or beta one)\n")
+            sys.exit(5)
+        sys.stderr.write(f"no reply from {pkg} after {o.timeout:g} s (adb logcat -s MyspotiCli)\n")
+        sys.exit(1)
     shell(o.serial, f"rm -f {shlex.quote(reply_path)}", check=False)
 
     try:
         reply = json.loads(text)
     except ValueError:
         sys.stderr.write(f"unreadable reply: {text[:500]}\n")
-        sys.exit(2)
+        sys.exit(1)
     if o.raw:
         print(text)
     elif reply.get("ok"):
         print(json.dumps(reply.get("result"), indent=2, ensure_ascii=False))
     if not reply.get("ok"):
         sys.stderr.write(f"error: {reply.get('error')}\n")
-        sys.exit(1)
+        sys.exit(5 if reply.get("error") == DISABLED else 1)
 
 
 if __name__ == "__main__":

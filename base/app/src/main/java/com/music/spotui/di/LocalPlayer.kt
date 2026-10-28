@@ -126,6 +126,7 @@ object LocalPlayer {
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     log("error ${error.errorCodeName}: ${generic(error.cause?.toString() ?: error.message.orEmpty())}")
                     val item = p.currentMediaItem?.localConfiguration?.uri ?: return
+                    if (item.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) com.music.spotui.extensions.Extensions.noteAttempt(item.lastPathSegment) { it.copy(error = "${error.errorCodeName}: ${error.cause ?: error.message.orEmpty()}") }
                     if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME) return
                     val t = current() ?: return
                     val noAudio = com.music.spotui.extensions.AudioRoute.isNoAudio(error)
@@ -769,6 +770,8 @@ object LocalPlayer {
     fun playbackState(): String = if (CastPlayback.active) CastPlayback.state() else exo?.let { stateName(it.playbackState) } ?: "none"
     fun position() = if (CastPlayback.active) CastPlayback.position() else exo?.currentPosition ?: 0L
     fun duration() = exo?.duration?.takeIf { it > 0 } ?: current()?.durationMs ?: 0L
+    /** The format the decoder reports for the song playing (its input; Android may resample), or null. */
+    fun audioFormat(): androidx.media3.common.Format? = if (CastPlayback.active) null else exo?.audioFormat
     /** The length the player knows of the audio itself (null: not known), never Spotify's. */
     fun knownLength(): Long? = if (CastPlayback.active) null else exo?.duration?.takeIf { it != C.TIME_UNSET && it > 0 }
     fun current(): LocalTrack? = exo?.currentMediaItemIndex?.let { tracks.getOrNull(it) }

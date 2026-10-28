@@ -189,9 +189,12 @@ player.buttons action in the manifest`):
 The lyrics, song details, Home, search, menu and player hooks are **additive**: every extension is
 asked, the answers merged in the area's order (lyrics: the best, ties to the higher one). Audio and
 downloads are **ordered**: asked one after the other in the user's order until one answers (section 4.2). Registering twice replaces. Returning
-`null`/`undefined` means "no answer": the app goes on without this extension. A throw or a timeout
-is a failure (recorded as the extension's last error, shown on its page). Calls are synchronous:
-return the answer, do not return a promise.
+`null`/`undefined` means "no answer": the app goes on without this extension. A throw is a
+failure (recorded as the extension's last error, shown on its page; 3 in a row turn it off). A
+timeout, or an `http` error your script did not catch (DNS, connection, timeout), is a **network**
+error: logged, never counted as a failure, so a slow or rate-limited server never turns an extension
+off. `lyrics`, `audio-source` and `download-source` may also say why they have nothing with an
+outcome (section 3, "Outcomes"). Calls are synchronous: return the answer, do not return a promise.
 
 The input of every hook, and of the `track` event, is this track:
 
@@ -338,8 +341,8 @@ a real FLAC file (its header is read), an `m4a` or `mp3` must hold an audio trac
 read, and the length must be the song's (Spotify's duration): not shorter by more than 5 s
 (previews are refused) nor longer by more than 15 s (another version). `m4a` and `mp3` are kept as
 served. A format outside the list, a private address or a missing `format` is an error. The
-extensions are asked at once; the first one installed that answers wins. Time limit: 30 s (the
-desktop runner: the same).
+extensions are asked in the user's order for downloads (section 4.2); the first one that answers
+wins. Time limit: 30 s (the desktop runner: the same).
 
 ### `status`
 
@@ -368,6 +371,43 @@ myspoti.provide('status', function () {
   start): the extension stays in use, and its log says the probe had no answer.
 - Without a `status` hook an extension is always live. Check
   `myspoti.features.indexOf('status') >= 0`: an older Myspoti never asks it.
+
+### Outcomes (`results`)
+
+`lyrics`, `audio-source` and `download-source` may answer **why** they have nothing instead of
+`null`, when `myspoti.features.indexOf('results') >= 0` (an older Myspoti reads such an answer as no
+answer, or as a malformed one: check the feature first):
+
+```js
+myspoti.provide('audio-source', function (track) {
+  var r = myspoti.http.get('https://api.example.com/find?isrc=' + track.isrc);
+  var results = myspoti.features && myspoti.features.indexOf('results') >= 0;
+  if (r.status === 429 && results) return { outcome: 'rate-limited', retryAfterMs: 1000 * Number(r.headers['retry-after'] || 60) };
+  if (r.status === 401 && results) return { outcome: 'sign-in', detail: 'Sign in again in the settings' };
+  if (!r.ok) return null;
+  return { url: r.json().url };
+});
+```
+
+| `outcome` | Fields | What the app does |
+|---|---|---|
+| `not-found` | | Same as `null`. |
+| `sign-in` | `detail?` | A notice "sign in to keep using its source" with a **Sign in** button that opens your extension's page (offer the sign-in there: a setting button, your page). Gone at your next answer with audio, or after a sign-in page reached its callback. |
+| `rate-limited` | `retryAfterMs?` | Your source is set aside (not asked) for `retryAfterMs`, bounded to 30 s – 15 min (60 s without it). |
+| `server-down` | `untilMs?` (wall-clock ms) or `retryAfterMs?` | Set aside until then, bounded to 30 s – 15 min (5 min without either). |
+| `quality-unavailable` | `available?: ["cd", …]` | Logged and shown in "Why this source?"; the next source is asked. |
+| `network` | `detail?` | A network error you caught: logged, not counted. |
+| `error` | `detail?` | A failure you caught: logged, not counted (an uncaught throw is). |
+
+Every field is optional; `detail` is trimmed to 120 characters. An unknown `outcome` is a failure.
+Every outcome, the ones the app classifies itself too (`found`, `not-found`, `network` for a timeout
+or an `http` error, `bug` for a throw), is written to your extension's log with its time. Three
+network errors in a row also set a source aside (30 s, doubling up to 15 min). While a source is set
+aside the next one is asked, or the song plays from Spotify. The player's sound quality sheet has
+**Why this source?**: for the song playing, each source asked with its outcome and time, the ones
+skipped and why, the one chosen, how its address opened (time, HTTP status, error), the quality it
+announced and the one the player's decoder reports (its input, not proof of a bit-perfect output).
+Addresses are shown without their query string.
 
 ### `track` event
 
@@ -668,7 +708,7 @@ A script that throws while loading fails to load, with `file:line` in the messag
 |---|---|
 | `myspoti.apiVersion` | `1`. |
 | `myspoti.extension` | `{ id, name, version }` from the manifest. |
-| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
+| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
 | `myspoti.provide(hook, fn)` | Section 3. |
 | `myspoti.on('track' \| 'playback', fn)` | Section 3. Needs `playback.events`. |
 | `myspoti.on('auth', fn)` | Section 3, sign in. Needs `webview.auth`. |
@@ -1118,9 +1158,10 @@ is. `playlists.setCover` takes a JPEG as base64.
 | What | Limit |
 |---|---|
 | Loading the script (its top level; compiling it is not counted) | 3 s |
-| A hook call | Set by the app per call (the app and the desktop runner: 8 s for `lyrics`, 15 s for `audio-source`, 30 s for `download-source`) |
+| A hook call | One table for the app and the desktop runner (`HookBudgets`): 8 s for `lyrics`, 15 s for `audio-source`, 30 s for `download-source`, 3 s for blocks hooks, `tap` and `message`, 5 s for `page` and `status` |
 | A `track` or `playback` event | 3 s |
-| A `setting` event | 30 s |
+| A `setting` or `online` event | 30 s |
+| An `auth` event | 10 s |
 | Script work | Checked every 5000 instructions against the call's time; a loop cannot hold the thread. A call that runs over is abandoned, and it cannot be caught by `try/catch`. The next call waits behind it on the extension's own thread, never on the app's. |
 | Recursion | 800 interpreter frames |
 | Time spent waiting for the user to confirm | Not counted |
@@ -1150,14 +1191,15 @@ to the confirmation prompt below. Give absolute paths.)
 
 | Command | Does |
 |---|---|
-| `check <folder>` | Prints the manifest's problems (`✗ ...`, e.g. a missing or too long `why`), says when it is an old manifest, loads the script, prints each action as the user sees it (icon name, label, level, why), then asks each blocks hook it provides once with a sample and checks the blocks (and the page). Exit 1 on a problem. |
+| `check <folder\|zip>` | Package validity only: prints the manifest's problems (`✗ ...`, e.g. a missing or too long `why`), says when it is an old manifest, loads the script, prints the hooks it provides and each action as the user sees it (icon name, label, level, why). It never calls a hook. Exit 1 on a problem. |
+| `test <folder\|zip> --scenario file.json [--state file.json]` | Runs a scenario (below): hook calls, events and page messages in order with the app's time limits, requests answered or broken by rules, storage kept across steps. Prints each step (`✓`/`✗`, outcome, time); exit 1 when a step failed. |
 | `run <folder\|zip> lyrics --title T --artist A [options]` | Calls the hook and prints what it answered, parsed the way the app parses it (lines, `synced`, `word by word`, or the audio URL and headers). |
 | `run <folder\|zip> audio-source ...` | Same for the audio hook. |
 | `run <folder\|zip> download-source ... [--quality hi-res\|cd\|small]` | Same for the download hook: prints the files, best first, as the app reads them (default quality `cd`). |
 | `run <folder\|zip> audio-source ... [--ahead true]` | Asks for a song's audio (with `ahead: true` when given) and prints the answer as the app reads it: address or manifest, `expiresInMs`, quality. |
 | `run <folder\|zip> home\|search\|menu\|player\|trackinfo ...` | Calls a blocks hook (`--query Q` for search, `--kind track\|album\|playlist\|artist` for menu) and prints the blocks as the app reads them. |
 | `run <folder\|zip> page\|message\|tap ...` | The page hook (prints title and HTML), a page message (`--data JSON`), a tap (`--action ID`). |
-| `run <folder\|zip> status --title T` | Asks `status` as the app does (5 s) and prints live, or inactive and why (`check` prints it too). |
+| `run <folder\|zip> status --title T` | Asks `status` as the app does (5 s) and prints live, or inactive and why. |
 | `run <folder\|zip> track ...` | Delivers the `track` event. |
 | `run <folder\|zip> playback ... [--played MS] [--leave skip\|end\|stop]` | Delivers a play of the song as `playback` events, at once, with the times they would have had: `start`, a `progress` every 10 s up to `--played` (default 40000), then `skip` (forward), `end` (finished) or `end` (stop). Also `--context URI`, `--shuffle true`, `--source local\|spotify`, `--origin spotify\|download\|audio-source\|local-file` and `--provider ID` (also for `track`). |
 | `pack <folder> [out-folder]` | Checks, builds `<id>-<version>.zip`, prints its sha256 and its index entry. |
@@ -1168,7 +1210,9 @@ to the confirmation prompt below. Give absolute paths.)
 `--set key=value` (a setting; repeat; `true`, `false` and numbers are passed as such, anything else
 as text; unset ones use the manifest `default`).
 
-What the runner does: every right the manifest asks is granted. Storage is in memory for the run.
+What the runner does: every right the manifest asks is granted. Each hook and event gets the app's
+own time limit (section 7). An answer `{ outcome }` is printed as the app reads it. Storage is in
+memory for the run (`test --state` keeps it in a file).
 `myspoti.attest` works with a software key kept between runs (section 10).
 `log`, `console`, `notify` and failures go to stderr as `[id] message`. `player` controls print
 `player: <action>` and answer `true`. `myspoti.player.current()` returns the `--title` track.
@@ -1202,6 +1246,47 @@ rights granted. A bug inside `provide('lyrics', ...)`, a wrong response shape, a
 or a `myspoti.spotify` call fail only under `run`. A top-level call to `myspoti.spotify` fails in
 `check`. `run ... track` prints `delivered` even if the listener threw: read the `failed: ...` line
 on stderr.
+
+### 8.1 Scenarios (`test`)
+
+A scenario is a JSON file:
+
+```json
+{
+  "offline": true,
+  "settings": { "region": "eu" },
+  "track": { "title": "Papaoutai", "artist": "Stromae", "isrc": "BEUM71300139" },
+  "http": [ { "match": "api.example.com/find", "body": { "url": "https://cdn.example.com/a.flac" } } ],
+  "steps": [
+    { "hook": "audio-source", "expect": { "outcome": "found", "maxMs": 2000 } },
+    { "http": [ { "match": "api.example.com", "status": 429, "retryAfter": 30 } ] },
+    { "hook": "audio-source", "expect": { "outcome": "rate-limited", "retryAfterMs": 30000 } },
+    { "http": [ { "match": "*", "latencyMs": 20000 } ] },
+    { "hook": "audio-source", "cancelAtMs": 500, "expect": { "outcome": "cancelled" } },
+    { "event": "online" },
+    { "message": { "type": "hello" }, "expect": { "posted": 1, "contains": "hi" } },
+    { "storage": { "lastIsrc": "BEUM71300139" } }
+  ]
+}
+```
+
+- **`http` rules** (at the top, or as a step that replaces them from then on): a request whose URL
+  contains `match` (`*`: all) waits `latencyMs` (past the request's timeout: a timeout), then fails
+  with `dns: true` (no such host) or `reset: true` (connection reset), or answers `status` (200 by
+  default; 429 when only `retryAfter` is given, in seconds, sent as `Retry-After`), `headers` and
+  `body` (text, or JSON written as text). `times: n` applies a rule to n requests only. Requests no
+  rule matches go to the network, or fail as a DNS error with `"offline": true`.
+- **Steps**: `{ hook, input?, track?, quality?, ahead?, data?, action?, query?, cancelAtMs? }` calls
+  a hook (the input is built as the app builds it unless `input` is given); `cancelAtMs` ends the
+  call at that time (outcome `cancelled`). `{ event, input? }` delivers an event. `{ message }` is
+  your page posting to you; what you answer or post back is the page's. `{ wait: ms }` waits.
+  `{ storage: { key: value \| null } }` checks your storage.
+- **`expect`**: `outcome` (`found`, `not-found`, `sign-in`, `rate-limited`, `quality-unavailable`,
+  `server-down`, `network`, `bug`, `skipped`, `cancelled`; `live`/`inactive`/`unknown` for `status`),
+  `maxMs`, `minMs`, `retryAfterMs`, `contains` (a text the answer contains), `posted` (messages posted
+  to the page). A hook call over the app's time limit fails too.
+- **`--state file.json`**: your storage is read from it before the run and written back after, so
+  a run can start where the last one ended (a token, a cache).
 
 ## 9. GitHub: install, updates, store, publishing
 

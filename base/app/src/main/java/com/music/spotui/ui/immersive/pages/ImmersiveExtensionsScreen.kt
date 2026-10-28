@@ -101,6 +101,7 @@ fun ImmersiveExtensionsScreen(navController: NavController) {
     val registry by Extensions.registry.collectAsState()
     val errors by Extensions.errors.collectAsState()
     val statuses by Extensions.statuses.collectAsState()
+    val signIns by Extensions.signIns.collectAsState()
     val repos by ExtensionStore.repos.collectAsState()
     val busy by ExtensionStore.busy.collectAsState()
     val pickFile = rememberPackagePicker()
@@ -217,6 +218,19 @@ fun ImmersiveExtensionsScreen(navController: NavController) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.extensions_none), style = Immersive.Subhead)
                     ImmersiveButton(stringResource(R.string.extensions_browse_store), onClick = { tab = 0 })
+                }
+            }
+            // A source that said its account needs a sign-in: its page, where the extension offers it.
+            signIns.forEach { (id, detail) ->
+                immersiveBlock("sign-in-$id") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.extension_sign_in_needed, registry.find(id)?.name ?: id), style = Immersive.Subhead)
+                        if (detail.isNotBlank()) Text(detail, style = Immersive.Caption)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ImmersiveButton(stringResource(R.string.extension_sign_in), onClick = { navController.navigate(installedRoute(id)) })
+                            ImmersiveButton(stringResource(R.string.extension_sign_in_later), onClick = { Extensions.dismissSignIn(id) })
+                        }
+                    }
                 }
             }
             // By area: the extensions acting there, in order; an area without any is not listed.

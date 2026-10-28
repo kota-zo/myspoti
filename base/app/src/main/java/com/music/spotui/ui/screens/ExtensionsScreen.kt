@@ -92,6 +92,7 @@ fun ExtensionsScreen(navController: NavController) {
     val registry by Extensions.registry.collectAsState()
     val errors by Extensions.errors.collectAsState()
     val statuses by Extensions.statuses.collectAsState()
+    val signIns by Extensions.signIns.collectAsState()
     val repos by ExtensionStore.repos.collectAsState()
     val busy by ExtensionStore.busy.collectAsState()
     val pickFile = rememberPackagePicker()
@@ -174,6 +175,20 @@ fun ExtensionsScreen(navController: NavController) {
                 Text(stringResource(R.string.extensions_none), color = AppMuted, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
                 OutlinedButton(onClick = { tab = 0 }, modifier = Modifier.padding(horizontal = 20.dp), border = BorderStroke(1.dp, AppMuted.copy(alpha = 0.6f))) {
                     Text(stringResource(R.string.extensions_browse_store), color = AppText)
+                }
+            }
+            // A source that said its account needs a sign-in: its page, where the extension offers it.
+            signIns.forEach { (id, detail) ->
+                val name = registry.find(id)?.name ?: id
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                    Text(stringResource(R.string.extension_sign_in_needed, name), color = AppText, fontSize = 14.sp)
+                    if (detail.isNotBlank()) Text(detail, color = AppMuted, fontSize = 12.sp)
+                    Row {
+                        OutlinedButton(onClick = { navController.navigate(installedRoute(id)) }, border = BorderStroke(1.dp, AppMuted.copy(alpha = 0.6f))) {
+                            Text(stringResource(R.string.extension_sign_in), color = AppText)
+                        }
+                        androidx.compose.material3.TextButton(onClick = { Extensions.dismissSignIn(id) }) { Text(stringResource(R.string.extension_sign_in_later), color = AppMuted) }
+                    }
                 }
             }
             // By area: the extensions acting there, in order; an area without any is not listed.

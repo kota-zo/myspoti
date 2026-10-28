@@ -70,3 +70,63 @@ class StatusBook(private val clock: () -> Long = System::currentTimeMillis) {
     /** The inactive ones, with what they said. */
     fun inactiveNow(): Map<String, ExtensionStatus> = entries.filterValues { !it.status.live }.mapValues { it.value.status }
 }
+
+/**
+ * The sources set aside for a while after their server said to wait ([Outcome.RateLimited]), said
+ * it is down ([Outcome.ServerDown]) or failed on the network [NETWORK_IN_A_ROW] times in a row: they
+ * are skipped, not asked, until then. What an extension asks is bounded by the app ([MIN_MS] to
+ * [MAX_MS]), so it can neither hammer a server nor set itself aside for good.
+ */
+class SourceCooldown(private val clock: () -> Long = System::currentTimeMillis) {
+    private class Entry(val until: Long, val reason: String)
+    private val entries = ConcurrentHashMap<String, Entry>()
+    private val networkInARow = ConcurrentHashMap<String, Int>()
+
+    /**
+     * Notes [outcome] of [id]'s call; the delay it is now set aside for (ms), or null. An answer
+     * (found, not found, sign-in, quality) ends a cooldown and the network streak.
+     */
+    fun note(id: String, outcome: Outcome): Long? {
+        val now = clock()
+        val delay = when (outcome) {
+            is Outcome.RateLimited -> bounded(outcome.retryAfterMs ?: RATE_LIMITED_MS)
+            is Outcome.ServerDown -> bounded(outcome.untilMs?.let { it - now } ?: SERVER_DOWN_MS)
+            is Outcome.Network -> {
+                val n = networkInARow.merge(id, 1, Int::plus) ?: 1
+                if (n < NETWORK_IN_A_ROW) return null
+                bounded(MIN_MS shl (n - NETWORK_IN_A_ROW).coerceAtMost(5))
+            }
+            is Outcome.Skipped, is Outcome.Bug -> return null
+            else -> { networkInARow.remove(id); entries.remove(id); return null }
+        }
+        if (outcome !is Outcome.Network) networkInARow.remove(id)
+        entries[id] = Entry(now + delay, outcome.key)
+        return delay
+    }
+
+    /** Why [id] is set aside now ("rate-limited, 42 s left"), or null (it may be asked). */
+    fun reason(id: String): String? {
+        val e = entries[id] ?: return null
+        val left = e.until - clock()
+        if (left <= 0) { entries.remove(id, e); return null }
+        return "${e.reason}, ${(left + 999) / 1000} s left"
+    }
+
+    /** When [id] may be asked again (wall-clock ms), or null. */
+    fun until(id: String): Long? = entries[id]?.until?.takeIf { it > clock() }
+
+    fun forget(id: String) { entries.remove(id); networkInARow.remove(id) }
+
+    companion object {
+        const val MIN_MS = 30_000L
+        const val MAX_MS = 15 * 60_000L
+        /** A rate limit without a delay. */
+        const val RATE_LIMITED_MS = 60_000L
+        /** A server down without an end. */
+        const val SERVER_DOWN_MS = 5 * 60_000L
+        /** Network failures in a row before a source is set aside (then 30 s, doubling up to [MAX_MS]). */
+        const val NETWORK_IN_A_ROW = 3
+
+        fun bounded(ms: Long): Long = ms.coerceIn(MIN_MS, MAX_MS)
+    }
+}

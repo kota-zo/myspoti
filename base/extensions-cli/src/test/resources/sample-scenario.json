@@ -1,0 +1,17 @@
+{
+  "offline": true,
+  "track": { "title": "Papaoutai", "artist": "Stromae" },
+  "http": [ { "match": "api.example.com/find", "body": { "url": "https://cdn.example.com/a.flac" } } ],
+  "steps": [
+    { "hook": "audio-source", "expect": { "outcome": "found", "maxMs": 5000, "contains": "cdn.example.com" } },
+    { "http": [ { "match": "api.example.com", "retryAfter": 30 } ] },
+    { "hook": "audio-source", "expect": { "outcome": "rate-limited", "retryAfterMs": 30000 } },
+    { "http": [ { "match": "api.example.com", "status": 503 } ] },
+    { "hook": "audio-source", "expect": { "outcome": "server-down" } },
+    { "http": [ { "match": "api.example.com", "dns": true } ] },
+    { "hook": "audio-source", "expect": { "outcome": "network" } },
+    { "http": [ { "match": "*", "latencyMs": 10000 } ] },
+    { "hook": "audio-source", "cancelAtMs": 300, "expect": { "outcome": "cancelled", "maxMs": 3000 } },
+    { "storage": { "lastTitle": "Papaoutai" } }
+  ]
+}
