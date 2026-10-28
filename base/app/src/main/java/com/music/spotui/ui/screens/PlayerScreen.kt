@@ -645,7 +645,7 @@ fun PlayerScreen(navController: NavController) {
                         }
                     },
                     // One tap per artist: each name opens that artist, not the choice.
-                    artistCredit = com.music.spotui.ui.components.rememberArtistCredit(displayedTrackId, outgoing?.artist ?: songSinger) { a ->
+                    artistCredit = com.music.spotui.ui.components.rememberArtistCredit(displayedTrackId, outgoing?.artist ?: songSinger, Color.White.copy(alpha = 0.7f)) { a ->
                         navController.navigate(com.music.spotui.ui.components.ArtistChooser.routeOf(a))
                     },
                 )

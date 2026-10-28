@@ -486,7 +486,7 @@ private fun RowScope.PlayerCredits(
         }
         if (!state.adPlaying) {
             // One tap per artist when the song's artists are known; the whole line otherwise.
-            val credit = com.music.spotui.ui.components.rememberArtistCredit(state.trackId, state.artist) { a -> actions.openArtistRef(a) }
+            val credit = com.music.spotui.ui.components.rememberArtistCredit(state.trackId, state.artist, tint.copy(alpha = 0.55f)) { a -> actions.openArtistRef(a) }
             Text(
                 text = credit ?: androidx.compose.ui.text.AnnotatedString(state.artist),
                 style = Immersive.Title.copy(fontSize = 20.sp, lineHeight = lineH, fontWeight = FontWeight.W500),

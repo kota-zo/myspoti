@@ -141,13 +141,18 @@ fun ArtistChooserHost(navController: NavHostController) {
  * credit): the line is then a plain text, opened as before.
  */
 @Composable
-fun rememberArtistCredit(trackId: String, line: String, open: (ArtistRef) -> Unit): AnnotatedString? {
+fun rememberArtistCredit(trackId: String, line: String, color: androidx.compose.ui.graphics.Color, open: (ArtistRef) -> Unit): AnnotatedString? {
     val artists by produceState<List<ArtistRef>?>(null, trackId) {
         value = if (trackId.isBlank()) null else ArtistChooser.artistsOf(trackId, "").takeIf { list -> list.isNotEmpty() && list.all { it.uri.isNotBlank() } }
     }
     val onOpen by rememberUpdatedState(open)
-    return remember(artists, line) {
+    return remember(artists, line, color) {
         val list = artists ?: return@remember null
+        // The names keep the line's own colour (the theme would paint links in the accent); a press underlines one.
+        val styles = androidx.compose.ui.text.TextLinkStyles(
+            style = androidx.compose.ui.text.SpanStyle(color = color),
+            pressedStyle = androidx.compose.ui.text.SpanStyle(color = color, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline),
+        )
         // Each name, in order, with only separators between them.
         var at = 0
         val starts = IntArray(list.size)
@@ -162,7 +167,7 @@ fun rememberArtistCredit(trackId: String, line: String, open: (ArtistRef) -> Uni
             var last = 0
             for ((i, a) in list.withIndex()) {
                 append(line.substring(last, starts[i]))
-                withLink(LinkAnnotation.Clickable("artist", null) { onOpen(a) }) { append(a.name) }
+                withLink(LinkAnnotation.Clickable("artist", styles) { onOpen(a) }) { append(a.name) }
                 last = starts[i] + a.name.length
             }
             append(line.substring(last))
