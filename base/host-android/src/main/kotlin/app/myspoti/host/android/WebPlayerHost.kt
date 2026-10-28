@@ -101,6 +101,32 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     init {
         // Debug builds only: lets desktop tools (chrome://inspect, CDP) look at the page.
         if (debuggable) WebView.setWebContentsDebuggingEnabled(true)
+        watchNetwork()
+    }
+
+    /**
+     * The phone moves to another network (Wi-Fi to mobile data, or back): the relay's pooled
+     * connections still go through the old one, and a command sent on one of them only waited for
+     * its timeout. The idle ones are dropped, so the next command opens a connection on the new
+     * network; one already waiting fails within the relay's read timeout. The callback runs on the
+     * system's network thread, which is where the sockets may be closed.
+     */
+    private fun watchNetwork() {
+        val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        runCatching {
+            connectivity.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                private var current: android.net.Network? = null
+
+                override fun onAvailable(network: android.net.Network) {
+                    val was = current
+                    current = network
+                    // The first call names the network the app started on: nothing to drop.
+                    if (was == null || was == network) return
+                    Logbook.log("network changed: the relay's idle connections dropped")
+                    ControlRelay.resetConnections()
+                }
+            })
+        }.onFailure { Logbook.log("network changes not watched: ${it.message}") }
     }
 
     private lateinit var relay: ControlRelay

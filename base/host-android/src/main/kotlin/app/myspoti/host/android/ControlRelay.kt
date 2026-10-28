@@ -43,22 +43,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
     @Volatile var onDeviceRegistered: (() -> Unit)? = null
     private val main = Handler(Looper.getMainLooper())
 
-    /**
-     * No cookie jar: the real Web Player's requests to spclient carry no cookie (its `fetch` is
-     * cross-origin with the default `credentials: same-origin`; 02-playback capture). The WebView's
-     * cookies the relay sent from 2.0.2-beta.9 on (sp_dc, sp_t, sp_key...) were a shape no
-     * browser's command has.
-     *
-     * Chrome's Accept-Encoding ([ACCEPT_ENCODING]) comes from [DECODING], which also decodes the
-     * answer (Spotify answers track-playback in zstd, connect-state in gzip or br).
-     */
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .addInterceptor(DECODING)
-        .eventListener(RelayEvents)
-        .build()
-    /** The same client, pinned to one address family (see RelayRoutes). */
+    /** The same client ([http]), pinned to one address family (see RelayRoutes); same pool. */
     private val v4Client by lazy { http.newBuilder().dns(FamilyDns(IpFamily.V4)).build() }
     private val v6Client by lazy { http.newBuilder().dns(FamilyDns(IpFamily.V6)).build() }
     private val routes get() = ROUTES
@@ -386,16 +371,16 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
 
     private fun reply(id: Int, status: Int, headersJson: String, body: String) {
         val posted = android.os.SystemClock.uptimeMillis()
-        main.post { replyNow(id, status, headersJson, body, posted) }
+        // Quoted here, on the network thread: a large reply (a track-playback state machine) was
+        // quoted on the main thread, which also draws the app and runs every tap behind it.
+        val script = "window.__mspNetDone && window.__mspNetDone($id, $status, ${JSONObject.quote(headersJson)}, ${JSONObject.quote(body)})"
+        main.post { replyNow(id, script, posted) }
     }
 
-    private fun replyNow(id: Int, status: Int, headersJson: String, body: String, posted: Long) {
+    private fun replyNow(id: Int, script: String, posted: Long) {
         val waited = android.os.SystemClock.uptimeMillis() - posted
         if (waited > 30) Logbook.log("relay reply #$id waited $waited ms for the main thread")
-        view.evaluateJavascript(
-            "window.__mspNetDone && window.__mspNetDone($id, $status, ${JSONObject.quote(headersJson)}, ${JSONObject.quote(body)})",
-            null,
-        )
+        view.evaluateJavascript(script, null)
     }
 
     /** The last page's playback device, kept across starts (see [PlayerDeviceRecord]). */
@@ -492,6 +477,39 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
     }
 
     companion object {
+        /**
+         * No cookie jar: the real Web Player's requests to spclient carry no cookie (its `fetch` is
+         * cross-origin with the default `credentials: same-origin`; 02-playback capture). The WebView's
+         * cookies the relay sent from 2.0.2-beta.9 on (sp_dc, sp_t, sp_key...) were a shape no
+         * browser's command has.
+         *
+         * Chrome's Accept-Encoding ([ACCEPT_ENCODING]) comes from [DECODING], which also decodes the
+         * answer (Spotify answers track-playback in zstd, connect-state in gzip or br).
+         *
+         * One client for every relay (a page rebuilt after a renderer crash gets a new relay, not a
+         * new pool), so that [resetConnections] reaches the one in use. A dead connection fails in
+         * seconds: with a 30 s read timeout, a command sent on one (the phone moving between Wi-Fi
+         * and mobile data, a connection the mobile network dropped while idle) waited that long
+         * before anything tried again. Spotify answers these requests in well under a second, so
+         * 10 s without a byte is a dead connection; the ping finds one before a command does.
+         */
+        private val http: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .pingInterval(15, TimeUnit.SECONDS)
+                .addInterceptor(DECODING)
+                .eventListener(RelayEvents)
+                .build()
+        }
+
+        /**
+         * The phone moved to another network: the idle connections belong to the old one, and the
+         * next request opens a fresh one instead of waiting on them. Not from the main thread
+         * (closing a socket can write to it).
+         */
+        fun resetConnections() = http.connectionPool.evictAll()
+
         /**
          * The page's own API calls. Every request the WebView makes carries
          * "X-Requested-With: <our package>" — no browser does that, and it was measured on the wire

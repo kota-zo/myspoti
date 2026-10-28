@@ -233,7 +233,9 @@
   // cancel the pending ones, or they would override it seconds later (the up-ramp of a
   // crossfade undone by the tail of its own down-ramp, a restored volume pulled down again).
   let fadeTimers = [];
-  const cancelFade = () => { fadeTimers.forEach(clearTimeout); fadeTimers = []; };
+  // The watch of a change of song (riseOnSwitch): apart, as it outlives the fade-out it follows.
+  let riseTimers = [];
+  const cancelFade = () => { fadeTimers.forEach(clearTimeout); fadeTimers = []; riseTimers.forEach(clearTimeout); riseTimers = []; };
 
   // A ramp heard as even: the gain follows a cubic curve (the usual "audio taper", the one the
   // page applies to its own volume when _cubicVolume is set), so equal times give equal steps
@@ -251,6 +253,47 @@
       if (k < 1) fadeTimers.push(setTimeout(tick, 16));
       else if (done) done();
     };
+    tick();
+  };
+  // The sound held down through a change of song, and up along the curve over {ms} once the next
+  // song's own sound starts. Reported: a skip faded the old song out, and the level came back on
+  // the state's word that the next song was there, while the element still played the old one's
+  // last buffered moments (heard as a fragment of it, or a pop). The change is the element's own:
+  // another element, another source, or its clock jumping (a new song starts from 0, or where it
+  // was asked to). Until then the fade-out that came with it goes on; from then the element stays
+  // at SILENT (the page sets its own level on a new song) until its clock moves. Never left down:
+  // the level comes back after {wait} ms whatever happened. Any other fade or volume set ends it.
+  const riseOnSwitch = (player, ms, wait) => {
+    const first = player._player;
+    const src = first.currentSrc;
+    const now = () => (player._player instanceof HTMLMediaElement ? player._player : first);
+    let el = first, switched = false, prev = first.currentTime, at = performance.now();
+    const tick = () => {
+      const cur = now();
+      if (!switched) {
+        const t = cur.currentTime, wall = performance.now();
+        // What the clock should have done since the last look: anything else is a jump (a late
+        // timer on a busy page is not one).
+        const expected = cur.paused ? 0 : (wall - at) / 1000 * (cur.playbackRate || 1);
+        if (cur !== first || cur.currentSrc !== src || Math.abs(t - prev - expected) > 1) {
+          switched = true;
+          el = cur;
+          // The fade-out is over: its last steps would land on the new song.
+          fadeTimers.forEach(clearTimeout); fadeTimers = [];
+          el.volume = SILENT;
+          prev = el.currentTime;
+        } else { prev = t; at = wall; }
+        riseTimers.push(setTimeout(tick, 16));
+        return;
+      }
+      if (cur !== el) { el = cur; prev = el.currentTime; }
+      if (el.volume > SILENT) el.volume = SILENT;
+      const t = el.currentTime, step = t - prev;
+      prev = t;
+      if (!el.paused && step > 0.005 && step < 0.5) { ramp(el, player, 0, 1, Math.max(1, ms))(); return; }
+      riseTimers.push(setTimeout(tick, 16));
+    };
+    riseTimers.push(setTimeout(() => { cancelFade(); now().volume = ownLevel(player); }, Math.max(500, Number(wait) || 3000)));
     tick();
   };
   // Where the element stands on that curve now.
@@ -474,7 +517,8 @@
 
     // A whole fade in one call: the page applies the steps itself, so the host sends the play
     // command while the sound goes down instead of waiting for every step (a round trip each).
-    // {steps: [level, ...], ms, restore: true?} -> true. Levels are never 0: see 'media.mute'.
+    // {steps: [level, ...], ms, restore: true?, rise: {ms, wait}?} -> true. Levels are never 0: see
+    // 'media.mute'. rise: the sound is then held through the change of song (riseOnSwitch).
     'media.fade': async a => {
       const player = await localPlayer();
       const el = player && player._player;
@@ -495,6 +539,7 @@
         fadeTimers.push(setTimeout(tick, per - ((performance.now() - t0) % per)));
       };
       tick();
+      if (a.rise) riseOnSwitch(player, Number(a.rise.ms) || 80, Number(a.rise.wait));
       return true;
     },
 
@@ -512,11 +557,13 @@
     // out. Not on the state saying "playing", nor on the element's own 'playing' event: after a
     // long pause both came 0.5 to 0.9 s before the first sound (measured), and the whole ramp
     // was spent on silence. Not playing within {wait} ms: the level comes back as it was.
-    // {ms, wait, keep?} -> true
+    // {ms, wait, keep?, switch?} -> true. switch: held through the change of song first
+    // (riseOnSwitch), the fade under way going on meanwhile.
     'media.rise': async a => {
       const player = await localPlayer();
       const el = player && player._player;
       if (!(el instanceof HTMLMediaElement)) return null;
+      if (a.switch) { riseOnSwitch(player, Number(a.ms) || 80, Number(a.wait)); return true; }
       cancelFade();
       // keep: from where the element is now (the end of a crossfade), not from silence.
       const from = a.keep ? curveAt(el, player) : 0;
