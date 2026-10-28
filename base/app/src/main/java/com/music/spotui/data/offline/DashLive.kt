@@ -1,8 +1,7 @@
 package com.music.spotui.data.offline
 
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import com.music.spotui.extensions.MediaHttp
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.FutureTask
@@ -166,39 +165,25 @@ internal class DashLive(
             return out.array()
         }
 
-        private fun connect(url: String, method: String, headers: Map<String, String>, userAgent: String): HttpURLConnection =
-            (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = method
-                connectTimeout = 10_000
-                readTimeout = 15_000
-                setRequestProperty("User-Agent", userAgent)
-                headers.forEach { (k, v) -> setRequestProperty(k, v) }
-            }
+        /** Through the safe client (see [MediaHttp]): the extension's headers go to its own host only, the app's User-Agent and Range anywhere. */
+        private fun connect(url: String, method: String, headers: Map<String, String>, userAgent: String, range: String? = null) =
+            MediaHttp.open(url, method, headers, buildMap { put("User-Agent", userAgent); range?.let { put("Range", it) } })
 
-        private fun httpBytes(url: String, headers: Map<String, String>, userAgent: String): ByteArray {
-            val c = connect(url, "GET", headers, userAgent)
-            try {
-                if (c.responseCode !in 200..299) throw IOException("segment HTTP ${c.responseCode}")
-                return c.inputStream.use { it.readBytes() }
-            } finally {
-                c.disconnect()
+        private fun httpBytes(url: String, headers: Map<String, String>, userAgent: String): ByteArray =
+            connect(url, "GET", headers, userAgent).use { c ->
+                if (c.response.code !in 200..299) throw IOException("segment HTTP ${c.response.code}")
+                c.response.body.bytes()
             }
-        }
 
         /** A segment's length: HEAD, else the total of a one-byte range. */
         private fun size(url: String, headers: Map<String, String>, userAgent: String): Long {
-            val h = connect(url, "HEAD", headers, userAgent)
-            try {
-                if (h.responseCode in 200..299 && h.contentLengthLong > 0) return h.contentLengthLong
-            } finally {
-                h.disconnect()
+            connect(url, "HEAD", headers, userAgent).use { h ->
+                val n = h.response.header("Content-Length")?.toLongOrNull() ?: -1L
+                if (h.response.code in 200..299 && n > 0) return n
             }
-            val r = connect(url, "GET", headers + ("Range" to "bytes=0-0"), userAgent)
-            try {
-                val total = r.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
-                return total ?: throw IOException("segment size unknown (HTTP ${r.responseCode})")
-            } finally {
-                r.disconnect()
+            connect(url, "GET", headers, userAgent, range = "bytes=0-0").use { r ->
+                val total = r.response.header("Content-Range")?.substringAfter('/')?.toLongOrNull()
+                return total ?: throw IOException("segment size unknown (HTTP ${r.response.code})")
             }
         }
     }

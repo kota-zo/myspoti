@@ -27,8 +27,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import com.music.spotui.extensions.MediaHttp
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -492,43 +491,36 @@ object OfflineDownloader {
                 while (true) {
                     attempt++
                     val position = output.length()
-                    val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 20_000
-                        readTimeout = 60_000
-                        instanceFollowRedirects = true
-                        setRequestProperty("User-Agent", DownloadUa)
-                        headers.forEach { (k, v) -> setRequestProperty(k, v) }
-                        setRequestProperty("Range", "bytes=$position-$end")
-                    }
+                    // The safe client (see MediaHttp): redirects followed by hand and re-checked, the headers kept on their own host only.
                     try {
-                        val code = conn.responseCode
-                        // Asked past the end of a file whose size was unknown: it is complete.
-                        if (code == 416 && total <= 0 && position > 0) { done = true; break }
-                        if (code !in 200..299) throw IOException("stream HTTP $code")
-                        val full = code != 206 // server ignored Range → the whole body, from byte 0
-                        if (full) output.setLength(0)
-                        if (total <= 0) total = contentRangeTotal(conn.getHeaderField("Content-Range")) ?: -1L
-                        output.seek(output.length())
-                        val expected = if (full) -1L else end - position + 1
-                        var got = 0L
-                        conn.inputStream.use { input ->
-                            val buf = ByteArray(256 * 1024)
-                            while (true) {
-                                val n = input.read(buf)
-                                if (n < 0) break
-                                output.write(buf, 0, n)
-                                got += n
+                        MediaHttp.open(url, headers = headers, fixed = mapOf("User-Agent" to DownloadUa, "Range" to "bytes=$position-$end"), timeoutMs = 60_000).use { conn ->
+                            val code = conn.response.code
+                            // Asked past the end of a file whose size was unknown: it is complete.
+                            if (code == 416 && total <= 0 && position > 0) { done = true; return@use }
+                            if (code !in 200..299) throw IOException("stream HTTP $code")
+                            val full = code != 206 // server ignored Range → the whole body, from byte 0
+                            if (full) output.setLength(0)
+                            if (total <= 0) total = contentRangeTotal(conn.response.header("Content-Range")) ?: -1L
+                            output.seek(output.length())
+                            val expected = if (full) -1L else end - position + 1
+                            var got = 0L
+                            conn.response.body.byteStream().use { input ->
+                                val buf = ByteArray(256 * 1024)
+                                while (true) {
+                                    val n = input.read(buf)
+                                    if (n < 0) break
+                                    output.write(buf, 0, n)
+                                    got += n
+                                }
                             }
+                            if (full) done = true
+                            // A short chunk with the size still unknown is the end of the stream.
+                            else if (total <= 0 && got < expected) done = true
                         }
-                        if (full) done = true
-                        // A short chunk with the size still unknown is the end of the stream.
-                        else if (total <= 0 && got < expected) done = true
                         break
                     } catch (e: IOException) {
-                        if (attempt >= 3) throw e
+                        if (attempt >= 3 || e is app.myspoti.extensions.ExtensionMediaHttp.Refused || app.myspoti.extensions.SafeNet.isRefusal(e)) throw e
                         Log.w(TAG, "chunk at ${output.length()} failed (attempt $attempt): ${e.message}")
-                    } finally {
-                        conn.disconnect()
                     }
                 }
                 if (done) break
@@ -556,18 +548,8 @@ object OfflineDownloader {
 
     private fun contentLength(url: String, headers: Map<String, String> = emptyMap()): Long =
         runCatching {
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "HEAD"
-                connectTimeout = 15_000
-                readTimeout = 15_000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", DownloadUa)
-                headers.forEach { (k, v) -> setRequestProperty(k, v) }
-            }
-            try {
-                conn.contentLengthLong.takeIf { it > 0 } ?: -1L
-            } finally {
-                conn.disconnect()
+            MediaHttp.open(url, "HEAD", headers, mapOf("User-Agent" to DownloadUa)).use { conn ->
+                conn.response.header("Content-Length")?.toLongOrNull()?.takeIf { it > 0 } ?: -1L
             }
         }.getOrDefault(-1L)
 

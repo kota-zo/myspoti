@@ -110,16 +110,9 @@ internal object DashFlacRemux {
     }
 
     private fun httpBytes(url: String, headers: Map<String, String>): ByteArray? = runCatching {
-        val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 30_000
-            setRequestProperty("User-Agent", UA)
-            headers.forEach { (k, v) -> setRequestProperty(k, v) }
-        }
-        try {
-            if (conn.responseCode !in 200..299) null else conn.inputStream.use { it.readBytes() }
-        } finally {
-            conn.disconnect()
+        // The safe client (see MediaHttp): no local address, redirects re-checked, the extension's headers kept on its own host only.
+        com.music.spotui.extensions.MediaHttp.open(url, headers = headers, fixed = mapOf("User-Agent" to UA), timeoutMs = 30_000).use { c ->
+            if (c.response.code !in 200..299) null else c.response.body.bytes()
         }
     }.getOrNull()
 

@@ -1,7 +1,6 @@
 package com.music.spotui.data.offline
 
-import java.net.HttpURLConnection
-import java.net.URL
+import com.music.spotui.extensions.MediaHttp
 
 /**
  * The first bytes of the next song an extension streams (an `audio-source` answer with a url),
@@ -43,19 +42,14 @@ internal object StreamHead {
      * song [key] until [until]. Stops early, keeping nothing, once [active] says the song changed.
      */
     fun fetch(key: String, url: String, headers: Map<String, String>, until: Long, active: () -> Boolean) {
-        val c = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
-            readTimeout = 15_000
-            headers.forEach { (k, v) -> setRequestProperty(k, v) }
-            setRequestProperty("Range", "bytes=0-${BYTES - 1}")
-        }
-        try {
-            if (c.responseCode != 206) return
-            val total = total(c.getHeaderField("Content-Range")) ?: return
+        // The safe client: no local address, redirects re-checked, the extension's headers kept on its own host only.
+        MediaHttp.open(url, headers = headers, fixed = mapOf("Range" to "bytes=0-${BYTES - 1}")).use { c ->
+            if (c.response.code != 206) return
+            val total = total(c.response.header("Content-Range")) ?: return
             if (total <= BYTES) return
             val buf = ByteArray(BYTES)
             var at = 0
-            c.inputStream.use { s ->
+            c.response.body.byteStream().use { s ->
                 while (at < BYTES) {
                     if (!active()) return
                     val n = s.read(buf, at, BYTES - at)
@@ -64,8 +58,6 @@ internal object StreamHead {
                 }
             }
             if (at == BYTES && active()) put(Head(key, url, buf, total, until))
-        } finally {
-            c.disconnect()
         }
     }
 }

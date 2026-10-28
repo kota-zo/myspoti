@@ -1,6 +1,7 @@
 package app.myspoti.extensions
 
 import okhttp3.Dns
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import java.net.Inet4Address
 import java.net.Inet6Address
@@ -88,19 +89,25 @@ object SafeNet {
             first == 0x0100 && (0..5).all { address[2 + it].toInt() == 0 } // 100::/64 discard
     }
 
-    /** Resolves names and refuses the whole answer when any address is local (no mix to pick from). */
-    object SafeDns : Dns {
+    /** A host that is, or resolves to, a local address (the connection is never made). */
+    class LocalAddress(message: String) : UnknownHostException(message)
+
+    /** Resolves names with [upstream] and refuses the whole answer when any address is local (no mix to pick from). */
+    class CheckedDns(private val upstream: Dns = Dns.SYSTEM) : Dns {
         override fun lookup(hostname: String): List<InetAddress> {
-            if (isPrivateHost(hostname)) throw UnknownHostException("$hostname is a local address")
-            val all = Dns.SYSTEM.lookup(hostname)
+            if (isPrivateHost(hostname)) throw LocalAddress("$hostname is a local address")
+            val all = upstream.lookup(hostname)
             for (a in all) {
                 if (a is Inet4Address || a is Inet6Address) {
-                    if (isPrivateAddress(a.address) != false) throw UnknownHostException("$hostname resolves to a local address")
+                    if (isPrivateAddress(a.address) != false) throw LocalAddress("$hostname resolves to a local address")
                 }
             }
             return all
         }
     }
+
+    /** The system resolver, checked. */
+    val SafeDns: Dns = CheckedDns()
 
     /**
      * An OkHttp client that never connects to a local address, follows no redirect (the caller
@@ -124,6 +131,20 @@ object SafeNet {
 
     /** Throws when [host] is a local address (the name, or an IP literal). */
     fun checkUrlHost(host: String) {
-        if (isPrivateHost(host)) throw java.io.IOException("$host is a local address")
+        if (isPrivateHost(host)) throw LocalAddress("$host is a local address")
     }
+
+    /** Whether [e], or something it was caused by, is a refusal of a local address. */
+    fun isRefusal(e: Throwable): Boolean {
+        var t: Throwable? = e
+        var depth = 0
+        while (t != null && depth++ < 8) {
+            if (t is LocalAddress) return true
+            t = t.cause
+        }
+        return false
+    }
+
+    /** [url] as it is written in a log: no user info, no query, no fragment (they carry tokens). */
+    fun redact(url: HttpUrl): String = "${url.scheme}://${url.host}${if (url.port != HttpUrl.defaultPort(url.scheme)) ":${url.port}" else ""}${url.encodedPath}"
 }
