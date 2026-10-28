@@ -151,13 +151,18 @@ fun playingSourceLabel(): String {
  * page once the song has loaded (it reports the stream a moment after the start); "" on another
  * device or while it is not known. Same line, same tap (the quality sheet) as an extension's source.
  */
+/** How many times (every 2 s, about half a minute) the page is asked for the stream it plays. */
+private const val QUALITY_TRIES = 15
+
 @Composable
 private fun spotifyQualityLabel(uri: String): String {
     if (SongPlayer.activeDevice.value != null || uri.isBlank()) return ""
     val label by androidx.compose.runtime.produceState("", uri) {
         value = ""
-        for (wait in longArrayOf(1500, 3500)) {
-            kotlinx.coroutines.delay(wait)
+        // The Immersive player is composed from the song's start, before the page has loaded the
+        // stream (later still after a pause or a slow start): asked again until it is known.
+        repeat(QUALITY_TRIES) { i ->
+            kotlinx.coroutines.delay(if (i == 0) 1500L else 2000L)
             val (bitrate, mime) = app.myspoti.host.android.MyspotiRuntime.spotify.player.audioInfo()
             if (bitrate > 0) { value = "${codecName(mime)} · ${bitrate / 1000} kbit/s"; return@produceState }
         }

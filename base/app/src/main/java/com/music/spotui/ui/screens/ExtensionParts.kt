@@ -125,6 +125,8 @@ private val installScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.
 /** A failure said in a toast; a cancelled job (its screen closed) is not one. */
 internal fun toastError(ctx: Context, t: Throwable) {
     if (t is kotlinx.coroutines.CancellationException) return
+    // The whole chain in the log: a cancellation wrapped in another exception still shows here.
+    app.myspoti.host.android.Logbook.log("ext: not installed: " + generateSequence(t) { it.cause }.take(4).joinToString(" <- ") { "${it.javaClass.name}: ${it.message}" })
     Toast.makeText(ctx.applicationContext, ctx.getString(R.string.extensions_error, t.message ?: t.toString()), Toast.LENGTH_LONG).show()
 }
 

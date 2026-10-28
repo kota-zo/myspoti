@@ -114,9 +114,18 @@ private class LayerBackdropNode(
         // two places and its damage counts in one. A page that just arrived fills in over its first
         // moments (its data, its covers), so the glass is redrawn on every frame while it settles.
         // Only then: a page animating on its own (a playing row) does not keep the blur running.
+        // Past that, the same holds for anything that changes without the page itself redrawing (a
+        // cover that loads late, a row of cards scrolled sideways, an animated header): the glass
+        // is redrawn a few times a second so it never keeps an old picture of the page for long.
+        // Driven by frames, so nothing runs while the app is in the background.
         coroutineScope.launch {
             val end = android.os.SystemClock.uptimeMillis() + SETTLE_MS
             while (android.os.SystemClock.uptimeMillis() < end) {
+                androidx.compose.runtime.withFrameNanos { }
+                (registeredIn ?: backdrop).moves++
+            }
+            while (true) {
+                kotlinx.coroutines.delay(REFRESH_MS)
                 androidx.compose.runtime.withFrameNanos { }
                 (registeredIn ?: backdrop).moves++
             }
@@ -147,3 +156,6 @@ private class LayerBackdropNode(
 
 /** How long a page that just arrived keeps redrawing the glass as it fills in. */
 private const val SETTLE_MS = 3_000L
+
+/** How often, once settled, the glass is redrawn over what the page shows now. */
+private const val REFRESH_MS = 200L
