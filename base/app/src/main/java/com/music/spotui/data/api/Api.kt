@@ -500,7 +500,7 @@ class Api constructor(
             publisher = head?.publisher?.takeIf { it.isNotBlank() }
                 ?: book?.authors?.joinToString(", ").orEmpty(),
             coverUri = cover,
-            description = head?.description ?: book?.description.orEmpty(),
+            description = head?.description ?: book?.description?.let { app.myspoti.spotify.stripHtml(it) }.orEmpty(),
             rating = head?.rating ?: 0.0,
             saved = head?.saved == true,
             authors = book?.authors.orEmpty(),

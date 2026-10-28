@@ -264,7 +264,7 @@ fun EpisodeScreen(navController: NavController, episodeId: String, fallbackName:
                 if (ep.description.isNotBlank()) item {
                     Column(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(250)).padding(16.dp)) {
                         Text(
-                            text = ep.description,
+                            text = com.music.spotui.ui.components.rememberLinkedText(ep.description, AppAccent),
                             color = AppText.copy(alpha = 0.78f),
                             fontSize = 14.sp,
                             maxLines = if (expanded) Int.MAX_VALUE else 4,

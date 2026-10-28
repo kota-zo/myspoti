@@ -49,6 +49,8 @@ object ImmersiveRepeat {
 data class ImmersivePlayerState(
     val title: String = "",
     val artist: String = "",
+    /** The Spotify id of the track behind [title] and [artist] (blank for other songs): their artists are looked up from it. */
+    val trackId: String = "",
     val album: String = "",
     val coverUrl: String = "",
     val playing: Boolean = false,
@@ -93,6 +95,8 @@ class ImmersivePlayerActions(
     val openAlbum: () -> Unit = {},
     /** Opens the artist of the playing track (a choice first when there are several). */
     val openArtist: () -> Unit = {},
+    /** Opens one artist of the credit line directly. */
+    val openArtistRef: (app.myspoti.api.ArtistRef) -> Unit = {},
     /** Closes the player (PlayerSheet.close()). */
     val close: () -> Unit = {},
 )
@@ -143,6 +147,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
     val state = ImmersivePlayerState(
         title = outgoing?.song?.title ?: title,
         artist = outgoing?.song?.artist ?: singer,
+        trackId = com.music.spotui.ui.viewmodel.confirmedTrackIdForDisplay(np.uri, songId),
         album = album,
         coverUrl = app.myspoti.host.android.Covers.large(cover),
         playing = playing,
@@ -215,6 +220,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
             openArtist = {
                 vm.goToArtist(SongPlayer.currentTrackId, vm.currentSongSinger.value) { route -> navController.navigate(route) }
             },
+            openArtistRef = { a -> navController.navigate(com.music.spotui.ui.components.ArtistChooser.routeOf(a)) },
             close = { PlayerSheet.close() },
         )
     }

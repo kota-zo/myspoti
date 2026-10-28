@@ -351,7 +351,7 @@ private fun About(show: PodcastModel?) {
     val narrators = show?.narrators.orEmpty().joinToString(", ")
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(
-            text = show?.description.orEmpty(),
+            text = com.music.spotui.ui.components.rememberLinkedText(show?.description.orEmpty(), AppAccent),
             color = AppText.copy(alpha = 0.75f),
             fontSize = 14.sp,
         )

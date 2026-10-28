@@ -761,7 +761,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                     com.music.spotui.ui.components.FitText(p.name, fontSize = 26.sp, minSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2)
                     if (p.description.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
-                        Text(p.description, color = AppText.copy(alpha = 0.7f), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        Text(com.music.spotui.ui.components.rememberLinkedText(p.description, com.music.spotui.ui.theme.AppAccent), color = AppText.copy(alpha = 0.7f), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
                     val crew = vm.members.value
                     if (crew.size > 1) {

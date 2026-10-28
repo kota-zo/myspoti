@@ -4,6 +4,7 @@ import com.music.spotui.ui.components.widePressable
 import com.music.spotui.ui.components.wideClickable
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
+import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppMuted
 
 import com.music.spotui.ui.components.SkeletonKind
@@ -499,7 +500,7 @@ private fun ArtistOverviewContent(
                             )
                         }
                         Text(
-                            text = overview.biography.orEmpty(),
+                            text = com.music.spotui.ui.components.rememberLinkedText(overview.biography.orEmpty(), AppAccent),
                             color = AppMuted,
                             fontSize = 13.sp,
                             modifier = Modifier.padding(14.dp, 4.dp, 14.dp, 16.dp),

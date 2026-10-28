@@ -641,6 +641,10 @@ fun PlayerScreen(navController: NavController) {
                             navController.navigate(route)
                         }
                     },
+                    // One tap per artist: each name opens that artist, not the choice.
+                    artistCredit = com.music.spotui.ui.components.rememberArtistCredit(displayedTrackId, outgoing?.artist ?: songSinger) { a ->
+                        navController.navigate(com.music.spotui.ui.components.ArtistChooser.routeOf(a))
+                    },
                 )
 
                 // Seek bar: follows the finger while dragging, seeks once on release.
@@ -1065,6 +1069,8 @@ fun PlayerInfo(
     /** The track behind the +: with it, the + opens "Saved in" once the track is saved. */
     likeSong: (() -> SongsModel)? = null,
     onArtistClick: (() -> Unit)? = null,
+    /** The artist line with each artist its own tap target (rememberArtistCredit), when known. */
+    artistCredit: androidx.compose.ui.text.AnnotatedString? = null,
     onTitleClick: (() -> Unit)? = null,
     /** T4: an ad break is on: what the caller passes is the song from before it, not what plays. */
     adPlaying: Boolean = false,
@@ -1113,7 +1119,7 @@ fun PlayerInfo(
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 Text(
-                    text = songSinger,
+                    text = artistCredit ?: androidx.compose.ui.text.AnnotatedString(songSinger),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 16.sp,
                     maxLines = 1,

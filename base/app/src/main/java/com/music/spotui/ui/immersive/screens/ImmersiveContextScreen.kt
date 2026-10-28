@@ -672,7 +672,7 @@ private fun ContextHeader(
         if (p.description.isNotBlank()) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = p.description,
+                text = com.music.spotui.ui.components.rememberLinkedText(p.description, Immersive.Accent),
                 style = Immersive.Subhead,
                 textAlign = TextAlign.Center,
                 maxLines = 3,

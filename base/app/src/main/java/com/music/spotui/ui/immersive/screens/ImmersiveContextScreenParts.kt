@@ -159,7 +159,7 @@ internal fun ImmersiveAboutText(
     var clipped by remember(text) { mutableStateOf(false) }
     Column(modifier) {
         Text(
-            text = text,
+            text = com.music.spotui.ui.components.rememberLinkedText(text, Immersive.Accent),
             style = Immersive.Body.copy(color = Immersive.TextSecondary),
             maxLines = if (expanded) Int.MAX_VALUE else maxLines,
             overflow = TextOverflow.Ellipsis,

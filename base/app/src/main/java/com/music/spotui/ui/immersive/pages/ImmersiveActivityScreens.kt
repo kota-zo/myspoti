@@ -360,7 +360,7 @@ fun ImmersiveEpisodeScreen(navController: NavController, episodeId: String, fall
                     Modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)).padding(Immersive.Gutter),
                 ) {
                     Text(
-                        ep.description, style = Immersive.Body.copy(color = Immersive.Text.copy(alpha = 0.8f)),
+                        com.music.spotui.ui.components.rememberLinkedText(ep.description, Immersive.Accent), style = Immersive.Body.copy(color = Immersive.Text.copy(alpha = 0.8f)),
                         maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
                     )
                     Text(
