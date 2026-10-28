@@ -82,14 +82,24 @@ object LocalPlayer {
                     // Casting: this player keeps the queue only, stopped; the song plays on the device.
                     if (CastPlayback.active && state != Player.STATE_IDLE) { p.stop(); return }
                     if (state == Player.STATE_READY) checkLength(p)
-                    if (state == Player.STATE_ENDED) atEnd(p)
+                    if (state == Player.STATE_ENDED && !playAgain(p)) atEnd(p)
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                     log("playWhenReady $playWhenReady (${PLAY_WHEN_READY_REASONS.getOrElse(reason - 1) { "reason $reason" }})")
+                    // A song on repeat paused at its end (see LocalRepeat): it starts again at 0:00.
+                    if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && playAgain(p)) return
                     // A pause (or a lost focus) during a fade stops the fading-out song too.
                     outgoing?.playWhenReady = playWhenReady
                     if (playWhenReady && CastPlayback.active) { p.pause(); CastPlayback.play() }
                 }
+                // Moves the player makes by itself (not a seek, not a song's end): logged, so a song
+                // jumping elsewhere shows where it went and why.
+                override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+                    if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
+                    log("moved by the player from ${old.positionMs} to ${new.positionMs} ms (reason $reason), item ${new.mediaItemIndex + 1}")
+                }
+                // The queue grew or shrank: a queue of one song repeated loops it as repeat one does.
+                override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = applyRepeat(p)
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     log("isPlaying $isPlaying at ${p.currentPosition} ms")
                     if (isPlaying) errors.played()
@@ -104,6 +114,7 @@ object LocalPlayer {
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     // Anything but the transition the fade itself makes (a skip, a tap in the queue) ends the fade.
                     if (!startingFade) endFade()
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) startsAtZero(p)
                     prefetchNext(p); continueIfLast(p)
                 }
 
@@ -284,7 +295,7 @@ object LocalPlayer {
     }
 
     private fun canFade(p: ExoPlayer): Boolean =
-        CrossfadePref.seconds > 0 && p.repeatMode != Player.REPEAT_MODE_ONE && p.nextMediaItemIndex != C.INDEX_UNSET &&
+        CrossfadePref.seconds > 0 && !LocalRepeat.loopsSong(repeat, p.mediaItemCount) && p.nextMediaItemIndex != C.INDEX_UNSET &&
             p.currentMediaItem != null && p.playWhenReady && !CastPlayback.active
 
     private fun beginFade(p: ExoPlayer) {
@@ -381,6 +392,8 @@ object LocalPlayer {
         endFade()
         exo?.let {
             if (it.hasNextMediaItem()) { com.music.spotui.extensions.Extensions.skipAsked("forward"); it.seekToNextMediaItem() }
+            // A queue of one song repeated (see LocalRepeat): Next plays it again, as the queue's wrap would.
+            else if (repeat == LocalRepeat.ALL) { com.music.spotui.extensions.Extensions.skipAsked("forward"); it.seekTo(0, 0L) }
             else if (atEnd(it)) com.music.spotui.extensions.Extensions.skipAsked("forward")
         }
     }
@@ -562,7 +575,7 @@ object LocalPlayer {
         if (p.mediaItemCount == 0 || p.currentMediaItemIndex != p.mediaItemCount - 1) return
         val id = spotifyId(current())
         if (id == radioOf || !com.music.spotui.extensions.AudioRoute.continues(continues, id,
-                repeatAll = p.repeatMode == Player.REPEAT_MODE_ALL, autoplay = com.music.spotui.data.preferences.AutoplayPref.on)) return
+                repeatAll = repeat == LocalRepeat.ALL, autoplay = com.music.spotui.data.preferences.AutoplayPref.on)) return
         forgetRadio(); radioOf = id
         radio = prefetch.launch {
             val songs = runCatching { Graph.api.getRecommendations(listOf(id)) }.getOrDefault(emptyList())
@@ -610,8 +623,51 @@ object LocalPlayer {
     private fun item(t: LocalTrack) = MediaItem.Builder().setUri(t.uri).setMediaId(t.id.toString())
         .setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album)
             .setArtworkUri(android.net.Uri.parse(app.myspoti.host.android.Covers.large(t.artUri.toString()))).setDurationMs(t.durationMs.takeIf { it > 0 }).build()).build()
+    /** SongPlayer.repeatMode as this player has it (0 off, 1 the queue, 2 the song; see LocalRepeat). */
+    private var repeat = LocalRepeat.OFF
+
     fun setRepeatMode(mode: Int) {
-        exo?.repeatMode = when (mode) { 1 -> Player.REPEAT_MODE_ALL; 2 -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF }
+        repeat = mode
+        exo?.let(::applyRepeat)
+    }
+
+    /**
+     * ExoPlayer repeats a queue of several songs itself; a song that follows itself (repeat one, a
+     * queue of one song repeated) pauses at its end and is played again by [playAgain].
+     */
+    private fun applyRepeat(p: ExoPlayer) {
+        p.repeatMode = LocalRepeat.playerMode(repeat, p.mediaItemCount)
+        p.pauseAtEndOfMediaItems = LocalRepeat.loopsSong(repeat, p.mediaItemCount)
+    }
+
+    /**
+     * A song on repeat that reached its end plays again from 0:00, and the Connect mirror's copy
+     * plays it anew (a new play, as Spotify's repeat counts one). False: the song does not loop.
+     */
+    private fun playAgain(p: ExoPlayer): Boolean {
+        if (CastPlayback.active || !active.value || !LocalRepeat.loopsSong(repeat, p.mediaItemCount)) return false
+        // Already played again: the pause at the end and the end of the last song come together.
+        if (p.playWhenReady && p.playbackState != Player.STATE_ENDED) return true
+        val ended = p.currentPosition
+        endFade()
+        p.seekTo(p.currentMediaItemIndex, 0L)
+        p.play()
+        log("repeat: ${current()?.title} plays again from ${p.currentPosition} ms (it ended at $ended ms)")
+        ConnectMirror.onLocalRepeat()
+        return true
+    }
+
+    /**
+     * A song the player moved to by itself (the next one, or the queue starting again on repeat)
+     * starts at 0:00: put back there if the player put it elsewhere. The queue starting again is logged.
+     */
+    private fun startsAtZero(p: ExoPlayer) {
+        val at = p.currentPosition
+        if (p.currentMediaItemIndex == 0 && p.mediaItemCount > 1 && repeat == LocalRepeat.ALL)
+            log("repeat: the queue plays again from ${current()?.title} at $at ms")
+        if (!LocalRepeat.startedLate(at)) return
+        log("${current()?.title} started at $at ms, not at its start: moved to 0 ms")
+        p.seekTo(0L)
     }
     /** The Spotify id of [t]: a downloaded song's, or the song an extension streams; "" for the phone's own files. */
     fun spotifyIdOf(t: LocalTrack): String =
@@ -711,7 +767,7 @@ object LocalPlayer {
     internal fun castFinished() {
         val p = exo ?: return
         when {
-            p.repeatMode == Player.REPEAT_MODE_ONE -> CastPlayback.replay()
+            LocalRepeat.loopsSong(repeat, p.mediaItemCount) -> CastPlayback.replay()
             p.hasNextMediaItem() -> {
                 val before = current()
                 p.seekToNextMediaItem()

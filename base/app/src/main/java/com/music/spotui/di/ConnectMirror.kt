@@ -171,6 +171,17 @@ object ConnectMirror {
         }
     }
 
+    /**
+     * The local player played its song again from 0:00 (repeat): the page plays it anew too, a new
+     * play as Spotify's own repeat counts one (a seek back to 0 would go on with the same play).
+     */
+    fun onLocalRepeat() {
+        if (!running || page.playsElsewhere.value) return
+        val uri = localUri ?: return
+        if (want?.uri != uri) return
+        start(uri, 0L)
+    }
+
     /** A state of the page while the mirror runs (SongPlayer.engineWhileLocal): a remote command, or our own echo. */
     fun onWeb(s: PlayerState) {
         val w = want ?: return
