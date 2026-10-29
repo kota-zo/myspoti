@@ -661,7 +661,11 @@ object Extensions {
     fun statusOf(id: String): app.myspoti.extensions.ExtensionStatus? = health.last(id)
 
     /** An enabled extension gives songs' download files (without one, downloads say to install one). */
-    fun hasDownloadSource(): Boolean { providedState.value; return isReady && providing(Hook.DOWNLOAD_SOURCE).isNotEmpty() }
+    fun hasDownloadSource(): Boolean { providedState.value; return isReady && (providing(Hook.DOWNLOAD_SOURCE).isNotEmpty() || startingDownloadSource()) }
+
+    /** The app is still starting the extensions on at launch, a download source among them. */
+    private fun startingDownloadSource(): Boolean =
+        !started.isCompleted && _registry.value.extensions.any { it.enabled && Action.DOWNLOAD_SOURCE.key in it.granted }
 
     /**
      * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
@@ -670,6 +674,13 @@ object Extensions {
      */
     suspend fun downloadFiles(track: TrackInfo, quality: String): Triple<String, String, List<DownloadFile>>? {
         if (!isReady) return null
+        // Asked right after launch (downloads resumed from the last session): the extensions still
+        // loading are waited for, rather than the song marked unavailable for want of a source.
+        if (!started.isCompleted) {
+            val t0 = System.currentTimeMillis()
+            val loaded = withTimeoutOrNull(START_WAIT_MS) { started.await() } != null
+            Logbook.log("download: extensions not loaded yet, waited ${System.currentTimeMillis() - t0} ms${if (loaded) "" else " (still loading)"}")
+        }
         val input = DownloadQuery.toJson(track, quality)
         probeStale(Hook.DOWNLOAD_SOURCE)
         return HookDispatch.firstInOrder(available(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->

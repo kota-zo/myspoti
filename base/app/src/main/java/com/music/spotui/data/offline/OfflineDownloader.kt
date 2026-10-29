@@ -119,26 +119,34 @@ object OfflineDownloader {
      * Downloads [songs] in [quality] (asked when the setting is "ask each time"), else in
      * the quality chosen in Settings.
      */
+    /**
+     * Whether a download can start now, said in a toast when not: downloads switched off in
+     * Settings (instead of a list of failed songs), or no extension giving download files (where to
+     * get one, for a download the user asked for). A list is only marked downloaded when this holds.
+     */
+    fun ready(auto: Boolean = false): Boolean {
+        if (!isDownloadsEnabled(Graph.app)) {
+            scope.launch(Dispatchers.Main) {
+                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.downloads_off_toast, android.widget.Toast.LENGTH_LONG).show()
+            }
+            return false
+        }
+        if (!com.music.spotui.extensions.Extensions.hasDownloadSource()) {
+            if (!auto) scope.launch(Dispatchers.Main) {
+                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.downloads_need_source, android.widget.Toast.LENGTH_LONG).show()
+            }
+            return false
+        }
+        return true
+    }
+
     fun enqueue(
         songs: List<SongsModel>,
         quality: com.music.spotui.data.preferences.DownloadQuality? = null,
         /** Started by the app (a downloaded list keeping in step), not by a tap. */
         auto: Boolean = false,
     ) {
-        // Downloads switched off in Settings: say so, instead of a list of failed songs.
-        if (!isDownloadsEnabled(Graph.app)) {
-            scope.launch(Dispatchers.Main) {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.downloads_off_toast, android.widget.Toast.LENGTH_LONG).show()
-            }
-            return
-        }
-        // No extension gives download files: say where to get one, instead of a list of failures.
-        if (!com.music.spotui.extensions.Extensions.hasDownloadSource()) {
-            if (!auto) scope.launch(Dispatchers.Main) {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.downloads_need_source, android.widget.Toast.LENGTH_LONG).show()
-            }
-            return
-        }
+        if (!ready(auto)) return
         if (auto) {
             // Automatic downloads wait for Wi-Fi (never the user's mobile data): the next sync takes them.
             if (com.music.spotui.data.DataSaver.metered || !OfflineStore.isOnline(Graph.app)) { OfflineCollections.waitForWifi(); return }
@@ -168,6 +176,20 @@ object OfflineDownloader {
         }
         start()
         added.forEach { queue.trySend(it) }
+    }
+
+    /**
+     * The account's downloads are put away (sign-out, another account signing in): the queue is
+     * dropped from memory only (its file goes with the account's folder) and the running downloads
+     * stop, waited for a moment so none finishes into the next account's folder.
+     */
+    internal suspend fun forgetSession() {
+        synchronized(pending) { pending.clear() }
+        val jobs = running.values.toList()
+        running.clear()
+        jobs.forEach { it.cancel() }
+        kotlinx.coroutines.withTimeoutOrNull(5_000) { jobs.forEach { it.join() } }
+        withContext(Dispatchers.Main) { requests.clear() }
     }
 
     /** Stops a queued or running download (and forgets a failed one). */

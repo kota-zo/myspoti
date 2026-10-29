@@ -58,6 +58,12 @@ object OfflineCollections {
         runCatching { read(file.readText()) }
     }
 
+    /** Reads the downloaded lists again (main thread): another account's downloads were put in place. */
+    fun reopen() {
+        synchronized(lock) { collections.clear(); singles.clear() }
+        runCatching { read(file.readText()) }
+    }
+
     fun isDownloaded(uri: String) = collections.containsKey(uri)
 
     /** A song still has a reason to stay on the phone. */
@@ -81,6 +87,8 @@ object OfflineCollections {
         // Episodes have no track id and their own downloader (PodcastDownloader): sending one
         // here would only be dropped, or worse, hit the track download path.
         if (song.spotifyTrackId.isBlank() || episodeKeyOf(song) != null) return
+        // Kept only when the download can start: otherwise it would show as downloaded with no file.
+        if (!OfflineDownloader.ready()) return
         synchronized(lock) { singles += song.spotifyTrackId }
         save()
         OfflineDownloader.enqueue(listOf(song), quality)
@@ -103,6 +111,8 @@ object OfflineCollections {
         // An episode in a list is not a track: it stays out of the collection, and the
         // list download never enqueues it (its own menu row is the way to download an episode).
         val ids = page.tracks.map { it.spotifyTrackId }.filter { it.isNotBlank() && !isEpisodeKey(it) }.toSet()
+        // Marked downloaded only when the download can start (downloads on, a download extension).
+        if (!OfflineDownloader.ready()) return
         collections[page.uri] = OfflineCollection(page.uri, page.type, page.name, ids, System.currentTimeMillis(), quality?.name.orEmpty())
         save()
         keepPage(page)
@@ -220,12 +230,8 @@ object OfflineCollections {
             }
             JSONObject().put("version", 1).put("lists", lists).put("singles", JSONArray(singles.toList())).toString()
         }
-        runCatching {
-            file.parentFile?.mkdirs()
-            val tmp = File(file.parentFile, file.name + ".tmp")
-            tmp.writeText(text)
-            tmp.renameTo(file)
-        }
+        runCatching { com.music.spotui.data.writeTextSafely(file, text) }
+            .onFailure { app.myspoti.host.android.Logbook.log("offline: downloaded lists not saved: ${it.message}") }
     }
 
     private fun read(text: String) {

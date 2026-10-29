@@ -42,6 +42,8 @@ object ProfileCache {
                 name = me.name
                 imageUrl = me.images.best(160)?.url
                 id = me.username.takeIf { it.isNotBlank() }
+                // The downloads shown are this account's own (see OfflineAccounts).
+                id?.let { com.music.spotui.data.offline.OfflineAccounts.claim(context.applicationContext, it) }
             } finally {
                 fetching.set(false)
             }

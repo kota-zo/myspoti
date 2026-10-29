@@ -104,9 +104,8 @@ object LocalPlaylists {
             ensureLoaded()
             change()
             if (::file.isInitialized) {
-                val tmp = File(file.parentFile, file.name + ".tmp")
-                tmp.writeText(write())
-                tmp.renameTo(file)
+                runCatching { com.music.spotui.data.writeTextSafely(file, write()) }
+                    .onFailure { app.myspoti.host.android.Logbook.log("local playlists not saved: ${it.message}") }
             }
         }
     }

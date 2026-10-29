@@ -1,5 +1,6 @@
 package com.music.spotui.di
 
+import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import app.myspoti.host.android.PlaybackService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,10 +17,16 @@ object SessionActions {
      * Signs out and drops everything tied to the account, so the next account on
      * this phone starts clean: prefs and in-memory caches, the saved screens,
      * the listen history (the Recap), and the Web Player's cookies, Web storage
-     * and cache (in the host).
+     * and cache (in the host). Downloads are put aside under the account (OfflineAccounts), not deleted.
      */
     fun logout(context: android.content.Context) {
         val app = context.applicationContext
+        // This account's downloads go aside: the next account on the phone sees none of them.
+        val account = com.music.spotui.data.api.ProfileCache.id
+        MyspotiRuntime.scope.launch {
+            runCatching { com.music.spotui.data.offline.OfflineAccounts.park(app, account) }
+                .onFailure { Logbook.log("offline: sign-out park failed: ${it.message}") }
+        }
         app.getSharedPreferences("myspoti_prefs", android.content.Context.MODE_PRIVATE)
             .edit().putBoolean("LoggedIn", false).remove("CurrentAccountName").apply()
         // Nothing of the account keeps playing or showing: local songs, the clip, the notification.

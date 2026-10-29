@@ -102,6 +102,12 @@ object OfflineStore {
         }.apply { name = "offline-encrypt"; priority = Thread.MIN_PRIORITY }.start()
     }
 
+    /** Reads the downloads folder again (main thread): another account's downloads were put in its place. */
+    fun reopen(context: Context) {
+        status.clear()
+        load(File(context.filesDir, "offline"))
+    }
+
     /** Reads the downloads in [dir] into [tracks]; returns the audio files of the songs found. */
     internal fun load(dir: File): List<File> {
         root = dir
@@ -238,9 +244,9 @@ object OfflineStore {
     private fun writeIndex() {
         val a = JSONArray()
         tracks.values.forEach { a.put(it.toJson()) }
-        val tmp = File(root, "index.json.tmp")
-        tmp.writeText(a.toString())
         if (indexFile.exists() && readIndex(indexFile)?.complete == true) indexFile.copyTo(backupFile, overwrite = true)
-        tmp.renameTo(indexFile)
+        // A failed write keeps the last good index (and its backup) rather than a half-moved one.
+        runCatching { com.music.spotui.data.writeTextSafely(indexFile, a.toString()) }
+            .onFailure { app.myspoti.host.android.Logbook.log("offline: index not saved: ${it.message}") }
     }
 }
