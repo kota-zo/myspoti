@@ -2,6 +2,24 @@
 
 Every change, release by release. The short version is in [CHANGELOG.md](../CHANGELOG.md), which the app and the GitHub releases show.
 
+## 2.2.0
+
+- **Chromecast without Google Play Services** for extension, downloaded and device songs: Cast devices in the device picker, a small CastV2 sender on the Default Media Receiver, songs served from the phone on the LAN behind a per-session token with Range support; Cast closes the connections it serves when it stops. Cast audio devices get the speaker icon in Connect.
+- **Large screens**: window size classes, a navigation rail in Classic and a side-by-side floating bar in Immersive, more grid columns and centred pages, two-pane players, free orientation, resizable DeX windows, keyboard playback shortcuts.
+- **Android Auto**: Home, Library and Downloads tabs with grids and artwork; search with playlists, albums and artists; Start radio on lists and artists; downloaded songs played from their files and browsable offline.
+- **Immersive player**: Canvas behind the player (same lookup, cache and settings as Classic), the cover opening into it and fading back when the lyrics or the queue open; shuffle and repeat always in reach (#93); a landscape layout for songs and podcasts; the source line's room kept from the start so it fades in under the title; glass sheets opened from the player refract the player; the glass redrawn while a page settles.
+- **Podcasts**: unplayed first / hide played in shows and Your Episodes, New marks since the last visit, a dot on followed shows on Home, played ticks and progress bars in both looks; Discover's new releases of followed podcasts open their show or episode.
+- **Queue**: playlists, albums and Liked Songs queued whole (Play next, Add to queue, Library long press), each song through the player that can play it; while an extension song plays, songs queued here are queued on Spotify in the same order, with removals and moves.
+- **Lyrics**: a tap on a word-synced line plays from the word tapped; word timings from another catalogue only moved onto Spotify's timing when the gaps agree (lyrics cache started afresh); lyrics hold while an extension song's audio loads; Genius notes in Immersive.
+- **Repeat**: Repeat once; repeat one restarts extension songs at 0:00; the repeat tapped is kept on extension songs.
+- **Sound**: a skip sends the command only once its fade is low (no click), the level guard leaves pause, skip and rise fades alone; Spotify crossfade fades that really fade; crossfade for extension, downloaded and device songs with blended covers and colours; recovery after ads and skips on slow networks (port of #74); no fragment of the previous song on a skip.
+- **Liked state**: a restored song is checked with Spotify, a failed check is retried once and never written as "not liked", and the current song is checked again on return to the app and when the player opens (at most once a minute); one `liked check` line per check in the diagnostic.
+- **Downloads per account**: put aside on sign-out (not deleted) and brought back on sign-in, older downloads given to the first account seen; download parts checked against Content-Range and file metadata.
+- **Extensions**: media and downloads through a safe client (local and private addresses refused after DNS, redirects followed by hand and re-checked, headers dropped on another host, no https to http); optional structured outcomes with app-bounded cooldowns, only script bugs turn an extension off; HTTP bodies read with a charset name so Connect works below Android 13 (#98); update cards install same-version-code changes, with a filled Accept button.
+- **Other fixes**: song count next to the playlist duration (#94); artist releases ordered by full release date; Spotify local files in playlists, played from a matching device file (#80); clickable links and decoded HTML entities in descriptions; one tap per artist in the player; cosmetics (#49, #75, #85, #86); Discord fixes (Connect volume, Shuffle pill, covers in Add to another playlist, search in Immersive Downloads).
+- **Build**: `-Pabis=arm64-v8a` for single-ABI test APKs; dependency bumps (coroutines 1.11.0, material3 1.5.0-beta02, media 1.8.0, Gradle 9.8.2, ktor 3.6.0).
+- **Translations** of the new strings in French, German, Spanish, Italian, Portuguese, Polish, Russian, Chinese and Greek.
+
 ## 2.1.0
 
 Stable release of the 2.0.2 betas (see [CHANGELOG.md](../CHANGELOG.md) for their notes), plus:

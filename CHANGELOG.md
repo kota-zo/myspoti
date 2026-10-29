@@ -2,6 +2,22 @@
 
 Each release on GitHub shows its section below. The app shows it too when it offers the update. Every detail: [docs/CHANGELOG-full.md](docs/CHANGELOG-full.md).
 
+## 2.2.0
+
+- 📺 **Chromecast** for extension, downloaded and device songs, without Google Play Services: Cast devices show up in the device picker and the song streams from your phone over your network.
+- 📱 **Tablets, foldables and Samsung DeX**: a navigation rail in Classic, a side-by-side bar in Immersive, more grid columns, two-pane players, free rotation, resizable windows and keyboard shortcuts.
+- 🚗 **Android Auto**: Home, Library and Downloads tabs with artwork, search, Start radio, and downloaded songs that play offline.
+- 🎬 **Canvas in the Immersive player**: the song's clip plays behind the player and the cover opens into it.
+- 🎙️ **Podcasts**: unplayed first or hide played, New marks on fresh episodes, played ticks and progress bars, and new releases of followed shows open the show.
+- ➕ **Queue whole lists**: Play next and Add to queue for playlists, albums and Liked Songs. With an extension source, your queue follows on Spotify.
+- 🎤 **Lyrics**: tap a word to play from that word, lyrics from another catalogue no longer drift, and Genius notes in Immersive.
+- 🔁 **Repeat once**, and repeat one restarts at 0:00 on extension songs.
+- 🔊 **Smoother sound**: no click on skips and pauses, and a crossfade that really fades, extension, downloaded and device songs included.
+- 💾 **Downloads belong to their account**: signing out puts them aside, signing back in brings them back.
+- 🛡️ **Safer extensions**: their streams and downloads cannot reach your local network, every redirect is checked, Connect works with them below Android 13, and their errors are clearer.
+- 🛠️ **Fixes**: the liked heart is right after a restart and after a like made in the official app; the audio source line no longer pushes the title up; shuffle and repeat always in reach in the Immersive player, with a landscape layout; clickable links in descriptions; song count next to a playlist's duration; artist releases in full date order; Spotify local files in playlists; and the bugs reported on Discord.
+- 🌍 Translations of everything new.
+
 ## 2.1.0
 
 The first stable release since 2.0.1, with everything from the 2.0.2 betas (their notes are below) and more.
