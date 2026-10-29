@@ -434,7 +434,17 @@ object OfflineDownloader {
         } finally {
             extractor.release()
         }
-        if (seconds > 0) checkLength(seconds, meta)
+        // No length in the track's header (some MP3 streams): the file's own metadata is asked next.
+        val known = seconds.takeIf { it > 0 } ?: runCatching {
+            android.media.MediaMetadataRetriever().let { r ->
+                try {
+                    r.setDataSource(file.path)
+                    r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.div(1000)
+                } finally { r.release() }
+            }
+        }.getOrNull()?.takeIf { it > 0 }
+        if (known != null) checkLength(known, meta)
+        else Log.w(TAG, "${meta.title}: length of the file unknown, not compared with the song's")
     }
 
     private fun checkLength(seconds: Long, meta: Meta) {
@@ -522,6 +532,13 @@ object OfflineDownloader {
                             if (code !in 200..299) throw IOException("stream HTTP $code")
                             val full = code != 206 // server ignored Range → the whole body, from byte 0
                             if (full) output.setLength(0)
+                            // A part must be the one asked for: bytes from elsewhere in the file would be
+                            // written at the wrong place and make a file that plays wrong.
+                            if (!full) {
+                                val span = contentRangeSpan(conn.response.header("Content-Range"))
+                                if (span == null || span.first != position || span.last > end)
+                                    throw IOException("stream sent ${conn.response.header("Content-Range") ?: "no Content-Range"} for bytes $position-$end")
+                            }
                             if (total <= 0) total = contentRangeTotal(conn.response.header("Content-Range")) ?: -1L
                             output.seek(output.length())
                             val expected = if (full) -1L else end - position + 1
@@ -531,8 +548,11 @@ object OfflineDownloader {
                                 while (true) {
                                     val n = input.read(buf)
                                     if (n < 0) break
-                                    output.write(buf, 0, n)
-                                    got += n
+                                    // Never more than the part asked for, whatever the server sends after it.
+                                    val keep = if (expected >= 0) minOf(n.toLong(), expected - got).toInt() else n
+                                    output.write(buf, 0, keep)
+                                    got += keep
+                                    if (expected in 0..got) break
                                 }
                             }
                             if (full) done = true
@@ -606,6 +626,14 @@ object OfflineDownloader {
     }
 
     /** "bytes 0-99/1234" → 1234; null when absent or "*". */
+    /** "bytes 100-199/1234" → 100..199; null when absent or not that shape. */
+    fun contentRangeSpan(header: String?): LongRange? {
+        val m = Regex("""^\s*bytes\s+(\d+)-(\d+)/(\d+|\*)\s*$""", RegexOption.IGNORE_CASE).find(header ?: return null) ?: return null
+        val first = m.groupValues[1].toLongOrNull() ?: return null
+        val last = m.groupValues[2].toLongOrNull() ?: return null
+        return if (last >= first) first..last else null
+    }
+
     fun contentRangeTotal(header: String?): Long? =
         header?.substringAfterLast('/', "")?.trim()?.toLongOrNull()?.takeIf { it > 0 }
 

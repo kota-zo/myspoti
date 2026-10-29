@@ -10,6 +10,8 @@ package com.music.spotui.ui.immersive.shell
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -165,6 +167,9 @@ fun ImmersiveBottomChrome(
 ) {
     val tabs = rememberTabNavigation(navController)
     if (tabs.fullScreen) return
+    // The keyboard is up (a search, a name to type): the bar and the mini player would sit on it or
+    // over the results right above it, so they step aside until it goes.
+    if (WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0) return
     // Large windows (tablets, foldables, DeX): the tab bar and the mini player side by side in one
     // floating row, centred, each at its own capped width; there is room, so it never folds.
     if (com.music.spotui.ui.components.windowSize().large) {

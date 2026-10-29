@@ -21,7 +21,19 @@ object ListenHistory {
         val cover: String,
         val playedMs: Long,
         val source: Source,
+        /** Each credited artist on its own, for the top artists; just the line's first one for older listens. */
+        val artists: List<String> = listOf(artist.substringBefore(",").trim()),
     )
+
+    /**
+     * The artists of a song credited as [line] ("A, B") with [ids] artist ids: split only when the
+     * names and the ids agree in number, so a name with a comma in it ("Tyler, The Creator", one id)
+     * stays whole.
+     */
+    fun artistsOf(line: String, ids: List<String>): List<String> {
+        val names = line.split(", ").map { it.trim() }.filter { it.isNotEmpty() }
+        return if (ids.size > 1 && names.size == ids.size) names else listOf(line.trim()).filter { it.isNotEmpty() }
+    }
 
     const val MIN_PLAYED_MS = 30_000L
     private var file: File? = null
@@ -37,22 +49,35 @@ object ListenHistory {
         val line = JSONObject()
             .put("at", listen.atMs).put("key", listen.key).put("title", listen.title).put("artist", listen.artist)
             .put("album", listen.album).put("cover", listen.cover).put("ms", listen.playedMs).put("src", listen.source.name)
+            .put("artists", org.json.JSONArray(listen.artists))
             .toString()
-        synchronized(lock) { f.appendText(line + "\n") }
-    }
-
-    fun all(): List<Listen> = synchronized(lock) {
-        val f = file?.takeIf { it.exists() } ?: return emptyList()
-        f.readLines().mapNotNull { line ->
-            runCatching {
-                val o = JSONObject(line)
-                Listen(o.getLong("at"), o.getString("key"), o.getString("title"), o.optString("artist"), o.optString("album"),
-                    o.optString("cover"), o.getLong("ms"), Source.valueOf(o.optString("src", "SPOTIFY")))
-            }.getOrNull()
+        synchronized(lock) {
+            f.appendText(line + "\n")
+            loaded?.let { loaded = it + listen }
         }
     }
 
-    fun clear() = synchronized(lock) { file?.delete() }
+    /** The history as last read, kept while the file only grows by [record]: not read again for every screen. */
+    private var loaded: List<Listen>? = null
+
+    fun all(): List<Listen> = synchronized(lock) {
+        loaded?.let { return it }
+        val f = file?.takeIf { it.exists() } ?: return emptyList()
+        val list = f.readLines().mapNotNull { line ->
+            runCatching {
+                val o = JSONObject(line)
+                val artist = o.optString("artist")
+                val artists = o.optJSONArray("artists")?.let { a -> List(a.length()) { a.getString(it) } }?.filter { it.isNotBlank() }
+                Listen(o.getLong("at"), o.getString("key"), o.getString("title"), artist, o.optString("album"),
+                    o.optString("cover"), o.getLong("ms"), Source.valueOf(o.optString("src", "SPOTIFY")),
+                    artists?.ifEmpty { null } ?: listOf(artist.substringBefore(",").trim()))
+            }.getOrNull()
+        }
+        loaded = list
+        list
+    }
+
+    fun clear() = synchronized(lock) { loaded = null; file?.delete() }
 
     data class Ranked(val name: String, val subtitle: String, val cover: String, val count: Int, val minutes: Long)
 
@@ -101,6 +126,14 @@ object ListenHistory {
         }
     }
 
+    /** Every credited artist of a listen counts it, not only the first one on the line. */
+    internal fun rankArtists(list: List<Listen>): List<Ranked> = list
+        .flatMap { l -> l.artists.filter { it.isNotBlank() }.map { it to l } }
+        .groupBy({ it.first }, { it.second })
+        .map { (name, l) -> Ranked(name, "", l.first().cover, l.size, l.sumOf { it.playedMs } / 60_000) }
+        .sortedWith(compareByDescending<Ranked> { it.count }.thenByDescending { it.minutes })
+        .take(10)
+
     /** Totals and top lists for listens since [sinceMs]. */
     fun recap(sinceMs: Long): Recap {
         val list = all().filter { it.atMs >= sinceMs }
@@ -114,7 +147,7 @@ object ListenHistory {
             minutes = list.sumOf { it.playedMs } / 60_000,
             bySource = list.groupBy { it.source }.mapValues { (_, l) -> l.sumOf { it.playedMs } / 60_000 },
             topTracks = rank({ it.title + "\u0000" + it.artist }, { it.artist }).map { it.copy(name = it.name.substringBefore('\u0000')) },
-            topArtists = rank({ it.artist.substringBefore(",").trim() }, { "" }),
+            topArtists = rankArtists(list),
             topAlbums = rank({ it.album }, { it.artist }),
         )
     }

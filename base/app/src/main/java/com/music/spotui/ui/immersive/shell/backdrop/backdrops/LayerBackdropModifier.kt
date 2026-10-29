@@ -66,7 +66,25 @@ private class LayerBackdropElement(
 
 private class LayerBackdropNode(
     var backdrop: LayerBackdrop
-) : DrawModifierNode, GlobalPositionAwareModifierNode, androidx.compose.ui.node.CompositionLocalConsumerModifierNode, Modifier.Node() {
+) : DrawModifierNode, GlobalPositionAwareModifierNode, androidx.compose.ui.node.CompositionLocalConsumerModifierNode,
+    androidx.compose.ui.node.PointerInputModifierNode, Modifier.Node() {
+
+    /** Until when the page counts as being used (a touch on it, see [onPointerEvent]): the glass follows it closely. */
+    private var activeUntil = 0L
+
+    // Seen first and never consumed: a scroll, a swipe of a row of cards or a tap is what changes the
+    // page without it redrawing itself, so the glass is refreshed quickly for a while after one.
+    override fun onPointerEvent(
+        pointerEvent: androidx.compose.ui.input.pointer.PointerEvent,
+        pass: androidx.compose.ui.input.pointer.PointerEventPass,
+        bounds: androidx.compose.ui.unit.IntSize,
+    ) {
+        if (pass == androidx.compose.ui.input.pointer.PointerEventPass.Initial) {
+            activeUntil = android.os.SystemClock.uptimeMillis() + ACTIVE_MS
+        }
+    }
+
+    override fun onCancelPointerInput() = Unit
 
     override fun ContentDrawScope.draw() {
         // Vendored change: record once and composite, rather than upstream's
@@ -116,7 +134,7 @@ private class LayerBackdropNode(
         // Only then: a page animating on its own (a playing row) does not keep the blur running.
         // Past that, the same holds for anything that changes without the page itself redrawing (a
         // cover that loads late, a row of cards scrolled sideways, an animated header): the glass
-        // is redrawn a few times a second so it never keeps an old picture of the page for long.
+        // is redrawn a few times a second while the page is being used, once a second at rest.
         // Driven by frames, so nothing runs while the app is in the background.
         coroutineScope.launch {
             val end = android.os.SystemClock.uptimeMillis() + SETTLE_MS
@@ -124,8 +142,9 @@ private class LayerBackdropNode(
                 androidx.compose.runtime.withFrameNanos { }
                 (registeredIn ?: backdrop).moves++
             }
+            activeUntil = android.os.SystemClock.uptimeMillis() + ACTIVE_MS
             while (true) {
-                kotlinx.coroutines.delay(REFRESH_MS)
+                kotlinx.coroutines.delay(if (android.os.SystemClock.uptimeMillis() < activeUntil) REFRESH_MS else IDLE_REFRESH_MS)
                 androidx.compose.runtime.withFrameNanos { }
                 (registeredIn ?: backdrop).moves++
             }
@@ -157,5 +176,11 @@ private class LayerBackdropNode(
 /** How long a page that just arrived keeps redrawing the glass as it fills in. */
 private const val SETTLE_MS = 3_000L
 
-/** How often, once settled, the glass is redrawn over what the page shows now. */
+/** How often, once settled, the glass is redrawn over what the page shows now while it is used. */
 private const val REFRESH_MS = 200L
+
+/** How often at rest (nothing touched for [ACTIVE_MS]). */
+private const val IDLE_REFRESH_MS = 1_000L
+
+/** How long after arriving, or after a touch, the page counts as being used. */
+private const val ACTIVE_MS = 15_000L

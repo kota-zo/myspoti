@@ -63,12 +63,17 @@ object CastServer {
         return before != null
     }
 
+    /** The connections being served: closed with the server, so no byte goes out once Cast stops. */
+    private val open = java.util.concurrent.ConcurrentHashMap.newKeySet<Socket>()
+
     @Synchronized
     fun stop() {
         server?.let { runCatching { it.close() }; log("server stopped") }
         server = null
         token = ""
         entries.clear()
+        open.toList().forEach { runCatching { it.close() } }
+        open.clear()
     }
 
     /** The address of [e] on this server (the older entries are forgotten: their address dies). */
@@ -133,6 +138,11 @@ object CastServer {
     }
 
     private fun serve(c: Socket) {
+        open += c
+        try { serveOpen(c) } finally { open -= c }
+    }
+
+    private fun serveOpen(c: Socket) {
         c.use { socket ->
             socket.soTimeout = 20_000
             val input = BufferedInputStream(socket.getInputStream())

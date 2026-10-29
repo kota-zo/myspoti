@@ -12,6 +12,14 @@ class OfflineDownloaderTest {
         assertNull(OfflineDownloader.contentRangeTotal(null))
     }
 
+    @Test fun contentRangeSpanReadsThePartSent() {
+        assertEquals(100L..199L, OfflineDownloader.contentRangeSpan("bytes 100-199/1234"))
+        assertEquals(0L..99L, OfflineDownloader.contentRangeSpan("Bytes 0-99/*"))
+        assertNull(OfflineDownloader.contentRangeSpan("bytes 199-100/1234"))
+        assertNull(OfflineDownloader.contentRangeSpan("bytes */1234"))
+        assertNull(OfflineDownloader.contentRangeSpan(null))
+    }
+
     @Test fun normalizeIsrcAcceptsDashesAndCase() {
         assertEquals("USUM71703861", OfflineDownloader.normalizeIsrc("us-um7-17-03861"))
         assertEquals("FRZ039800212", OfflineDownloader.normalizeIsrc("FR Z03 98 00212"))
