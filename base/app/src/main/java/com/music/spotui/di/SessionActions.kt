@@ -45,6 +45,7 @@ object SessionActions {
             app.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply()
         }
         com.music.spotui.data.local.ListenHistory.clear()
+        AutoBrowser.clearSession()
         _signedOut.value = true
         MyspotiRuntime.host.logout()
     }

@@ -41,7 +41,7 @@ object QueueSync {
     /** How many of each uri the sync queued on Spotify (or took from there): the ones it may take out again. */
     private val owned = HashMap<String, Int>()
     /** The local queue's songs at the last edit seen (see [localChanged]). */
-    private var lastLocal: List<String> = emptyList()
+    @Volatile private var lastLocal: List<String> = emptyList()
 
     /** The local player's queue as published (main thread): synced when it changed. */
     fun localChanged(queued: List<String>) {
@@ -75,16 +75,22 @@ object QueueSync {
     }
 
     private suspend fun reconcile(local: List<String>, spare: String?) {
-        val q = api.player.queue.value ?: return
+        // Spotify slow to send its queue: waited for a moment rather than this edit dropped.
+        val q = api.player.queue.value ?: withTimeoutOrNull(QUEUE_ECHO_MS * 2) { api.player.queue.first { it != null } }
+            ?: return log("not synced: Spotify sent no queue")
         val items = q.queued.filter { it.kind == ItemKind.TRACK && it.uri.startsWith(TRACK_PREFIX) }
         val plan = synchronized(owned) { QueueSyncRules.plan(local, items.map { it.uri }, HashMap(owned), spare) }
         if (plan.empty) return
+        // A newer local edit, or the mirror gone meanwhile: this plan is stale, the next sync does it.
+        fun stale() = local != lastLocal || !usable()
+        if (stale()) return
         if (plan.remove.isNotEmpty()) {
             val gone = plan.remove.map(items::get)
             api.player.removeFromQueue(gone)
             synchronized(owned) { gone.forEach { take(it.uri, 1) } }
         }
         for (insert in plan.inserts) for (batch in insert.uris.chunked(BATCH)) {
+            if (stale()) return
             val before = insert.beforeIndex?.let(items::get)
             if (before == null) api.player.addToQueue(batch) else api.player.insertInQueue(batch, before)
             synchronized(owned) { batch.forEach { owned[it] = (owned[it] ?: 0) + 1 } }

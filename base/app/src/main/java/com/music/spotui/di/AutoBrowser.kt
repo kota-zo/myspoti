@@ -66,8 +66,15 @@ object AutoBrowser {
     private const val KEY_PLAYABLE = "android.media.browse.CONTENT_STYLE_PLAYABLE_HINT"
     private const val KEY_GROUP = "android.media.browse.CONTENT_STYLE_GROUP_TITLE_HINT"
 
-    // Contexts recently listed, so a tap plays with the right queue.
-    private val pages = java.util.concurrent.ConcurrentHashMap<String, ContextPageModel>()
+    // Contexts recently listed, so a tap plays with the right queue: the last few only, in the order used.
+    private val pages: MutableMap<String, ContextPageModel> = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<String, ContextPageModel>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ContextPageModel>) = size > MAX_PAGES
+        })
+    private const val MAX_PAGES = 30
+
+    /** The account signs out: nothing it listed stays for the next one. */
+    fun clearSession() = pages.clear()
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
 
     /**

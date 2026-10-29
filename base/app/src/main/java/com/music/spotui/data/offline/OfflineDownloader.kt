@@ -244,7 +244,7 @@ object OfflineDownloader {
         runCatching {
             val a = JSONArray()
             pending.values.forEach { a.put(it.toJson()) }
-            OfflineStore.pendingFile.writeText(a.toString())
+            com.music.spotui.data.writeTextSafely(OfflineStore.pendingFile, a.toString())
         }
     }
 

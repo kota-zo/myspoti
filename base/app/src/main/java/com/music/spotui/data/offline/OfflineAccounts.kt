@@ -37,11 +37,11 @@ object OfflineAccounts {
         // Whose they are is unknown (never signed in online since): kept aside, never given to anyone.
         val key = owner ?: "unclaimed-${System.currentTimeMillis()}"
         stopDownloads(dir)
-        val to = parked(context, key)
-        withContext(Dispatchers.IO) {
-            to.parentFile?.mkdirs()
-            if (to.exists()) to.deleteRecursively()
-            if (!dir.renameTo(to)) Logbook.log("offline: downloads not put aside for sign-out")
+        val moved = withContext(Dispatchers.IO) { putAside(dir, parked(context, key)) }
+        if (!moved) {
+            // Still in place and still stamped with their account: the next sign-in puts them aside.
+            Logbook.log("offline: downloads not put aside for sign-out")
+            return@withLock
         }
         reopen(context)
         Logbook.log("offline: downloads put aside for sign-out")
@@ -59,21 +59,36 @@ object OfflineAccounts {
         }
         // Another account's downloads are in place (a sign-out that could not put them aside), or none.
         stopDownloads(dir)
-        withContext(Dispatchers.IO) {
-            if (owner != null) {
-                val to = parked(context, owner)
-                to.parentFile?.mkdirs()
-                if (to.exists()) to.deleteRecursively()
-                dir.renameTo(to)
-            } else {
-                dir.deleteRecursively()
-            }
+        val ready = withContext(Dispatchers.IO) {
+            // This account's stamp only goes on an emptied folder or its own: downloads that could not
+            // be moved keep their own account's stamp, never this one.
+            val cleared = if (owner != null) putAside(dir, parked(context, owner)) else dir.deleteRecursively()
+            if (!cleared) return@withContext false
             val back = parked(context, key)
             if (back.isDirectory && !back.renameTo(dir)) Logbook.log("offline: this account's downloads could not be brought back")
             stamp(dir, key)
+            true
+        }
+        if (!ready) {
+            Logbook.log("offline: the other account's downloads could not be put aside")
+            reopen(context)
+            return@withLock
         }
         reopen(context)
+        // Its queues came back with its folder: they go on where they stopped.
+        OfflineDownloader.resumePending()
+        PodcastDownloader.resumePending()
         Logbook.log("offline: this account's downloads in place (${OfflineStore.tracks.size} songs)")
+    }
+
+    /**
+     * Moves [dir] to [to]. A folder already there (left by an earlier sign-out that went wrong) is
+     * kept under another name rather than deleted. False when the move failed: [dir] is untouched.
+     */
+    private fun putAside(dir: File, to: File): Boolean {
+        to.parentFile?.mkdirs()
+        if (to.exists() && !to.renameTo(File(to.parentFile, "${to.name}-${System.currentTimeMillis()}"))) return false
+        return dir.renameTo(to)
     }
 
     private fun stamp(dir: File, key: String) {

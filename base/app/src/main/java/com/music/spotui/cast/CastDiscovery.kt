@@ -33,14 +33,19 @@ object CastDiscovery {
     /** Starts looking (each [start] wants one [stop]). Main thread. */
     fun start(context: Context) {
         if (users++ > 0) return
-        val m = context.applicationContext.getSystemService(Context.NSD_SERVICE) as? NsdManager ?: return
+        // No discovery on this phone: counted as not started, so a later start tries again.
+        val m = context.applicationContext.getSystemService(Context.NSD_SERVICE) as? NsdManager ?: run { users = 0; return }
         nsd = m
         // Found anew each time: a device switched off since is not offered.
         devices.clear()
         val l = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) = log("looking for Cast devices")
             override fun onDiscoveryStopped(serviceType: String) = log("stopped looking for Cast devices")
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) = log("discovery failed to start (error $errorCode)")
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) = main.post {
+                log("discovery failed to start (error $errorCode)")
+                // Not running: a later start begins it again.
+                if (listener === this) { listener = null; users = 0 }
+            }.let { }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
             override fun onServiceFound(info: NsdServiceInfo) = main.post { waiting.addLast(info); next() }.let { }
             override fun onServiceLost(info: NsdServiceInfo) = main.post {
@@ -49,7 +54,7 @@ object CastDiscovery {
         }
         listener = l
         runCatching { m.discoverServices(TYPE, NsdManager.PROTOCOL_DNS_SD, l) }
-            .onFailure { log("discovery not available: ${it.javaClass.simpleName}"); listener = null }
+            .onFailure { log("discovery not available: ${it.javaClass.simpleName}"); listener = null; users = 0 }
     }
 
     fun stop() {

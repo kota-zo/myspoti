@@ -44,10 +44,16 @@ class CastChannel(
     fun open(timeoutMs: Int = 5000) {
         val ctx = SSLContext.getInstance("TLS").apply { init(null, arrayOf(AnyCertificate), java.security.SecureRandom()) }
         val s = ctx.socketFactory.createSocket() as SSLSocket
-        s.connect(InetSocketAddress(host, port), timeoutMs)
-        s.soTimeout = 0
-        s.tcpNoDelay = true
-        s.startHandshake()
+        try {
+            s.connect(InetSocketAddress(host, port), timeoutMs)
+            s.soTimeout = 0
+            s.tcpNoDelay = true
+            s.startHandshake()
+        } catch (e: Exception) {
+            // Not connected: the socket is closed here, nothing else holds it.
+            runCatching { s.close() }
+            throw e
+        }
         socket = s
         out = BufferedOutputStream(s.outputStream)
         lastHeard = System.currentTimeMillis()

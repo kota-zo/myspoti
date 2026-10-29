@@ -114,6 +114,8 @@ object LocalPlayer {
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     // Anything but the transition the fade itself makes (a skip, a tap in the queue) ends the fade.
                     if (!startingFade) endFade()
+                    // The song kept from fading out is left behind: the next one fades as usual.
+                    if (p.currentMediaItemIndex != noFadeFor) noFadeFor = -1
                     // A song to play again that the player went past by itself: put back, never followed.
                     if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && wentPastRepeat(p, p.previousMediaItemIndex)) return
                     if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) startsAtZero(p)
@@ -246,6 +248,8 @@ object LocalPlayer {
         // Spotify's queued songs (the account's: maybe queued on another device or install) play first.
         val (all, fromSpotify) = QueueSync.withSpotifyQueue(list, index.coerceIn(0, list.lastIndex))
         tracks.clear(); tracks.addAll(all); unshuffled = null
+        // An index kept from fading belonged to the list before: this one fades from its first song.
+        noFadeFor = -1
         queued.clear(); playingQueued = null; radioSongs.clear()
         queued += fromSpotify
         listName = context ?: Graph.app.getString(app.myspoti.engine.R.string.local_files_title)
