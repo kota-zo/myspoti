@@ -1,6 +1,7 @@
 package com.music.spotui.ui.immersive.player
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -180,11 +181,14 @@ fun ImmersivePodcastPlayer(navController: NavController) {
     }
     // The episode and its show, the star of the saved episodes and the episode's menu.
     val credits: @Composable RowScope.() -> Unit = {
+        // The source line's room is kept from the start (it is known a moment after the
+        // episode starts): it fades in below the title and the show instead of moving them.
         val sourceLabel = playingSourceLabel()
+        val sourceAlpha by animateFloatAsState(if (sourceLabel.isNotBlank()) 1f else 0f, tween(250), label = "sourceLine")
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = Immersive.Title.copy(fontSize = 20.sp, lineHeight = if (sourceLabel.isNotBlank()) 22.sp else 24.sp),
+                style = Immersive.Title.copy(fontSize = 20.sp, lineHeight = 22.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
@@ -197,7 +201,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                 text = showName,
                 style = Immersive.Title.copy(
                     fontSize = 20.sp,
-                    lineHeight = if (sourceLabel.isNotBlank()) 22.sp else 24.sp,
+                    lineHeight = 22.sp,
                     fontWeight = FontWeight.W500,
                 ),
                 color = tint.copy(alpha = 0.55f),

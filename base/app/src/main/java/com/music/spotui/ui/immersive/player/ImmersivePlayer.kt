@@ -233,19 +233,25 @@ fun ImmersivePlayer(
     val volume = rememberPlayerVolume()
 
     // The song's Canvas, behind the player once its first frame is drawn. The cover opens into it:
-    // the clip fades in from a little closer while the sleeve grows and fades away (and comes back
-    // as the header's thumbnail when the lyrics or the queue open over the clip).
+    // the clip fades in from a little closer while the sleeve grows and fades away. The lyrics or
+    // the queue close it the same way back: the clip (paused under them) fades out to the cover's
+    // backdrop and the sleeve returns as the header's thumbnail, rather than a still clip showing
+    // around the panel; closing the panel opens the cover into the clip again.
     val canvasUrl = rememberImmersiveCanvas(state)
     var canvasShown by remember(canvasUrl) {
         mutableStateOf(canvasUrl != null && com.music.spotui.ui.components.CanvasPlayer.isReady(canvasUrl))
     }
-    val canvasOn = canvasUrl != null && canvasShown && !state.adPlaying
+    val canvasOn = canvasUrl != null && canvasShown && !state.adPlaying && panel == Panel.NONE
     // Opening on a clip already showing starts at the end; every later change animates from where it is.
     val canvasOpen = remember { androidx.compose.animation.core.Animatable(if (canvasOn) 1f else 0f) }
+    // Opening the player: the heart of the song shown is checked again if its state is old.
+    LaunchedEffect(Unit) { com.music.spotui.di.SongPlayer.refreshLikedIfStale() }
     LaunchedEffect(canvasOn) {
         val target = if (canvasOn) 1f else 0f
         val left = kotlin.math.abs(target - canvasOpen.value)
-        if (left > 0f) canvasOpen.animateTo(target, tween((CANVAS_OPEN_MS * left).toInt(), easing = FastOutSlowInEasing))
+        // A panel opening: the clip leaves with the cover's travel to the header, not after it.
+        val ms = if (!canvasOn && panel != Panel.NONE) PANEL_TRAVEL_MS else CANVAS_OPEN_MS
+        if (left > 0f) canvasOpen.animateTo(target, tween((ms * left).toInt(), easing = FastOutSlowInEasing))
     }
 
     // Back leaves the panel first; the sheet (outside) closes on the next one.
@@ -518,11 +524,14 @@ private fun RowScope.PlayerCredits(
     onMore: (() -> Unit)?,
     onSource: () -> Unit,
 ) {
-    // The header is a fixed HEADER_HEIGHT: with a source line the three lines are
-    // set tighter, so none is clipped at the bottom.
+    // The header is a fixed HEADER_HEIGHT: the three lines are set tighter, so none is
+    // clipped at the bottom. The source line's room is kept from the start (it is only known
+    // a moment after the song starts), so its arrival fades in below the title and artist
+    // instead of moving them.
     val sourceLabel = com.music.spotui.ui.components.playingSourceLabel()
     val hasSource = sourceLabel.isNotBlank() && !state.adPlaying
-    val lineH = if (hasSource) 22.sp else 24.sp
+    val sourceAlpha by animateFloatAsState(if (hasSource) 1f else 0f, tween(250), label = "sourceLine")
+    val lineH = if (state.adPlaying) 24.sp else 22.sp
     Column(
         Modifier
             .weight(1f)
@@ -577,14 +586,18 @@ private fun RowScope.PlayerCredits(
         }
         // What the sound is when Myspoti's own player plays it (an extension's stream, a
         // download); a tap opens what plays and its quality. Same state as the Classic player.
-        if (hasSource) Text(
-            text = sourceLabel,
+        if (!state.adPlaying) Text(
+            text = sourceLabel.ifEmpty { " " },
             style = Immersive.Caption.copy(lineHeight = 14.sp),
             color = tint.copy(alpha = 0.45f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onSource),
+                .graphicsLayer { alpha = sourceAlpha }
+                .then(
+                    if (hasSource) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onSource)
+                    else Modifier,
+                ),
         )
     }
     Spacer(Modifier.width(10.dp))

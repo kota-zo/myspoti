@@ -348,6 +348,7 @@ fun PlayerScreen(navController: NavController) {
     val mv = com.music.spotui.video.MusicVideoController
     androidx.compose.runtime.DisposableEffect(mv) {
         mv.attachPlayerScreen()
+        SongPlayer.refreshLikedIfStale()
         onDispose { mv.detachPlayerScreen() }
     }
     LaunchedEffect(actualTrackId, songTitle, audioBuffering) {

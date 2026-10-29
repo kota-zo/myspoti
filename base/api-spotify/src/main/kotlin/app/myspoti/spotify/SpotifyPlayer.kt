@@ -661,6 +661,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      */
     private suspend fun guardVolume(s: PlayerState?, media: Media?) {
         if (s == null || s.isPaused || s.isBuffering || _adPlaying.value || fadeBackTo != null || fadeBack?.isActive == true) return
+        // A ramp of ours under way (a pause's fade, a rise just started): the level is low on purpose.
+        if (levelRamps.get() > 0 || System.currentTimeMillis() < levelHeldUntil) return
         // Its volume is set through Connect: with another device playing it would be that device's.
         if (remoteActive) return
         // A crossfade owns the element level until it ends: the guard must not undo the ramp.
@@ -1170,6 +1172,10 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     /** The volume a fade comes back to, while one is under way. */
     @Volatile private var fadeBackTo: Double? = null
+    /** Level ramps of our own going down (a pause's), which the volume guard must not take for a lost fade. */
+    private val levelRamps = java.util.concurrent.atomic.AtomicInteger(0)
+    /** Until then the level is still moving (a rise just started, a ramp just ended): the guard leaves it be. */
+    @Volatile private var levelHeldUntil = 0L
     private var fadeBack: kotlinx.coroutines.Job? = null
 
     /** The element back to the page player's own volume. */
@@ -1221,6 +1227,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 bridge.call("media.rise", buildJsonObject { put("ms", riseMs); put("wait", RISE_WAIT_MS); put("keep", true) },
                     timeoutMs = LEVEL_TIMEOUT_MS, quiet = true)
             }.onFailure { runCatching { restoreLevel() } }
+            // The call answers as the rise starts: the guard waits for the ramp to be over.
+            levelHeldUntil = System.currentTimeMillis() + riseMs + LEVEL_HELD_GRACE_MS
             fadeBackTo = null
         }
     }
@@ -1239,6 +1247,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         if (seen?.active == false) { if (crossfading) runCatching { restoreLevel() }; block(); return }
         val target = fadeBackTo ?: seen?.own?.takeIf { crossfading && it > 0.01 } ?: seen?.level?.takeIf { it > 0.01 } ?: 1.0
         val from = s.item?.uri
+        val startedAt = System.currentTimeMillis()
         fadeBackTo = target
         fadeBack?.cancel()
         // The ramp runs in the page, so it goes down while the command is already on its way; the
@@ -1254,6 +1263,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         }
         var sent = false
         try {
+            // The page changes song a few ms after the command: sent at once, the old song was cut
+            // while still at -6 to -9 dB (heard as a click on every skip). The fade has to be down
+            // before it goes; what the fade call and the caller took already counts. A sound
+            // already down (a crossfade nearly over) waits for nothing. Cancelled or failed here,
+            // the level comes back below like for any command that is not sent.
+            val low = crossfading && (seen?.level ?: target) < target * SKIP_HOLD_LEVEL
+            if (!low) delay(SKIP_HOLD_MS - (System.currentTimeMillis() - startedAt))
             block()
             sent = true
         } finally {
@@ -1543,17 +1559,28 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val fadeOut = level != null && !_adPlaying.value && !adMuted && lastMedia?.active != false
         if (fadeOut) {
             fadeBack?.cancel()
-            runCatching {
-                bridge.call("media.ramp", buildJsonObject { put("to", 0); put("ms", PAUSE_MS) }, timeoutMs = LEVEL_TIMEOUT_MS, quiet = true)
-            }
-            delay(PAUSE_MS)
+            // A rise cancelled here leaves no one to end its mark; the pause owns the level now.
+            fadeBackTo = null
+            // The ramp takes the level below the guard's threshold on purpose: marked for it
+            // (reported: the guard put the level back to full in the middle of the fade, a blast).
+            levelRamps.incrementAndGet()
         }
         try {
+            if (fadeOut) {
+                runCatching {
+                    bridge.call("media.ramp", buildJsonObject { put("to", 0); put("ms", PAUSE_MS) }, timeoutMs = LEVEL_TIMEOUT_MS, quiet = true)
+                }
+                delay(PAUSE_MS)
+            }
             command("player.pause")
         } finally {
-            // The element back at its level while paused (not heard): a new song started next
-            // must not begin at the bottom of the fade.
-            if (fadeOut) runCatching { fade(listOf(level!!), restore = true, ms = 1) }
+            if (fadeOut) {
+                // The element back at its level while paused (not heard): a new song started next
+                // must not begin at the bottom of the fade.
+                withContext(NonCancellable) { runCatching { fade(listOf(level!!), restore = true, ms = 1) } }
+                levelHeldUntil = System.currentTimeMillis() + LEVEL_HELD_GRACE_MS
+                levelRamps.decrementAndGet()
+            }
         }
     }
     /*
@@ -1904,6 +1931,15 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
          * the song's start.
          */
         const val SKIP_RISE_MS = 80L
+        /**
+         * A skip's command goes out this long after its fade began (the page changes song a few ms
+         * after it), so the old song is cut at about -25 dB, not -6. This is the latency a skip pays.
+         */
+        const val SKIP_HOLD_MS = 120L
+        /** A crossfade already below this share of the target level has nothing left to fade before a skip. */
+        const val SKIP_HOLD_LEVEL = 0.1
+        /** The volume guard keeps off this much longer after a ramp of ours, for a media read taken during it. */
+        const val LEVEL_HELD_GRACE_MS = 400L
         /** All fade levels, for the floor check. */
         val FADE_STEPS = FADE_OUT_STEPS
         /**

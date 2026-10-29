@@ -39,7 +39,8 @@ android {
         // (local builds). CI sets it to the repository it builds.
         buildConfigField("String", "UPDATE_REPO", "\"${(findProperty("updateRepo") as String?) ?: System.getenv("MYSPOTI_UPDATE_REPO") ?: ""}\"")
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            // -Pabis=arm64-v8a: a smaller test APK for one phone.
+            abiFilters += (findProperty("abis") as String?)?.split(",") ?: listOf("arm64-v8a", "armeabi-v7a")
         }
         // On-device tests (codecs): ./gradlew connectedDebugAndroidTest
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

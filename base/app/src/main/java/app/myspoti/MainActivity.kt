@@ -252,6 +252,8 @@ class MainActivity : AppCompatActivity() {
         if (com.music.spotui.data.api.UpdateChecker.isBeta || app.myspoti.engine.BuildConfig.DEBUG) app.myspoti.host.android.MainThreadWatch.start()
         super.onStart()
         com.music.spotui.video.MusicVideoController.onForeground()
+        // The song shown may have been liked or unliked in another app meanwhile.
+        com.music.spotui.di.SongPlayer.refreshLikedIfStale()
         // Asked for over adb (TestControlReceiver's "screenon"): One UI ignores the huge
         // `screen_off_timeout`, so a long unattended run holds the screen on from in here.
         if (prefs.getBoolean("keep_screen_on", false)) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
