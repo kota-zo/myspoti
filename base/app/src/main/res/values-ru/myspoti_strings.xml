@@ -557,4 +557,40 @@
     <string name="settings_connect_mirror_detail">Воспроизводит трек Spotify без звука в фоне, чтобы прослушивание засчитывалось и ваши устройства могли им управлять. Расходует немного больше трафика и заряда: отключите, если это не нужно.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Скачанные плейлисты и альбомы</string>
+    <string name="aa_downloaded_songs">Скачанные треки</string>
+    <string name="aa_downloads">Загрузки</string>
+    <string name="aa_home">Главная</string>
+    <string name="aa_library">Медиатека</string>
+    <string name="aa_recent">Недавно прослушанное</string>
+    <string name="aa_songs">Треки</string>
+    <string name="aa_start_radio">Включить радио</string>
+    <string name="cast_connecting">Подключение…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Не удалось воспроизвести на %1$s</string>
+    <string name="cast_lost">Связь с %1$s потеряна: снова на этом телефоне</string>
+    <string name="cast_spotify_via_connect">Треки Spotify играют на устройствах Cast через Spotify Connect</string>
+    <string name="downloads_need_source_detail">Треки скачивают расширения. Пока ни одно не установлено: откройте магазин расширений и установите Mornye, чтобы скачивать.</string>
+    <string name="downloads_need_source_title">Для загрузок нужно расширение</string>
+    <string name="episode_new">Новый</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d трек добавлен в очередь</item>
+        <item quantity="few">%d трека добавлены в очередь</item>
+        <item quantity="many">%d треков добавлено в очередь</item>
+        <item quantity="other">%d трека добавлено в очередь</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d трек заиграет следующим</item>
+        <item quantity="few">%d трека заиграют следующими</item>
+        <item quantity="many">%d треков заиграют следующими</item>
+        <item quantity="other">%d трека заиграют следующими</item>
+    </plurals>
+    <string name="queue_list_none">Ни один из этих треков нельзя добавить в очередь</string>
+    <string name="setup_ext_download_mornye_detail">Загрузки и другие источники звука дают расширения. Установите Mornye на следующей странице, чтобы скачивать треки и слушать офлайн. Треки остаются зашифрованными в Myspoti.</string>
+    <string name="setup_ext_home">На главную</string>
+    <string name="show_filter_all">Порядок по умолчанию</string>
+    <string name="show_filter_all_played">Все выпуски прослушаны.</string>
+    <string name="show_filter_hide_played">Скрыть прослушанные</string>
+    <string name="show_filter_unplayed_first">Сначала непрослушанные</string>
 </resources>

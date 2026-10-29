@@ -546,4 +546,36 @@
     <string name="settings_connect_mirror_detail">Παίζει το τραγούδι του Spotify σε σίγαση στο παρασκήνιο, ώστε να μετράει και οι συσκευές σας να το ελέγχουν. Χρησιμοποιεί λίγο περισσότερα δεδομένα και μπαταρία: απενεργοποιήστε το αν δεν το χρειάζεστε.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Λήψεις λιστών και άλμπουμ</string>
+    <string name="aa_downloaded_songs">Τραγούδια που έχουν ληφθεί</string>
+    <string name="aa_downloads">Λήψεις</string>
+    <string name="aa_home">Αρχική</string>
+    <string name="aa_library">Βιβλιοθήκη</string>
+    <string name="aa_recent">Πρόσφατα</string>
+    <string name="aa_songs">Τραγούδια</string>
+    <string name="aa_start_radio">Έναρξη ραδιοφώνου</string>
+    <string name="cast_connecting">Σύνδεση…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Δεν ήταν δυνατή η αναπαραγωγή στο %1$s</string>
+    <string name="cast_lost">Χάθηκε η σύνδεση με %1$s: ξανά σε αυτό το τηλέφωνο</string>
+    <string name="cast_spotify_via_connect">Τα τραγούδια του Spotify παίζουν σε συσκευές Cast μέσω Spotify Connect</string>
+    <string name="downloads_need_source_detail">Τα τραγούδια κατεβαίνουν από επεκτάσεις. Δεν έχει εγκατασταθεί καμία ακόμα: ανοίξτε το κατάστημα επεκτάσεων και εγκαταστήστε το Mornye για λήψεις.</string>
+    <string name="downloads_need_source_title">Οι λήψεις χρειάζονται επέκταση</string>
+    <string name="episode_new">Νέο</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">Προστέθηκε %d τραγούδι στην ουρά</item>
+        <item quantity="other">Προστέθηκαν %d τραγούδια στην ουρά</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d τραγούδι θα παίξει μετά</item>
+        <item quantity="other">%d τραγούδια θα παίξουν μετά</item>
+    </plurals>
+    <string name="queue_list_none">Κανένα από αυτά τα τραγούδια δεν μπορεί να μπει στην ουρά</string>
+    <string name="setup_ext_download_mornye_detail">Οι λήψεις και άλλες πηγές ήχου προέρχονται από επεκτάσεις. Εγκαταστήστε το Mornye στην επόμενη σελίδα για να κατεβάζετε τραγούδια και να ακούτε εκτός σύνδεσης. Τα τραγούδια μένουν κρυπτογραφημένα στο Myspoti.</string>
+    <string name="setup_ext_home">Μετάβαση στην Αρχική</string>
+    <string name="show_filter_all">Προεπιλεγμένη σειρά</string>
+    <string name="show_filter_all_played">Όλα τα επεισόδια έχουν ακουστεί.</string>
+    <string name="show_filter_hide_played">Απόκρυψη όσων ακούστηκαν</string>
+    <string name="show_filter_unplayed_first">Πρώτα όσα δεν ακούστηκαν</string>
 </resources>

@@ -2,4 +2,11 @@
 <resources>
     <string name="immersive_genius_none">Το Genius δεν έχει τίποτα για αυτό το τραγούδι.</string>
     <string name="immersive_genius_error">Το Genius δεν είναι προσβάσιμο αυτή τη στιγμή.</string>
+    <string name="immersive_genius_note_open">Τι λέει το Genius για αυτόν τον στίχο</string>
+    <string name="immersive_genius_read">Διαβάστε στο Genius</string>
+    <string name="immersive_genius_source">Σχόλιο Genius</string>
+    <plurals name="immersive_genius_upvotes">
+        <item quantity="one">%1$d θετική ψήφος</item>
+        <item quantity="other">%1$d θετικές ψήφοι</item>
+    </plurals>
 </resources>

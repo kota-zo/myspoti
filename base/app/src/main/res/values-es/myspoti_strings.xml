@@ -546,4 +546,36 @@
     <string name="settings_connect_mirror_detail">Reproduce la canción de Spotify en silencio en segundo plano, para que cuente y tus dispositivos puedan controlarla. Usa algo más de datos y batería: desactívalo si no lo necesitas.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Playlists y álbumes descargados</string>
+    <string name="aa_downloaded_songs">Canciones descargadas</string>
+    <string name="aa_downloads">Descargas</string>
+    <string name="aa_home">Inicio</string>
+    <string name="aa_library">Biblioteca</string>
+    <string name="aa_recent">Escuchado recientemente</string>
+    <string name="aa_songs">Canciones</string>
+    <string name="aa_start_radio">Iniciar radio</string>
+    <string name="cast_connecting">Conectando…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">No se pudo reproducir en %1$s</string>
+    <string name="cast_lost">Se perdió %1$s: de vuelta en este teléfono</string>
+    <string name="cast_spotify_via_connect">Las canciones de Spotify suenan en los dispositivos Cast a través de Spotify Connect</string>
+    <string name="downloads_need_source_detail">Las canciones se descargan con extensiones. Aún no hay ninguna instalada: abre la tienda de extensiones e instala Mornye para descargar.</string>
+    <string name="downloads_need_source_title">Las descargas necesitan una extensión</string>
+    <string name="episode_new">Nuevo</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d canción añadida a la cola</item>
+        <item quantity="other">%d canciones añadidas a la cola</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d canción sonará a continuación</item>
+        <item quantity="other">%d canciones sonarán a continuación</item>
+    </plurals>
+    <string name="queue_list_none">Ninguna de estas canciones se puede añadir a la cola</string>
+    <string name="setup_ext_download_mornye_detail">Las descargas y otras fuentes de audio vienen de extensiones. Instala Mornye en la página siguiente para descargar canciones y escuchar sin conexión. Las canciones quedan cifradas en Myspoti.</string>
+    <string name="setup_ext_home">Ir al inicio</string>
+    <string name="show_filter_all">Orden predeterminado</string>
+    <string name="show_filter_all_played">Todos los episodios están escuchados.</string>
+    <string name="show_filter_hide_played">Ocultar escuchados</string>
+    <string name="show_filter_unplayed_first">Sin escuchar primero</string>
 </resources>

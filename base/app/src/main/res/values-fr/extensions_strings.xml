@@ -239,4 +239,5 @@
     <string name="outcome_network">erreur réseau ou délai dépassé</string>
     <string name="outcome_skipped">ignorée</string>
     <string name="outcome_bug">erreur de l\'extension</string>
+    <string name="extensions_unreadable_file">Le fichier n\'a pas pu être lu</string>
 </resources>

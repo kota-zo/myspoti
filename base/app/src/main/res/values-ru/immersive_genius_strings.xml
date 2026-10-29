@@ -2,4 +2,13 @@
 <resources>
     <string name="immersive_genius_none">На Genius нет информации об этом треке.</string>
     <string name="immersive_genius_error">Genius сейчас недоступен.</string>
+    <string name="immersive_genius_note_open">Что Genius говорит об этой строке</string>
+    <string name="immersive_genius_read">Читать на Genius</string>
+    <string name="immersive_genius_source">Аннотация Genius</string>
+    <plurals name="immersive_genius_upvotes">
+        <item quantity="one">%1$d голос «за»</item>
+        <item quantity="few">%1$d голоса «за»</item>
+        <item quantity="many">%1$d голосов «за»</item>
+        <item quantity="other">%1$d голоса «за»</item>
+    </plurals>
 </resources>

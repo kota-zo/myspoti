@@ -546,4 +546,36 @@
     <string name="settings_connect_mirror_detail">Reproduz a música do Spotify sem som em segundo plano, para que conte e os seus dispositivos a possam controlar. Usa um pouco mais de dados e bateria: desative se não precisar.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Playlists e álbuns baixados</string>
+    <string name="aa_downloaded_songs">Músicas baixadas</string>
+    <string name="aa_downloads">Downloads</string>
+    <string name="aa_home">Início</string>
+    <string name="aa_library">Biblioteca</string>
+    <string name="aa_recent">Tocadas recentemente</string>
+    <string name="aa_songs">Músicas</string>
+    <string name="aa_start_radio">Iniciar rádio</string>
+    <string name="cast_connecting">Conectando…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Não foi possível tocar em %1$s</string>
+    <string name="cast_lost">%1$s perdido: de volta neste celular</string>
+    <string name="cast_spotify_via_connect">As músicas do Spotify tocam em dispositivos Cast pelo Spotify Connect</string>
+    <string name="downloads_need_source_detail">As músicas são baixadas por extensões. Nenhuma está instalada ainda: abra a loja de extensões e instale o Mornye para baixar.</string>
+    <string name="downloads_need_source_title">Os downloads precisam de uma extensão</string>
+    <string name="episode_new">Novo</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d música adicionada à fila</item>
+        <item quantity="other">%d músicas adicionadas à fila</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d música tocará em seguida</item>
+        <item quantity="other">%d músicas tocarão em seguida</item>
+    </plurals>
+    <string name="queue_list_none">Nenhuma destas músicas pode entrar na fila</string>
+    <string name="setup_ext_download_mornye_detail">Os downloads e outras fontes de áudio vêm de extensões. Instale o Mornye na próxima página para baixar músicas e ouvir offline. As músicas ficam criptografadas no Myspoti.</string>
+    <string name="setup_ext_home">Ir para o início</string>
+    <string name="show_filter_all">Ordem padrão</string>
+    <string name="show_filter_all_played">Todos os episódios foram ouvidos.</string>
+    <string name="show_filter_hide_played">Ocultar ouvidos</string>
+    <string name="show_filter_unplayed_first">Não ouvidos primeiro</string>
 </resources>

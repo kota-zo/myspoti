@@ -546,4 +546,36 @@
     <string name="settings_connect_mirror_detail">Spielt den Spotify-Titel stumm im Hintergrund ab, damit er gezählt wird und deine Geräte ihn steuern können. Braucht etwas mehr Daten und Akku: schalte es aus, wenn du es nicht brauchst.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Heruntergeladene Playlists und Alben</string>
+    <string name="aa_downloaded_songs">Heruntergeladene Songs</string>
+    <string name="aa_downloads">Downloads</string>
+    <string name="aa_home">Startseite</string>
+    <string name="aa_library">Bibliothek</string>
+    <string name="aa_recent">Zuletzt gehört</string>
+    <string name="aa_songs">Songs</string>
+    <string name="aa_start_radio">Radio starten</string>
+    <string name="cast_connecting">Verbinden…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Wiedergabe auf %1$s nicht möglich</string>
+    <string name="cast_lost">Verbindung zu %1$s verloren: zurück auf diesem Handy</string>
+    <string name="cast_spotify_via_connect">Spotify-Songs laufen auf Cast-Geräten über Spotify Connect</string>
+    <string name="downloads_need_source_detail">Songs werden von Erweiterungen heruntergeladen. Noch ist keine installiert: Öffne den Erweiterungs-Store und installiere Mornye, um herunterzuladen.</string>
+    <string name="downloads_need_source_title">Downloads brauchen eine Erweiterung</string>
+    <string name="episode_new">Neu</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d Song zur Warteschlange hinzugefügt</item>
+        <item quantity="other">%d Songs zur Warteschlange hinzugefügt</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d Song wird als Nächstes gespielt</item>
+        <item quantity="other">%d Songs werden als Nächstes gespielt</item>
+    </plurals>
+    <string name="queue_list_none">Keiner dieser Songs kann eingereiht werden</string>
+    <string name="setup_ext_download_mornye_detail">Downloads und andere Audioquellen kommen von Erweiterungen. Installiere Mornye auf der nächsten Seite, um Songs herunterzuladen und offline zu hören. Die Songs bleiben in Myspoti verschlüsselt.</string>
+    <string name="setup_ext_home">Weiter zur Startseite</string>
+    <string name="show_filter_all">Standardreihenfolge</string>
+    <string name="show_filter_all_played">Alle Folgen sind gehört.</string>
+    <string name="show_filter_hide_played">Gehörte ausblenden</string>
+    <string name="show_filter_unplayed_first">Ungehörte zuerst</string>
 </resources>

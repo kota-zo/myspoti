@@ -2,4 +2,10 @@
 <resources>
     <string name="immersive_genius_none">Genius 上没有关于这首歌的内容。</string>
     <string name="immersive_genius_error">目前无法连接到 Genius。</string>
+    <string name="immersive_genius_note_open">Genius 对这句歌词的解读</string>
+    <string name="immersive_genius_read">在 Genius 上阅读</string>
+    <string name="immersive_genius_source">Genius 注释</string>
+    <plurals name="immersive_genius_upvotes">
+        <item quantity="other">%1$d 个赞</item>
+    </plurals>
 </resources>

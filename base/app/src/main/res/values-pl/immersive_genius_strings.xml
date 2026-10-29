@@ -2,4 +2,13 @@
 <resources>
     <string name="immersive_genius_none">Genius nie ma nic o tym utworze.</string>
     <string name="immersive_genius_error">Genius jest teraz niedostępny.</string>
+    <string name="immersive_genius_note_open">Co Genius mówi o tym wersie</string>
+    <string name="immersive_genius_read">Czytaj na Genius</string>
+    <string name="immersive_genius_source">Adnotacja Genius</string>
+    <plurals name="immersive_genius_upvotes">
+        <item quantity="one">%1$d głos na tak</item>
+        <item quantity="few">%1$d głosy na tak</item>
+        <item quantity="many">%1$d głosów na tak</item>
+        <item quantity="other">%1$d głosu na tak</item>
+    </plurals>
 </resources>

@@ -546,4 +546,36 @@
     <string name="settings_connect_mirror_detail">Riproduce il brano Spotify in silenzio in background, così viene conteggiato e i tuoi dispositivi possono controllarlo. Usa un po\' più di dati e batteria: disattivalo se non ti serve.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Playlist e album scaricati</string>
+    <string name="aa_downloaded_songs">Brani scaricati</string>
+    <string name="aa_downloads">Download</string>
+    <string name="aa_home">Home</string>
+    <string name="aa_library">Libreria</string>
+    <string name="aa_recent">Ascoltati di recente</string>
+    <string name="aa_songs">Brani</string>
+    <string name="aa_start_radio">Avvia radio</string>
+    <string name="cast_connecting">Connessione…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Impossibile riprodurre su %1$s</string>
+    <string name="cast_lost">%1$s perso: di nuovo su questo telefono</string>
+    <string name="cast_spotify_via_connect">I brani Spotify vengono riprodotti sui dispositivi Cast tramite Spotify Connect</string>
+    <string name="downloads_need_source_detail">I brani vengono scaricati dalle estensioni. Non ne è ancora installata nessuna: apri lo store delle estensioni e installa Mornye per scaricare.</string>
+    <string name="downloads_need_source_title">I download richiedono un\'estensione</string>
+    <string name="episode_new">Nuovo</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d brano aggiunto alla coda</item>
+        <item quantity="other">%d brani aggiunti alla coda</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d brano verrà riprodotto dopo</item>
+        <item quantity="other">%d brani verranno riprodotti dopo</item>
+    </plurals>
+    <string name="queue_list_none">Nessuno di questi brani può essere messo in coda</string>
+    <string name="setup_ext_download_mornye_detail">I download e le altre sorgenti audio vengono dalle estensioni. Installa Mornye nella pagina successiva per scaricare brani e ascoltarli offline. I brani restano cifrati in Myspoti.</string>
+    <string name="setup_ext_home">Vai alla Home</string>
+    <string name="show_filter_all">Ordine predefinito</string>
+    <string name="show_filter_all_played">Tutti gli episodi sono stati ascoltati.</string>
+    <string name="show_filter_hide_played">Nascondi ascoltati</string>
+    <string name="show_filter_unplayed_first">Prima i non ascoltati</string>
 </resources>

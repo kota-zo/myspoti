@@ -551,4 +551,36 @@
     <string name="settings_connect_mirror_detail">Joue le titre Spotify en sourdine en arrière-plan : l\'écoute compte et vos appareils peuvent la contrôler. Utilise un peu plus de données et de batterie : désactivez-le si vous n\'en avez pas besoin.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Playlists et albums téléchargés</string>
+    <string name="aa_downloaded_songs">Titres téléchargés</string>
+    <string name="aa_downloads">Téléchargements</string>
+    <string name="aa_home">Accueil</string>
+    <string name="aa_library">Bibliothèque</string>
+    <string name="aa_recent">Écoutés récemment</string>
+    <string name="aa_songs">Titres</string>
+    <string name="aa_start_radio">Lancer la radio</string>
+    <string name="cast_connecting">Connexion…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Impossible de lire sur %1$s</string>
+    <string name="cast_lost">%1$s perdu : retour sur ce téléphone</string>
+    <string name="cast_spotify_via_connect">Les titres Spotify passent sur les appareils Cast par Spotify Connect</string>
+    <string name="downloads_need_source_detail">Les titres sont téléchargés par des extensions. Aucune n\'est installée : ouvrez le store des extensions et installez Mornye pour télécharger.</string>
+    <string name="downloads_need_source_title">Les téléchargements demandent une extension</string>
+    <string name="episode_new">Nouveau</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">%d titre ajouté à la file</item>
+        <item quantity="other">%d titres ajoutés à la file</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d titre sera lu ensuite</item>
+        <item quantity="other">%d titres seront lus ensuite</item>
+    </plurals>
+    <string name="queue_list_none">Aucun de ces titres ne peut être mis en file</string>
+    <string name="setup_ext_download_mornye_detail">Les téléchargements et les autres sources audio viennent des extensions. Installez Mornye à la page suivante pour télécharger des titres et écouter hors ligne. Les titres restent chiffrés dans Myspoti.</string>
+    <string name="setup_ext_home">Passer à l\'accueil</string>
+    <string name="show_filter_all">Ordre par défaut</string>
+    <string name="show_filter_all_played">Tous les épisodes sont écoutés.</string>
+    <string name="show_filter_hide_played">Masquer les écoutés</string>
+    <string name="show_filter_unplayed_first">Non écoutés d\'abord</string>
 </resources>

@@ -557,4 +557,40 @@
     <string name="settings_connect_mirror_detail">Odtwarza utwór Spotify bez dźwięku w tle, aby był liczony, a Twoje urządzenia mogły nim sterować. Zużywa nieco więcej danych i baterii: wyłącz, jeśli tego nie potrzebujesz.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">Pobrane playlisty i albumy</string>
+    <string name="aa_downloaded_songs">Pobrane utwory</string>
+    <string name="aa_downloads">Pobrane</string>
+    <string name="aa_home">Główna</string>
+    <string name="aa_library">Biblioteka</string>
+    <string name="aa_recent">Ostatnio odtwarzane</string>
+    <string name="aa_songs">Utwory</string>
+    <string name="aa_start_radio">Uruchom radio</string>
+    <string name="cast_connecting">Łączenie…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">Nie udało się odtworzyć na %1$s</string>
+    <string name="cast_lost">Utracono %1$s: z powrotem na tym telefonie</string>
+    <string name="cast_spotify_via_connect">Utwory Spotify grają na urządzeniach Cast przez Spotify Connect</string>
+    <string name="downloads_need_source_detail">Utwory pobierają rozszerzenia. Żadne nie jest jeszcze zainstalowane: otwórz sklep z rozszerzeniami i zainstaluj Mornye, aby pobierać.</string>
+    <string name="downloads_need_source_title">Pobieranie wymaga rozszerzenia</string>
+    <string name="episode_new">Nowy</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="one">Dodano %d utwór do kolejki</item>
+        <item quantity="few">Dodano %d utwory do kolejki</item>
+        <item quantity="many">Dodano %d utworów do kolejki</item>
+        <item quantity="other">Dodano %d utworu do kolejki</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="one">%d utwór zagra jako następny</item>
+        <item quantity="few">%d utwory zagrają jako następne</item>
+        <item quantity="many">%d utworów zagra jako następne</item>
+        <item quantity="other">%d utworu zagra jako następne</item>
+    </plurals>
+    <string name="queue_list_none">Żadnego z tych utworów nie można dodać do kolejki</string>
+    <string name="setup_ext_download_mornye_detail">Pobieranie i inne źródła dźwięku pochodzą z rozszerzeń. Zainstaluj Mornye na następnej stronie, aby pobierać utwory i słuchać offline. Utwory pozostają zaszyfrowane w Myspoti.</string>
+    <string name="setup_ext_home">Przejdź do głównej</string>
+    <string name="show_filter_all">Domyślna kolejność</string>
+    <string name="show_filter_all_played">Wszystkie odcinki zostały odsłuchane.</string>
+    <string name="show_filter_hide_played">Ukryj odsłuchane</string>
+    <string name="show_filter_unplayed_first">Najpierw nieodsłuchane</string>
 </resources>

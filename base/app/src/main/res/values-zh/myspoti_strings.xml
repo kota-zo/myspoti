@@ -548,4 +548,34 @@
     <string name="settings_connect_mirror_detail">在后台静音播放该 Spotify 歌曲，使其计入播放次数并可由你的设备控制。会多耗一些流量和电量：不需要时可以关闭。</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
+    <string name="aa_downloaded_lists">已下载的歌单和专辑</string>
+    <string name="aa_downloaded_songs">已下载的歌曲</string>
+    <string name="aa_downloads">下载</string>
+    <string name="aa_home">首页</string>
+    <string name="aa_library">音乐库</string>
+    <string name="aa_recent">最近播放</string>
+    <string name="aa_songs">歌曲</string>
+    <string name="aa_start_radio">开始电台</string>
+    <string name="cast_connecting">正在连接…</string>
+    <string name="cast_device_detail">Google Cast</string>
+    <string name="cast_failed">无法在 %1$s 上播放</string>
+    <string name="cast_lost">与 %1$s 的连接已断开：回到本手机播放</string>
+    <string name="cast_spotify_via_connect">Spotify 歌曲通过 Spotify Connect 在 Cast 设备上播放</string>
+    <string name="downloads_need_source_detail">歌曲由扩展下载。目前尚未安装任何扩展：打开扩展商店并安装 Mornye 即可下载。</string>
+    <string name="downloads_need_source_title">下载需要扩展</string>
+    <string name="episode_new">新</string>
+    <string name="player_source_spotify">Spotify · %1$s</string>
+    <plurals name="queue_list_added">
+        <item quantity="other">已将 %d 首歌曲加入队列</item>
+    </plurals>
+    <plurals name="queue_list_next">
+        <item quantity="other">接下来将播放 %d 首歌曲</item>
+    </plurals>
+    <string name="queue_list_none">这些歌曲都无法加入队列</string>
+    <string name="setup_ext_download_mornye_detail">下载和其他音频来源都来自扩展。在下一页安装 Mornye 即可下载歌曲并离线收听。歌曲在 Myspoti 中保持加密。</string>
+    <string name="setup_ext_home">跳到首页</string>
+    <string name="show_filter_all">默认顺序</string>
+    <string name="show_filter_all_played">所有单集都已收听。</string>
+    <string name="show_filter_hide_played">隐藏已收听</string>
+    <string name="show_filter_unplayed_first">未收听的优先</string>
 </resources>
