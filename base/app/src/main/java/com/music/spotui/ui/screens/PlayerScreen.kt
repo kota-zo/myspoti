@@ -1674,7 +1674,7 @@ fun PlayerMenuRow(
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun CanvasVideo(url: String, playing: Boolean, onFirstFrame: () -> Unit, modifier: Modifier = Modifier) {
+internal fun CanvasVideo(url: String, playing: Boolean, onFirstFrame: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val exo = remember(url) { com.music.spotui.ui.components.CanvasPlayer.get(context, url) }
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle

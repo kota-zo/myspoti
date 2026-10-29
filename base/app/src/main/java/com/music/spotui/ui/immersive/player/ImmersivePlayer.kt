@@ -8,12 +8,16 @@
  * title row with its round glyphs, the scrubber, transport, volume and bottom rows, and the
  * sheet's drag to close. The full-bleed banner, Canvas clips, track-swipe on the cover, version
  * switching, the lyric strip and the dock are left out. The landscape layout (cover beside the
- * controls) is Myspoti's own.
+ * controls) and the Canvas behind the player (with the cover opening into it) are Myspoti's own.
  */
 package com.music.spotui.ui.immersive.player
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.spotui.ui.navigation.PlayerSheet
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -228,6 +232,22 @@ fun ImmersivePlayer(
     val pauseScale = rememberPauseScale(state.playing)
     val volume = rememberPlayerVolume()
 
+    // The song's Canvas, behind the player once its first frame is drawn. The cover opens into it:
+    // the clip fades in from a little closer while the sleeve grows and fades away (and comes back
+    // as the header's thumbnail when the lyrics or the queue open over the clip).
+    val canvasUrl = rememberImmersiveCanvas(state)
+    var canvasShown by remember(canvasUrl) {
+        mutableStateOf(canvasUrl != null && com.music.spotui.ui.components.CanvasPlayer.isReady(canvasUrl))
+    }
+    val canvasOn = canvasUrl != null && canvasShown && !state.adPlaying
+    // Opening on a clip already showing starts at the end; every later change animates from where it is.
+    val canvasOpen = remember { androidx.compose.animation.core.Animatable(if (canvasOn) 1f else 0f) }
+    LaunchedEffect(canvasOn) {
+        val target = if (canvasOn) 1f else 0f
+        val left = kotlin.math.abs(target - canvasOpen.value)
+        if (left > 0f) canvasOpen.animateTo(target, tween((CANVAS_OPEN_MS * left).toInt(), easing = FastOutSlowInEasing))
+    }
+
     // Back leaves the panel first; the sheet (outside) closes on the next one.
     BackHandler(enabled = panel != Panel.NONE) { panel = Panel.NONE }
 
@@ -239,6 +259,27 @@ fun ImmersivePlayer(
         val landscape = maxWidth > maxHeight || window.twoPane
         val sidePane = window.large && maxWidth >= SIDE_PANE_MIN_WIDTH
         PlayerBackdrop(palette, outgoingPalette, blend, state.coverUrl)
+        if (canvasUrl != null) {
+            com.music.spotui.ui.screens.CanvasVideo(
+                url = canvasUrl,
+                onFirstFrame = { canvasShown = true },
+                // Still while the sheet is closed, the song paused or a panel covers it.
+                playing = PlayerSheet.open.value && state.playing && !state.buffering && panel == Panel.NONE,
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    val o = canvasOpen.value
+                    alpha = o
+                    // Settles from slightly closer as it opens.
+                    val s = 1f + CANVAS_OPEN_ZOOM * (1f - o)
+                    scaleX = s
+                    scaleY = s
+                },
+            )
+            // The words and the controls read over any clip; darker again under an open panel.
+            Box(
+                Modifier.fillMaxSize().graphicsLayer { alpha = canvasOpen.value * (0.55f + 0.45f * collapse.value) }
+                    .background(CanvasShade),
+            )
+        }
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) LandscapePlayer(
                 state = state,
@@ -313,10 +354,14 @@ fun ImmersivePlayer(
                             }
                             .graphicsLayer {
                                 // The pause step back, let go of as the cover collapses into the header.
-                                val scale = pauseScale.value + (1f - pauseScale.value) * p()
+                                // With a Canvas, the sleeve opens into the clip: it grows and fades as the
+                                // clip comes in, and is the thumbnail again in the header.
+                                val opened = canvasOpen.value * (1f - p())
+                                val scale = (pauseScale.value + (1f - pauseScale.value) * p()) * (1f + CANVAS_COVER_GROW * opened)
                                 scaleX = scale
                                 scaleY = scale
-                                shadowElevation = 10.dp.toPx() * (1f - p())
+                                alpha = 1f - opened
+                                shadowElevation = 10.dp.toPx() * (1f - p()) * (1f - opened)
                                 shape = ArtCorner
                                 clip = true
                             }
@@ -408,6 +453,38 @@ fun ImmersivePlayer(
             onOpenQueue = { panel = Panel.QUEUE },
         )
     }
+}
+
+/** The cover opening into the Canvas, and the clip's fade in. */
+private const val CANVAS_OPEN_MS = 720
+/** How much closer the clip starts as it opens. */
+private const val CANVAS_OPEN_ZOOM = 0.08f
+/** How much the sleeve grows as it opens into the clip. */
+private const val CANVAS_COVER_GROW = 0.12f
+/** Over a Canvas: the handle and the credits at the top, the controls at the foot. */
+private val CanvasShade = Brush.verticalGradient(
+    listOf(Color.Black.copy(alpha = 0.45f), Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.35f), Color.Black.copy(alpha = 0.8f)),
+)
+
+/**
+ * The Canvas of the song shown, as the Classic player finds it (same view model, cache and
+ * settings: Canvases off, data saver, Wi-Fi only, energy saving); null when there is none.
+ */
+@Composable
+private fun rememberImmersiveCanvas(state: ImmersivePlayerState): String? {
+    val context = LocalContext.current
+    val vm: com.music.spotui.ui.viewmodel.PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val energy by app.myspoti.power.EnergySettings.state.collectAsStateWithLifecycle()
+    val allowed = energy.policy.allowCanvas && !com.music.spotui.data.DataSaver.active &&
+        !(com.music.spotui.data.DataSaver.metered && com.music.spotui.data.preferences.isCanvasWifiOnly(context))
+    val trackId = state.trackId
+    LaunchedEffect(trackId, allowed, state.buffering) {
+        vm.loadCanvas(if (allowed) trackId else "", allowFetch = !state.buffering)
+    }
+    val canvas = vm.canvasState.value
+    // Known already (looked up when the song started): this very frame, not one later.
+    val known = remember(trackId) { com.music.spotui.di.Graph.api.knownCanvas(trackId)?.getOrNull() }
+    return (if (canvas.trackId == trackId) canvas.url else known).takeIf { allowed && trackId.isNotBlank() && !state.adPlaying }
 }
 
 /**
