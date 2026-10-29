@@ -37,6 +37,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.RectangleShape
 import com.music.spotui.ui.immersive.motion.ImmersiveMotion
@@ -154,6 +157,9 @@ fun ImmersiveTopBar(
 ) {
     val page = LocalImmersiveBackdrop.current
     val controlSize = rememberBarControlSize()
+    // The actions pill grows with each action, so the title keeps clear of whatever width it has.
+    var actionsWidthPx by remember { mutableIntStateOf(0) }
+    val titleInset = maxOf(TitleInset, with(LocalDensity.current) { actionsWidthPx.toDp() } + Immersive.Gutter + 8.dp)
     Box(modifier = modifier.fillMaxWidth().holdsTouches()) {
         // The glass panel hanging from the top (rounded bottom corners), fading in with the collapse.
         ImmersiveTopGlass(collapse, Modifier.matchParentSize(), hazeState)
@@ -173,7 +179,7 @@ fun ImmersiveTopBar(
                     .align(Alignment.Center)
                     // The same room on both sides: the title is centred within this padded box,
                     // so an inset that differs end to end would move it off the bar's centre.
-                    .padding(horizontal = TitleInset)
+                    .padding(horizontal = titleInset)
                     .fillMaxWidth()
                     .graphicsLayer { alpha = collapse() },
             )
@@ -206,7 +212,8 @@ fun ImmersiveTopBar(
                         // Keep the right edge fixed while a new action opens room to its left.
                         .animateContentSize(
                             animationSpec = ImmersiveMotion.sizeSpring(),
-                        ),
+                        )
+                        .onSizeChanged { actionsWidthPx = it.width },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CompositionLocalProvider(LocalBarControlSize provides controlSize) { actions() }
