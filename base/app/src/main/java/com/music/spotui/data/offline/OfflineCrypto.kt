@@ -278,6 +278,13 @@ object OfflineCrypto {
 
         override fun getUri(): Uri? = if (usingOther) active.uri else uri
 
+        // Without this, a station's "icy-metaint" response header never reaches the extractor
+        // (BaseDataSource's default is an empty map): it can't tell the audio apart from the
+        // station-title metadata the server interleaves into it every few kilobytes, so that
+        // metadata gets decoded as if it were audio — a little glitch, right on the interval,
+        // on every station that sends it (one that doesn't is unaffected either way).
+        override fun getResponseHeaders(): Map<String, List<String>> = if (usingOther) other.responseHeaders else super.getResponseHeaders()
+
         override fun close() {
             head = null
             if (usingOther) { usingOther = false; active.close(); return }

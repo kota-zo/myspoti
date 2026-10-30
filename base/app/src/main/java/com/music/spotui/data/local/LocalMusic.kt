@@ -21,6 +21,14 @@ data class LocalTrack(
     val artUri: Uri,
     /** The file's folder on the phone, e.g. "Music/Album/" (MediaStore relative path). */
     val folder: String = "",
+    /**
+     * A Live Radio station (radio/ module) wrapped as a one-item "queue", not a file on this
+     * phone: [id] is negative (MediaStore's own ids are never < 0, so it can't collide with a
+     * real one) and [uri] is the stream's address. This is how Radio shows in the mini player,
+     * the full player, the notification and the lock screen exactly as a Local Files song does,
+     * with no separate player or session of its own.
+     */
+    val isRadio: Boolean = false,
 )
 
 /** The device's music files, read through MediaStore (no file access beyond audio). */

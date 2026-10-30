@@ -23,6 +23,8 @@ sealed class Routes(
     object Queue : Routes(0, "Queue", "queue")
     object Liked : Routes(0, "Liked", "liked")
     object LocalFiles : Routes(0, "LocalFiles", "localfiles")
+    /** Live Radio (radio/ module): search radio-browser.info, favorites, playback. */
+    object LiveRadio : Routes(0, "LiveRadio", "liveradio")
     object Downloads : Routes(0, "Downloads", "downloads")
     object Folder : Routes(0, "Folder", "folder")
     object LocalPlaylist : Routes(0, "LocalPlaylist", "localplaylist")

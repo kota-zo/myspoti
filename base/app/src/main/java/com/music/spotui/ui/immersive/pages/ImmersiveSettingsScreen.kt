@@ -255,6 +255,15 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     detail = stringResource(R.string.settings_connect_mirror_detail),
                 )
             }
+            // Live Radio (radio/ module): adds the pinned row under Local Files and the player.
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.live_radio_settings_title),
+                    checked = com.music.spotui.radio.RadioFeaturePref.on,
+                    onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+                    detail = stringResource(R.string.live_radio_settings_detail),
+                )
+            }
         }
         sourcesGroup(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
         immersiveGroup("visuals") {

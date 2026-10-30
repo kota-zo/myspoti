@@ -23,4 +23,23 @@
     <string name="account_page_detail">Plan, privacy and devices, on spotify.com</string>
     <string name="player_source_downloaded">Downloaded</string>
     <string name="extension_change_write">Now also allowed to send to Spotify: %1$s</string>
+
+    <!-- Live Radio (radio/ module): internet radio via radio-browser.info, a self-contained
+         feature kept behind its own Settings toggle. See com.music.spotui.radio package docs. -->
+    <string name="live_radio_title" tools:ignore="MissingTranslation">Live Radio</string>
+    <string name="live_radio_subtitle" tools:ignore="MissingTranslation">Internet radio stations, from the free radio-browser.info directory</string>
+    <string name="live_radio_search_hint" tools:ignore="MissingTranslation">Search stations</string>
+    <string name="live_radio_popular" tools:ignore="MissingTranslation">Popular stations</string>
+    <string name="live_radio_search_results" tools:ignore="MissingTranslation">Search results</string>
+    <string name="live_radio_favorites" tools:ignore="MissingTranslation">Favorites</string>
+    <string name="live_radio_favorite" tools:ignore="MissingTranslation">Add to favorites</string>
+    <string name="live_radio_unfavorite" tools:ignore="MissingTranslation">Remove from favorites</string>
+    <string name="live_radio_no_results" tools:ignore="MissingTranslation">No stations found</string>
+    <string name="live_radio_error" tools:ignore="MissingTranslation">The radio directory could not be reached. Check your connection and try again.</string>
+    <string name="live_radio_connecting" tools:ignore="MissingTranslation">Connecting…</string>
+    <string name="live_radio_live_label" tools:ignore="MissingTranslation">Live</string>
+    <string name="live_radio_stop" tools:ignore="MissingTranslation">Stop</string>
+    <string name="live_radio_notification_channel" tools:ignore="MissingTranslation">Live Radio playback</string>
+    <string name="live_radio_settings_title" tools:ignore="MissingTranslation">Live Radio</string>
+    <string name="live_radio_settings_detail" tools:ignore="MissingTranslation">Adds a Live Radio folder to Your Library, under Local Files</string>
 </resources>

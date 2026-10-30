@@ -36,6 +36,11 @@ object Graph {
         com.music.spotui.data.offline.PodcastDownloader.resumePending()
         // Installed extensions: each enabled one loads in its own sandbox, off the main thread.
         com.music.spotui.extensions.Extensions.init(application)
+        // Live Radio (radio/ module): its own setting and its own favorites file. A station
+        // plays through LocalPlayer (a one-item "queue"), so it already shares LocalPlayer's
+        // own arbitration with Spotify — no separate watch is needed here any more.
+        com.music.spotui.radio.RadioFeaturePref.init(application)
+        com.music.spotui.radio.RadioFavoritesStore.init(application)
     }
 
     val api: Api by lazy { Api(app) }

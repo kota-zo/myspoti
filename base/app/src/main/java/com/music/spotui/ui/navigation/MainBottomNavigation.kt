@@ -136,15 +136,9 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
                         enter = slideInVertically(initialOffsetY = { it }),
                         exit = slideOutVertically(targetOffsetY = { it }),
                         content = {
-                            // Large windows: a capped, centred capsule, not a bar across a desktop window.
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Box(if (com.music.spotui.ui.components.windowSize().large) Modifier.widthIn(max = com.music.spotui.ui.components.WindowSize.MaxMiniPlayerWidth) else Modifier) {
-                                    MiniPlayer(navController)
-                                }
-                            }
+                            MiniPlayer(navController)
                         }
                     )
-
 
 
                     Spacer(modifier = Modifier.height(4.dp))
