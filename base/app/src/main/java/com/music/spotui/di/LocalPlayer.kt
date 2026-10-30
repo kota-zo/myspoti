@@ -104,6 +104,7 @@ object LocalPlayer {
                     log("isPlaying $isPlaying at ${p.currentPosition} ms")
                     if (isPlaying) errors.played()
                     if (isPlaying) tick.run()
+                    if (isPlaying) radioRetries = 0
                 }
                 override fun onPlaybackSuppressionReasonChanged(reason: Int) =
                     log("suppressed: ${if (reason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) "no" else "reason $reason"}")
@@ -127,6 +128,8 @@ object LocalPlayer {
                 // then Spotify plays it, where it was, and goes on; a queue that keeps failing stops.
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     log("error ${error.errorCodeName}: ${generic(error.cause?.toString() ?: error.message.orEmpty())}")
+                    val radio = current()
+                    if (radio?.isRadio == true) { reconnectRadio(p, radio); return }
                     val item = p.currentMediaItem?.localConfiguration?.uri ?: return
                     if (item.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) com.music.spotui.extensions.Extensions.noteAttempt(item.lastPathSegment) { it.copy(error = "${error.errorCodeName}: ${error.cause ?: error.message.orEmpty()}") }
                     if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME) return
@@ -776,7 +779,7 @@ object LocalPlayer {
         com.music.spotui.data.offline.OfflineStore.byLocalId(t.id)?.trackId
             ?: t.uri.takeIf { it.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME }?.lastPathSegment.orEmpty()
 
-    fun isPlaying() = if (CastPlayback.active) CastPlayback.isPlaying() else exo?.isPlaying == true
+    fun isPlaying() = exo?.isPlaying == true
     /** Waiting for audio (a stream that does not keep up, a seek still loading). */
     fun isBuffering() = if (CastPlayback.active) CastPlayback.isBuffering() else exo?.playbackState == Player.STATE_BUFFERING
     /** For the diagnostic (`status`): whether it is to play, and its state (idle, buffering, ready, ended). */

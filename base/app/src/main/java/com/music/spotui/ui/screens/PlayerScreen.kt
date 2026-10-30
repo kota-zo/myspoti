@@ -551,6 +551,12 @@ fun PlayerScreen(navController: NavController) {
                 // Immersive: the artwork fills the screen instead of sitting in a square.
                 modifier = if (immersive) Modifier.fillMaxSize()
                     else Modifier.fillMaxWidth().aspectRatio(1f),
+                // Nothing to swipe to without a previous/next track (e.g. Live Radio, whose
+                // "queue" is always a single station): without this the pager still let the
+                // artwork be dragged, landing on a page that falls back to the very same cover
+                // (same code path as the real previous/next pages), which looked like every
+                // station had the picture twice.
+                userScrollEnabled = np.prev != null || np.next != null,
             ) { page ->
                 val cover = when (page) {
                     0 -> np.prev?.coverUri

@@ -166,7 +166,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.8.0")
     implementation("androidx.media3:media3-datasource:1.8.0")
     implementation("androidx.media3:media3-database:1.8.0")
-
+    // Live Radio module (radio/): its own MediaSessionService for background playback,
+    // the lock screen and the notification, separate from PlaybackService.
+    implementation("androidx.media3:media3-session:1.8.0")
 
 
 

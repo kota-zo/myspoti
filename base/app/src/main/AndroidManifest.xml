@@ -201,6 +201,8 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.Myspoti" />
+        <!-- Live Radio (radio/ package) plays through LocalPlayer/PlaybackService's own
+             foreground service, notification and MediaSession — it has none of its own. -->
         <!-- Per-app language on Android 12 and older (AppCompat stores the choice). -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

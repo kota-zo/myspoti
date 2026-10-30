@@ -146,6 +146,13 @@ fun SettingsScreen(navController: NavController) {
                     checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
                     onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
                 )
+            // Live Radio (radio/ module): adds the pinned row under Local Files and the player.
+            OptionRow(
+                label = stringResource(R.string.live_radio_settings_title),
+                detail = stringResource(R.string.live_radio_settings_detail),
+                checked = com.music.spotui.radio.RadioFeaturePref.on,
+                onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+            )
             Divider()
             SourcesBlock(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
 
