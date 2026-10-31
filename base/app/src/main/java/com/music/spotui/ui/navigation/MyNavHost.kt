@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -174,6 +175,31 @@ fun MyNavHost(
                 bottomBarPlayerState.value = playerState != ""
             }
             if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveFriendsScreen(navHostController) else com.music.spotui.ui.screens.FriendActivityScreen(navHostController)
+        }
+
+        // Spotify's Messages: the same pages for both looks, each drawn in the one chosen.
+        page(Routes.Messages.route) {
+            com.music.spotui.ui.screens.MessagesScreen(navHostController)
+        }
+
+        page(NEW_CHAT_ROUTE_PATTERN, arguments = listOf(navArgument("add") { type = NavType.StringType; defaultValue = "" })) { entry ->
+            com.music.spotui.ui.screens.NewChatScreen(navHostController, entry.arguments?.getString("add")?.takeIf { it.isNotEmpty() })
+        }
+
+        page(CHAT_SETTINGS_ROUTE_PATTERN, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
+            com.music.spotui.ui.screens.ChatSettingsScreen(navHostController, entry.arguments?.getString("id").orEmpty())
+        }
+
+        // A conversation: full screen, the tab bar and the mini player step aside for the keyboard.
+        page(
+            CHAT_ROUTE_PATTERN,
+            arguments = listOf(
+                navArgument("id") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val id = entry.arguments?.getString("id").orEmpty()
+            com.music.spotui.ui.screens.ChatScreen(navHostController, id, entry.arguments?.getString("name").orEmpty())
         }
 
         // Spotify's own list for the account (every device), not this phone's counter.
@@ -399,7 +425,7 @@ fun MyNavHost(
     }
 }
 
-private val tabRoutes = setOf(Routes.Home.route, Routes.Search.route, Routes.Library.route)
+private val tabRoutes = setOf(Routes.Home.route, Routes.Search.route, Routes.Library.route, Routes.Friends.route)
 // Full-height sheets over the current page (the official player / queue).
 private val sheetRoutes = setOf(Routes.Player.route, Routes.Queue.route)
 

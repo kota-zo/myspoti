@@ -109,8 +109,10 @@ fun ImmersiveFriendsScreen(navController: NavController) {
     val now = remember(state) { System.currentTimeMillis() }
     ImmersivePage(
         title = stringResource(R.string.friends_title),
-        onBack = { navController.popBackStack() },
+        // A tab of its own: no back arrow.
+        onBack = null,
         actions = {
+            com.music.spotui.ui.screens.MessagesButton(navController, Immersive.Text)
             ImmersiveBarAction(Icons.Rounded.Refresh, stringResource(R.string.friends_refresh), onClick = { state = null; attempt++ })
         },
     ) {
@@ -145,8 +147,8 @@ private fun ImmersiveFriendRow(f: FriendActivity, now: Long, navController: NavC
         }
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(f.user.name, style = Immersive.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                Spacer(Modifier.weight(1f))
+                // The name takes the room, so the time sits at the end, by the cover.
+                Text(f.user.name, style = Immersive.BodyStrong, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (f.isNowPlaying(now)) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(Immersive.Accent))
                     Spacer(Modifier.width(6.dp))

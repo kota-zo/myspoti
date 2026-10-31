@@ -1,6 +1,5 @@
 package com.music.spotui.ui.screens
 
-import com.music.spotui.ui.components.wideClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +23,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.QueueMusic
@@ -270,11 +268,11 @@ fun FriendActivityScreen(navController: NavController) {
     }
     val now = remember(state) { System.currentTimeMillis() }
     Column(Modifier.fillMaxSize().background(AppBackground).statusBarsPadding()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp, 12.dp, 8.dp, 8.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.accessibility_navigate_back), tint = AppText,
-                modifier = Modifier.wideClickable(horizontal = 8.dp, vertical = 10.dp) { navController.popBackStack() }.size(40.dp).padding(8.dp))
+        // A tab of its own (no back arrow), with the Messages beside it.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp, 12.dp, 8.dp, 8.dp)) {
             Text(stringResource(R.string.friends_title), fontWeight = FontWeight.Bold, color = AppText, fontSize = 22.sp, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp).weight(1f))
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            MessagesButton(navController, AppText)
             Icon(Icons.Filled.Refresh, stringResource(R.string.friends_refresh), tint = AppText,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { state = null; attempt++ }.padding(8.dp))
         }
@@ -311,9 +309,12 @@ private fun FriendRow(f: FriendActivity, now: Long, navController: NavController
         }
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(f.user.name, color = AppText, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = openProfile))
-                Spacer(Modifier.weight(1f))
+                // The name takes the room and the time sits at the end, by the cover (a spacer of
+                // its own shared the room with the name and left the time halfway on wide screens).
+                Box(Modifier.weight(1f)) {
+                    Text(f.user.name, color = AppText, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = openProfile))
+                }
                 if (f.isNowPlaying(now)) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(AppAccent))
                     Spacer(Modifier.width(6.dp))

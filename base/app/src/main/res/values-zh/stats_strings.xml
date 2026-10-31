@@ -13,7 +13,6 @@
     <string name="stats_this_week">本周：%1$d 分钟</string>
     <string name="stats_listening_stats">收听统计</string>
     <string name="friends_title">好友动态</string>
-    <string name="friends_detail">你关注的人正在听什么</string>
     <string name="friends_now">现在</string>
     <string name="friends_empty">暂无好友动态。你关注且在 Spotify 上分享收听动态的好友会显示在这里。</string>
     <string name="friends_failed">Spotify 没有返回好友动态。</string>

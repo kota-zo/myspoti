@@ -520,14 +520,6 @@ private fun ProfileSheet(onOpen: (route: String) -> Unit = {}, onDismiss: () -> 
                 Text(stringResource(R.string.recents_title), color = AppText, fontSize = 16.sp)
                 Text(stringResource(R.string.recents_detail), color = AppMuted, fontSize = 12.sp)
             }
-            // What the followed people are listening to (the official Friend Activity feed).
-            androidx.compose.foundation.layout.Column(
-                Modifier.fillMaxWidth().clickable { onOpen(com.music.spotui.ui.navigation.Routes.Friends.route) }
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-            ) {
-                Text(stringResource(R.string.friends_title), color = AppText, fontSize = 16.sp)
-                Text(stringResource(R.string.friends_detail), color = AppMuted, fontSize = 12.sp)
-            }
             // Third-party extensions (lyrics, audio, scripts): installed, enabled, repositories.
             val extRegistry by com.music.spotui.extensions.Extensions.registry.collectAsState()
             Row(

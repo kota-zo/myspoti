@@ -20,6 +20,8 @@ interface MyspotiApi {
     val blends: Blends
     /** The account's "Recently played", as Spotify's own list has it. */
     val recents: Recents
+    /** Spotify's Messages: the account's conversations, read and written. */
+    val messages: Messages
 
     /** False until the playback engine is ready to take commands. */
     val ready: StateFlow<Boolean>
@@ -266,6 +268,42 @@ interface Users {
     /** Contexts played lately (Recents). */
     suspend fun history(): List<HistoryEntry>
     suspend fun setPrivateSession(on: Boolean)
+}
+
+interface Messages {
+    /** The account's conversations, latest activity first. */
+    suspend fun chats(): List<Chat>
+    /** The latest messages of a conversation, oldest first. */
+    suspend fun messages(chatId: String, limit: Int = 50): List<ChatMessage>
+    /** Sends [text] to the conversation. */
+    suspend fun send(chatId: String, text: String)
+    /** GIFs matching [query], or the popular ones when it is blank. */
+    suspend fun gifs(query: String): List<Gif>
+    suspend fun sendGif(chatId: String, gif: Gif)
+    /** Opens a direct conversation with [userUri] (the existing one, if any) and returns its id. */
+    suspend fun startChat(userUri: Uri): String
+    /** Shares a track, album, playlist, artist, show or episode in the conversation. */
+    suspend fun share(chatId: String, uri: Uri)
+    /** Tells Spotify the account has seen the conversation up to now. */
+    suspend fun markSeen(chatId: String)
+    suspend fun react(messageId: String, emoji: String)
+    /** Takes back one of the account's own reactions. */
+    suspend fun unreact(reaction: ChatReaction)
+    /** Deletes a message: for everyone (the account's own messages) or only for the account. */
+    suspend fun delete(messageId: String, forEveryone: Boolean)
+    /** Accepts or declines a conversation someone started with the account. */
+    suspend fun answerRequest(chatId: String, accept: Boolean)
+    suspend fun isMuted(chatId: String): Boolean
+    suspend fun setMuted(chatId: String, muted: Boolean)
+    /** Removes the conversation from the account's list (the others keep it). */
+    suspend fun deleteChat(chatId: String)
+    /** Creates a group with these people and returns its id. */
+    suspend fun createGroup(userUris: List<Uri>, name: String?): String
+    suspend fun rename(chatId: String, name: String)
+    suspend fun addMembers(chatId: String, userUris: List<Uri>)
+    suspend fun removeMember(chatId: String, userUri: Uri)
+    /** Leaves a group; it leaves the account's list too. */
+    suspend fun leave(chatId: String)
 }
 
 interface TrackExtras {

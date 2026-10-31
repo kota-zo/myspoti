@@ -31,7 +31,10 @@ sealed class Routes(
     object Episodes : Routes(0, "Episodes", "episodes")
     object Recap : Routes(0, "Recap", "recap")
     object Recent : Routes(0, "Recent", "recent")
-    object Friends : Routes(0, "Friends", "friends")
+    object Friends : Routes(icon = R.drawable.ic_friends_big, label = "Amis", route = "friends", labelRes = R.string.friends_tab)
+    object Messages : Routes(0, "Messages", "messages")
+    object Chat : Routes(0, "Chat", "chat")
+    object NewChat : Routes(0, "NewChat", "newchat")
     object Settings : Routes(0, "Settings", "settings")
     object Extensions : Routes(0, "Extensions", "extensions")
     object Extension : Routes(0, "Extension", "extension")
@@ -43,6 +46,23 @@ sealed class Routes(
 /** A Spotify user's profile, by user id (the part after spotify:user:). */
 fun profileRoute(userId: String, name: String = ""): String =
     "${Routes.Profile.route}/${android.net.Uri.encode(userId)}?name=${android.net.Uri.encode(name)}"
+
+/** A Messages conversation, by its id (and a display name for the header). */
+fun chatRoute(id: String, name: String = ""): String =
+    "${Routes.Chat.route}/${android.net.Uri.encode(id)}?name=${android.net.Uri.encode(name)}"
+const val CHAT_ROUTE_PATTERN = "chat/{id}?name={name}"
+
+/** A conversation's details (people, name, notifications). */
+fun chatSettingsRoute(id: String): String = "chat-settings/${android.net.Uri.encode(id)}"
+const val CHAT_SETTINGS_ROUTE_PATTERN = "chat-settings/{id}"
+
+/** "New message", or with [addTo] the people to add to that group. */
+fun newChatRoute(addTo: String? = null): String =
+    Routes.NewChat.route + (addTo?.let { "?add=${android.net.Uri.encode(it)}" } ?: "")
+const val NEW_CHAT_ROUTE_PATTERN = "newchat?add={add}"
+
+/** Messages pages that take the whole screen: the tab bar and the mini player step aside for the keyboard and their buttons. */
+val CHAT_FULL_SCREEN_ROUTES = setOf(CHAT_ROUTE_PATTERN, NEW_CHAT_ROUTE_PATTERN)
 
 /** Builds a Browse-category route carrying the search genre and a display title. */
 fun categoryRoute(genre: String, title: String): String =
