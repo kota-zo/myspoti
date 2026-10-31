@@ -85,7 +85,7 @@ object ImmersiveMotion {
      * instead of jumping once the transition is over.
      */
     object Pages {
-        private val tabRoutes = setOf(Routes.Home.route, Routes.Search.route, Routes.Library.route)
+        private val tabRoutes = setOf(Routes.Home.route, Routes.Search.route, Routes.Library.route, Routes.Friends.route)
 
         private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch() =
             initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes

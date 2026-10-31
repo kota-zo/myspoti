@@ -31,6 +31,7 @@ import app.myspoti.api.Shelf
 import app.myspoti.api.Show
 import app.myspoti.api.TimeRange
 import app.myspoti.api.TopContent
+import app.myspoti.api.Track
 import app.myspoti.api.TrackExtras
 import app.myspoti.api.UserProfile
 import app.myspoti.api.UserRef
@@ -207,6 +208,7 @@ class SpotifyPodcasts(private val gql: Gql, private val bridge: Bridge, private 
 class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val http: SpotifyHttp) : Users {
     internal companion object {
         val BUDDYLIST_HOSTS = listOf("guc-spclient.spotify.com", "spclient.wg.spotify.com")
+        const val LISTENING_FEED_URL = "https://spclient.wg.spotify.com/listening-activity/v1/feed"
 
         /** `/{me}/is-blocking/{user}` on the social graph; both ids are the usernames, never the uris. */
         fun blockUrl(username: String, userUri: Uri): String {
@@ -291,7 +293,10 @@ class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val
     }
 
     @Volatile private var username: String? = null
-    private suspend fun ownUsername(): String = username ?: me().username.also { username = it }
+    internal suspend fun ownUsername(): String = username ?: me().username.also { username = it }
+
+    /** Another page load may be another account: the next [ownUsername] asks again. */
+    internal fun forgetUsername() { username = null }
 
     override suspend fun blockUser(userUri: Uri) = writeBlock("POST", userUri)
     override suspend fun unblockUser(userUri: Uri) = writeBlock("DELETE", userUri)
@@ -302,11 +307,45 @@ class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val
     }
 
     /**
+     * The mobile client's feed (`listening-activity/v1/feed`, protobuf), which the page's token
+     * reads too: the desktop's buddylist below came back empty for accounts whose friends show in
+     * the phone app. It sends uris only, so names, covers and avatars are looked up in two calls.
+     * Any other answer than 200 falls back to the buddylist.
+     */
+    override suspend fun friendActivity(): List<FriendActivity> {
+        val (code, body) = http.sendProto("POST", LISTENING_FEED_URL, proto { varint(1, 1) })
+        if (code != 200) return buddyListActivity()
+        val feed = listeningFeed(body)
+        if (feed.isEmpty()) return emptyList()
+        val (entities, avatars) = kotlinx.coroutines.coroutineScope {
+            val e = async { lookupEntities(gql, feed.flatMap { listOfNotNull(it.userUri, it.itemUri, it.contextUri) }) }
+            val a = async { runCatching { lookupAvatars(gql, feed.map { it.userUri }) }.getOrDefault(emptyMap()) }
+            e.await() to a.await()
+        }
+        return feed.map { f ->
+            val item = entities[f.itemUri]
+            val cardOfItem = card(item)
+            FriendActivity(
+                user = UserRef(f.userUri, userName(entities, f.userUri), avatars[f.userUri]),
+                track = track(item.obj("data")) ?: cardOfItem?.let { c ->
+                    // An episode (or anything not a track): its name, and its show as the "artist".
+                    Track(c.uri, c.title, 0, listOfNotNull(c.subtitle?.let { ArtistRef("", it) }), null)
+                },
+                contextUri = f.contextUri ?: f.itemUri.takeIf { !it.startsWith("spotify:track:") },
+                timestampMs = f.timestampMs,
+                contextName = f.contextUri?.let { card(entities[it])?.title },
+                trackImageUrl = cardOfItem?.images?.minByOrNull { it.width ?: Int.MAX_VALUE }?.url,
+                playing = f.playing,
+            )
+        }
+    }
+
+    /**
      * The Web Player's own friend feed is a stub (its BuddyFeedAPI says `isSupported: false`), so
      * this reads the endpoint the desktop client's feed uses, with the page's token: guc-spclient
      * first (the desktop's host), then the generic spclient host.
      */
-    override suspend fun friendActivity(): List<FriendActivity> {
+    private suspend fun buddyListActivity(): List<FriendActivity> {
         var last: Exception? = null
         for (host in BUDDYLIST_HOSTS) {
             try {

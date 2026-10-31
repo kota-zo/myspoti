@@ -43,6 +43,7 @@ import com.music.spotui.ui.look.ImmersiveSans
 import com.music.spotui.ui.look.rememberReduceMotion
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.TabReselect
+import com.music.spotui.ui.navigation.tabInStack
 
 /**
  * The gap between the pill's glass edge and the tabs inside it. Shared with the mini player so
@@ -148,12 +149,12 @@ internal fun rememberTabNavigation(navController: NavController): TabNavigation 
     val navStack by navController.currentBackStackEntryAsState()
     val currentRoute = navStack?.destination?.route
     val fullScreen = currentRoute == Routes.Player.route ||
-        currentRoute == Routes.Queue.route
+        currentRoute == Routes.Queue.route || currentRoute in com.music.spotui.ui.navigation.CHAT_FULL_SCREEN_ROUTES
 
     // The tab the user is in, even on one of its sub-pages (album, artist...). Kept whether or
     // not the bar shows, so it survives the bar being hidden on the player.
     var selectedTab by rememberSaveable { mutableStateOf(Routes.Home.route) }
-    if (currentRoute in TabRoutes) selectedTab = currentRoute!!
+    navController.tabInStack(currentRoute, TabRoutes)?.let { selectedTab = it }
 
     val onTabClick: (Routes) -> Unit = { item ->
         // Standard bottom-tab navigation: each tab keeps its state (no reload, scroll kept).
@@ -179,10 +180,10 @@ internal fun rememberTabNavigation(navController: NavController): TabNavigation 
     return TabNavigation(selectedTab, onTabClick, fullScreen)
 }
 
-private val TabRoutes = listOf(Routes.Home.route, Routes.Search.route, Routes.Library.route)
+private val TabRoutes = listOf(Routes.Home.route, Routes.Search.route, Routes.Library.route, Routes.Friends.route)
 
 /** The tabs the bar shows. */
-internal val TabItems = listOf(Routes.Home, Routes.Library, Routes.Search)
+internal val TabItems = listOf(Routes.Home, Routes.Library, Routes.Friends, Routes.Search)
 
 /** The tab bar itself (pill and Search circle), filling the width [modifier] leaves it. */
 @Composable
@@ -216,7 +217,7 @@ internal fun TabBarContent(
             contentKey = selectedTab,
         ) {
             // Search is the odd one out: a circle of its own beside the pill.
-            listOf(Routes.Home, Routes.Library).forEach { item ->
+            listOf(Routes.Home, Routes.Library, Routes.Friends).forEach { item ->
                 val tint = if (selectedTab == item.route) Immersive.Accent else Immersive.Text.copy(alpha = 0.65f)
                 tab(
                     key = item.route,
@@ -228,7 +229,10 @@ internal fun TabBarContent(
                             color = tint,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP),
+                            // Three tabs in the pill: a long label (Bibliothèque, with large text) shrinks a little
+                            // before it is cut, and keeps clear of the tab's rounded ends, which clip its first and last letters.
+                            autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 11.sp, stepSize = 0.5.sp),
+                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP).padding(horizontal = 6.dp),
                         )
                     },
                     onClick = { currentOnTabClick(item) },

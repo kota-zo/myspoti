@@ -58,3 +58,44 @@ internal fun buddyList(r: JsonElement?): List<FriendActivity> = r.list("friends"
         trackImageUrl = t?.str("imageUrl")?.takeIf { it.isNotBlank() },
     )
 }.sortedByDescending { it.timestampMs }
+
+/** One row of the mobile friend feed, before its uris are looked up. */
+internal data class FeedEntry(val userUri: String, val itemUri: String, val contextUri: String?, val playing: Boolean, val timestampMs: Long)
+
+/**
+ * The mobile client's `listening-activity/v1/feed` answer (protobuf `GetFeedResponse`): entities
+ * (1), each a friend (1), someone followed (2) or a group (3, its members in 3), with their
+ * `FeedActivity` (2: item uri 1, context uri 2, playing 3, timestamp 4). One row per person,
+ * their latest; latest first.
+ */
+internal fun listeningFeed(body: ByteArray): List<FeedEntry> =
+    parseProto(body).messages(1).flatMap { w ->
+        listOfNotNull(w.message(1), w.message(2)) + w.message(3)?.messages(3).orEmpty()
+    }.mapNotNull { e ->
+        val user = e.string(1)?.takeIf { it.startsWith("spotify:user:") } ?: return@mapNotNull null
+        val a = e.message(2) ?: return@mapNotNull null
+        val item = a.string(1)?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        FeedEntry(user, item, a.string(2)?.takeIf { it.isNotEmpty() && it != item }, a.long(3) == 1L, a.message(4)?.timestampMs() ?: 0)
+    }.groupBy { it.userUri }.values.map { rows -> rows.maxBy { it.timestampMs } }.sortedByDescending { it.timestampMs }
+
+/**
+ * Names and covers of any uris (tracks, episodes, playlists, albums, artists, users) in one
+ * `fetchEntitiesForRecentlyPlayed` call per 50, by uri: each its `*ResponseWrapper`.
+ */
+internal suspend fun lookupEntities(gql: app.myspoti.spotify.gql.Gql, uris: Collection<String>): Map<String, JsonElement> =
+    uris.distinct().chunked(50).flatMap { chunk ->
+        gql.query("fetchEntitiesForRecentlyPlayed", vars("uris" to chunk)).list("data.lookup")
+    }.mapNotNull { w -> (w.str("_uri") ?: w.str("data.uri"))?.let { it to w } }.toMap()
+
+/** Users' profile pictures in one `lookupEntityImages` call per 50 (the lookup above has none), by uri. */
+internal suspend fun lookupAvatars(gql: app.myspoti.spotify.gql.Gql, userUris: Collection<String>): Map<String, String> =
+    userUris.distinct().chunked(50).flatMap { chunk ->
+        gql.query("lookupEntityImages", vars("uris" to chunk)).list("data.lookupEntities")
+    }.mapNotNull { e ->
+        val url = e.list("visualIdentityTrait.squareCoverImage.image.data.sources").firstOrNull().str("url") ?: return@mapNotNull null
+        e.str("uri")?.let { it to url }
+    }.toMap()
+
+/** A looked-up user's display name, or their id. */
+internal fun userName(entities: Map<String, JsonElement>, userUri: String): String =
+    entities[userUri].str("data.name")?.takeIf { it.isNotBlank() } ?: userUri.substringAfterLast(':')

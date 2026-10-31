@@ -217,6 +217,31 @@ class SpotifyHttp(
         return result
     }
 
+    /**
+     * A protobuf call on a spclient service the mobile client uses (friend feed, messages): the
+     * account's credentials as in [send], bytes in and out. Returns the status and the body bytes.
+     */
+    suspend fun sendProto(method: String, url: String, body: ByteArray?): Pair<Int, ByteArray> {
+        val host = url.toHttpUrl().host
+        require(host == "spotify.com" || host.endsWith(".spotify.com")) { "not a Spotify host: $host" }
+        val (w, c) = tokens()
+        val request = Request.Builder().url(url)
+            .header("authorization", "Bearer ${w.access}")
+            .header("client-token", c.value)
+            .header("app-platform", "WebPlayer")
+            .header("spotify-app-version", w.appVersion)
+            .header("accept", "application/x-protobuf")
+            .header("accept-language", language)
+            .header("origin", "https://open.spotify.com")
+            .header("referer", "https://open.spotify.com/")
+            .header("user-agent", browserUserAgent ?: USER_AGENT)
+            .method(method, body?.toRequestBody("application/x-protobuf".toMediaType()) ?: if (method == "GET" || method == "DELETE") null else ByteArray(0).toRequestBody(null))
+            .build()
+        val result = withContext(Dispatchers.IO) { http.newCall(request).execute().use { it.code to it.body.bytes() } }
+        if (result.first == 401) lock.withLock { web = null }
+        return result
+    }
+
     suspend fun getJson(url: String): JsonElement? {
         val (code, text) = send("GET", url)
         return when (code) {

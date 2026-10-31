@@ -13,7 +13,6 @@
     <string name="stats_this_week">Αυτή την εβδομάδα: %1$d λεπτά</string>
     <string name="stats_listening_stats">Στατιστικά ακρόασης</string>
     <string name="friends_title">Δραστηριότητα φίλων</string>
-    <string name="friends_detail">Τι ακούν οι άνθρωποι που ακολουθείτε</string>
     <string name="friends_now">Τώρα</string>
     <string name="friends_empty">Δεν υπάρχει ακόμη δραστηριότητα φίλων. Οι φίλοι που ακολουθείτε και μοιράζονται τη δραστηριότητα ακρόασής τους στο Spotify εμφανίζονται εδώ.</string>
     <string name="friends_failed">Το Spotify δεν έστειλε τη δραστηριότητα των φίλων.</string>

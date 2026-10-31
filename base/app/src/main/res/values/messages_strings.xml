@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Friends tab and Spotify's Messages (EN; FR in values-fr). -->
+<resources>
+    <string name="friends_tab">Friends</string>
+    <string name="messages_title">Messages</string>
+    <string name="messages_empty">No conversations yet. Write to a friend with the pencil at the top.</string>
+    <string name="messages_failed">Spotify didn\'t send your messages.</string>
+    <string name="messages_you">You</string>
+    <!-- A message in the list: who wrote it, then the message. -->
+    <string name="messages_from">%1$s: %2$s</string>
+    <string name="messages_shared">Shared something</string>
+    <string name="messages_hint">Message…</string>
+    <string name="messages_send">Send</string>
+    <string name="messages_chat_empty">No messages yet.</string>
+    <string name="messages_new">New message</string>
+    <string name="messages_find_people">Find people</string>
+    <string name="messages_start_failed">Spotify didn\'t open a conversation with %1$s.</string>
+    <string name="messages_write_to">Write to %1$s</string>
+    <string name="messages_create_group">Create a group (%1$d)</string>
+    <string name="messages_add_people">Add people</string>
+    <string name="messages_group_name">Group name</string>
+    <string name="messages_save">Save</string>
+    <string name="messages_cancel">Cancel</string>
+    <string name="messages_settings">Details</string>
+    <string name="messages_members">People</string>
+    <string name="messages_rename">Rename the group</string>
+    <string name="messages_mute">Mute notifications</string>
+    <string name="messages_leave">Leave the group</string>
+    <string name="messages_leave_confirm">You will no longer get this group\'s messages.</string>
+    <string name="messages_delete_chat">Delete the conversation</string>
+    <string name="messages_delete_chat_confirm">The conversation leaves your list; the others keep it.</string>
+    <string name="messages_remove_member">Remove from the group</string>
+    <string name="messages_request_incoming">%1$s wants to send you messages.</string>
+    <string name="messages_request_outgoing">Request sent. You can write again once %1$s accepts it.</string>
+    <string name="messages_request_label_in">Message request</string>
+    <string name="messages_request_label_out">Request sent</string>
+    <string name="messages_accept">Accept</string>
+    <string name="messages_decline">Decline</string>
+    <string name="messages_draft_blocked">Your request hasn\'t been accepted yet.</string>
+    <string name="messages_action_failed">Spotify refused this.</string>
+    <string name="messages_copy">Copy</string>
+    <string name="messages_delete_all">Delete for everyone</string>
+    <string name="messages_delete_me">Delete for me</string>
+    <string name="messages_gif">GIF</string>
+    <string name="messages_deleted">Message deleted</string>
+    <string name="messages_gif_hint">Search GIFs</string>
+    <string name="messages_gif_giphy">Powered by GIPHY</string>
+    <string name="messages_attach">Send music or a GIF</string>
+    <string name="messages_attach_music">Music</string>
+    <string name="messages_media">A sticker, photo or video: see it in Spotify</string>
+    <string name="messages_share_title">Share music</string>
+    <string name="messages_share_hint">Songs, albums, artists, playlists</string>
+    <string name="messages_kind_track">Song</string>
+    <string name="messages_kind_album">Album</string>
+    <string name="messages_kind_artist">Artist</string>
+    <string name="messages_kind_playlist">Playlist</string>
+    <string name="messages_event_created">%1$s created the group</string>
+    <string name="messages_event_added">%1$s added %2$s</string>
+    <string name="messages_event_joined">%1$s joined</string>
+    <string name="messages_event_left">%1$s left</string>
+    <string name="messages_event_renamed">%1$s renamed the group</string>
+    <string name="messages_event_admin">%1$s is now an admin</string>
+    <string name="messages_event_photo">%1$s changed the group photo</string>
+    <string name="messages_event_removed">%1$s removed %2$s</string>
+    <string name="messages_event_link">%1$s joined with a link</string>
+    <string name="messages_event_reported">The conversation was reported</string>
+</resources>
