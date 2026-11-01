@@ -33,7 +33,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -60,7 +59,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -271,33 +269,10 @@ fun ImmersiveSheetHeader(
     }
 }
 
-/** The heading over a sheet's second half. */
-@Composable
-fun ImmersiveSheetHeading(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text.uppercase(),
-        style = Immersive.Caption,
-        modifier = modifier.padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 4.dp),
-    )
-}
-
 /** The hairline under a header. */
 @Composable
 fun ImmersiveSheetDivider(modifier: Modifier = Modifier) {
     HorizontalDivider(modifier, thickness = 0.5.dp, color = Immersive.Separator)
-}
-
-/**
- * The break between groups of rows: a hairline on the sheet, and on the popup the thicker band
- * iOS-style context menus use (a hairline between rows 44 dp apart reads as a row border).
- */
-@Composable
-fun ImmersiveGroupSeparator() {
-    if (LocalImmersiveRowStyle.current == ImmersiveRowStyle.Menu) {
-        Box(Modifier.fillMaxWidth().height(6.dp).background(Immersive.Separator))
-    } else {
-        HorizontalDivider(Modifier.padding(vertical = 6.dp), thickness = 0.5.dp, color = Immersive.Separator)
-    }
 }
 
 /**
@@ -364,26 +339,6 @@ fun ImmersiveSheetRow(
     }
 }
 
-/** Stands in for a row whose place on the sheet is not decided yet: the label dimmed, a spinner. */
-@Composable
-fun ImmersiveSheetLoadingRow(icon: ImageVector, label: String) {
-    val menu = LocalImmersiveRowStyle.current == ImmersiveRowStyle.Menu
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .then(
-                if (menu) Modifier.heightIn(min = 46.dp).padding(horizontal = 18.dp, vertical = 11.dp)
-                else Modifier.padding(horizontal = 22.dp, vertical = 15.dp),
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = Immersive.Text.copy(alpha = 0.4f), modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(18.dp))
-        Text(label, style = Immersive.Body.copy(color = Immersive.Text.copy(alpha = 0.4f)), modifier = Modifier.weight(1f))
-        CircularProgressIndicator(color = Immersive.TextSecondary, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-    }
-}
-
 /**
  * A choice in a list: [label] (and an optional [detail]) with a tick in the sheet's accent when
  * [selected]. For the sleep timer, sort orders, quality pickers.
@@ -413,29 +368,6 @@ fun ImmersiveSheetOption(
             Spacer(Modifier.width(12.dp))
             Icon(Icons.Rounded.Check, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
         }
-    }
-}
-
-/** The sheet's one wide action ("Done", "Add to playlist", "Create"): a filled pill, dimmed when disabled. */
-@Composable
-fun ImmersiveSheetButton(
-    text: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 22.dp)
-            .alpha(if (enabled) 1f else 0.4f)
-            .immersiveClickable(onClick = onClick, enabled = enabled, role = Role.Button)
-            .clip(Immersive.Button)
-            .background(Immersive.Text)
-            .height(50.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text, style = Immersive.BodyStrong.copy(color = Color.Black), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

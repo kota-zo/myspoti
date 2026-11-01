@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
 /**
@@ -71,16 +70,10 @@ object AdBlock {
         "fastly-insights.com",
     )
 
-    /** Paths refused on Spotify's api hosts; none, see [blockedHosts]. */
-    val blockedPaths = emptyList<String>()
-
     fun isBlocked(url: String): Boolean {
         val rest = url.substringAfter("://")
         val host = rest.substringBefore('/').substringBefore('?').substringBefore(':').lowercase()
-        if (blockedHosts.any { host == it || host.endsWith(".$it") }) return true
-        if (!host.endsWith(".spotify.com") || "spclient" !in host) return false
-        val path = "/" + rest.substringAfter('/', "").substringBefore('?')
-        return blockedPaths.any { path.startsWith(it) }
+        return blockedHosts.any { host == it || host.endsWith(".$it") }
     }
 
     /**

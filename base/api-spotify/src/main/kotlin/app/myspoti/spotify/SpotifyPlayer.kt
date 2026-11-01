@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
@@ -1550,9 +1549,6 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             }
         }
 
-    /** True while a crossfade is fading a song out, or the next one in. */
-    fun isCrossfading(): Boolean = crossfadeArmed
-
     /**
      * The page's element level, ramped down over the last seconds of a song: one media element
      * means the next song cannot start before this one ends, so this is a fade, not an overlap.
@@ -2022,9 +2018,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     override suspend fun removeFromQueue(items: List<NowPlaying>) {
         bridge.call("queue.remove", buildJsonObject {
-            putJsonArray("items") {
-                items.forEach { item -> addJsonObject { put("uri", item.uri); item.uid?.let { put("uid", it) } } }
-            }
+            putJsonArray("items") { items.forEach { add(ref(it)) } }
         })
     }
 

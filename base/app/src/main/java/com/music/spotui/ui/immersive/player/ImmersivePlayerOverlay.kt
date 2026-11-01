@@ -12,7 +12,6 @@ package com.music.spotui.ui.immersive.player
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,12 +44,6 @@ import com.music.spotui.ui.navigation.PlayerSheet
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-
-/** The slide's spring: no bounce, a long soft landing. */
-private const val SLIDE_STIFFNESS = 195f
-
-/** The slide counts as settled within this many pixels of its target. */
-private const val SLIDE_SETTLED_PX = 0.5f
 
 /** A release faster than this (px/s) decides the sheet on its own, either way. */
 private const val FLING_VELOCITY = 1_000f

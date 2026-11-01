@@ -48,9 +48,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,12 +59,6 @@ import com.music.spotui.video.MusicVideoController
 import com.music.spotui.ui.screens.SpotifySeekBar
 import app.myspoti.engine.R
 import kotlinx.coroutines.delay
-
-/**
- * Spotify music videos. The clip is the Web Player's own (`Switch to video`), played
- * by the engine WebView; the native UI only reserves where it appears ([VideoSlot])
- * and MainActivity shows that part of the WebView there (see EngineFrame).
- */
 
 /**
  * The music video (YouTube, synced to Spotify by [MusicVideoController]) rendered by

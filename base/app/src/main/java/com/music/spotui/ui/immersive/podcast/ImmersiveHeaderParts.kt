@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.music.spotui.ui.immersive.components.rememberImmersiveOverscrollFactory
 import com.music.spotui.ui.immersive.shell.immersiveTopBarHeight
-import com.music.spotui.ui.look.rememberReduceMotion
 import com.music.spotui.ui.look.rememberArtworkColors
 
 /**

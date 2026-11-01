@@ -1,6 +1,5 @@
 package com.music.spotui.ui.screens
 
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.onSizeChanged
@@ -10,18 +9,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.positionChange
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -32,7 +22,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,38 +35,17 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderColors
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,19 +54,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import com.music.spotui.ui.components.pressable
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.foundation.pager.HorizontalPager
@@ -115,7 +79,6 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -129,21 +92,13 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import app.myspoti.engine.R
-import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SongsModel
-import com.music.spotui.data.preferences.addLikedSongId
-import com.music.spotui.data.preferences.getLikedSongIds
-import com.music.spotui.data.preferences.getSongsByIds
-import com.music.spotui.data.preferences.isSongLiked
-import com.music.spotui.data.preferences.removeLikedSongId
 import com.music.spotui.di.Palette
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.components.Snackbar
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.theme.AppBackground
-import com.music.spotui.ui.theme.AppPalette
 import com.music.spotui.ui.viewmodel.PlayerViewModel
 import com.music.spotui.ui.viewmodel.confirmedTrackIdForDisplay
 import com.music.spotui.ui.viewmodel.confirmedTrackIdFromUri
@@ -195,7 +150,6 @@ fun PlayerScreen(navController: NavController) {
             navController = navController,
             playerViewModel = playerViewModel,
             context = context,
-            isLiked = isLiked,
             onDismiss = { showMenu = false },
             onOpenQueue = { showQueue = true },
         )
@@ -680,7 +634,7 @@ fun PlayerScreen(navController: NavController) {
                     )
                 }
 
-                PlayerFull(songPlayingState, playerViewModel, context, isLiked, shuffle, repeat, queueSongs)
+                PlayerFull(songPlayingState, playerViewModel, context, shuffle, repeat, queueSongs)
 
                 PlayerConnectRow(
                     context = context,
@@ -1237,35 +1191,11 @@ fun SpotifySeekBar(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomSlider(
-    modifier: Modifier = Modifier,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: (() -> Unit)? = null,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
-    steps: Int = 0,
-    colors: SliderColors = SliderDefaults.colors(),
-) {
-    Box(modifier = modifier.height(10.dp)) {
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = valueRange,
-            steps = steps,
-            colors = colors,
-        )
-    }
-}
-
 @Composable
 fun PlayerFull(
     songPlayingState: Boolean,
     playerViewModel: PlayerViewModel,
     context: Context,
-    isLiked: MutableState<Boolean>,
     shuffle: Boolean,
     repeat: Boolean,
     queueSongs: List<SongsModel>
@@ -1535,7 +1465,6 @@ fun PlayerOptionsSheet(
     navController: NavController,
     playerViewModel: PlayerViewModel,
     context: Context,
-    isLiked: MutableState<Boolean>,
     onDismiss: () -> Unit,
     onOpenQueue: (() -> Unit)? = null,
 ) {
@@ -1638,45 +1567,6 @@ fun AddButton(song: () -> SongsModel, liked: Boolean, size: androidx.compose.ui.
     }
 }
 
-@Composable
-fun PlayerMenuRow(
-    icon: ImageVector,
-    label: String,
-    iconTint: Color = Color.White,
-    enabled: Boolean = true,
-    trailingArrow: Boolean = false,
-    onClick: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 20.dp, vertical = 14.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            tint = if (enabled) iconTint else Color.Gray,
-            modifier = Modifier.size(22.dp),
-            contentDescription = null
-        )
-        Spacer(modifier = Modifier.width(20.dp))
-        Text(
-            text = label,
-            color = if (enabled) Color.White else Color.Gray,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f)
-        )
-        if (trailingArrow) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp),
-                contentDescription = null
-            )
-        }
-    }
-}
 /**
  * Plays a Spotify Canvas clip: a short, muted, looping video filling the
  * now-playing background, on the shared [CanvasPlayer] (separate from the audio engine),

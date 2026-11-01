@@ -22,19 +22,6 @@ object SpotifySync {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val api get() = MyspotiRuntime.api
 
-    fun setTrackSaved(context: Context, trackId: String, saved: Boolean) {
-        if (trackId.isNotBlank()) com.music.spotui.di.SongPlayer.setTrackSaved(trackId, saved)
-    }
-
-    fun setAlbumSaved(context: Context, albumId: String, saved: Boolean) {
-        if (albumId.isNotBlank()) com.music.spotui.di.SongPlayer.setSaved("spotify:album:$albumId", saved)
-    }
-
-    fun setArtistFollowed(context: Context, artistId: String, followed: Boolean) {
-        if (artistId.isNotBlank()) com.music.spotui.di.SongPlayer.setSaved("spotify:artist:$artistId", followed)
-    }
-
-    /** Adds a track to one of the user's playlists. */
     fun addTrackToPlaylist(context: Context, playlistId: String, trackId: String, onDone: (Boolean) -> Unit = {}) {
         if (playlistId.isBlank() || trackId.isBlank()) { onDone(false); return }
         scope.launch {

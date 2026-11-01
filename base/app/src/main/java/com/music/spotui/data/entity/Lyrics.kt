@@ -60,9 +60,6 @@ data class Lyrics(
     /** At least two singers share the song: worth showing who sings what. */
     val hasDuet: Boolean get() = lines.mapNotNull { it.voice }.filter { it > 0 }.distinct().size > 1
 
-    /** Some lines carry backing vocals. */
-    val hasBackground: Boolean get() = lines.any { !it.background.isNullOrBlank() }
-
     /**
      * The source's translations when they are in [targetLang] (language tags compared by their
      * first part), one per line (null: this line has none), else null: then a machine translation

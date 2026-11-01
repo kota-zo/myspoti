@@ -52,7 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
@@ -82,7 +81,7 @@ private val TRACK_SWIPE_THRESHOLD = 72.dp
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modifier) {
+fun ImmersiveMiniPlayer(modifier: Modifier = Modifier) {
     val vm: PlayerViewModel = viewModel()
     // A crossfade: the words stay the outgoing song's until half way (see SongBlend).
     val blend = com.music.spotui.ui.components.rememberSongBlend()

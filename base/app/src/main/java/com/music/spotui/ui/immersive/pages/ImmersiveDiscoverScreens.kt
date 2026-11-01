@@ -48,16 +48,13 @@ import com.music.spotui.ui.immersive.components.ImmersiveListRow
 import com.music.spotui.ui.immersive.components.ImmersiveMessageState
 import com.music.spotui.ui.immersive.components.ImmersiveShelfCard
 import com.music.spotui.ui.immersive.components.immersiveSongListSkeleton
-import com.music.spotui.ui.immersive.components.ImmersiveCover
 import com.music.spotui.ui.immersive.components.immersiveClickable
 import com.music.spotui.ui.immersive.motion.immersiveItemPlacement
-import com.music.spotui.ui.immersive.screens.ImmersiveRowDivider
 import com.music.spotui.ui.immersive.components.SectionHeader
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.screens.ReleaseTile
 import com.music.spotui.ui.screens.route
 import com.music.spotui.ui.screens.rangeLabels
-import com.music.spotui.ui.theme.AppAccent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

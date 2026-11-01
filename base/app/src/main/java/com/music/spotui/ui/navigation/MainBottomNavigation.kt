@@ -6,7 +6,6 @@ import com.music.spotui.ui.theme.AppShade
 
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.compose.ui.res.stringResource
-import app.myspoti.engine.R
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -15,13 +14,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
@@ -47,8 +44,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.music.spotui.ui.components.MiniPlayer
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
@@ -87,17 +82,8 @@ object TabReselect {
     }
 }
 
-class NoRippleInteractionSource : MutableInteractionSource {
-
-    override val interactions: Flow<Interaction> = emptyFlow()
-
-    override suspend fun emit(interaction: Interaction) {}
-
-    override fun tryEmit(interaction: Interaction) = true
-}
-
 @Composable
-fun MainBottomNavigation(navController: NavHostController, bottomBarState: MutableState<Boolean>, bottomBarPlayerState : MutableState<Boolean>) {
+fun MainBottomNavigation(navController: NavHostController) {
 
     // Visibility follows the screen actually shown (not flags each screen sets,
     // which raced during transitions and left the mini player over the full one).
@@ -139,7 +125,7 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
                             // Large windows: a capped, centred capsule, not a bar across a desktop window.
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 Box(if (com.music.spotui.ui.components.windowSize().large) Modifier.widthIn(max = com.music.spotui.ui.components.WindowSize.MaxMiniPlayerWidth) else Modifier) {
-                                    MiniPlayer(navController)
+                                    MiniPlayer()
                                 }
                             }
                         }

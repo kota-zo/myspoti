@@ -42,7 +42,9 @@ object SessionActions {
         // Likes kept for later stay this account's, sent when it signs in again; the next account gets none.
         com.music.spotui.data.LibraryOutbox.signedOut()
         SongPlayer.clearSession()
-        listOf("PlaybackState", "LibraryCache", "RecentItems", "LikedSongs",
+        // The last track, likes, albums and followed artists of older builds are never read
+        // again: cleared too, so no ids of this account outlive it.
+        listOf("LibraryCache", "RecentItems", "PlaybackState", "LikedSongs",
             "LikedSongsFromSpotify", "LikedAlbums", "FollowedArtists").forEach { name ->
             app.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply()
         }
