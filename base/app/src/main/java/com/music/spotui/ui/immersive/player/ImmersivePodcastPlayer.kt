@@ -90,7 +90,6 @@ import com.music.spotui.ui.look.MeshGradientBackground
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
 import com.music.spotui.ui.look.rememberReduceMotion
-import com.music.spotui.ui.navigation.PlayerSheet
 import com.music.spotui.ui.navigation.episodeRoute
 import com.music.spotui.ui.navigation.showRoute
 import com.music.spotui.ui.screens.episodeShowId

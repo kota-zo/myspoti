@@ -43,59 +43,19 @@ class CurrentSongState constructor() {
     val repeat = mutableStateOf(false)
     val likeState = mutableStateOf(false)
 
-    // Original queue order, kept while shuffle is on so turning it off restores
-    // the list instead of leaving it permanently scrambled.
-    private var unshuffledQueue: List<SongsModel>? = null
-
     /**
-     * Toggling shuffle reorders the queue ONCE: the current track stays where it
-     * is and the rest follow in random order. (Skipping used to re-shuffle the
-     * whole list on every tap, which could repeat or skip songs.)
+     * Starts shuffled playback of a full list (the shuffle button on playlist/album/liked
+     * screens): the queue becomes that list and shuffle turns on. Spotify shuffles its own
+     * context and picks the first track itself; the now-playing state follows the engine
+     * (no guessed track shown meanwhile).
      */
-    fun updateShuffleState(newShuffleState: Boolean) {
-        if (newShuffleState == shuffle.value) return
-        shuffle.value = newShuffleState
-        val q = _queue.value
-        if (newShuffleState) {
-            unshuffledQueue = q
-            val curIdx = q.indexOfFirst { it.id == _songId.value }
-            if (curIdx >= 0) {
-                _queue.value = listOf(q[curIdx]) +
-                    q.filterIndexed { i, _ -> i != curIdx }.shuffled()
-                _songIndex.value = 0
-            } else {
-                _queue.value = q.shuffled()
-            }
-        } else {
-            val original = unshuffledQueue
-            unshuffledQueue = null
-            // Restore only if we're still inside that queue (it may have been
-            // replaced by another list while shuffled). Keep tracks appended in
-            // the meantime (queue edits, autoplay radio).
-            if (original != null && original.any { it.id == _songId.value }) {
-                val appended = q.filter { s -> original.none { it.id == s.id } }
-                val restored = original + appended
-                _queue.value = restored
-                val idx = restored.indexOfFirst { it.id == _songId.value }
-                if (idx >= 0) _songIndex.value = idx
-            }
-        }
-    }
-
-    /**
-     * Starts shuffled playback of a full list (the shuffle button on
-     * playlist/album/liked screens): the queue becomes a shuffled copy, shuffle
-     * turns on, and the caller plays the returned first track.
-     */
-    fun startShuffled(songs: List<SongsModel>): SongsModel? {
-        if (songs.isEmpty()) return null
-        // Spotify shuffles its own context and picks the first track itself; the
-        // now-playing state follows the engine (no guessed track shown meanwhile).
+    fun startShuffled(songs: List<SongsModel>) {
+        if (songs.isEmpty()) return
         shuffle.value = true
         updateQueue(songs)
         SongPlayer.shufflePlay(songs)
-        return null
     }
+
     fun updateRepeatState(newRepeatState : Boolean){
         repeat.value = newRepeatState
     }
@@ -112,9 +72,6 @@ class CurrentSongState constructor() {
     }
 
     fun updateSongState(coverUri: String, title: String, singer: String, playingState: Boolean, songId : Int, songIndex : Int, album : String) {
-        // The engine re-reports the same track on every state change (pause, like…);
-        // only a new track should be persisted / logged / prefetched.
-        val newTrack = songId != _songId.value || title != _title.value
         _coverUri.value = coverUri
         _title.value = title
         _album.value = album
@@ -122,12 +79,5 @@ class CurrentSongState constructor() {
         _playingState.value = playingState
         _songIndex.value = songIndex
         _songId.value = songId
-        // Persist the current track so a fresh launch can restore the session.
-        if (newTrack && playingState && title.isNotBlank()) {
-            _queue.value.firstOrNull { it.id == songId }?.let { track ->
-                com.music.spotui.data.preferences.saveLastPlayback(
-                    com.music.spotui.di.Graph.app, track)
-            }
-        }
     }
 }

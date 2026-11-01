@@ -10,9 +10,6 @@ import com.music.spotui.ui.components.SearchClearButton
 import com.music.spotui.ui.components.pressable
 import androidx.compose.ui.res.stringResource
 
-import android.os.Build
-import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,11 +73,7 @@ import app.myspoti.engine.R
 import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SearchResults
 import com.music.spotui.data.entity.SongsModel
-import com.music.spotui.data.preferences.addLikedSongId
-import com.music.spotui.data.preferences.isSongLiked
-import com.music.spotui.data.preferences.removeLikedSongId
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.components.Loader
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
@@ -165,8 +158,6 @@ fun SumUpSearchScreen(
         com.music.spotui.data.preferences.addRecentItem(context, item)
         recents = com.music.spotui.data.preferences.getRecentItems(context).filter { com.music.spotui.data.api.Features.PODCASTS || it.type != "show" }
     }
-    // Live Spotify search results for the current query.
-    val searchedList = results.songs
     // One relevance-mixed list (songs, artists, albums interleaved) instead of
     // separate type sections — matches how most music apps present search.
     val mixed = remember(results, filter) { filterSearchResults(results, filter) }
@@ -332,7 +323,7 @@ fun SumUpSearchScreen(
             items(mixed.size) { i ->
                 when (val row = mixed[i]) {
                     is SearchRow.Song -> com.music.spotui.ui.components.SwipeToQueue(row.song) {
-                        SearchSongRow(row.song, searchedList, searchViewModel, onPlayed = {
+                        SearchSongRow(row.song, searchViewModel, onPlayed = {
                             recordRecent(row.song.toRecentItem())
                         }, onLongClick = { menuSong = row.song })
                     }
@@ -389,7 +380,7 @@ fun SumUpSearchScreen(
                 item { SearchSectionHeader(stringResource(R.string.assisted_curation_search_filter_episodes)) }
                 items(results.episodes.size) { i ->
                     val ep = results.episodes[i]
-                    SearchSongRow(ep, results.episodes, searchViewModel, onPlayed = {
+                    SearchSongRow(ep, searchViewModel, onPlayed = {
                         recordRecent(ep.toRecentItem())
                     }, onLongClick = { menuSong = ep })
                 }
@@ -566,7 +557,6 @@ fun RecentItemRow(
 @Composable
 fun SearchSongRow(
     song: SongsModel,
-    songList: List<SongsModel>,
     searchViewModel: SearchViewModel,
     onPlayed: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
@@ -863,7 +853,6 @@ fun SearchTopBar() {
             .padding(16.dp)
     ) {
         Text(text = stringResource(R.string.navigationbar_musicappitems_search_title), color = AppText, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        //Icon(imageVector = Icons.Default.Person, contentDescription = "", tint = Color.White)
     }
 
 }

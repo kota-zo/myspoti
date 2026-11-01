@@ -204,9 +204,6 @@ object SongPlayer {
     // Spotify's own queue and autoplay for that context.
     private val contextRegistry = ConcurrentHashMap<String, String>()
 
-    @Volatile var currentSource: String = "Spotify"
-    @Volatile var currentQuality: String = ""
-
     /** Queue items of the local player (downloads, Local Files). */
     const val LOCAL = "local"
 
@@ -464,7 +461,6 @@ object SongPlayer {
         lastTrackPrefs().edit().clear().apply(); savedLast = ""; resumeWhenReady = false
         savedSource = com.music.spotui.data.preferences.LastSession.SOURCE_SPOTIFY; savedAtMs = 0L; restoredLocal = false
         _activeDevice.value = null; _sleepEndsAt.value = null; sleepFade?.cancel(); main.removeCallbacks(sleepFadeRunnable); sleepTrackId = null; spotifyFallbackId = null
-        _video.value = VideoState(); videoFullscreen.value = false
         boundState?.let { state ->
             state.updateQueue(emptyList())
             state.updateSongState("", "", "", false, 0, 0, "")
@@ -2244,26 +2240,6 @@ object SongPlayer {
     /** The library changes kept for later wait that long for the account's id (see ProfileCache.awaitId). */
     private const val ACCOUNT_WAIT_MS = 10_000L
 
-    // ── Music video: Spotify's own clips are not played by this engine; the YouTube
-    // clips (MusicVideoController) are. These keep the player screen's contract. ──
-    data class VideoState(val available: Boolean = false, val on: Boolean = false, val ready: Boolean = false, val aspect: Float = 0f, val placed: Boolean = false)
-    private val _video = mutableStateOf(VideoState())
-    val video: State<VideoState> get() = _video
-
-    data class VideoSlot(val left: Float, val top: Float, val width: Float, val height: Float, val visible: android.graphics.RectF)
-    val videoSlot = mutableStateOf<VideoSlot?>(null)
-    @Volatile var videoSlotOwner: Any? = null
-    val videoFullscreen = mutableStateOf(false)
-
-    fun setVideo(on: Boolean) {
-        _video.value = _video.value.copy(on = false, ready = false)
-        videoFullscreen.value = false
-    }
-
-    val engineBounds = mutableStateOf<IntArray?>(null)
-
-    fun setVideoLayout(mode: String?, x: Float = 0f, y: Float = 0f, w: Float = 0f, h: Float = 0f, viewW: Float = 0f) {}
-
     // ── Spotify Connect ──
     data class ConnectDevice(val id: String, val name: String, val type: String, val isSelf: Boolean, val isActive: Boolean)
 
@@ -2526,9 +2502,7 @@ object SongPlayer {
         }
     }
 
-    // ── Queue (the API pushes every change, nothing to poll) ──
-    fun watchQueue(on: Boolean) {}
-    fun requestQueue() {}
+    // ── Queue (the API pushes every change) ──
 
     /**
      * The queue row [item] stands for in Spotify's latest queue: by its row id, else by its song
@@ -2911,10 +2885,6 @@ object SongPlayer {
             _queue.value = EngineQueue(current = localSong(current), queued = items.take(queuedCount), nextUp = items.drop(queuedCount))
         }
     }
-
-    /** True while a crossfade is fading this song out, or the next one in (see [SpotifyPlayer]). */
-    fun isCrossfadeActive(): Boolean =
-        MyspotiRuntime.isStarted && MyspotiRuntime.spotify.player.isCrossfading()
 
     /** The song a real crossfade fades out, as the screens showed it when the fade began. */
     data class FadingSong(val title: String, val artist: String, val coverUri: String, val durationMs: Long)

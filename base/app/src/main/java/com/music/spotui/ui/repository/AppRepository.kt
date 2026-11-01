@@ -19,8 +19,6 @@ class AppRepository constructor(private val api: Api = Graph.api) {
 
     suspend fun provideAlbumSongs(albumName: String, artist: String = "") = api.getAlbumSongs(albumName, artist)
 
-    suspend fun provideArtistSongs(artistName: String) = api.getArtistSongs(artistName)
-
     suspend fun provideArtistOverview(artistName: String, artistId: String = "") = api.getArtistOverview(artistName, artistId)
 
     suspend fun providePlaylistSongs(playlistId: String) = api.getPlaylistSongs(playlistId)

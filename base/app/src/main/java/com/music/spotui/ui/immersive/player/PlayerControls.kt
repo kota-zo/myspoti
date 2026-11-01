@@ -16,9 +16,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -311,9 +309,6 @@ private fun TransportGlyph(
         )
     }
 }
-
-/** ThinSlider's fixed touch target at the volume bar's size: 10dp + 22dp. */
-internal val VOLUME_ROW_HEIGHT = 32.dp
 
 /** The volume bar between its two speaker glyphs. */
 @Composable

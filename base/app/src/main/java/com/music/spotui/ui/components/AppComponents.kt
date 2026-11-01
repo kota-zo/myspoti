@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,20 +22,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.BluetoothAudio
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderColors
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,33 +40,23 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
-import com.music.spotui.data.preferences.addLikedSongId
-import com.music.spotui.data.preferences.isSongLiked
-import com.music.spotui.data.preferences.removeLikedSongId
 import com.music.spotui.di.Palette
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.theme.AppBackground
-import com.music.spotui.ui.theme.GridBackground
 import com.music.spotui.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.delay
 
@@ -171,7 +153,7 @@ private fun SkeletonRows(tile: Color, line: Color, count: Int) {
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-fun MiniPlayer(navController: NavHostController) {
+fun MiniPlayer() {
     val vm : PlayerViewModel = viewModel()
     val songTitle = vm.currentSongTitle.value
     val songSinger = vm.currentSongSinger.value
@@ -418,35 +400,6 @@ fun MiniPlayer(navController: NavHostController) {
             drawRect(Color.White.copy(alpha = 0.25f))
             drawRect(Color.White, size = size.copy(width = size.width * p))
         }
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomSlider(
-    modifier: Modifier = Modifier,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
-    steps: Int = 0,
-    colors: SliderColors = SliderDefaults.colors(),
-) {
-    Box(
-        //contentAlignment = Alignment.BottomEnd,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(0.dp)
-
-    ) {
-
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            steps = steps,
-            colors = colors,
-        )
     }
 }
 

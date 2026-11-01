@@ -6,7 +6,6 @@ import com.music.spotui.ui.theme.AppText
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
 import com.music.spotui.ui.components.pressable
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -18,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background
 import android.annotation.SuppressLint
 import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.Composable
@@ -30,7 +27,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.music.spotui.ui.navigation.MainBottomNavigation
@@ -41,8 +37,6 @@ import com.music.spotui.ui.navigation.navigateSingleTop
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun App() {
-    val bottomBarState = rememberSaveable { (mutableStateOf(true)) }
-    val bottomBarPlayerState = rememberSaveable { (mutableStateOf(true)) }
     val navController = rememberNavController()
 
     // Debug and beta builds: `myspoti-cli nav <route>` (see CliReceiver).
@@ -136,11 +130,11 @@ fun App() {
         Scaffold(
             modifier = Modifier.weight(1f),
             bottomBar = {
-                if (!immersive) MainBottomNavigation(navController = navController, bottomBarState = bottomBarState, bottomBarPlayerState)
+                if (!immersive) MainBottomNavigation(navController)
             }
         ) {
             MyNavHost(
-                navHostController = navController, bottomBarState = bottomBarState, bottomBarPlayerState,
+                navHostController = navController,
                 // Immersive: each page marks its own list as what the glass bars blur (a source on
                 // the whole host would hold the pages' own top bars too).
                 modifier = if (immersive) Modifier.background(com.music.spotui.ui.immersive.Immersive.Page) else Modifier,
@@ -168,7 +162,7 @@ private fun ImmersiveShell(navController: androidx.navigation.NavHostController)
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
         com.music.spotui.ui.immersive.shell.ImmersiveBottomChrome(
             navController,
-            miniPlayer = { m -> com.music.spotui.ui.immersive.player.ImmersiveMiniPlayer(navController, m) },
+            miniPlayer = { m -> com.music.spotui.ui.immersive.player.ImmersiveMiniPlayer(m) },
             modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter),
         )
         com.music.spotui.ui.immersive.player.ImmersivePlayerOverlay(navController)

@@ -6,7 +6,6 @@
 package com.music.spotui.ui.immersive.shell
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -38,7 +37,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.RectangleShape
 import com.music.spotui.ui.immersive.motion.ImmersiveMotion
 import com.music.spotui.ui.look.rememberReduceMotion
 import androidx.compose.ui.Alignment

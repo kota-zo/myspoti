@@ -8,7 +8,6 @@ package com.music.spotui.ui.immersive.screens
 
 import com.music.spotui.ui.immersive.shell.immersiveHazeSource
 import com.music.spotui.ui.immersive.shell.immersiveChromeScroll
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold

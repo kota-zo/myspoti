@@ -48,8 +48,7 @@ object LocalMusic {
     private suspend fun allTracks(context: Context, refresh: Boolean = false): List<LocalTrack> = withContext(Dispatchers.IO) {
         if (!hasPermission(context)) return@withContext emptyList()
         cache?.takeIf { !refresh }?.let { return@withContext it }
-        val collection = if (Build.VERSION.SDK_INT >= 29) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         val projection = arrayOf(
             MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,

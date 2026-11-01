@@ -53,7 +53,6 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +69,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import android.os.SystemClock
 import app.myspoti.host.android.Logbook
 import androidx.compose.animation.core.animate
@@ -93,7 +91,6 @@ import androidx.compose.ui.unit.dp
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
-import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.components.RepeatIcons
@@ -128,10 +125,6 @@ private fun LazyItemScope.queueMotion(): Modifier =
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingValues = PaddingValues()) {
-    DisposableEffect(Unit) {
-        SongPlayer.watchQueue(true)
-        onDispose { SongPlayer.watchQueue(false) }
-    }
     val queue by SongPlayer.engineQueue
     val song = Graph.currentSongState
     val shuffle = song.shuffle.value

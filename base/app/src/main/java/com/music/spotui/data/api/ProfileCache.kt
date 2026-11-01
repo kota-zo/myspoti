@@ -52,7 +52,7 @@ object ProfileCache {
                     imageUrl = me.images.best(160)?.url
                     id = me.username
                     // The downloads shown are this account's own (see OfflineAccounts).
-                    id?.let { com.music.spotui.data.offline.OfflineAccounts.claim(context.applicationContext, it) }
+                    com.music.spotui.data.offline.OfflineAccounts.claim(context.applicationContext, me.username)
                     return@launch
                 }
             } finally {

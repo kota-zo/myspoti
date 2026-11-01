@@ -332,8 +332,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
         if (it.code == 404 && COMMAND.containsMatchIn(url) && "DEVICE_NOT_FOUND" in text) app.myspoti.spotify.bridge.PageDevice.commandLost()
         if (it.code in 200..299 && method == "POST" && url.substringBefore('?').endsWith("/track-playback/v1/devices")) onDeviceRegistered?.invoke()
         if (it.code == 402 && !(COMMAND.containsMatchIn(url) || registration)) logRefusal(it, body)
-        if (registration) Regex("\"effective_license\"\\s*:\\s*\"([^\"]*)\"").find(text)
-            ?.let { m -> Logbook.log("registration: effective_license=${m.groupValues[1]}") }
+        if (registration) effectiveLicense(text)?.let { Logbook.log("registration: effective_license=$it") }
         if (registration) app.myspoti.spotify.report.Refusal402.registered(it.code)
         if (registration && it.code in 200..299) Logbook.log("registration answer: ${registrationSummary(text)}")
         // The page's connect-state PUT (joining the cluster): its status and its answer's header names.
@@ -344,7 +343,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
             app.myspoti.spotify.bridge.PageDevice.joined()
         if (registration && it.code in 200..299) runCatching { JSONObject(text).optLong("initial_seq_num", 0) }.getOrNull()?.let(devices::answered)
         if (method == "DELETE" && it.code in 200..299 && url.contains("/track-playback/v1/devices/")) devices.deregistered(url)
-        if (registration) Logbook.fact("registration", "${it.code}" + (Regex("\"effective_license\"\\s*:\\s*\"([^\"]*)\"").find(text)?.let { m -> " effective_license=${m.groupValues[1]}" } ?: ""))
+        if (registration) Logbook.fact("registration", "${it.code}" + (effectiveLicense(text)?.let { " effective_license=$it" } ?: ""))
         // What Spotify holds for this account's devices (this player's license, whether
         // it may play, another device active): the cluster comes back on joining and
         // on every cluster read, the one the page makes after a refused command.
@@ -697,6 +696,12 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
         }
 
         private val COMMAND = Regex("/connect-state/v1/(player/command|connect/transfer)/")
+
+        /** The license Spotify granted this player in its registration answer. */
+        private val EFFECTIVE_LICENSE = Regex("\"effective_license\"\\s*:\\s*\"([^\"]*)\"")
+
+        private fun effectiveLicense(text: String): String? =
+            EFFECTIVE_LICENSE.find(text)?.groupValues?.get(1)
 
         /** The header names a request carries, lowercased and sorted: never their values. */
         internal fun headerNames(given: JSONObject): String =

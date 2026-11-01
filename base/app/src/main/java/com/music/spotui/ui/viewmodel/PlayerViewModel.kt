@@ -7,18 +7,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.CurrentSongState
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.repository.AppRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -53,23 +48,10 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
     val likeState = currentSongState.likeState
 
 
-    private val _songs : MutableStateFlow<Response<List<SongsModel>>> = MutableStateFlow(Response.Loading())
-    val songs : StateFlow<Response<List<SongsModel>>> = _songs
-
     val playingArtist by mutableStateOf(currentSongSinger.value)
 
 
 
-
-    //val songsResponse = (songs.value as Response.Success).data
-
-    // Resolve where we currently are in the queue. The stored index can be stale
-    // (e.g. queue swapped out), so match by song id first and fall back to the index.
-    private fun currentPositionIn(queueSongs: List<SongsModel>): Int {
-        val byId = queueSongs.indexOfFirst { it.id == currentSongId.value }
-        if (byId >= 0) return byId
-        return currentSongIndex.value.coerceIn(0, queueSongs.size - 1)
-    }
 
     // Spotify owns the queue (context + autoplay): skip in the engine.
     fun playNextSongs(queueSongs : List<SongsModel>, context: Context) {
@@ -145,14 +127,6 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
 
     fun playPreviousSong(queueSongs : List<SongsModel>, context: Context) {
         SongPlayer.previous()
-    }
-
-    private fun fetchSongs() = viewModelScope.launch(Dispatchers.IO) {
-
-        repository.provideSongs().collect { songs ->
-            _songs.value = songs as Response<List<SongsModel>>
-
-        }
     }
     fun formatDuration(durationMillis: Long): String {
         val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis)

@@ -1,6 +1,5 @@
 package com.music.spotui.ui.components
 
-import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
 import com.music.spotui.ui.theme.AppBackground
@@ -12,10 +11,8 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import com.music.spotui.di.Haptics
 import kotlinx.coroutines.launch

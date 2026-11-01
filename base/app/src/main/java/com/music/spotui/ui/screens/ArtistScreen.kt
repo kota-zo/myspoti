@@ -80,16 +80,12 @@ import com.music.spotui.data.entity.AlbumsModel
 import com.music.spotui.data.entity.ArtistOverviewModel
 import com.music.spotui.data.entity.ArtistTrackUi
 import com.music.spotui.data.entity.ArtistsModel
-import com.music.spotui.data.preferences.addLikedSongId
-import com.music.spotui.data.preferences.isSongLiked
-import com.music.spotui.data.preferences.removeLikedSongId
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.components.Loader
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.theme.AppBackground
-import com.music.spotui.ui.theme.AppPalette
 import com.music.spotui.ui.viewmodel.ArtistViewModel
 
 private val SpotifyGreen: Color get() = com.music.spotui.ui.theme.AppAccent

@@ -78,8 +78,6 @@ class Api constructor(
         /** The new episodes list is asked for again only after this long (the shows are many queries). */
         private const val NEW_EPISODES_TTL_MS = 30 * 60_000L
         @Volatile var newEpisodes: Pair<Long, List<SongsModel>>? = null
-        /** "Recently played": Spotify's own list for the account, pinned in the library. */
-        const val RECENT_ID = "recently-played"
         /** Pages of 50 asked for a show's episodes / chapters, at most (500 rows). */
         const val MAX_EPISODE_PAGES = 10
         /** The page's collection set behind its "Mark as finished" menu. */
@@ -657,19 +655,6 @@ class Api constructor(
         return hits.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: hits.firstOrNull()
     }
 
-    suspend fun getArtistSongs(artistName: String): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (artistName.isBlank()) { emit(Response.Success(emptyList())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        runCatching {
-            val artist = findArtist(artistName) ?: return@runCatching emptyList()
-            api.catalog.artistTopTracks(artist.uri).map { songOf(it).let { s -> if (s.coverUri.isBlank()) s.copy(coverUri = cover(artist.images)) else s } }
-        }.fold(
-            onSuccess = { emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getArtistSongs failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
     /** The full artist page; [knownArtistId] avoids the fuzzy name lookup. */
     suspend fun getArtistOverview(artistName: String, knownArtistId: String = ""): Flow<Response<ArtistOverviewModel>> = flow {
         emit(Response.Loading())
@@ -1169,7 +1154,7 @@ class Api constructor(
         val map = java.util.concurrent.ConcurrentHashMap<String, Entry>()
     }
 
-    /** Liked Songs as playable songs; also keeps the local hearts in step. */
+    /** Liked Songs as playable songs. */
     suspend fun getLikedSongs(): Flow<Response<List<SongsModel>>> = flow {
         emit(Response.Loading())
         if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
@@ -1180,7 +1165,6 @@ class Api constructor(
         liked.fold(
             onSuccess = { songs ->
                 SongPlayer.registerLikedSongs(songs.map { it.url })
-                com.music.spotui.data.preferences.syncSpotifyLikedSongIds(context, songs.mapTo(HashSet()) { it.id.toString() }, complete = true)
                 LikedCache.tracks = songs
                 emit(Response.Success(songs))
             },
