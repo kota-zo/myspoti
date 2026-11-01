@@ -24,13 +24,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -119,11 +120,11 @@ fun ImmersiveCoverPlaceholder(
 @Composable
 fun ImmersivePlayingBars(modifier: Modifier = Modifier) {
     val reduceMotion = rememberReduceMotion()
-    val heights = listOf(0.38f, 0.78f, 0.52f).mapIndexed { index, minimum ->
+    val barHeights = listOf(0.38f, 0.78f, 0.52f).mapIndexed { index, minimum ->
         // Under "reduce motion" the bars rest at their low mark instead of dancing.
-        if (reduceMotion) return@mapIndexed minimum
+        if (reduceMotion) return@mapIndexed ({ minimum })
         val transition = rememberInfiniteTransition(label = "immersive playing bar $index")
-        val height by transition.animateFloat(
+        val height = transition.animateFloat(
             initialValue = minimum,
             targetValue = 1f - (index * 0.12f),
             animationSpec = infiniteRepeatable(
@@ -137,7 +138,7 @@ fun ImmersivePlayingBars(modifier: Modifier = Modifier) {
             ),
             label = "immersive playing bar height $index",
         )
-        height
+        ({ height.value })
     }
     Box(
         modifier = modifier
@@ -151,11 +152,17 @@ fun ImmersivePlayingBars(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            heights.forEach { height ->
+            barHeights.forEach { height ->
                 Box(
                     Modifier
                         .width(3.dp)
-                        .height(14.dp * height)
+                        .height(14.dp)
+                        // Scaled in the layer, from the bottom: the dance does not relayout
+                        // (and recompose) the bars sixty times a second.
+                        .graphicsLayer {
+                            scaleY = height()
+                            transformOrigin = TransformOrigin(0.5f, 1f)
+                        }
                         .clip(RoundedCornerShape(2.dp))
                         .background(Color.White),
                 )

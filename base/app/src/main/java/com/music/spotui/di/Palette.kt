@@ -79,16 +79,13 @@ class Palette {
                         // before stayed (reported: the tint "doesn't change" between some songs).
                         val dominantColor = palette?.let { it.darkVibrantSwatch ?: it.darkMutedSwatch ?: it.dominantSwatch ?: it.vibrantSwatch }?.rgb
                         dominantColor?.let {
-                            // Convert RGB color integer to ARGB color integer with full opacity
                             val argbColor = readableUnderWhite(Color(it or (0xFF shl 24)))
                             colors[key] = argbColor; onColorExtracted(argbColor)
                         }
                     }
                 }
 
-                override fun onLoadCleared(placeholder: Drawable?) {
-                    // Handle cleanup here if necessary
-                }
+                override fun onLoadCleared(placeholder: Drawable?) {}
 
                 // No cover (failed load): a neutral tint, never the song before's.
                 override fun onLoadFailed(errorDrawable: Drawable?) { onColorExtracted(NEUTRAL) }
@@ -104,7 +101,7 @@ class Palette {
             .disallowHardwareConfig()
             .into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                    // Create a scaled down version of the bitmap
+                    // A palette needs no detail: 50 px keeps the scaling (and its allocation) small.
                     val scaledBitmap = Bitmap.createScaledBitmap(resource, 50, 50, true)
 
                     Palette
@@ -112,16 +109,13 @@ class Palette {
                         .generate { palette ->
                         val lightVibrantColor = palette?.let { it.mutedSwatch ?: it.darkMutedSwatch ?: it.dominantSwatch ?: it.vibrantSwatch }?.rgb
                         lightVibrantColor?.let {
-                            // Convert RGB color integer to ARGB color integer with full opacity
                             val argbColor = Color(it or (0xFF shl 24))
                             colors[key] = argbColor; onColorExtracted(argbColor)
                         }
                     }
                 }
 
-                override fun onLoadCleared(placeholder: Drawable?) {
-                    // Handle cleanup here if necessary
-                }
+                override fun onLoadCleared(placeholder: Drawable?) {}
 
                 // No cover (failed load): a neutral tint, never the song before's.
                 override fun onLoadFailed(errorDrawable: Drawable?) { onColorExtracted(NEUTRAL) }

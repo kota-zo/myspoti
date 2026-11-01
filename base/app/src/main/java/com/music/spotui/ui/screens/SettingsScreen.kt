@@ -515,7 +515,7 @@ private fun OrientationRow() {
     }
 }
 
-/** "App language": Automatic (French or English) or any language with Spotify's labels. */
+/** "App language": follow the phone, or any language the app has strings for. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguageRow() {

@@ -482,6 +482,9 @@ object LyricsApi {
     }
 
     private val geniusContainer = Regex("<div[^>]*data-lyrics-container=\"true\"[^>]*>", RegexOption.IGNORE_CASE)
+    // Built once: tidy() runs on every line of a parsed song and every word of a word-synced one.
+    private val spaces = Regex("\\s+")
+    private val htmlBreak = Regex("<br\\s*/?>", RegexOption.IGNORE_CASE)
 
     /** The lyrics containers of a Genius song page, as plain text (nested divs balanced). */
     internal fun geniusText(html: String): String? {
@@ -500,7 +503,7 @@ object LyricsApi {
         }.toList()
         if (parts.isEmpty()) return null
         return parts.joinToString("\n") { part ->
-            androidx.core.text.HtmlCompat.fromHtml(part.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n"), androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY)
+            androidx.core.text.HtmlCompat.fromHtml(part.replace(htmlBreak, "\n"), androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY)
                 .toString()
         }.trim().takeIf { it.isNotEmpty() }
     }
@@ -605,7 +608,7 @@ object LyricsApi {
         agent?.trim()?.removePrefix("v")?.toIntOrNull()?.takeIf { it >= 0 }?.let { if (it >= 1000) 0 else it }
 
     /** Backing vocals as plain text: "(Woo-hoo)" → "Woo-hoo". */
-    private fun backingText(s: String): String? = s.replace(Regex("\\s+"), " ").trim().removeSurrounding("(", ")").trim().ifEmpty { null }
+    private fun backingText(s: String): String? = s.replace(spaces, " ").trim().removeSurrounding("(", ")").trim().ifEmpty { null }
 
     // ── Word by word: lrc.red (Apple Music TTML, found by ISRC) ──
     private fun fromLrcRed(asked: String, title: String, artist: String, durationMs: Long): Lyrics? {
@@ -632,7 +635,7 @@ object LyricsApi {
         p.setInput(java.io.StringReader(xml))
         fun attr(name: String) = p.getAttributeValue(null, name)
         fun lineKey() = (0 until p.attributeCount).firstOrNull { p.getAttributeName(it).let { n -> n == "key" || n.endsWith(":key") } }?.let { p.getAttributeValue(it) }
-        fun tidy(sb: CharSequence) = sb.toString().replace(Regex("\\s+"), " ").trim()
+        fun tidy(sb: CharSequence) = sb.toString().replace(spaces, " ").trim()
         // Head: only the first translation and the first transliteration, text by line key.
         val headTranslation = HashMap<String, String>(); val headRoman = HashMap<String, String>()
         var translationLanguage: String? = null

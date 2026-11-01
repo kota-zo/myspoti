@@ -58,6 +58,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableLongState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -71,15 +72,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -653,7 +654,9 @@ private fun PanelRow(
     // clears and the old one blurs back in the same short tween. Reduce motion drops blur.
     val focusStep = (if (focusLine < 0) 0 else abs(index - focusLine))
         .coerceAtMost(LINE_FALLOFF_BLUR.lastIndex)
-    val blur by animateDpAsState(
+    // These three animate on every line change: they are read in the row's layer (see `shape`),
+    // so a line settling redraws the rows it touches without recomposing them and their text.
+    val blur = animateDpAsState(
         targetValue = when {
             !synced || !blurOk || browsing || (focusLine >= 0 && index == focusLine) -> 0.dp
             else -> LINE_FALLOFF_BLUR[focusStep]
@@ -661,7 +664,7 @@ private fun PanelRow(
         animationSpec = tween(BLUR_SWITCH_MS, easing = LYRIC_EASING),
         label = "lyricBlur",
     )
-    val lineAlpha by animateFloatAsState(
+    val lineAlpha = animateFloatAsState(
         targetValue = when {
             !synced -> 0.95f
             isActive || selected -> 1f
@@ -697,7 +700,7 @@ private fun PanelRow(
     var pressAt by remember { mutableStateOf(Offset.Zero) }
     var pressWidth by remember { mutableStateOf(0) }
     val density = LocalDensity.current
-    val scale by animateFloatAsState(
+    val scale = animateFloatAsState(
         targetValue = when {
             pressed -> PRESSED_SCALE
             isActive || !synced -> 1f
@@ -722,12 +725,12 @@ private fun PanelRow(
     val shape = Modifier
         .fillMaxWidth()
         .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
+            scaleX = scale.value
+            scaleY = scale.value
             // Anchored to the left edge (the right one for the second singer), so the words don't
             // slide sideways under the highlight.
             transformOrigin = TransformOrigin(if (lane == true) 1f else 0f, 0.5f)
-            alpha = lineAlpha
+            alpha = lineAlpha.value
             // Held back against the list's own movement: the list has already taken this row
             // part of the way, so giving back what it has not earned yet is what leaves it
             // trailing. Rows with nothing to catch up on never read the clock at all.
@@ -740,8 +743,10 @@ private fun PanelRow(
                         LYRIC_EASING.transform(((elapsed - staggerDelay) / run.durationMs).coerceIn(0f, 1f))
                     )
             }
+            // What Modifier.blur does, with its radius read here instead of at composition.
+            val radius = blur.value.toPx()
+            renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
         }
-        .blur(blur, BlurredEdgeTreatment.Unbounded)
         .clip(RoundedCornerShape(10.dp))
         .background(pickedFill)
         .then(if (onNote != null) Modifier.drawWithCache {
@@ -1105,8 +1110,8 @@ private fun GapRow(
     row: PanelLine,
     clock: MutableLongState,
     isActive: Boolean,
-    blur: Dp,
-    lineAlpha: Float,
+    blur: State<Dp>,
+    lineAlpha: State<Float>,
     onSeek: (Long) -> Unit,
 ) {
     val until = row.untilMs
@@ -1136,7 +1141,6 @@ private fun GapRow(
     ) {
         Box(
             modifier = Modifier
-                .blur(blur, BlurredEdgeTreatment.Unbounded)
                 .clip(RoundedCornerShape(10.dp))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                     onSeek(row.timeMs)
@@ -1150,7 +1154,9 @@ private fun GapRow(
                     scaleX = grow
                     scaleY = grow
                     transformOrigin = TransformOrigin(0f, 0.5f)
-                    alpha = lineAlpha * swell
+                    alpha = lineAlpha.value * swell
+                    val radius = blur.value.toPx()
+                    if (radius > 0f) renderEffect = BlurEffect(radius, radius, TileMode.Decal)
                 }
                 .drawBehind {
                     val span = (until - row.timeMs).coerceAtLeast(1L)

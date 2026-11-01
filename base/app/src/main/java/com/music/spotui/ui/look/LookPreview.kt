@@ -94,8 +94,8 @@ import kotlin.math.min
 
 /*
  * The live preview of the onboarding's look step: each look drawn at a real phone's size, then
- * scaled down into a phone frame, playing DemoScript's loop with DemoSong. Small stateless
- * pieces for now; step (d) of docs/style-choix-onboarding.md swaps them for the real players.
+ * scaled down into a phone frame, playing DemoScript's loop with DemoSong. The pieces are small
+ * and stateless on purpose: they never touch the real players, so the step cannot start a song.
  */
 
 private val PhoneW = 360.dp
