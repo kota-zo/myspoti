@@ -63,6 +63,7 @@ object SessionActions {
      */
     fun sessionLost() {
         Logbook.log("session lost without a sign-out: the account is read again at the next session")
+        com.music.spotui.ui.screens.clearMessagesCache()
         com.music.spotui.data.api.ProfileCache.clearSession()
         com.music.spotui.data.LibraryOutbox.signedOut()
     }
