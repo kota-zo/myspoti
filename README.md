@@ -86,7 +86,7 @@ Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta
 
 **And also**
 - Your recap: your top songs, artists and albums, kept on your phone.
-- 11 languages: English, French, German, Spanish, Italian, Portuguese, Brazilian Portuguese, Greek, Russian, Polish and Chinese (Simplified).
+- 69 languages and regional variants, following the phone or picked by hand.
 - Data saver, battery saver, AMOLED black, accent colour.
 
 ## New since 1.1
@@ -151,11 +151,14 @@ News, help and ideas: the [Discord server](https://discord.gg/jXKnGVFnGS). Bugs 
 
 ## For developers
 
-The Android project is in `base/`, split in two:
+The Android project is in `base/`, in seven Gradle modules:
 
 - **`:api`** is the contract the UI talks to: plain Kotlin models and interfaces (player, search, catalog, library, playlists, home, podcasts, users, lyrics, devices, Jam).
 - **`:api-spotify`** implements it on Spotify's Web Player. Playback stays in the official player, in a hidden WebView (`:host-android`), driven by a small bridge script. Catalog, search and library calls go straight to Spotify's servers. When Spotify ships a new Web Player, the app reads its new operation list by itself.
+- **`:host-android`** is that WebView, plus the playback service (media session, notification, Android Auto browsing) and the app's Android-only pieces (logbook, covers).
 - **`:host-cdp`** runs the same API on desktop Chrome, so the whole API is tested against the real Web Player without a phone.
+- **`:extensions`** is the sandbox third-party scripts run in (manifest, permissions, catalogue), plain JVM: an extension runs the same on a desktop. **`:extensions-cli`** is that desktop runner.
+- **`:app`** is the Compose UI, in its Classic and Immersive looks.
 
 More: [`base/api-spotify/README.md`](base/api-spotify/README.md) and [`docs/api`](docs/api).
 

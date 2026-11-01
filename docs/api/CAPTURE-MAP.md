@@ -70,7 +70,6 @@ Free account: no shuffle button on a playlist context in the web UI.
 | Save / unsave album | `addToLibrary` / `removeFromLibrary` |
 | Follow / unfollow artist | `addToLibrary` / `removeFromLibrary` |
 
-## Not captured yet
-
-Remove a track from a playlist, delete a playlist, reorder, Connect to another device,
-podcasts, ads (`ads/v2/config` is fetched at startup).
+Folders, pins, row moves, playlist access and cover, Connect transfer, podcasts, Blend and
+Jam were captured later and are implemented in `base/api-spotify` (`SpotifyLibrary`,
+`SpotifyBlends`, `SpotifyMore`); `ads/v2/config` is fetched at startup.

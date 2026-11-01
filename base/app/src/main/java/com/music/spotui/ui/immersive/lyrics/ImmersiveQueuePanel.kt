@@ -416,6 +416,9 @@ private fun LazyListScope.queueSection(
         val rowNow by rememberUpdatedState(row)
         // What is left of the drop to walk off: the row's drawn position less its slot's.
         val settle = remember { mutableFloatStateOf(0f) }
+        // Hoisted: the drop's settle animates the float, and reading it here would recompose the
+        // row on every frame of it (its translationY is already read in the layer).
+        val settling by remember { derivedStateOf { settle.floatValue != 0f } }
         val scope = rememberCoroutineScope()
         fun settleBack(from: Float) {
             settle.floatValue = from
@@ -442,7 +445,7 @@ private fun LazyListScope.queueSection(
                     }
                 }
                 .then(if (dragged || drag.settling) Modifier else queueMotion())
-                .zIndex(if (dragged || settle.floatValue != 0f) 1f else 0f)
+                .zIndex(if (dragged || settling) 1f else 0f)
                 .graphicsLayer { translationY = (if (dragged) drag.offset else shift * rowPx) + settle.floatValue },
             backgroundContent = {
                 // Drawn only while swiping: the row is transparent, so at rest this × showed

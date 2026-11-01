@@ -34,7 +34,13 @@ object LogMask {
 
     /** [text] redacted, then cut to [max] characters with the number cut. */
     fun shown(text: String, max: Int = 200): String {
-        val clean = redact(text)
-        return if (clean.length <= max) clean else clean.take(max) + "… (+${clean.length - max})"
+        // A bridge answer can be tens of kilobytes (a queue dump, a playlist body) while only the
+        // head is ever read: masking the tail costs milliseconds on the main thread for characters
+        // that are thrown away.
+        val head = text.take(max * 4)
+        val clean = redact(head)
+        if (head.length == text.length && clean.length <= max) return clean
+        val cut = if (head.length == text.length) clean.length else text.length
+        return clean.take(max) + "… (+${cut - max})"
     }
 }

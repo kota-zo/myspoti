@@ -59,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -294,8 +293,6 @@ fun PlayerScreen(navController: NavController) {
             androidx.compose.animation.core.tween((CANVAS_FADE_MS * left).toInt(), easing = androidx.compose.animation.core.FastOutSlowInEasing),
         )
     }
-    val canvasAlpha = canvasProgress.value
-    val coverAlpha = 1f - canvasProgress.value
     // A tap on the Canvas no longer needs its own mode: the immersive view below handles both
     // cases (Canvas playing or plain cover), so the Canvas-only fade ("chrome") is gone.
     // Music video (YouTube, synced to the Spotify playback): looked up for every track
@@ -367,7 +364,9 @@ fun PlayerScreen(navController: NavController) {
                 url = canvasUrl,
                 onFirstFrame = { canvasShown = true },
                 playing = songPlayingState && !showLyrics && !audioBuffering,
-                modifier = Modifier.fillMaxSize().alpha(canvasAlpha),
+                // Read in the layer: the fade then changes the alpha only, without recomposing
+                // the whole player for each of its frames.
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = canvasProgress.value },
             )
             // Darker than the clip itself while the player shows over it, so the text reads;
             // gone when the Canvas is shown alone.
@@ -376,7 +375,7 @@ fun PlayerScreen(navController: NavController) {
                     .fillMaxSize()
                     // Lighter dim in the immersive view: the clip is the page there, only the
                     // compact strip needs something to sit on.
-                    .alpha(canvasAlpha * if (immersive) 0.35f else 1f)
+                    .graphicsLayer { alpha = canvasProgress.value * if (immersive) 0.35f else 1f }
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -519,8 +518,9 @@ fun PlayerScreen(navController: NavController) {
                             // Normal layout keeps the inset, rounded cover.
                             else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
                             .graphicsLayer {
-                                alpha = coverAlpha
-                                val grow = 1f + (1f - coverAlpha) * 0.06f
+                                val shown = 1f - canvasProgress.value
+                                alpha = shown
+                                val grow = 1f + (1f - shown) * 0.06f
                                 scaleX = grow; scaleY = grow
                             },
                         model = app.myspoti.host.android.Covers.large(cover),
@@ -531,7 +531,7 @@ fun PlayerScreen(navController: NavController) {
                         blend,
                         (if (immersive) Modifier.fillMaxSize()
                             else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
-                            .graphicsLayer { alpha = coverAlpha },
+                            .graphicsLayer { alpha = 1f - canvasProgress.value },
                     )
                 }
             }

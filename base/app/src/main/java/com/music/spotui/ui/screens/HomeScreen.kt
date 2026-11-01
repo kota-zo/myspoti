@@ -161,7 +161,7 @@ fun HomeFeedContent(navController: NavController, feed: HomeFeedModel, facet: St
     // section the web home starts with — if the feed leads with a titled section
     // ("Jump back in", "Made For …"), it renders as a titled carousel first,
     // not force-squeezed into the grid.
-    // Podcasts are off for now: their shows and episodes leave the feed.
+    // With podcasts off, their shows and episodes leave the feed (and a section left empty goes).
     // Kept between recompositions: a new list for every one of them would restart the rows below.
     val hideDj = com.music.spotui.data.preferences.HideDjPref.on
     val sections = remember(feed, hideDj) {

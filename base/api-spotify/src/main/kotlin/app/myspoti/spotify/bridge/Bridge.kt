@@ -105,7 +105,9 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
             if (type == "state") {
                 val s = msg["state"] as? JsonObject
                 val line = "page state: " + (s?.get("track") as? JsonObject)?.get("name") + " paused=" + s?.get("isPaused") + " buffering=" + s?.get("isBuffering")
-                if (stateWorthLogging(line, s?.get("track")?.toString() + s?.get("isPaused"))) log(line)
+                // The track's uri, not the whole track: serializing it here cost more than the line.
+                val key = ((s?.get("track") as? JsonObject)?.get("uri") as? JsonPrimitive)?.contentOrNull + s?.get("isPaused")
+                if (stateWorthLogging(line, key)) log(line)
             } else if (type == "result") {
                 // Results are logged by call(); never write their values (tokens) here.
             } else if (type == "net" && !netWorthLogging(msg)) {
