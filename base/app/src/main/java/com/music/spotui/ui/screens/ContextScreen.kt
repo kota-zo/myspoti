@@ -505,6 +505,11 @@ class ContextViewModel(
         // Sorted by the user: Spotify plays the list in that order, not the playlist's. An
         // artist's liked songs are a part of Liked Songs: always given, so only they play.
         val order = if (sort.isCustom && p.type != "liked-artist") null else sort.apply(p.tracks).filter { it.spotifyTrackId.isNotBlank() }.map { "spotify:track:${it.spotifyTrackId}" }
+        // Myspoti's shuffle (an option): with shuffle on, every song of the list once, in an order of its own.
+        if (com.music.spotui.di.AppShuffle.play(p, song, order)) {
+            state.updateSongState(song.coverUri, song.title, song.singer, true, song.id, 0, song.album)
+            return
+        }
         if (order != null) state.updateQueue(sort.apply(p.tracks))
         // The audio-source extensions were asked already (or the phone is offline): Spotify plays.
         SongPlayer.playSong(song.url, contextUri = p.uri, order = order, askExtensions = false)
@@ -552,6 +557,10 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
     var menuSong by remember { mutableStateOf<SongsModel?>(null) }
     // "Find in Liked Songs / in playlist".
     var find by remember { mutableStateOf("") }
+    // A song tapped in the found rows puts the keyboard away; the search and the list stay as they are.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val dismissKeyboard = { keyboard?.hide(); focusManager.clearFocus() }
     // "Sort by" for the list, kept per list (also after leaving it or restarting the app).
     val ctx = LocalContext.current
     var sort by remember(p.uri) { mutableStateOf(TrackOrder.load(ctx, p.uri)) }
@@ -675,14 +684,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
     val shown by remember(p, find, sort) {
         derivedStateOf {
             val found = if (findable) all.filter { com.music.spotui.ui.components.matchesFind(find, it.title, it.singer, it.album) } else all
-            val list = if (findable) sort.apply(found) else found
-            val seen = HashMap<String, Int>()
-            list to list.map { s ->
-                val id = s.id.toString()
-                val n = (seen[id] ?: 0) + 1
-                seen[id] = n
-                if (n == 1) id else "$id#$n"
-            }
+            com.music.spotui.ui.components.withRowKeys(if (findable) sort.apply(found) else found) { it.id.toString() }
         }
     }
     val rows = shown.first
@@ -984,10 +986,10 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                 song = song,
                 showCover = p.type != "album",
                 isCurrent = song.id == currentSongId,
-                saved = SongPlayer.library["spotify:track:${song.spotifyTrackId}"] ?: ("spotify:track:${song.spotifyTrackId}" in saved),
+                saved = com.music.spotui.di.trackSaved(song.spotifyTrackId, saved),
                 offline = com.music.spotui.data.offline.OfflineStore.statusOf(song.spotifyTrackId),
                 addedBy = vm.adders.value.let { a -> a["row:" + song.rowUid] ?: a["song:" + song.spotifyTrackId] },
-                onClick = { if (SmartShuffle.on.value == p.uri) vm.playSmart(p, song) else vm.play(p, song, sort) },
+                onClick = { dismissKeyboard(); if (SmartShuffle.on.value == p.uri) vm.playSmart(p, song) else vm.play(p, song, sort) },
                 onMore = { menuSong = song },
             ) }
         }
@@ -1256,7 +1258,8 @@ private fun TrackRow(
         horizontalArrangement = Arrangement.Start,
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (song.playable) Modifier else Modifier.alpha(0.4f))
+            // A song marked "Not interested" is dimmed too (lists skip it; a tap still plays it).
+            .then(if (song.playable && !com.music.spotui.data.preferences.HiddenSongs.isHidden(song.spotifyTrackId)) Modifier else Modifier.alpha(0.4f))
             .clickable {
                 onClick()
                 // Spotify's playability flag is per market and can be wrong (testers heard greyed

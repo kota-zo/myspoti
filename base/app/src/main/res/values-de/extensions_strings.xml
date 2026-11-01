@@ -218,6 +218,10 @@
     <string name="extension_sign_in_later">Nicht jetzt</string>
     <string name="extension_sign_in_needed">%1$s: Melde dich an, um seine Quelle weiter zu nutzen</string>
     <string name="outcome_bug">Fehler der Erweiterung</string>
+    <string name="ext_section_settings">Einstellungen von %1$s</string>
+    <string name="ext_setting_wifi">%1$s · WLAN</string>
+    <string name="ext_setting_cell">%1$s · Mobile Daten</string>
+    <string name="why_source_ext_quality">Ihre Einstellung: %1$s (%2$s)</string>
     <string name="outcome_found">gefunden</string>
     <string name="outcome_network">Netzwerkfehler oder Zeitüberschreitung</string>
     <string name="outcome_not_found">nicht gefunden</string>

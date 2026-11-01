@@ -321,9 +321,14 @@ class FailureCounter(private val limit: Int = 3) {
     @Synchronized fun reset(id: String) { inARow.remove(id) }
 }
 
+/**
+ * Replaces [file] whole (see [com.music.spotui.data.writeTextSafely]); the old file is never deleted to
+ * make room. A write that fails throws, as before; a move that fails keeps the old file and is only logged.
+ */
 internal fun writeAtomically(file: File, text: String) {
-    file.parentFile?.mkdirs()
-    val tmp = File(file.parentFile, file.name + ".tmp")
-    tmp.writeText(text)
-    if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+    try {
+        com.music.spotui.data.writeTextSafely(file, text, sync = false)
+    } catch (e: com.music.spotui.data.NotReplacedException) {
+        runCatching { app.myspoti.host.android.Logbook.log("ext: ${e.message}, the old copy kept") }
+    }
 }

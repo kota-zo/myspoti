@@ -60,12 +60,24 @@ class Api constructor(
         const val DISCOGRAPHY_MAX = 300
         /** Sentinel id for the pinned "Liked Songs" library entry. */
         const val LIKED_SONGS_ID = "liked-songs"
+        /** The Liked Songs artwork, as the library and the home shortcuts draw it. */
+        const val LIKED_COVER = "https://misc.scdn.co/liked-songs/liked-songs-640.png"
         /** The "Local Files" folder pinned under Liked Songs in the library (not a Spotify item). */
         const val LOCAL_FILES_ID = "local-files"
         /** "Downloaded" (songs kept for offline listening), pinned under Local Files. */
         const val DOWNLOADS_ID = "downloads"
         /** "Your Episodes" (saved podcast episodes). */
         const val EPISODES_ID = "your-episodes"
+        /** Prefix of the library id of a followed show in the Podcasts chip (a plain show id otherwise). */
+        const val SHOW_PREFIX = "show:"
+        /** "New episodes" (unplayed episodes of the followed shows), first of the Podcasts chip's shows. */
+        const val NEW_EPISODES_ID = "new-episodes"
+        /** Episodes asked for each followed show by the new episodes list, and the most it keeps. */
+        private const val NEW_PER_SHOW = 3
+        private const val NEW_EPISODES_MAX = 60
+        /** The new episodes list is asked for again only after this long (the shows are many queries). */
+        private const val NEW_EPISODES_TTL_MS = 30 * 60_000L
+        @Volatile var newEpisodes: Pair<Long, List<SongsModel>>? = null
         /** "Recently played": Spotify's own list for the account, pinned in the library. */
         const val RECENT_ID = "recently-played"
         /** Pages of 50 asked for a show's episodes / chapters, at most (500 rows). */
@@ -89,7 +101,7 @@ class Api constructor(
         fun clear() {
             PlaylistFresh.drop(null)
             albums = null; artists = null; home = null; library = null
-            libraryRoot = null; folders.clear()
+            libraryRoot = null; folders.clear(); newEpisodes = null
             facets.clear()
             LikedCache.tracks = null
             ArtistCache.map.clear()
@@ -263,8 +275,6 @@ class Api constructor(
         }
     }
 
-    private val LIKED_COVER = "https://misc.scdn.co/liked-songs/liked-songs-640.png"
-
     private fun likedEntry() = LibraryEntry(
         spotifyId = LIKED_SONGS_ID,
         name = context.getString(R.string.collection_liked_songs_title),
@@ -309,6 +319,49 @@ class Api constructor(
             offset = page.nextOffset ?: break
         }
         return out
+    }
+
+    /**
+     * Every show the user follows (library "Podcasts" filter), as library rows. The list is read
+     * page after page to its end: the Home podcasts shelf holds only the first 20.
+     */
+    suspend fun getFollowedShows(): List<LibraryEntry> {
+        if (!ready()) return emptyList()
+        val out = ArrayList<LibraryEntry>()
+        var offset = 0
+        while (true) {
+            val page = runCatching { api.library.items(filter = LibraryFilter.PODCASTS, offset = offset, limit = 50) }.getOrNull() ?: break
+            page.items.filter { it.kind == MediaKind.SHOW }.forEach {
+                out += LibraryEntry(SHOW_PREFIX + it.uri.substringAfterLast(':'), it.name,
+                    context.getString(R.string.album_type_podcast) + (it.subtitle?.let { s -> " • $s" } ?: ""), cover(it.images), isPlaylist = false)
+            }
+            offset = page.nextOffset ?: break
+        }
+        if (out.isEmpty()) return out
+        val news = LibraryEntry(NEW_EPISODES_ID, context.getString(R.string.new_episodes_title), context.getString(R.string.new_episodes_subtitle),
+            out.first().coverUri, isPlaylist = true)
+        return listOf(news) + out
+    }
+
+    /**
+     * The episodes not played yet of the shows the user follows, newest first: the show page's own
+     * episodes query, asked for the latest few of each show, four shows at a time. Kept for half
+     * an hour, so opening the screen again asks nothing.
+     */
+    suspend fun getNewEpisodes(): List<SongsModel> {
+        if (!ready()) return emptyList()
+        newEpisodes?.let { (at, list) -> if (System.currentTimeMillis() - at < NEW_EPISODES_TTL_MS) return list }
+        val shows = getFollowedShows().filter { it.spotifyId.startsWith(SHOW_PREFIX) }.map { it.spotifyId.removePrefix(SHOW_PREFIX) }
+        val gate = kotlinx.coroutines.sync.Semaphore(PLAYLIST_PARALLEL)
+        val found = coroutineScope {
+            shows.map { id ->
+                async(Dispatchers.IO) { gate.withPermit { runCatching { api.podcasts.episodes("spotify:show:$id", 0, NEW_PER_SHOW).items }.getOrDefault(emptyList()) } }
+            }.map { it.await() }.flatten()
+        }
+        val list = found.map(::episodeSong).filter { !it.played && it.releaseDate.isNotBlank() }
+            .sortedByDescending { it.releaseDate }.take(NEW_EPISODES_MAX)
+        if (list.isNotEmpty()) newEpisodes = System.currentTimeMillis() to list
+        return list
     }
 
     /** The user's top artists. */
@@ -1043,7 +1096,7 @@ class Api constructor(
         )
         MediaKind.PLAYLIST -> LibraryEntry(item.uri.substringAfterLast(':'), item.name,
             context.getString(R.string.assisted_curation_search_playlist) + (item.subtitle?.let { " • $it" } ?: ""), cover(item.images), isPlaylist = true,
-            uri = item.uri, pinned = item.pinned, addedAt = item.addedAt.orEmpty())
+            uri = item.uri, pinned = item.pinned, addedAt = item.addedAt.orEmpty(), ownerUri = item.ownerUri.orEmpty())
         MediaKind.ALBUM -> LibraryEntry(item.uri.substringAfterLast(':'), item.name,
             context.getString(R.string.album_type_album) + (item.subtitle?.let { " • $it" } ?: ""), cover(item.images), isPlaylist = false, artists = item.subtitle.orEmpty(),
             uri = item.uri, pinned = item.pinned, addedAt = item.addedAt.orEmpty())

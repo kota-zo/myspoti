@@ -7,7 +7,7 @@
 **Spotify without ads, on a free account.** Your own Spotify account, playlists and Wrapped, in a native Android app that blocks the ads, with offline downloads through extensions you install.
 
 <p align="center">
-  <img src="docs/screenshots/banner.jpg" alt="Myspoti: home, player, artist and album screens" width="100%">
+  <img src="docs/screenshots/banner.jpg" alt="Myspoti in its two looks: the Immersive home and player, the Classic player and an artist page" width="100%">
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://ko-fi.com/kotazo"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Support Myspoti on Ko-fi" height="56"></a>
+  <a href="https://ko-fi.com/myspoti"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Support Myspoti on Ko-fi" height="56"></a>
   <a href="https://github.com/sponsors/kota-zo"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor kota-zo on GitHub" height="56"></a>
 </p>
 
@@ -44,12 +44,20 @@ Under the hood, the official Spotify Web Player plays the music, hidden inside t
 
 New versions are offered inside the app: one tap downloads and installs them.
 
+Each release carries one APK per architecture: `arm64-v8a` for almost every phone from the last ten years, `armeabi-v7a` for older or entry-level 32-bit phones (an app such as CPU-Z or Device Info shows which one yours is; when in doubt, take `arm64-v8a`, and if it refuses to install, `armeabi-v7a`). The in-app update picks the right one by itself.
+
+Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta app are two apps and each release carries their APKs named for the channel and the architecture):
+- **Stable** (`app.myspoti.stable`): leave "Include prereleases" off and set the APK filter to `^myspoti-stable-.*-arm64-v8a\.apk$` (or `-armeabi-v7a` on a 32-bit phone).
+- **Beta** (`app.myspoti`): turn "Include prereleases" on and set the APK filter to `^myspoti-beta-.*-arm64-v8a\.apk$` (or `-armeabi-v7a` on a 32-bit phone).
+- Betas are named `<next version>-beta.<n>` (`2.2.1-beta.1`, then `2.2.1-beta.2`...), marked prerelease on GitHub, and always newer than the last stable.
+
 ## What you get
 
 **Listening**
 - No ads (see above).
 - Home, search, Browse, New releases, Your Library with folders, artist, album, playlist and profile pages, with Spotify's own content.
-- Pick any song: shuffle, Smart Shuffle, the queue (drag to reorder), repeat, crossfade, sleep timer.
+- Pick any song: shuffle (Spotify's, or Myspoti's own that plays every song once before any repeats), Smart Shuffle, the queue (drag to reorder), repeat (all, the song for good, the song once), crossfade, sleep timer.
+- For extension, downloaded and device songs: a 10-band **equalizer** with presets, playback speed and skip silence; **Stats for nerds** shows the codec, sample rate, bit depth, bitrate and output of what plays.
 - Podcasts and audiobooks, with their own player (speed, ±15 s, mark as played).
 - Spotify Connect, Jam, Bluetooth with your headphones' name, lock screen, notification, widget and Android Auto.
 
@@ -73,11 +81,12 @@ New versions are offered inside the app: one tap downloads and installs them.
 - Scripts written by other people, in a sandbox: lyrics from other sources, where a song's audio or download comes from, Home sections, menu entries, tools that use your Spotify account.
 - Installing shows what an extension will do (each action with its author's reason, the critical ones marked) and asks for one tick: you install it on your own responsibility. An extension gets every action it lists, or is not installed; an update that asks for more waits for your OK and shows only what changes.
 - With an audio-source extension on, every song you play (from a list, search, an artist, Recents, a link or shuffle) is asked there first, and plays on Spotify when it has nothing.
+- An extension can bring its own settings to Settings, Playback or Downloads (its quality, per network if it likes): the first source of the order shows its own, and an extension above Spotify replaces Spotify's quality settings there.
 - For authors: [the extensions API](docs/extensions/API.md), and a desktop runner to test without a phone.
 
 **And also**
 - Your recap: your top songs, artists and albums, kept on your phone.
-- 10 languages: English, French, German, Spanish, Italian, Portuguese, Greek, Russian, Polish and Chinese (Simplified).
+- 11 languages: English, French, German, Spanish, Italian, Portuguese, Brazilian Portuguese, Greek, Russian, Polish and Chinese (Simplified).
 - Data saver, battery saver, AMOLED black, accent colour.
 
 ## New since 1.1
@@ -99,9 +108,19 @@ Every change is in the [changelog](CHANGELOG.md).
 
 ## Screenshots
 
+Two looks, switched in Settings, Display.
+
+**Immersive**
+
+| Home | Player |
+|:---:|:---:|
+| <img src="docs/screenshots/immersive-home.jpg" width="200" alt="Immersive home"> | <img src="docs/screenshots/immersive-player.jpg" width="200" alt="Immersive player"> |
+
+**Classic**
+
 | Home | Player | Artist | Album |
 |:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/home.jpg" width="200" alt="Home"> | <img src="docs/screenshots/player.jpg" width="200" alt="Player"> | <img src="docs/screenshots/artist.jpg" width="200" alt="Artist"> | <img src="docs/screenshots/album.jpg" width="200" alt="Album"> |
+| <img src="docs/screenshots/home.jpg" width="200" alt="Classic home"> | <img src="docs/screenshots/player.jpg" width="200" alt="Classic player"> | <img src="docs/screenshots/artist.jpg" width="200" alt="Artist"> | <img src="docs/screenshots/album.jpg" width="200" alt="Album"> |
 
 ## Questions
 
@@ -109,7 +128,7 @@ Every change is in the [changelog](CHANGELOG.md).
 
 **"Spotify refused to play this"?** Some new or free accounts get refused by Spotify. Settings → **Export a diagnostic report** and send it on [Discord](https://discord.gg/jXKnGVFnGS) or in an [issue](https://github.com/kota-zo/myspoti/issues): it holds the app's recent log (what Spotify answered) and your phone's model, never your password or your login tokens.
 
-**Do downloads count in my Wrapped?** No. Songs played from a download are not reported to Spotify; they count in Myspoti's own recap only. Streamed songs and music videos count as usual.
+**Do downloads count in my Wrapped?** They always count in Myspoti's own recap. With **Sync downloaded songs with Spotify** (Settings → Playback, on by default), a downloaded song played online also plays muted on Spotify so your other devices see and control it; whether Spotify counts that play is up to Spotify and not guaranteed. Offline, or with the setting off, the file plays only from the phone and nothing is reported. Streamed songs and music videos count as usual.
 
 **What leaves my phone?** Your plays go to Spotify. Lyrics are looked up on lyrics sites, song meanings on Genius, translations on Google Translate, music videos on YouTube, and downloads on the hosts your download-source extension names (shown before you install it). Nothing is sent to the developer.
 
@@ -126,7 +145,7 @@ Not affiliated with or endorsed by Spotify. Spotify is a trademark of Spotify AB
 
 ## Support
 
-Myspoti is free, has no ads and is made in my spare time. If you enjoy it, you can support it on [Ko-fi](https://ko-fi.com/kotazo) or [GitHub Sponsors](https://github.com/sponsors/kota-zo), also from **About** in the app. Nothing is locked behind a donation.
+Myspoti is free, has no ads and is made in my spare time. If you enjoy it, you can support it on [Ko-fi](https://ko-fi.com/myspoti) or [GitHub Sponsors](https://github.com/sponsors/kota-zo), also from **About** in the app. Nothing is locked behind a donation.
 
 News, help and ideas: the [Discord server](https://discord.gg/jXKnGVFnGS). Bugs and requests: [GitHub issues](https://github.com/kota-zo/myspoti/issues).
 
@@ -155,7 +174,7 @@ google-chrome --user-data-dir="$HOME/.myspoti-chrome" --remote-debugging-port=92
 ./gradlew :host-cdp:test -Pcdp=http://localhost:9222
 ```
 
-Every push builds and tests on GitHub Actions. A `v*` tag publishes a signed APK in Releases.
+Every push builds and tests on GitHub Actions. A `vX.Y.Z` tag publishes a stable APK in Releases and a `vX.Y.Z-beta.N` tag a beta one (a prerelease, `tools/check_tag.py` checks the number).
 
 ## Credits
 

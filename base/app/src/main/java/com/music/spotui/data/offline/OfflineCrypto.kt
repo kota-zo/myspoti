@@ -146,6 +146,8 @@ object OfflineCrypto {
         /** The song's first bytes read ahead ([StreamHead]), served before [other] goes on from their end. */
         private var head: ByteArray? = null
         private var headAt = 0
+        private var transformed: java.io.InputStream? = null
+        private var transformedLeft = C.LENGTH_UNSET.toLong()
 
         override fun open(dataSpec: DataSpec): Long {
             uri = dataSpec.uri
@@ -213,6 +215,26 @@ object OfflineCrypto {
             active = net
             val spec = dataSpec.buildUpon().setUri(Uri.parse(stream.url))
                 .setHttpRequestHeaders(dataSpec.httpRequestHeaders + stream.headers).build()
+            stream.transform?.let { transform ->
+                val aligned = dataSpec.position / transform.segmentBytes * transform.segmentBytes
+                val skip = dataSpec.position - aligned
+                val available = net.open(spec.buildUpon().setPosition(aligned).setLength(C.LENGTH_UNSET.toLong()).build())
+                val input = object : java.io.InputStream() {
+                    override fun read(): Int {
+                        val b = ByteArray(1)
+                        return if (net.read(b,0,1) < 0) -1 else b[0].toInt() and 255
+                    }
+                    override fun read(b: ByteArray, off: Int, len: Int) = net.read(b,off,len)
+                }
+                val decoded = app.myspoti.extensions.PatternedBlowfish.open(input,transform,aligned)
+                var leftToSkip = skip
+                while (leftToSkip-- > 0) if (decoded.read() < 0) throw java.io.EOFException("transform: seek past end")
+                transformed = decoded
+                val rest = if (available == C.LENGTH_UNSET.toLong()) available else (available-skip).coerceAtLeast(0)
+                transformedLeft = if (dataSpec.length == C.LENGTH_UNSET.toLong()) rest else
+                    if (rest == C.LENGTH_UNSET.toLong()) dataSpec.length else minOf(rest,dataSpec.length)
+                return transformedLeft
+            }
             val ahead = if (dataSpec.position == 0L && dataSpec.length == C.LENGTH_UNSET.toLong())
                 StreamHead.take(dataSpec.uri.lastPathSegment.orEmpty(), stream.url) else null
             if (ahead != null) {
@@ -245,6 +267,14 @@ object OfflineCrypto {
         }
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            transformed?.let { decoded ->
+                if (length == 0) return 0
+                if (transformedLeft == 0L) return C.RESULT_END_OF_INPUT
+                val want = if (transformedLeft == C.LENGTH_UNSET.toLong()) length else minOf(length.toLong(),transformedLeft).toInt()
+                val n = decoded.read(buffer,offset,want)
+                if (n > 0 && transformedLeft != C.LENGTH_UNSET.toLong()) transformedLeft -= n
+                return n
+            }
             head?.let { h ->
                 if (headAt < h.size) {
                     if (length == 0) return 0
@@ -280,6 +310,7 @@ object OfflineCrypto {
 
         override fun close() {
             head = null
+            transformed?.close(); transformed = null
             if (usingOther) { usingOther = false; active.close(); return }
             if (dash != null) { dash = null; if (uri != null) { uri = null; transferEnded() }; return }
             raf?.close(); raf = null; cipher = null

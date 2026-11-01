@@ -18,6 +18,7 @@
     <string name="immersive_player_repeat_off">Powtarzanie: wyłączone</string>
     <string name="immersive_player_repeat_all">Powtarzanie: wszystko</string>
     <string name="immersive_player_repeat_one">Powtarzanie: jeden utwór</string>
+    <string name="immersive_player_repeat_once">Powtórz raz</string>
     <string name="immersive_player_volume_down">Ciszej</string>
     <string name="immersive_player_volume_up">Głośniej</string>
     <string name="immersive_player_ad">Reklama</string>

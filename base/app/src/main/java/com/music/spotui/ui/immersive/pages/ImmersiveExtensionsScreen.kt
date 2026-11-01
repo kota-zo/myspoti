@@ -82,8 +82,8 @@ import com.music.spotui.ui.screens.installedRoute
 import com.music.spotui.ui.screens.offer
 import com.music.spotui.ui.screens.rememberEnabler
 import com.music.spotui.ui.screens.rememberPackagePicker
+import com.music.spotui.ui.screens.rowRoute
 import com.music.spotui.ui.screens.stateLine
-import com.music.spotui.ui.screens.storeRoute
 import com.music.spotui.ui.screens.toastError
 import kotlinx.coroutines.launch
 
@@ -176,7 +176,7 @@ fun ImmersiveExtensionsScreen(navController: NavController) {
                     entries.forEach { entry ->
                         row {
                             StoreRow(url, entry, Store.action(entry, installedCodes[entry.id], appVersion), entry.id in busy, registry,
-                                onOpen = { navController.navigate(storeRoute(entry.id)) },
+                                onOpen = { navController.navigate(rowRoute(entry.id, entry.id in installedCodes)) },
                                 onInstall = { scope.launch { installFromStore(ctx, url, entry) } },
                                 onInstalled = { navController.navigate(installedRoute(entry.id)) })
                         }
@@ -191,7 +191,7 @@ fun ImmersiveExtensionsScreen(navController: NavController) {
                         row {
                             val entry = r.item
                             StoreRow(app.myspoti.extensions.Discovery.SOURCE, entry, Store.action(entry, installedCodes[entry.id], appVersion), entry.id in busy, registry,
-                                onOpen = { navController.navigate(storeRoute(entry.id)) },
+                                onOpen = { navController.navigate(rowRoute(entry.id, entry.id in installedCodes)) },
                                 onInstall = { scope.launch { installFromStore(ctx, app.myspoti.extensions.Discovery.SOURCE, entry) } },
                                 onInstalled = { navController.navigate(installedRoute(entry.id)) },
                                 rating = r.rating, hidden = app.myspoti.extensions.Ranking.hidden(r, blocks, System.currentTimeMillis()) != null)

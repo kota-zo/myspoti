@@ -14,7 +14,7 @@ object AppLanguage {
     val AVAILABLE: List<String> = listOf(SYSTEM) + listOf(
         "af", "am", "ar", "az", "bg", "bn", "bs", "ca", "cs", "da", "de", "el", "en", "en-GB", "es", "es-AR", "es-MX",
         "et", "eu", "fa", "fi", "fr", "fr-CA", "gl", "gu", "hi", "hr", "hu", "id", "is", "it", "he", "ja", "kn", "ko",
-        "lt", "lv", "mk", "ml", "mr", "ms", "nb", "ne", "nl", "or", "pa", "pl", "pt", "pt-PT", "ro", "ru", "sk", "sl",
+        "lt", "lv", "mk", "ml", "mr", "ms", "nb", "ne", "nl", "or", "pa", "pl", "pt", "pt-BR", "pt-PT", "ro", "ru", "sk", "sl",
         "sr", "sv", "sw", "ta", "te", "th", "tl", "tr", "uk", "ur", "vi", "zh", "zh-HK", "zh-TW", "zu",
     ).sortedBy { nativeName(it).lowercase() }
 

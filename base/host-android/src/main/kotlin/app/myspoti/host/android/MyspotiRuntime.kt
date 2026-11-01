@@ -52,6 +52,8 @@ object MyspotiRuntime {
         scope.launch {
             var last = ""
             var planLogged = false
+            // A login page or an anonymous session seen in this run: the sign-in that follows is new.
+            var sawSignedOut = false
             // A page that loaded but whose player never became ready (no bridge, a script that
             // failed): loaded again, after 60 s, then twice as long each time, up to 10 min.
             var notReadySince = 0L
@@ -73,6 +75,7 @@ object MyspotiRuntime {
                 // (402) needs. No name, no id — only what decides what the account may play.
                 if (!planLogged && spotify.ready.value && runCatching { isSignedIn() }.getOrDefault(false)) {
                     planLogged = true
+                    host.noteSignedIn(fresh = sawSignedOut)
                     runCatching {
                         val a = spotify.raw.gql("accountAttributes", kotlinx.serialization.json.buildJsonObject { })
                             .let { (it as kotlinx.serialization.json.JsonObject)["data"] as kotlinx.serialization.json.JsonObject }
@@ -91,6 +94,7 @@ object MyspotiRuntime {
                     // The token in hand: a fresh one every 10 s held every request behind the page's answer.
                     else -> when (spotify.signedInHint()) { true -> "signed-in"; false -> "anonymous"; null -> "unknown" }
                 }
+                if (session == "login-page" || session == "anonymous") sawSignedOut = true
                 val line = "status ready=${spotify.ready.value} session=$session " +
                     "track=${s?.item?.name} paused=${s?.isPaused} buffering=${s?.isBuffering} url=${host.url.value.take(60)}"
                 if (line != last) {

@@ -68,4 +68,34 @@ class BridgeMessagesTest {
         bridge.ready.first { it }
         assertEquals(JsonPrimitive(1), bridge.call("bridge.version", timeoutMs = 2_000))
     }
+
+    /** A host that tells what the page made of each script: [value], or a failure to run it. */
+    private class TellingHost(val value: () -> String?) : BridgeHost {
+        override val messages = MutableSharedFlow<String>(extraBufferCapacity = 64)
+        val scripts = mutableListOf<String>()
+        override suspend fun evaluate(script: String) { scripts += script }
+        override suspend fun evaluateValue(script: String): String? { scripts += script; return value() }
+    }
+
+    @Test fun `a call that cannot reach the page fails at once, not after its timeout`() = runBlocking {
+        for (host in listOf(TellingHost { "false" }, TellingHost { throw IllegalStateException("view destroyed") })) {
+            val bridge = Bridge(host, scope)
+            val started = System.currentTimeMillis()
+            assertThrows(BridgeException::class.java) { runBlocking { bridge.call("bridge.version", timeoutMs = 5_000) } }
+            assertEquals(true, System.currentTimeMillis() - started < 1_000)
+        }
+    }
+
+    @Test fun `a call is made for the page of its generation`() = runBlocking {
+        val host = TellingHost { "true" }
+        val bridge = Bridge(host, scope)
+        host.messages.subscriptionCount.first { it > 0 }
+        bridge.pageGone()
+        bridge.inject()
+        host.messages.emit("""{"type":"ready","version":1}""")
+        bridge.ready.first { it }
+        runCatching { bridge.call("bridge.version", timeoutMs = 50) }
+        assertEquals(true, host.scripts.first().startsWith("window.__mspPage = 1;"))
+        assertEquals(true, "window.__mspPage === 1)" in host.scripts.last())
+    }
 }

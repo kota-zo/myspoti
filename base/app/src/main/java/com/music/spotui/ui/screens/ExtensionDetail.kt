@@ -295,7 +295,7 @@ fun ExtensionScreen(navController: NavController, id: String) {
         if (m.settings.isNotEmpty()) {
             ExtDivider()
             ExtSection(R.string.extension_settings)
-            m.settings.forEach { s -> SettingEditor(id, s) }
+            m.settings.forEach { s -> networkEditors(id, s).forEach { SettingEditor(id, it) } }
         }
         ExtDivider()
         ExtSection(R.string.extension_details)
@@ -381,6 +381,32 @@ internal fun saveSetting(id: String, s: Setting, v: String) {
         else -> JsonPrimitive(v).toString()
     }
     Extensions.setSetting(id, s.key, json)
+}
+
+/**
+ * A setting as the editors it is shown with: itself, or for a per-network one
+ * ([Setting.splitsByNetwork]) its Wi-Fi value (kept under its key) and its mobile data value (kept
+ * under [Setting.cellKey], showing the Wi-Fi value until it is set, as `myspoti.settings.get` reads it).
+ */
+@Composable
+internal fun networkEditors(id: String, s: Setting): List<Setting> {
+    if (!s.splitsByNetwork) return listOf(s)
+    val wifi = Extensions.settingValues(id)[s.key]?.let { runCatching { kotlinx.serialization.json.Json.parseToJsonElement(it) }.getOrNull() }
+    return listOf(
+        s.copy(label = stringResource(R.string.ext_setting_wifi, s.label)),
+        s.copy(key = Setting.cellKey(s.key), label = stringResource(R.string.ext_setting_cell, s.label), default = wifi ?: s.default),
+    )
+}
+
+/**
+ * An extension's settings announced in Settings → Playback or Downloads (manifest `section`),
+ * under a discreet "<name> settings", drawn as on its page.
+ */
+@Composable
+internal fun ExtensionSectionSettings(p: com.music.spotui.extensions.SectionPlacement) {
+    Text(stringResource(R.string.ext_section_settings, p.name), color = AppMuted, fontSize = 12.sp,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 2.dp))
+    p.settings.forEach { s -> networkEditors(p.extensionId, s).forEach { SettingEditor(p.extensionId, it) } }
 }
 
 /** One of the extension's options (manifest `settings`), saved as JSON as it changes. */

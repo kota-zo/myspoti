@@ -26,6 +26,8 @@ data class PlayAttempt(
     val chosen: String? = null,
     /** What the chosen one announced ("FLAC · 24-bit · 96 kHz"), or null. */
     val announced: String? = null,
+    /** The chosen one's own quality setting (`role: quality`) when it played, "Quality: FLAC", or null. */
+    val sourceQuality: String? = null,
     /** How its address opened in the player (the last try). */
     val open: Open? = null,
     /** What the player's decoder reported ("audio/flac · 44.1 kHz · 2 ch"), or null. */
@@ -60,6 +62,7 @@ data class PlayAttempt(
         }))
         put("chosen", chosen?.let(::JsonPrimitive) ?: JsonNull)
         announced?.let { put("announced", JsonPrimitive(it)) }
+        sourceQuality?.let { put("sourceQuality", JsonPrimitive(it)) }
         open?.let { o ->
             put("open", JsonObject(buildMap<String, JsonElement> {
                 put("ok", JsonPrimitive(o.ok))
@@ -84,6 +87,7 @@ data class PlayAttempt(
         append(chosen?.let { " -> $it" } ?: " -> none")
         open?.let { o -> append("; open ${if (o.ok) "ok" else "failed"} ${o.ms} ms" + (o.httpStatus?.let { " HTTP $it" } ?: "") + (o.error?.let { " ${maskText(it).take(120)}" } ?: "")) }
         announced?.let { append("; announced $it") }
+        sourceQuality?.let { append("; its setting $it") }
         detected?.let { append("; detected $it") }
         fallback?.let { append("; fallback ${maskText(it)}") }
         error?.let { append("; error ${maskText(it).take(160)}") }

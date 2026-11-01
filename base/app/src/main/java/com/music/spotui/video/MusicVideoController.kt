@@ -873,8 +873,10 @@ object MusicVideoController {
                     !com.music.spotui.di.LocalPlayer.active.value
                 hush(sounding)
                 p.volume = if (hushed) 1f else 0f
+                // The song's own speed (the local player's setting; Spotify's songs play at 1×): the clip keeps up with it.
+                val rate = if (com.music.spotui.di.LocalPlayer.active.value) com.music.spotui.di.LocalPlayer.rate() else 1f
                 if (!shown) {
-                    if (p.playbackParameters.speed != 1f) p.playbackParameters = PlaybackParameters(1f)
+                    if (p.playbackParameters.speed != rate) p.playbackParameters = PlaybackParameters(rate)
                     delay(500)
                     continue
                 }
@@ -887,14 +889,14 @@ object MusicVideoController {
                         // reported): seen only, a drift under 2.5 s is caught up by speed instead.
                         (if (hushed) abs(drift) > 600 else abs(drift) > 2_500) -> {
                             Logbook.log("clip: ${drift} ms off at ${SongPlayer.getCurrentPosition()} ms of the song, put back")
-                            p.seekTo(target); p.playbackParameters = PlaybackParameters(1f)
+                            p.seekTo(target); p.playbackParameters = PlaybackParameters(rate)
                         }
                         // Heard, the clip is corrected gently (a 10 % change is heard); seen only, firmly.
-                        hushed && abs(drift) > 120 -> p.playbackParameters = PlaybackParameters((1f - drift / 4000f).coerceIn(0.97f, 1.03f))
-                        hushed -> if (p.playbackParameters.speed != 1f && abs(drift) < 40) p.playbackParameters = PlaybackParameters(1f)
-                        playing && abs(drift) > 600 -> p.playbackParameters = PlaybackParameters((1f - drift / 2000f).coerceIn(0.6f, 1.5f))
-                        playing && abs(drift) > 40 -> p.playbackParameters = PlaybackParameters((1f - drift / 2000f).coerceIn(0.9f, 1.1f))
-                        p.playbackParameters.speed != 1f -> p.playbackParameters = PlaybackParameters(1f)
+                        hushed && abs(drift) > 120 -> p.playbackParameters = PlaybackParameters(rate * (1f - drift / 4000f).coerceIn(0.97f, 1.03f))
+                        hushed -> if (p.playbackParameters.speed != rate && abs(drift) < 40) p.playbackParameters = PlaybackParameters(rate)
+                        playing && abs(drift) > 600 -> p.playbackParameters = PlaybackParameters(rate * (1f - drift / 2000f).coerceIn(0.6f, 1.5f))
+                        playing && abs(drift) > 40 -> p.playbackParameters = PlaybackParameters(rate * (1f - drift / 2000f).coerceIn(0.9f, 1.1f))
+                        p.playbackParameters.speed != rate -> p.playbackParameters = PlaybackParameters(rate)
                     }
                 }
                 delay(150)

@@ -18,6 +18,7 @@
     <string name="immersive_player_repeat_off">Повтор: выкл.</string>
     <string name="immersive_player_repeat_all">Повтор: все</string>
     <string name="immersive_player_repeat_one">Повтор: один трек</string>
+    <string name="immersive_player_repeat_once">Повторить один раз</string>
     <string name="immersive_player_volume_down">Тише</string>
     <string name="immersive_player_volume_up">Громче</string>
     <string name="immersive_player_ad">Реклама</string>

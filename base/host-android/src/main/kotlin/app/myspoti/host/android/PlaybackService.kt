@@ -186,7 +186,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
     private fun ensureStarted() {
         if (foreground) return
         runCatching { androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, PlaybackService::class.java)) }
-            .onFailure { android.util.Log.w("Myspoti", "service not started from a car command: ${it.message}") }
+            .onFailure { Logbook.log("service not started from a car command: ${it.javaClass.simpleName} ${it.message?.take(80)}") }
     }
 
     /** Runs a system command on the app's player; a command with nobody to take it is logged, not lost silently. */
@@ -385,11 +385,13 @@ class PlaybackService : MediaBrowserServiceCompat() {
                     .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Myspoti:playback")
                     .apply { setReferenceCounted(false) }.also { cpuLock = it }
                 cpu.acquire(LOCK_TIMEOUT_MS)
+                ScreenWatch.start(this)
                 val wifi = wifiLock ?: applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
                     .createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Myspoti:playback")
                     .apply { setReferenceCounted(false) }.also { wifiLock = it }
                 if (!wifi.isHeld) wifi.acquire()
             } else {
+                ScreenWatch.stop(this)
                 cpuLock?.takeIf { it.isHeld }?.release()
                 wifiLock?.takeIf { it.isHeld }?.release()
             }
@@ -424,7 +426,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification,
                 if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)
             foreground = true
-        }
+        }.onFailure { Logbook.logEvery("foreground-start", 10_000, "foreground not started: ${it.javaClass.simpleName} ${it.message?.take(80)}") }
     }
 
     private fun build(info: NowPlayingInfo?): Notification {
@@ -606,6 +608,18 @@ class PlaybackService : MediaBrowserServiceCompat() {
         /** True while the service runs (its notification is up): the app may be in the background. */
         val isRunning: Boolean get() = instance != null
 
+        /** What the service holds, for the screen off / on lines of the diagnostic ([ScreenWatch]). */
+        internal fun statusLine(): String {
+            val svc = instance
+            val c = current
+            val service = when { svc == null -> "none"; svc.foreground -> "foreground"; else -> "background" }
+            return "service $service, cpu lock held=${svc?.cpuLock?.isHeld}, wifi lock held=${svc?.wifiLock?.isHeld}, " +
+                "playing=${c?.playing} buffering=${c?.buffering}"
+        }
+
+        /** The position the notification was last given. */
+        internal fun statusPosition(): Long = current?.positionMs ?: 0L
+
         private const val PAUSE_GRACE_MS = 60_000L
         /** A state that did not change is republished at most that often (see [update]). */
         private const val POSITION_REPUSH_MS = 10_000L
@@ -636,7 +650,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
                 // song an extension is still resolving starts right after.
                 if (info.playing || info.buffering) runCatching {
                     androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java))
-                }
+                }.onFailure { Logbook.logEvery("service-start", 10_000, "service not started for playback: ${it.javaClass.simpleName} ${it.message?.take(80)}") }
                 return
             }
             // The player reports several times per second (position, buffering): only a real

@@ -18,6 +18,7 @@
     <string name="immersive_player_repeat_off">循环播放：关</string>
     <string name="immersive_player_repeat_all">循环播放：全部</string>
     <string name="immersive_player_repeat_one">循环播放：单曲</string>
+    <string name="immersive_player_repeat_once">重复一次</string>
     <string name="immersive_player_volume_down">调低音量</string>
     <string name="immersive_player_volume_up">调高音量</string>
     <string name="immersive_player_ad">广告</string>

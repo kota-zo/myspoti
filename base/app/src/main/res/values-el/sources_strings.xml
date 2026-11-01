@@ -14,4 +14,14 @@
     <string name="sources_open">Άνοιγμα της επέκτασης</string>
     <string name="sources_order_hint">Οι πηγές ερωτώνται με τη σειρά που έχει οριστεί στις Ρυθμίσεις (Αναπαραγωγή, Λήψεις).</string>
     <string name="sources_below_spotify">Δεν ερωτάται: το Spotify είναι από πάνω</string>
+    <string name="source_pick_title">Πηγή</string>
+    <string name="source_pick_detail">Παίζει αυτό το τραγούδι και τα επόμενα από την πηγή που επιλέγετε, μέχρι να γίνει επανεκκίνηση του Myspoti. Η σειρά σας στις Ρυθμίσεις παραμένει ως έχει.</string>
+    <string name="source_pick_playing">Παίζει τώρα</string>
+    <string name="source_pick_temporary">Προσωρινά: πρώτη μέχρι να γίνει επανεκκίνηση του Myspoti</string>
+    <string name="source_pick_reset">Πίσω στη σειρά μου</string>
+    <string name="source_pick_reset_detail">Η σειρά που έχει οριστεί στις Ρυθμίσεις → Αναπαραγωγή</string>
+    <string name="source_pick_tag">προσωρινά</string>
+    <string name="source_pick_missing">Η πηγή %1$s δεν έχει αυτό το τραγούδι: συνεχίζεται από το σημείο που έπαιζε και η σειρά σας μένει όπως ήταν.</string>
+    <string name="source_pick_next">Η πηγή %1$s παίζει από το επόμενο τραγούδι: αυτό συνεχίζει όπως παίζει.</string>
+    <string name="source_pick_active">Προσωρινή επιλογή για αυτή τη συνεδρία: η πηγή %1$s ερωτάται πρώτη, μέχρι να γίνει επανεκκίνηση του Myspoti.</string>
 </resources>

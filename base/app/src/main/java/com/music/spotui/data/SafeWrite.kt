@@ -10,12 +10,18 @@ import java.io.IOException
  * is tried once more with the old file moved aside first, and put back if that fails too: the old
  * file is never lost, and an [IOException] says the new text was not saved.
  */
-fun writeTextSafely(file: File, text: String) {
+fun writeTextSafely(file: File, text: String, sync: Boolean = true) = writeBytesSafely(file, text.toByteArray(), sync)
+
+/**
+ * [writeTextSafely] for [bytes]: a [NotReplacedException] when only the move failed (the old file kept).
+ * [sync] false skips the flush to the disk, for frequent writes of what can be lost in a power cut.
+ */
+fun writeBytesSafely(file: File, bytes: ByteArray, sync: Boolean = true) {
     file.parentFile?.mkdirs()
     val tmp = File(file.parentFile, file.name + ".tmp")
     FileOutputStream(tmp).use { out ->
-        out.write(text.toByteArray())
-        out.fd.sync()
+        out.write(bytes)
+        if (sync) out.fd.sync()
     }
     if (tmp.renameTo(file)) return
     val old = File(file.parentFile, file.name + ".old")
@@ -25,5 +31,8 @@ fun writeTextSafely(file: File, text: String) {
         if (old.exists()) old.renameTo(file)
     }
     tmp.delete()
-    throw IOException("could not replace ${file.name}")
+    throw NotReplacedException(file.name)
 }
+
+/** The new content was written but could not be moved over the old file, which is kept as it was. */
+class NotReplacedException(name: String) : IOException("could not replace $name")

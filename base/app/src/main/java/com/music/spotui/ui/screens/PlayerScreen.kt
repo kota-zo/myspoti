@@ -25,6 +25,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -623,23 +624,7 @@ fun PlayerScreen(navController: NavController) {
                     onLikeClick = { playerViewModel.updateLikeState(!isLiked.value) },
                     likeSong = { nowPlayingSong(playerViewModel) },
                     adPlaying = adPlaying,
-                    onTitleClick = {
-                        // A radio's tracks may come without their album: asked from the track, else
-                        // by the album's name (the album page resolves it).
-                        val albumId = np.albumUri.substringAfterLast(":").ifBlank { nowPlayingSong(playerViewModel).albumId }
-                        val albumName = playerViewModel.currentSongAlbum.value
-                        if (albumId.isNotBlank()) navController.navigate(albumRoute(albumName, songSinger, albumId))
-                        else {
-                            val trackId = SongPlayer.currentTrackId
-                            titleScope.launch {
-                                val resolved = if (trackId.isBlank()) "" else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    runCatching { app.myspoti.host.android.MyspotiRuntime.api.catalog.track("spotify:track:$trackId").album?.uri }
-                                        .getOrNull()?.substringAfterLast(":").orEmpty()
-                                }
-                                if (resolved.isNotBlank() || albumName.isNotBlank()) navController.navigate(albumRoute(albumName, songSinger, resolved))
-                            }
-                        }
-                    },
+                    onTitleClick = { openNowPlayingAlbum(playerViewModel, songSinger, titleScope) { navController.navigate(it) } },
                     onArtistClick = {
                         playerViewModel.goToArtist(SongPlayer.currentTrackId, songSinger) { route ->
                             navController.navigate(route)
@@ -746,7 +731,7 @@ fun PlayerScreen(navController: NavController) {
         // artwork only, so a swipe there cannot pull a card up under the compact strip.
         if (!immersive) item {
             // T4: no lyrics card during an ad break — the song it belongs to is not what plays.
-            if (!audioBuffering && !adPlaying) InlineLyrics(
+            if (!audioBuffering && !adPlaying && com.music.spotui.data.preferences.PlayerLyricsCardPref.on) InlineLyrics(
                 title = songTitle,
                 artist = songSinger,
                 album = playerViewModel.currentSongAlbum.value,
@@ -1418,11 +1403,13 @@ fun PlayerFull(
                 Color.White
             },
             // The official loop with one arrow (drawn here: the old drawable was the two-arrow one).
-            imageVector = if (SongPlayer.repeatMode.value == 2) PlayerIcons.repeatOne else PlayerIcons.repeat,
-            contentDescription = when (SongPlayer.repeatMode.value) { 1 -> stringResource(R.string.repeat_on); 2 -> stringResource(R.string.repeat_one); else -> stringResource(R.string.repeat_off) })
+            // Repeat once has the same loop with "1×" in it.
+            imageVector = when (SongPlayer.repeatMode.value) { 2 -> PlayerIcons.repeatOne; 3 -> com.music.spotui.ui.components.RepeatIcons.once; else -> PlayerIcons.repeat },
+            contentDescription = when (SongPlayer.repeatMode.value) { 1 -> stringResource(R.string.repeat_on); 2 -> stringResource(R.string.repeat_one); 3 -> stringResource(R.string.repeat_once); else -> stringResource(R.string.repeat_off) })
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PlayerConnectRow(
     context: Context,
@@ -1466,16 +1453,20 @@ fun PlayerConnectRow(
                 // download); a tap opens what plays and its quality.
                 val source = com.music.spotui.ui.components.playingSourceLabel()
                 var quality by remember { mutableStateOf(false) }
+                var nerd by remember { mutableStateOf(false) }
                 if (quality) com.music.spotui.ui.components.QualitySheet { quality = false }
-                if (source.isNotBlank()) Text(
+                if (nerd) com.music.spotui.ui.components.StatsForNerdsSheet { nerd = false }
+                if (source.isNotBlank() && com.music.spotui.data.preferences.PlayerSourceLinePref.on) Text(
                     text = source,
                     color = com.music.spotui.ui.theme.AppMuted,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable(
+                    // A tap: what plays and its quality; a long press: the stats for nerds.
+                    modifier = Modifier.combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
+                        onLongClick = { nerd = true },
                     ) { quality = true },
                 )
             }
@@ -1559,6 +1550,28 @@ fun PlayerOptionsSheet(
     )
 }
 
+
+/**
+ * Opens the album of the track that plays, for both looks. An extension's or a download's song
+ * has no album in Spotify's state: the song's own, as the options' "Go to album". A radio's
+ * tracks may come without one: asked from the track, else by the album's name (the album page
+ * resolves it).
+ */
+fun openNowPlayingAlbum(playerViewModel: PlayerViewModel, singer: String, scope: kotlinx.coroutines.CoroutineScope, navigate: (String) -> Unit) {
+    val song = nowPlayingSong(playerViewModel)
+    val albumId = song.albumId
+    val albumName = playerViewModel.currentSongAlbum.value.ifBlank { song.album }
+    @Suppress("NAME_SHADOWING") val singer = singer.ifBlank { song.singer }
+    if (albumId.isNotBlank()) { navigate(albumRoute(albumName, singer, albumId)); return }
+    val trackId = SongPlayer.currentTrackId
+    scope.launch {
+        val resolved = if (trackId.isBlank()) "" else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { app.myspoti.host.android.MyspotiRuntime.api.catalog.track("spotify:track:$trackId").album?.uri }
+                .getOrNull()?.substringAfterLast(":").orEmpty()
+        }
+        if (resolved.isNotBlank() || albumName.isNotBlank()) navigate(albumRoute(albumName, singer, resolved))
+    }
+}
 
 /** The track that plays, as Spotify reports it (the local queue may not have it). */
 fun nowPlayingSong(playerViewModel: PlayerViewModel): SongsModel {

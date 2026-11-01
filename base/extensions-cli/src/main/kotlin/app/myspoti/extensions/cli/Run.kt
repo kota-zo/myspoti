@@ -46,7 +46,8 @@ private const val USAGE = """myspoti-ext: build and try Myspoti extensions on a 
                                      level, why). It never calls a hook (use run or test for that)
   run <folder|zip> <hook> [options]  calls a hook as the app would, prints what it answered
       --title T --artist A [--album B] [--duration MS] [--id SPOTIFY_ID] [--isrc ISRC]
-      --set key=value                a setting's value (repeatable)
+      --set key=value                a setting's value (repeatable; key@cell=value: a perNetwork setting's mobile data value)
+      --network wifi|cell            the network the phone is on, for perNetwork settings (default wifi)
       --cdp PORT|URL                 myspoti.spotify works on the account signed in to the Web Player
                                      of a Chrome started with --remote-debugging-port=PORT; a change
                                      that removes something (delete, remove, unfollow, clear) asks
@@ -94,7 +95,9 @@ private class DesktopHost(
     private val settings: Map<String, String>,
     private val track: TrackInfo?,
     private val spotify: SpotifyDispatcher? = null,
+    private val cell: Boolean = false,
 ) : Host {
+    override fun metered(): Boolean = cell
     private val store = MemoryStorage()
     override suspend fun spotify(extensionId: String, call: SpotifyCall): String =
         spotify?.execute(call) ?: super.spotify(extensionId, call)
@@ -163,6 +166,10 @@ private fun load(path: File): Pair<Manifest, String> = if (path.isDirectory) {
 private fun check(dir: File) {
     val (m, script) = load(dir)
     val problems = m.problems()
+    // section, role and perNetwork: refused by the check only; the app shows such a setting on its page, as one value.
+    val fieldProblems = m.settingFieldProblems()
+    fieldProblems.forEach { println("✗ $it") }
+    m.settingFieldWarnings().forEach { println("! $it") }
     problems.forEach { println("✗ $it") }
     if (m.isLegacy) println("! old format (provides + permissions): it still installs, mapped to actions; write \"actions\" instead (docs/extensions/API.md §2)")
     val granted = m.asks().map { it.key }.toSet()
@@ -182,7 +189,7 @@ private fun check(dir: File) {
     m.categoryWarning()?.let { println("! $it") }
     println("In the store: ${m.category().key}${if (m.category == null) " (set \"category\" to choose)" else ""}" +
         (m.minAppVersion?.let { ", Myspoti $it or newer" } ?: "") + (if (m.tags.isNotEmpty()) ", tags ${m.tags}" else ""))
-    if (problems.isNotEmpty()) exitProcess(1)
+    if (problems.isNotEmpty() || fieldProblems.isNotEmpty()) exitProcess(1)
 }
 
 /** `test <dir> --scenario file.json [--state file.json]`: each step's result; exit 1 when one failed. */
@@ -216,7 +223,7 @@ private fun run(path: File, hookName: String, rest: List<String>) {
         album = opts["album"] ?: "", durationMs = opts["duration"]?.toLongOrNull() ?: 0, isrc = opts["isrc"],
     )
     val account = opts["cdp"]?.let { Account(it) }
-    ExtensionRuntime(m, script, DesktopHost(settings, track, account?.dispatcher), m.asks().map { it.key }.toSet()).use { rt ->
+    ExtensionRuntime(m, script, DesktopHost(settings, track, account?.dispatcher, cell = opts["network"] == "cell"), m.asks().map { it.key }.toSet()).use { rt ->
         account.use { runScript(rt, m, hookName, track, opts) }
     }
 }
@@ -264,7 +271,7 @@ private fun runScript(rt: ExtensionRuntime, m: Manifest, hookName: String, track
             if (l == null) println("— empty lyrics ($ms ms)")
             else {
                 println("✓ ${l.lines.size} lines from ${l.provider}, synced=${l.synced}, word by word=${l.wordSynced} ($ms ms)")
-                l.lines.take(8).forEach { println("  [${it.startMs}] ${it.text}") }
+                l.lines.take(8).forEach { println("  [${it.startMs}] ${it.text}" + listOfNotNull(it.translation, it.romanization, it.voice?.let { v -> "voice $v" }, it.background?.let { b -> "bg: $b" }).joinToString("") { x -> "  | $x" }) }
             }
         }
         Hook.AUDIO_SOURCE -> AudioStream.parse(out).let { a ->

@@ -105,6 +105,7 @@ import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.components.DownloadAsk
 import com.music.spotui.ui.components.FastScrollbar
 import com.music.spotui.ui.components.matchesFind
+import com.music.spotui.ui.components.withRowKeys
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.components.ImmersiveButton
 import com.music.spotui.ui.immersive.components.ImmersiveCircleButton
@@ -229,6 +230,7 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
     val isLiked = p.type == "liked" || p.type == "liked-artist"
     val isThisContext = np.contextUri == p.uri || (isLiked && np.contextUri.contains(":collection"))
     val contextSaved by vm.contextSaved
+    val savedTracks by vm.savedUris
     val smart = SmartShuffle.on.value == p.uri
     val tapper = rememberTrackTapper()
 
@@ -243,6 +245,10 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
     // "Find in Liked Songs / in playlist", opened from the top bar.
     var find by rememberSaveable { mutableStateOf("") }
     var finding by rememberSaveable { mutableStateOf(false) }
+    // A song tapped in the found rows puts the keyboard away; the search and the list stay as they are.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val dismissKeyboard = { keyboard?.hide(); focusManager.clearFocus() }
     // "Sort by" for the list, kept per list (also after leaving it or restarting the app).
     var sort by remember(p.uri) { mutableStateOf(TrackOrder.load(context, p.uri)) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -371,23 +377,16 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
             if (isLiked) p.tracks.filter { SongPlayer.library["spotify:track:${it.spotifyTrackId}"] != false } else p.tracks
         }
     }
-    val rows by remember(p, find, sort) {
+    // The rows and their keys in one derived state: the list re-reads its rows outside composition
+    // (a search letter, the "×" of the search), and keys remembered apart from them were one list
+    // behind (a list that grows on the "×" ran out of keys: a crash).
+    val shown by remember(p, find, sort) {
         derivedStateOf {
             val found = if (findable) all.filter { matchesFind(find, it.title, it.singer, it.album) } else all
-            if (findable) sort.apply(found) else found
+            withRowKeys(if (findable) sort.apply(found) else found) { it.id.toString() }
         }
     }
-    // Unique and stable for a given list: a playlist can hold the same song twice (the id alone
-    // is not unique) and the index changes at every sort (which would lose every item).
-    val keys = remember(rows) {
-        val seen = HashMap<String, Int>()
-        rows.map { s ->
-            val id = s.id.toString()
-            val n = (seen[id] ?: 0) + 1
-            seen[id] = n
-            if (n == 1) id else "$id#$n"
-        }
-    }
+    val rows = shown.first
 
     // What the Play pill does: pause / resume this list, else start it (smart shuffle if it is on).
     fun onPlay() = when {
@@ -407,22 +406,16 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
             if (isThisContext) vm.playSmart(p, p.tracks.firstOrNull { it.id == currentSongId })
         }
     }
-    // What the Shuffle pill does: start the list shuffled, or, while it plays, turn shuffle on
-    // or off. Reported (3 people): a tap on the lit pill stepped to smart shuffle, which deals
-    // the queue again and starts the song over, so shuffle never seemed to turn off. Smart
-    // shuffle has its own button under the pill (as the Classic page's shuffle icon, off is
-    // one tap away from either).
+    // What the Shuffle pill does: start the list shuffled from a random song, and every tap again
+    // jumps to another random one, as the official app's big shuffle button did (asked on
+    // Discord: in 2.2.0 a tap while the list played only turned shuffle on or off). Turning
+    // shuffle off is the player's shuffle button; smart shuffle has its own button under the pill.
     fun onShuffle() {
         if (p.tracks.isEmpty()) return
-        when {
-            !isThisContext && smart -> vm.playSmart(p, null)
-            !isThisContext -> {
-                playerVm.updateShuffleState(true)
-                vm.play(p, p.tracks.random(), sort)
-            }
-            smart -> { SmartShuffle.on.value = null; playerVm.updateShuffleState(false) }
-            else -> playerVm.updateShuffleState(!shuffle)
-        }
+        if (smart) return vm.playSmart(p, null)
+        playerVm.updateShuffleState(true)
+        val others = if (isThisContext) p.tracks.filter { it.id != currentSongId } else p.tracks
+        vm.play(p, others.ifEmpty { p.tracks }.random(), sort)
     }
 
     val listState = rememberLazyListState()
@@ -502,7 +495,7 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                 ImmersiveMessageState(stringResource(R.string.assisted_curation_search_empty_view_no_result_title, find.trim()))
             }
             val numbered = p.type == "album"
-            itemsIndexed(rows, key = { i, _ -> keys[i] }) { index, song ->
+            itemsIndexed(shown.first, key = { i, _ -> shown.second[i] }) { index, song ->
                 Column {
                     ImmersiveSwipeToQueue(song) {
                         ImmersiveSongRow(
@@ -510,12 +503,17 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                             playing = song.id == currentSongId && playing,
                             current = song.id == currentSongId,
                             onClick = {
+                                dismissKeyboard()
                                 tapper.tap(song) { if (SmartShuffle.on.value == p.uri) vm.playSmart(p, song) else vm.play(p, song, sort) }
                             },
                             onMore = { menuSong = song },
                             trackNumber = if (numbered) index + 1 else null,
                             showDuration = numbered,
                             showAlbum = !numbered,
+                            // As in the Classic list: the heart and the download of the song, from the same state
+                            // (what Spotify last reported, the list's one batch check, the downloads kept on the phone).
+                            liked = com.music.spotui.di.trackSaved(song.spotifyTrackId, savedTracks),
+                            offline = OfflineStore.statusOf(song.spotifyTrackId),
                             // Collaborative: the small face of who added the song.
                             trailing = vm.adders.value.let { a -> a["row:" + song.rowUid] ?: a["song:" + song.spotifyTrackId] }?.let { m ->
                                 { com.music.spotui.ui.components.ProfileAvatar(m.imageUrl, m.name, 22.dp) }
@@ -765,7 +763,7 @@ private fun ContextHeader(
                     text = stringResource(R.string.immersive_shell_shuffle),
                     icon = if (shuffled && smart) Icons.Rounded.AutoAwesome else Icons.Rounded.Shuffle,
                     onClick = onShuffle,
-                    // Lit while this list plays shuffled (or smart-shuffled): a tap then turns it off.
+                    // Lit while this list plays shuffled (or smart-shuffled): a tap then plays another random song.
                     filled = shuffled,
                     modifier = Modifier.weight(1f),
                 )

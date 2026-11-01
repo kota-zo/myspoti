@@ -40,6 +40,8 @@ object SessionActions {
         com.music.spotui.data.api.TopStats.clear()
         com.music.spotui.ui.screens.clearMessagesCache()
         com.music.spotui.data.api.ProfileCache.clearSession()
+        // Likes kept for later stay this account's, sent when it signs in again; the next account gets none.
+        com.music.spotui.data.LibraryOutbox.signedOut()
         SongPlayer.clearSession()
         listOf("PlaybackState", "LibraryCache", "RecentItems", "LikedSongs",
             "LikedSongsFromSpotify", "LikedAlbums", "FollowedArtists").forEach { name ->
@@ -49,6 +51,20 @@ object SessionActions {
         AutoBrowser.clearSession()
         _signedOut.value = true
         MyspotiRuntime.host.logout()
+    }
+
+    /**
+     * The Spotify session was lost without a sign-out (an anonymous token, Spotify's sign-in page
+     * back): whose account comes next is not known, maybe another one. What follows the account
+     * forgets it as a sign-out does (the profile, so ProfileCache.id is read again as soon as the
+     * next session is ready; the likes kept for later stay their account's, sent to it only), and
+     * nothing kept by account is removed: the downloads stay in place for the account read next
+     * (OfflineAccounts.claim puts another account's aside then). Nothing else of a sign-out is done.
+     */
+    fun sessionLost() {
+        Logbook.log("session lost without a sign-out: the account is read again at the next session")
+        com.music.spotui.data.api.ProfileCache.clearSession()
+        com.music.spotui.data.LibraryOutbox.signedOut()
     }
 
     /** The new account is signed in. */

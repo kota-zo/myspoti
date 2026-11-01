@@ -58,10 +58,13 @@ object AppUpdater {
         val app = context.applicationContext
         if (!canInstall(app)) { _state.value = State.NeedsPermission; return }
         _state.value = State.Downloading(-1f)
+        val apk = File(File(app.cacheDir, "updates"), "myspoti-${release.version}.apk")
         val result = runCatching {
-            val apk = download(app, release)
+            download(release, apk)
             install(app, apk)
         }
+        // The installer session holds its own copy once committed; a failed download left a partial one.
+        runCatching { apk.delete() }
         result.exceptionOrNull()?.let {
             android.util.Log.w("AppUpdater", "update failed", it)
             _state.value = State.Failed(it.message ?: it.javaClass.simpleName)
@@ -70,13 +73,16 @@ object AppUpdater {
 
     fun reset() { _state.value = State.Idle }
 
-    private suspend fun download(context: Context, release: UpdateChecker.Release): File = withContext(Dispatchers.IO) {
-        val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+    /** No release of this app comes near it; a bigger answer is not an APK of ours. */
+    private const val MAX_APK_BYTES = 200L * 1024 * 1024
+
+    private suspend fun download(release: UpdateChecker.Release, file: File): Unit = withContext(Dispatchers.IO) {
+        val dir = file.parentFile!!.apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
-        val file = File(dir, "myspoti-${release.version}.apk")
         http.newCall(Request.Builder().url(release.apkUrl).build()).execute().use { r ->
             if (!r.isSuccessful) throw java.io.IOException("HTTP ${r.code}")
             val total = r.body.contentLength()
+            if (total > MAX_APK_BYTES) throw java.io.IOException("the download is too big ($total bytes)")
             var done = 0L
             var shown = -1
             r.body.byteStream().use { input ->
@@ -87,6 +93,7 @@ object AppUpdater {
                         if (n < 0) break
                         out.write(buf, 0, n)
                         done += n
+                        if (done > MAX_APK_BYTES) throw java.io.IOException("the download is too big (over $MAX_APK_BYTES bytes)")
                         if (total > 0) {
                             val pct = (done * 100 / total).toInt()
                             if (pct != shown) { shown = pct; _state.value = State.Downloading(pct / 100f) }
@@ -96,7 +103,6 @@ object AppUpdater {
             }
             if (total > 0 && done != total) throw java.io.IOException("download cut at $done / $total bytes")
         }
-        file
     }
 
     /** Streams the APK into an installer session; [StatusReceiver] gets the outcome. */
@@ -111,18 +117,25 @@ object AppUpdater {
             // would be ignored anyway; the confirmation is the user's last check.
         }
         val id = installer.createSession(params)
-        installer.openSession(id).use { session ->
-            session.openWrite("myspoti.apk", 0, apk.length()).use { out ->
-                apk.inputStream().use { it.copyTo(out) }
-                session.fsync(out)
+        var committed = false
+        try {
+            installer.openSession(id).use { session ->
+                session.openWrite("myspoti.apk", 0, apk.length()).use { out ->
+                    apk.inputStream().use { it.copyTo(out) }
+                    session.fsync(out)
+                }
+                val callback = PendingIntent.getBroadcast(
+                    context, id,
+                    Intent(ACTION).setPackage(context.packageName).setClass(context, StatusReceiver::class.java),
+                    // Mutable: the installer adds the status extras.
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+                )
+                session.commit(callback.intentSender)
+                committed = true
             }
-            val callback = PendingIntent.getBroadcast(
-                context, id,
-                Intent(ACTION).setPackage(context.packageName).setClass(context, StatusReceiver::class.java),
-                // Mutable: the installer adds the status extras.
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
-            )
-            session.commit(callback.intentSender)
+        } finally {
+            // A session that never reached the commit would stay open, holding a copy of the APK.
+            if (!committed) runCatching { installer.abandonSession(id) }
         }
     }
 

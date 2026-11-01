@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 
 class LibraryViewModel constructor(
@@ -32,6 +33,10 @@ class LibraryViewModel constructor(
     private val _followedArtists: MutableStateFlow<List<com.music.spotui.data.entity.ArtistsModel>> =
         MutableStateFlow(emptyList())
     val followedArtists: StateFlow<List<com.music.spotui.data.entity.ArtistsModel>> = _followedArtists
+
+    private val _followedShows: MutableStateFlow<List<LibraryEntry>> = MutableStateFlow(emptyList())
+    /** The shows the user follows, read when the Podcasts chip is chosen (see [loadFollowedShows]). */
+    val followedShows: StateFlow<List<LibraryEntry>> = _followedShows
 
     /** The list as Spotify gave it; [entries] is this with the changes not yet in Spotify's list on top. */
     @Volatile private var server: List<LibraryEntry>? = null
@@ -65,7 +70,7 @@ class LibraryViewModel constructor(
         _refreshing.value = true
         viewModelScope.launch {
             // Both flows end when Spotify has answered (or failed): that is when the spinner goes.
-            kotlinx.coroutines.joinAll(load(), loadFollowedArtists())
+            listOfNotNull(load(), loadFollowedArtists(), if (showsAsked) loadFollowedShows() else null).joinAll()
             _refreshing.value = false
         }
     }
@@ -92,6 +97,16 @@ class LibraryViewModel constructor(
         val artists = repository.provideFollowedArtists()
         _followedArtists.value = artists
         if (artists.isNotEmpty()) cacheFollowedArtists(context, artists)
+    }
+
+    /** The Podcasts chip was chosen once: a pull-to-refresh reads the shows again too. */
+    @Volatile private var showsAsked = false
+
+    /** Reads the followed shows again; the list stays as it was when Spotify does not answer. */
+    fun loadFollowedShows() = viewModelScope.launch(Dispatchers.IO) {
+        showsAsked = true
+        val shows = repository.provideFollowedShows()
+        if (shows.isNotEmpty()) _followedShows.value = shows
     }
 
     private fun loadAccount() = viewModelScope.launch(Dispatchers.IO) {

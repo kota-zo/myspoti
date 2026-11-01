@@ -13,13 +13,14 @@ import com.music.spotui.data.preferences.Look
 import com.music.spotui.data.preferences.LookPref
 
 /**
- * Donations and their thank-yous. Reminders: a day after first use, then every 2 weeks;
+ * Donations and their thank-yous. Reminders: a day after first use, then every 8 to 12 days
+ * (drawn per person and per reminder, never weekly);
  * for someone who said they gave once, every 3 months with a thank-you; never for a
  * monthly supporter. "I've supported" is taken on trust (nothing is checked, nothing is
  * sold): it unlocks cosmetic thank-yous only (accent colour, app icon, badge).
  */
 object SupportReminder {
-    const val URL = "https://ko-fi.com/kotazo"
+    const val URL = "https://ko-fi.com/myspoti"
     /** GitHub Sponsors, the other way to give (monthly or once). */
     const val SPONSORS_URL = "https://github.com/sponsors/kota-zo"
     const val FIRST_AFTER_MS = 24L * 3_600_000
@@ -28,7 +29,9 @@ object SupportReminder {
      * be checked: everyone is treated as a non-supporter and their entry points are hidden.
      */
     const val PERKS_ENABLED = false
-    const val EVERY_MS = 14L * 24 * 3_600_000
+    const val EVERY_MS = 8L * 24 * 3_600_000
+    /** Up to this much more after [EVERY_MS], so reminders do not come on the same day for everyone. */
+    const val SPREAD_MS = 4L * 24 * 3_600_000
     const val SUPPORTER_EVERY_MS = 90L * 24 * 3_600_000
     private const val PREFS = "support_reminder"
     /** The single accent of earlier versions, copied to both looks once ([init]). */
@@ -73,8 +76,16 @@ object SupportReminder {
     fun nextAt(firstSeen: Long, lastShown: Long, level: Level, supportedAt: Long): Long = when (level) {
         Level.MONTHLY -> Long.MAX_VALUE
         Level.ONCE -> maxOf(lastShown, supportedAt) + SUPPORTER_EVERY_MS
-        Level.NONE -> if (lastShown == 0L) firstSeen + FIRST_AFTER_MS else lastShown + EVERY_MS
+        Level.NONE -> if (lastShown == 0L) firstSeen + FIRST_AFTER_MS else lastShown + EVERY_MS + spread(firstSeen, lastShown)
     }
+
+    /**
+     * The extra wait after [EVERY_MS], in [0, [SPREAD_MS]): drawn from the first use and the last
+     * reminder, so it differs between people and between reminders but stays the same each time
+     * the app asks (nothing more to keep).
+     */
+    internal fun spread(firstSeen: Long, lastShown: Long): Long =
+        java.util.Random(firstSeen * 31 + lastShown).nextLong().mod(SPREAD_MS)
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 

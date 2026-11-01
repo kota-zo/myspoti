@@ -14,4 +14,14 @@
     <string name="sources_open">Erweiterung öffnen</string>
     <string name="sources_order_hint">Quellen werden in der in den Einstellungen festgelegten Reihenfolge abgefragt (Wiedergabe, Downloads).</string>
     <string name="sources_below_spotify">Nicht abgefragt: Spotify steht darüber</string>
+    <string name="source_pick_title">Quelle</string>
+    <string name="source_pick_detail">Spielt diesen und die nächsten Titel von der gewählten Quelle, bis Myspoti neu startet. Deine Reihenfolge in den Einstellungen bleibt unverändert.</string>
+    <string name="source_pick_playing">Wird gerade abgespielt</string>
+    <string name="source_pick_temporary">Vorübergehend: zuerst, bis Myspoti neu startet</string>
+    <string name="source_pick_reset">Zurück zu meiner Reihenfolge</string>
+    <string name="source_pick_reset_detail">Die in Einstellungen → Wiedergabe festgelegte Reihenfolge</string>
+    <string name="source_pick_tag">vorübergehend</string>
+    <string name="source_pick_missing">%1$s hat diesen Titel nicht: Er läuft an der Stelle weiter, an der er spielte, und deine Reihenfolge bleibt wie sie war.</string>
+    <string name="source_pick_next">%1$s spielt ab dem nächsten Titel: Dieser läuft wie bisher weiter.</string>
+    <string name="source_pick_active">Vorübergehende Wahl für diese Sitzung: %1$s wird zuerst abgefragt, bis Myspoti neu startet.</string>
 </resources>

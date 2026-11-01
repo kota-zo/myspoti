@@ -39,6 +39,8 @@ interface Player {
      */
     suspend fun play(contextUri: Uri, trackUri: Uri? = null, index: Int? = null, positionMs: Long? = null, order: List<Uri>? = null)
     suspend fun pause()
+    /** [pause] after a fade of [fadeMs] (the sleep timer); cancelling it keeps playing. */
+    suspend fun pauseSlowly(fadeMs: Long) = pause()
     suspend fun resume()
     suspend fun seek(positionMs: Long)
     suspend fun next()

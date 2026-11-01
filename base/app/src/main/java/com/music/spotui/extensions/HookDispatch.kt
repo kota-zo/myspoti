@@ -1,6 +1,7 @@
 package com.music.spotui.extensions
 
 import app.myspoti.extensions.LyricsResult
+import com.music.spotui.data.api.LyricsExtras
 import com.music.spotui.data.entity.LyricLine
 import com.music.spotui.data.entity.LyricWord
 import com.music.spotui.data.entity.Lyrics
@@ -65,16 +66,17 @@ object LyricsMerge {
     /** Whether [own] is Spotify's own, complete lyrics. */
     fun isSpotifyComplete(own: Lyrics?): Boolean = own != null && own.colors != null && own.uncapped
 
+    /** The better of the two; translations and romanizations the other one carries are kept when the chosen has none. */
     fun choose(own: Lyrics?, fromExtension: Lyrics?): Lyrics? {
         if (fromExtension == null || fromExtension.isEmpty) return own
         if (own == null || own.isEmpty) return fromExtension
         val mine = rank(own)
         val theirs = rank(fromExtension)
         return when {
-            theirs > mine -> fromExtension.copy(colors = own.colors)
-            theirs < mine -> own
-            isSpotifyComplete(own) -> own
-            else -> fromExtension.copy(colors = own.colors)
+            theirs > mine -> fromExtension.copy(colors = own.colors).let { LyricsExtras.carry(it, own) }
+            theirs < mine -> LyricsExtras.carry(own, fromExtension)
+            isSpotifyComplete(own) -> LyricsExtras.carry(own, fromExtension)
+            else -> fromExtension.copy(colors = own.colors).let { LyricsExtras.carry(it, own) }
         }
     }
 
@@ -85,9 +87,11 @@ object LyricsMerge {
                 timeMs = if (r.synced) l.startMs else 0,
                 text = l.text,
                 words = if (r.synced) l.words?.map { w -> LyricWord(w.startMs, w.endMs ?: 0, w.text) } else null,
+                translation = l.translation, romanization = l.romanization, voice = l.voice, background = l.background,
             )
         },
         synced = r.synced,
         provider = r.provider,
+        translationLanguage = r.translationLanguage,
     )
 }

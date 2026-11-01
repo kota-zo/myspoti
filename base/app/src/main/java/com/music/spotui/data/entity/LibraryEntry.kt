@@ -23,6 +23,8 @@ data class LibraryEntry(
     val pinned: Boolean = false,
     /** When it was added to the library (ISO 8601), for "Recently added". */
     val addedAt: String = "",
+    /** A playlist's owner (`spotify:user:…`), for the "By me" chip; empty when unknown. */
+    val ownerUri: String = "",
 ) {
     val isFolder: Boolean get() = folderUri.isNotBlank()
 }

@@ -69,9 +69,20 @@ internal fun SourceOrderList(action: Action, spotifyLast: Boolean, look: SourceL
     val errors by Extensions.errors.collectAsState()
     val statuses by Extensions.statuses.collectAsState()
     val activity by Extensions.activity.state.collectAsState()
-    val line = remember(registry, action) { Extensions.sourceLine(action).filter { spotifyLast || it != SPOTIFY_SOURCE } }
+    // The order the user set: a source picked in the player for this session is only said above it.
+    val line = remember(registry, action) { Extensions.savedSourceLine(action).filter { spotifyLast || it != SPOTIFY_SOURCE } }
+    val lead by Extensions.sessionSource.collectAsState()
     val spotifyAt = line.indexOf(SPOTIFY_SOURCE)
     Column(Modifier.fillMaxWidth()) {
+        lead?.takeIf { action == Action.AUDIO_SOURCE }?.let { id ->
+            val name = if (id == SPOTIFY_SOURCE) stringResource(R.string.sources_spotify) else registry.find(id)?.name ?: id
+            Column(Modifier.fillMaxWidth().then(rowPadding)) {
+                Text(stringResource(R.string.source_pick_active, name), style = look.line.copy(color = look.accent))
+                TextButton(onClick = { Extensions.setSessionSource(null) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                    Text(stringResource(R.string.source_pick_reset), color = look.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
         line.forEachIndexed { i, id ->
             val arrows: @Composable () -> Unit = { MoveArrows(action, id, i, line.size, look) }
             val e = registry.find(id)

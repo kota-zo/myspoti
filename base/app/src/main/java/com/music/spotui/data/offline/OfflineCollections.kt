@@ -70,6 +70,13 @@ object OfflineCollections {
     fun isKept(trackId: String): Boolean = synchronized(lock) { trackId in singles } ||
         collections.values.any { trackId in it.trackIds }
 
+    /** What the toast says when [trackId] stays on the phone: the downloaded lists (albums, playlists, Liked Songs) that hold it. */
+    fun keptMessage(context: Context, trackId: String): String {
+        val names = collections.values.filter { trackId in it.trackIds }.mapNotNull { it.name.takeIf(String::isNotBlank) }
+        if (names.isEmpty()) return context.getString(app.myspoti.engine.R.string.download_kept_by_list)
+        return context.getString(app.myspoti.engine.R.string.download_kept_by_named, names.take(3).joinToString(", ") + if (names.size > 3) "…" else "")
+    }
+
     @Volatile private var wifiPending = false
 
     /** Automatic downloads were held back for Wi-Fi: the next Wi-Fi brings every list up to date. */

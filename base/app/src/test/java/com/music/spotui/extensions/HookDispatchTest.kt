@@ -95,4 +95,24 @@ class HookDispatchTest {
         assertEquals(1, LyricsMerge.rank(plain))
         assertEquals(listOf("one", "two"), plain.lines.map { it.text })
     }
+
+    @Test fun anExtensionsTranslationAndVoicesReachTheAppsLyrics() {
+        val r = LyricsResult.parse("""{"translationLanguage":"en","lines":[{"time":1000,"text":"a","translation":"A","romanization":"ei","voice":2,"background":"oh"}]}""", "Ext")!!
+        val l = LyricsMerge.toLyrics(r)
+        assertEquals("en", l.translationLanguage)
+        val line = l.lines.single()
+        assertEquals("A", line.translation)
+        assertEquals("ei", line.romanization)
+        assertEquals(2, line.voice)
+        assertEquals("oh", line.background)
+    }
+
+    @Test fun theChosenLyricsKeepTheTranslationOfTheOneThatLost() {
+        val translated = Lyrics(listOf(LyricLine(1000, "line", translation = "ligne")), synced = true, provider = "NetEase", translationLanguage = "fr")
+        val own = Lyrics(listOf(LyricLine(1000, "line", listOf(LyricWord(1000, 1200, "line")))), synced = true, provider = "LyricsPlus")
+        val chosen = LyricsMerge.choose(own, translated)!!
+        assertEquals("LyricsPlus", chosen.provider)
+        assertEquals("ligne", chosen.lines[0].translation)
+        assertEquals("fr", chosen.translationLanguage)
+    }
 }

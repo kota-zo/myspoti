@@ -48,6 +48,12 @@ sealed class Outcome {
     /** Whether it counts as a failure of the extension ([Bug] only). */
     val counts: Boolean get() = this is Bug
 
+    /**
+     * It could not answer now (busy, a network error, a rate limit, its server down, signed out):
+     * not the same as having nothing for the song, so a download is not "no matching recording".
+     */
+    val silent: Boolean get() = this is Skipped || this is Network || this is RateLimited || this is ServerDown || this is SignIn
+
     /** `key` and its detail, for one log line. */
     fun describe(): String = key + (detail?.let { ": $it" } ?: "") + when (this) {
         is RateLimited -> retryAfterMs?.let { " (retry after $it ms)" } ?: ""

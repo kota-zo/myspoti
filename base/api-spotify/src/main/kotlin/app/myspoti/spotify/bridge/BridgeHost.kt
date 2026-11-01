@@ -20,6 +20,13 @@ interface BridgeHost {
     /** Runs [script] in the page. Fire and forget: answers come back through [messages]. */
     suspend fun evaluate(script: String)
 
+    /**
+     * Runs [script] like [evaluate] and returns the JSON of its value once the page ran it, or
+     * null when this host cannot tell. Throws when the script could not be handed to the page,
+     * so a call fails at once instead of waiting for an answer that cannot come.
+     */
+    suspend fun evaluateValue(script: String): String? { evaluate(script); return null }
+
     /** JSON strings posted by the bridge (`MyspotiHost.postMessage` / `__mspHostPost`). */
     val messages: Flow<String>
 }
@@ -188,6 +195,18 @@ object AdBlock {
         fun isAd(state: Int) = isAdTrack(trackOf(state))
         fun nameOf(state: Int) = ((trackOf(state)?.get("metadata") as? JsonObject)?.get("name") as? JsonPrimitive)?.contentOrNull
         fun indexOf(transition: JsonObject) = (transition["state_index"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+        fun uriOf(state: Int) = (trackOf(state)?.get("metadata") as? JsonObject)?.get("uri")?.let { (it as? JsonPrimitive)?.contentOrNull }
+        fun repeatsTrack(state: Int) = ((states.getOrNull(state) as? JsonObject)?.get("options") as? JsonObject)
+            ?.get("repeating_track")?.let { (it as? JsonPrimitive)?.contentOrNull } == "true"
+        // Repeat one: the song's `advance` is its own repeat (the same song, still repeating), and its
+        // `skip_next` is the next song with repeat off (captured 21/10). An ad in between leaves the
+        // song's end going to the ad: sent to the skip's target it ended the repeat after a few loops
+        // (reported: "loops 2-3 times then plays the next song"). The repeat's own state is the playable
+        // one of the same song (it has a show_next; the display-only ones have none).
+        fun repeatOf(i: Int): Int? = states.indices.firstOrNull { j ->
+            j != i && !isAd(j) && repeatsTrack(j) && uriOf(j) != null && uriOf(j) == uriOf(i) &&
+                ((states[j] as? JsonObject)?.get("transitions") as? JsonObject)?.get("show_next") is JsonObject
+        }
         var changed = false
         val rewritten = states.mapIndexed { i, element ->
             val state = element as? JsonObject ?: return@mapIndexed element
@@ -200,6 +219,12 @@ object AdBlock {
             for (key in listOf("advance", "skip_next")) {
                 val t = transitions[key] as? JsonObject ?: continue
                 if (indexOf(t)?.let(::isAd) != true) continue
+                val again = if (key == "advance" && repeatsTrack(i)) repeatOf(i) else null
+                if (again != null) {
+                    next[key] = JsonObject(t.toMutableMap().apply { put("state_index", JsonPrimitive(again)) })
+                    notes += "$key after ${nameOf(i)}: repeated instead of an ad"
+                    continue
+                }
                 if (target == null) { notes += "$key after ${nameOf(i)}: an ad, and no song to send it to"; continue }
                 next[key] = JsonObject(target.toMutableMap().apply { t["paused"]?.let { put("paused", it) } })
                 notes += "$key after ${nameOf(i)}: ${indexOf(target)?.let(::nameOf)} instead of an ad"

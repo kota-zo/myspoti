@@ -46,7 +46,7 @@
     <string name="artist_popular_tracks" formatted="false">Populares</string>
     <string name="curation_button_follow_state_text" formatted="false">Seguir</string>
     <string name="curation_button_following_state_text" formatted="false">Seguindo</string>
-    <string name="connect_phone_is_self" formatted="false">Este telefone</string>
+    <string name="connect_phone_is_self" formatted="false">Este celular</string>
     <string name="settings_item_canvas_title" formatted="false">Canvas</string>
     <string name="video_settings_canvas_subtitle" formatted="false">Efeitos visuais curtos em loop quando uma música está tocando.</string>
     <string name="age_assurance_intro_cta_not_now" formatted="false">Agora não</string>

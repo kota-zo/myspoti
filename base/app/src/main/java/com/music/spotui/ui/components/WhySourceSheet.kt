@@ -57,6 +57,7 @@ fun WhySourceSheet(trackId: String, detected: String?, onDismiss: () -> Unit) {
                     else stringResource(R.string.why_source_open_failed, o.ms, PlayAttempt.maskText(o.error ?: "?")) + http)
             }
             a.announced?.let { Line(stringResource(R.string.why_source_announced, it)) }
+            a.sourceQuality?.let { q -> a.chosen?.let { Line(stringResource(R.string.why_source_ext_quality, q, nameOf(it))) } }
             (detected ?: a.detected)?.let { Line(stringResource(R.string.why_source_detected, it)) }
             a.fallback?.let { Line(stringResource(R.string.why_source_fallback, PlayAttempt.maskText(it)), muted = true) }
             a.error?.let { Line(stringResource(R.string.why_source_error, PlayAttempt.maskText(it)), muted = true) }

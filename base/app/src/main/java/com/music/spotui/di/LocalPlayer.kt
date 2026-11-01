@@ -61,7 +61,7 @@ object LocalPlayer {
     }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private fun build(main: Boolean): ExoPlayer = ExoPlayer.Builder(Graph.app)
+    private fun build(main: Boolean): ExoPlayer = ExoPlayer.Builder(Graph.app, Renderers)
         // The fading-out copy of a crossfade owns neither the audio focus nor the noisy-audio pause:
         // the main player has them and the fade follows its play state.
         .setAudioAttributes(audioAttributes, main && !mirrorActive)
@@ -70,6 +70,37 @@ object LocalPlayer {
         .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
             com.music.spotui.data.offline.OfflineCrypto.Factory(Graph.app)).setLoadErrorHandlingPolicy(NoAudioNotRetried))
         .build()
+        // The speed and the silence skipping of the settings (the fading-out copy too: both are heard).
+        .also(::tune)
+
+    /**
+     * The default renderers, with the equalizer in the audio chain (each player its own, see
+     * EqualizerProcessor), ahead of the silence skipping and the speed the sink adds after it.
+     */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private object Renderers : androidx.media3.exoplayer.DefaultRenderersFactory(Graph.app) {
+        override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
+            androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setAudioProcessors(arrayOf(EqualizerProcessor()))
+                .build()
+    }
+
+    private fun tune(p: ExoPlayer) {
+        val pref = com.music.spotui.data.preferences.EqualizerPref
+        if (p.playbackParameters.speed != pref.speed) p.playbackParameters = androidx.media3.common.PlaybackParameters(pref.speed)
+        if (p.skipSilenceEnabled != pref.skipSilence) p.skipSilenceEnabled = pref.skipSilence
+    }
+
+    /** The speed or the silence skipping changed in the settings: the song playing (and a fade) takes it now. */
+    fun applyPlayback() {
+        exo?.let(::tune); outgoing?.let(::tune)
+        log("speed ${rate()}×, skip silences ${if (com.music.spotui.data.preferences.EqualizerPref.skipSilence) "on" else "off"}")
+    }
+
+    /** The speed the local player plays at (the settings', 1 by default). */
+    fun rate(): Float = com.music.spotui.data.preferences.EqualizerPref.speed
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun player(): ExoPlayer = exo ?: build(true).also { p ->
@@ -119,6 +150,7 @@ object LocalPlayer {
                     // A song to play again that the player went past by itself: put back, never followed.
                     if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && wentPastRepeat(p, p.previousMediaItemIndex)) return
                     if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) startsAtZero(p)
+                    if (skipHidden(p, reason)) return
                     prefetchNext(p); continueIfLast(p)
                 }
 
@@ -129,6 +161,8 @@ object LocalPlayer {
                     log("error ${error.errorCodeName}: ${generic(error.cause?.toString() ?: error.message.orEmpty())}")
                     val item = p.currentMediaItem?.localConfiguration?.uri ?: return
                     if (item.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) com.music.spotui.extensions.Extensions.noteAttempt(item.lastPathSegment) { it.copy(error = "${error.errorCodeName}: ${error.cause ?: error.message.orEmpty()}") }
+                    // A file that is gone (a download deleted while the queue played): never left stopped on it.
+                    if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME && DeletedDownloads.isMissingFile(error.errorCode, error.cause)) return fileGone(p, item)
                     if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME) return
                     val t = current() ?: return
                     val noAudio = com.music.spotui.extensions.AudioRoute.isNoAudio(error)
@@ -227,19 +261,119 @@ object LocalPlayer {
         prefetchNext(p)
     }
 
+    /**
+     * The song playing opened again where it is: its audio is read anew from the answer kept for it
+     * (another source was picked for it in the player, see SongPlayer.switchSource). The queue, the
+     * shuffle, the repeat and play or pause stay. False: nothing an extension streams plays here.
+     */
+    fun reopen(): Boolean {
+        val p = exo ?: return false
+        if (CastPlayback.active || !active.value) return false
+        if (p.currentMediaItem?.localConfiguration?.uri?.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME) return false
+        if (outgoing != null) endFade()
+        val at = p.currentPosition
+        log("${current()?.title}: another source picked, opened again at $at ms")
+        errors.played()
+        p.stop()
+        p.seekTo(p.currentMediaItemIndex, at)
+        p.prepare()
+        return true
+    }
+
+    /** The downloads deleted during this session, by file: the song each one is (see [downloadsDeleted]). */
+    private val deletedDownloads = HashMap<String, com.music.spotui.data.entity.SongsModel>()
+
+    /**
+     * Downloads were deleted ([gone]: the song of each file, see OfflineStore.remove, removeAll): the
+     * songs of the queue that played from those files play from their source, as the list's songs
+     * never downloaded do (the extensions, else Spotify), or are left out offline (see
+     * [DeletedDownloads]). The song playing keeps its open file and ends as usual. On the main thread.
+     */
+    fun downloadsDeleted(gone: Map<String, com.music.spotui.data.entity.SongsModel>) {
+        val p = exo ?: return
+        if (!active.value || tracks.isEmpty()) return
+        deletedDownloads.putAll(gone)
+        val cur = p.currentMediaItemIndex
+        val plan = DeletedDownloads.plan(tracks.map { t -> gone[t.uri.toString()]?.spotifyTrackId }, cur,
+            com.music.spotui.data.offline.OfflineStore.isOnline(Graph.app))
+        if (plan.all { it == DeletedDownloads.Fix.KEEP }) return
+        var streamed = 0; var dropped = 0; var droppedBefore = 0
+        for (i in plan.indices.reversed()) when (plan[i]) {
+            DeletedDownloads.Fix.STREAM -> { swap(p, i, com.music.spotui.extensions.ExtensionAudio.localTrack(gone.getValue(tracks[i].uri.toString()))); streamed++ }
+            DeletedDownloads.Fix.DROP -> {
+                p.removeMediaItem(i)
+                val t = tracks.removeAt(i)
+                queued -= t; radioSongs -= t
+                unshuffled = unshuffled?.filterNot { it === t }
+                dropped++; if (i < cur) droppedBefore++
+            }
+            DeletedDownloads.Fix.KEEP -> Unit
+        }
+        if (noFadeFor >= 0) noFadeFor -= droppedBefore
+        log("downloads deleted while playing: $streamed songs of the queue play from their source, $dropped left out (offline or no id); ${current()?.title} ends from its open file")
+        prefetchNext(p); continueIfLast(p)
+        publish()
+    }
+
+    /** Puts [t] at [index] of the queue in place of the song there (same place in the queue, the shuffle and the radio). */
+    private fun swap(p: ExoPlayer, index: Int, t: LocalTrack) {
+        val old = tracks[index]
+        p.replaceMediaItem(index, item(t))
+        tracks[index] = t
+        if (queued.remove(old)) queued += t
+        if (radioSongs.remove(old)) radioSongs += t
+        if (playingQueued === old) playingQueued = t
+        unshuffled = unshuffled?.map { if (it === old) t else it }
+    }
+
+    /**
+     * The file of the song the player is on is gone ([uri]: a download deleted while the queue
+     * played, or a file that left the phone): never left stopped there. A deleted download plays
+     * from its source (see [downloadsDeleted]); any other file is skipped, the queue stopping only
+     * when the songs after it fail too (see StreamErrors).
+     */
+    private fun fileGone(p: ExoPlayer, uri: android.net.Uri) {
+        val i = p.currentMediaItemIndex
+        val t = tracks.getOrNull(i) ?: return
+        val song = deletedDownloads[uri.toString()]
+            ?.takeIf { it.spotifyTrackId.isNotBlank() && com.music.spotui.data.offline.OfflineStore.isOnline(Graph.app) }
+        if (song != null) {
+            log("${t.title}: its download was deleted, it plays from its source")
+            // From where it was (a seek into a song whose file went reopens it).
+            val at = p.currentPosition
+            swap(p, i, com.music.spotui.extensions.ExtensionAudio.localTrack(song))
+            p.seekTo(i, at); p.prepare(); p.play()
+            return
+        }
+        // No retry: a file that is not there will not be on a second open.
+        errors.alreadyRetried(uri.toString())
+        when (errors.failed(uri.toString(), p.hasNextMediaItem())) {
+            StreamErrors.Step.SKIP -> {
+                log("skipped ${t.title}: its file is gone")
+                android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable_skipped, t.title), android.widget.Toast.LENGTH_SHORT).show()
+                p.seekToNextMediaItem(); p.prepare(); p.play()
+            }
+            else -> {
+                log("stopped on ${t.title}: its file is gone, and the songs after it failed too or none follows")
+                android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, t.title), android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     /** The most a song's start read ahead is kept (less when its address expires sooner). */
     private const val HEAD_KEEP_MS = 10 * 60_000L
 
     /**
      * [startMs]: where the song at [index] starts (a resume). [continues]: the extensions play the
-     * queue, it goes on after its last song as Spotify's does (see continueIfLast).
+     * queue, it goes on after its last song as Spotify's does (see continueIfLast). [paused]: the song
+     * is put there paused (another source picked for it while it was paused), the user's play starts it.
      */
-    fun play(list: List<LocalTrack>, index: Int, shuffle: Boolean = false, context: String? = null, contextUri: String = "", startMs: Long = 0L, continues: Boolean = false) {
+    fun play(list: List<LocalTrack>, index: Int, shuffle: Boolean = false, context: String? = null, contextUri: String = "", startMs: Long = 0L, continues: Boolean = false, paused: Boolean = false) {
         if (list.isEmpty()) return
         // Another song picked: repeat once was for the song left.
         val shown = SongPlayer.nowPlaying.value.uri.substringAfterLast(':')
         val picked = list.getOrNull(index.coerceIn(0, list.lastIndex))?.let(::spotifyId).orEmpty()
-        if (SongPlayer.repeatMode.value == LocalRepeat.ONE && (picked.isBlank() || picked != shown)) {
+        if (SongPlayer.repeatMode.value == LocalRepeat.ONCE && (picked.isBlank() || picked != shown)) {
             log("repeat once: cancelled (another song picked), back to off")
             SongPlayer.setRepeatMode(LocalRepeat.OFF)
         }
@@ -262,10 +396,12 @@ object LocalPlayer {
         replaying = null
         repeat = SongPlayer.repeatMode.value
         applyRepeat(p)
+        // Paused before it loads: a player left playing by a song before never starts this one.
+        if (paused) p.pause()
         p.setMediaItems(all.map(::item), index.coerceIn(0, list.lastIndex), startMs.coerceAtLeast(0L))
         p.prepare()
         if (shuffle) setShuffle(true)
-        p.play()
+        if (!paused) p.play()
         continueIfLast(p)
     }
 
@@ -277,7 +413,7 @@ object LocalPlayer {
         active.value = false
         // A page left muted by an extension's mirror must not stay silent once Spotify plays again.
         SongPlayer.unmuteMirror()
-        forgetRadio(); continues = false
+        forgetRadio(); continues = false; deletedDownloads.clear()
         exo?.let { it.stop(); it.clearMediaItems() }
         tracks.clear(); unshuffled = null
         queued.clear(); playingQueued = null; radioSongs.clear()
@@ -400,6 +536,8 @@ object LocalPlayer {
         if (p.playbackState == Player.STATE_IDLE && p.mediaItemCount > 0) { log("resume after an error: preparing again"); p.prepare() }
         p.play()
     }
+    /** The sleep timer's fade: the player's volume (a crossfade owns it while it runs, the fade then goes on after it). */
+    fun setGain(gain: Float) { if (outgoing == null) exo?.volume = gain }
     fun pause() { if (CastPlayback.active) CastPlayback.pause() else exo?.pause() }
     fun next() {
         // In the first half of a crossfade the main player is on the next song already, while the
@@ -663,13 +801,13 @@ object LocalPlayer {
     private fun item(t: LocalTrack) = MediaItem.Builder().setUri(t.uri).setMediaId(t.id.toString())
         .setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album)
             .setArtworkUri(android.net.Uri.parse(app.myspoti.host.android.Covers.large(t.artUri.toString()))).setDurationMs(t.durationMs.takeIf { it > 0 }).build()).build()
-    /** SongPlayer.repeatMode as this player has it (0 off, 1 the queue, 2 the song; see LocalRepeat). */
+    /** SongPlayer.repeatMode as this player has it (0 off, 1 the queue, 2 the song for good, 3 the song once; see LocalRepeat). */
     private var repeat = LocalRepeat.OFF
 
     fun setRepeatMode(mode: Int) {
         repeat = mode
         // Repeat once tapped again, or another mode: its replay to come is cancelled.
-        if (mode != LocalRepeat.ONE) replaying = null
+        if (mode != LocalRepeat.ONCE) replaying = null
         exo?.let { applyRepeat(it); if (active.value) continueIfLast(it) }
     }
 
@@ -685,7 +823,7 @@ object LocalPlayer {
 
     /** Manual moves (next, previous, a pick) cancel repeat once: it was for the song left. */
     private fun cancelOnce(why: String) {
-        if (repeat != LocalRepeat.ONE) return
+        if (repeat != LocalRepeat.ONCE) return
         log("repeat once: cancelled ($why), back to off")
         SongPlayer.setRepeatMode(LocalRepeat.OFF)
     }
@@ -716,7 +854,7 @@ object LocalPlayer {
     }
 
     /**
-     * ExoPlayer repeats a queue of several songs itself; a song that follows itself (repeat one, a
+     * ExoPlayer repeats a queue of several songs itself; a song that follows itself (repeat one or once, a
      * queue of one song repeated) pauses at its end and is played again by [playAgain].
      */
     private fun applyRepeat(p: ExoPlayer) {
@@ -752,7 +890,7 @@ object LocalPlayer {
     /** The song at [index] plays again from 0:00, and the Connect mirror's copy plays it anew (a new play, as Spotify's repeat counts one). */
     private fun replay(p: ExoPlayer, index: Int, endedAt: Long) {
         endFade()
-        if (repeat == LocalRepeat.ONE) replaying = tracks.getOrNull(index)
+        if (repeat == LocalRepeat.ONCE) replaying = tracks.getOrNull(index)
         p.seekTo(index, 0L)
         p.play()
         log("repeat: ${current()?.title} plays again from ${p.currentPosition} ms (it ended at $endedAt ms)")
@@ -771,6 +909,24 @@ object LocalPlayer {
         log("${current()?.title} started at $at ms, not at its start: moved to 0 ms")
         p.seekTo(0L)
     }
+    /** The hidden songs ("Not interested") skipped in a row; a pick by hand starts no run. */
+    private var hiddenRun = 0
+
+    /**
+     * A hidden song the queue comes to by itself (or right after another one skipped) is skipped;
+     * a queue of only hidden songs is gone through once, then the last one plays. True: skipped.
+     */
+    private fun skipHidden(p: ExoPlayer, reason: Int): Boolean {
+        val t = current()
+        val hidden = t != null && com.music.spotui.data.preferences.HiddenSongs.isHidden(spotifyIdOf(t))
+        val ours = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || (hiddenRun > 0 && reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+        if (!hidden || !ours || hiddenRun >= tracks.size || !p.hasNextMediaItem()) { hiddenRun = 0; return false }
+        hiddenRun++
+        log("skipped ${t?.title}: hidden (not interested)")
+        next()
+        return true
+    }
+
     /** The Spotify id of [t]: a downloaded song's, or the song an extension streams; "" for the phone's own files. */
     fun spotifyIdOf(t: LocalTrack): String =
         com.music.spotui.data.offline.OfflineStore.byLocalId(t.id)?.trackId
@@ -788,6 +944,8 @@ object LocalPlayer {
     fun audioFormat(): androidx.media3.common.Format? = if (CastPlayback.active) null else exo?.audioFormat
     /** The length the player knows of the audio itself (null: not known), never Spotify's. */
     fun knownLength(): Long? = if (CastPlayback.active) null else exo?.duration?.takeIf { it != C.TIME_UNSET && it > 0 }
+    /** How far ahead of the position the song is loaded, ms (null: nothing playing here); read by "Stats for nerds" only. */
+    fun bufferedAheadMs(): Long? = if (CastPlayback.active) null else exo?.let { (it.bufferedPosition - it.currentPosition).coerceAtLeast(0L) }
     fun current(): LocalTrack? = exo?.currentMediaItemIndex?.let { tracks.getOrNull(it) }
 
     /**
@@ -882,7 +1040,7 @@ object LocalPlayer {
         val end = LocalRepeat.atEnd(repeat, p.mediaItemCount, replayedNow())
         if (end == LocalRepeat.End.ONCE_DONE) onceDone()
         when {
-            end == LocalRepeat.End.REPLAY -> { if (repeat == LocalRepeat.ONE) replaying = current(); CastPlayback.replay() }
+            end == LocalRepeat.End.REPLAY -> { if (repeat == LocalRepeat.ONCE) replaying = current(); CastPlayback.replay() }
             p.hasNextMediaItem() -> {
                 val before = current()
                 p.seekToNextMediaItem()

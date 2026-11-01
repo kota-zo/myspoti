@@ -15,10 +15,15 @@ object CastProtocol {
     const val RECEIVER = "receiver-0"
     /** Google's Default Media Receiver. */
     const val DEFAULT_MEDIA_RECEIVER = "CC1AD845"
+    /** The receiver app of Spotify, and its private channel (what the Spotify app speaks to a Cast device). */
+    const val SPOTIFY_RECEIVER = "CC32E753"
+    const val NS_SPOTIFY = "urn:x-cast:com.spotify.chromecast.secure.v1"
+    /** The model a group of Cast speakers announces. */
+    const val GROUP_MODEL = "Google Cast Group"
 
     fun type(t: String) = JSONObject().put("type", t)
     fun connect() = type("CONNECT").put("userAgent", "Myspoti").put("origin", JSONObject())
-    fun launch(requestId: Int) = type("LAUNCH").put("appId", DEFAULT_MEDIA_RECEIVER).put("requestId", requestId)
+    fun launch(requestId: Int, appId: String = DEFAULT_MEDIA_RECEIVER) = type("LAUNCH").put("appId", appId).put("requestId", requestId)
     fun stopApp(requestId: Int, sessionId: String) = type("STOP").put("sessionId", sessionId).put("requestId", requestId)
     fun setVolume(requestId: Int, level: Double) =
         type("SET_VOLUME").put("volume", JSONObject().put("level", level.coerceIn(0.0, 1.0))).put("requestId", requestId)
@@ -37,17 +42,17 @@ object CastProtocol {
             .put("autoplay", autoplay).put("currentTime", startMs.coerceAtLeast(0) / 1000.0)
     }
 
-    /** The Default Media Receiver running on the device, from a RECEIVER_STATUS. */
+    /** The receiver app [appId] running on the device, from a RECEIVER_STATUS. */
     data class App(val sessionId: String, val transportId: String)
     data class Receiver(val app: App?, val volume: Double?, val muted: Boolean)
 
-    fun receiver(status: JSONObject): Receiver {
+    fun receiver(status: JSONObject, appId: String = DEFAULT_MEDIA_RECEIVER): Receiver {
         val s = status.optJSONObject("status") ?: JSONObject()
         val apps = s.optJSONArray("applications")
         var app: App? = null
         if (apps != null) for (k in 0 until apps.length()) {
             val a = apps.optJSONObject(k) ?: continue
-            if (a.optString("appId") == DEFAULT_MEDIA_RECEIVER) app = App(a.optString("sessionId"), a.optString("transportId"))
+            if (a.optString("appId") == appId) app = App(a.optString("sessionId"), a.optString("transportId"))
         }
         val v = s.optJSONObject("volume")
         return Receiver(app, v?.optDouble("level")?.takeIf { !it.isNaN() }, v?.optBoolean("muted") == true)
@@ -66,4 +71,38 @@ object CastProtocol {
             s.optJSONObject("media")?.optString("contentId")?.ifBlank { null },
         )
     }
+
+    // ── Spotify's receiver: the device becomes a Spotify Connect device of the account ──
+
+    /** The id Spotify Connect gives a Cast device woken this way: the MD5 of its name, in hex. */
+    fun spotifyDeviceId(name: String): String =
+        java.security.MessageDigest.getInstance("MD5").digest(name.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+
+    fun spotifyGetInfo(requestId: Int, name: String, deviceId: String, group: Boolean) = type("getInfo").put("requestId", requestId)
+        .put("payload", JSONObject().put("remoteName", name).put("deviceID", deviceId).put("deviceAPI_isGroup", group))
+
+    fun spotifyAddUser(requestId: Int, blob: String) = type("addUser").put("requestId", requestId)
+        .put("payload", JSONObject().put("blob", blob).put("tokenType", "accesstoken"))
+
+    /** What the Spotify receiver answers on its channel. */
+    sealed class SpotifyReply {
+        /** The receiver's client id, to ask Spotify for the token it logs in with. */
+        data class Info(val clientId: String) : SpotifyReply()
+        object UserAdded : SpotifyReply()
+        data class Failed(val type: String) : SpotifyReply()
+    }
+
+    fun spotifyReply(message: JSONObject): SpotifyReply? = when (val t = message.optString("type")) {
+        "getInfoResponse" -> message.optJSONObject("payload")?.let { it.optString("clientID").ifBlank { it.optString("clientId") } }
+            ?.takeIf { it.isNotBlank() }?.let { SpotifyReply.Info(it) } ?: SpotifyReply.Failed(t)
+        "addUserResponse" -> SpotifyReply.UserAdded
+        "getInfoError", "addUserError", "launchError" -> SpotifyReply.Failed(t)
+        else -> null
+    }
+
+    /** The body asking Spotify (device-auth/v1/refresh) for the token the receiver logs in with. */
+    fun deviceAuthBody(clientId: String, deviceId: String): String = JSONObject().put("clientId", clientId).put("deviceId", deviceId).toString()
+
+    /** The token in Spotify's answer, or null. */
+    fun deviceAuthToken(body: String): String? = runCatching { JSONObject(body).optString("accessToken").ifBlank { null } }.getOrNull()
 }

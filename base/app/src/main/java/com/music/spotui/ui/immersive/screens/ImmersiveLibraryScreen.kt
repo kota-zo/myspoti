@@ -87,6 +87,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.music.spotui.data.api.Api
+import com.music.spotui.data.api.ProfileCache
 import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.AccountModel
 import com.music.spotui.data.entity.ArtistsModel
@@ -116,6 +117,7 @@ import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.navigation.folderRoute
 import com.music.spotui.ui.navigation.localPlaylistRoute
+import com.music.spotui.ui.navigation.showRoute
 import com.music.spotui.ui.navigation.playlistRoute
 import com.music.spotui.ui.screens.ContextViewModel
 import com.music.spotui.ui.screens.LOCAL_PLAYLIST_PREFIX
@@ -130,8 +132,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 /** The chips under the title, in the Classic order; their logic is the shared [LibraryChips]. */
 private val LibraryChipLabels = listOf(
     LibraryChip.PLAYLISTS to R.string.library_chip_playlists,
+    LibraryChip.BY_ME to R.string.library_chip_by_me,
     LibraryChip.ARTISTS to R.string.library_chip_artists,
     LibraryChip.ALBUMS to R.string.library_chip_albums,
+    LibraryChip.PODCASTS to R.string.library_chip_podcasts,
     LibraryChip.SONGS to R.string.library_chip_songs,
 )
 
@@ -147,7 +151,9 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     val entries by vm.entries.collectAsState()
     val account by vm.account.collectAsState()
     val followedArtists by vm.followedArtists.collectAsState()
+    val followedShows by vm.followedShows.collectAsState()
     val context = LocalContext.current
+    LaunchedEffect(Unit) { ProfileCache.ensure(context) }
 
     // The first lists of the library load in the background, ready before a tap.
     LaunchedEffect((entries as? Response.Success)?.data?.take(8)?.map { it.spotifyId }) {
@@ -172,6 +178,8 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var kind by rememberSaveable { mutableStateOf(LibraryChip.ALL) }
+    // The shows are only read once the Podcasts chip is chosen.
+    LaunchedEffect(kind) { if (kind == LibraryChip.PODCASTS) vm.loadFollowedShows() }
 
     if (showAccount) {
         ImmersiveAccountSheet(
@@ -187,8 +195,12 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     val loading = entries is Response.Loading
     val (allEntries, pinned) = libraryEntries(entries)
     // The kind and search filters only run again when their inputs change, not on every recomposition.
-    val (shownEntries, shownArtists) = remember(kind, allEntries, followedArtists, searchQuery) {
-        val (byKind, artists) = LibraryChips.apply(kind, allEntries, followedArtists, LIBRARY_SONG_IDS)
+    // Read through the name, which redraws the screen once the account is known.
+    val myId = ProfileCache.name?.let { ProfileCache.id }
+    val (shownEntries, shownArtists) = remember(kind, allEntries, followedArtists, followedShows, searchQuery, myId) {
+        val (byKind, artists) = LibraryChips.apply(
+            kind, allEntries, followedArtists, LIBRARY_SONG_IDS, myId, followedShows, setOf(Api.HomeCache.EPISODES_ID),
+        )
         if (searchQuery.isBlank()) byKind to artists
         else byKind.filter {
             it.name.contains(searchQuery, ignoreCase = true) || it.subtitle.contains(searchQuery, ignoreCase = true)
@@ -433,8 +445,8 @@ internal fun Modifier.immersiveBleed(inset: Dp): Modifier = layout { measurable,
 
 /** Albums, playlists and folders start loading under the finger. */
 private fun prefetchLibraryEntry(entry: LibraryEntry) = when {
-    entry.isFolder || entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX) -> Unit
-    entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID || entry.spotifyId == Api.HomeCache.DOWNLOADS_ID || entry.spotifyId == Api.HomeCache.EPISODES_ID -> Unit
+    entry.isFolder || entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX) || entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX) -> Unit
+    entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID || entry.spotifyId == Api.HomeCache.DOWNLOADS_ID || entry.spotifyId == Api.HomeCache.EPISODES_ID || entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID -> Unit
     entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID -> ContextViewModel.prefetch("liked", "")
     entry.isPlaylist -> ContextViewModel.prefetch("playlist", entry.spotifyId)
     else -> ContextViewModel.prefetch("album", entry.spotifyId)
@@ -443,10 +455,12 @@ private fun prefetchLibraryEntry(entry: LibraryEntry) = when {
 private fun openLibraryEntry(entry: LibraryEntry, navController: NavController) {
     if (entry.isFolder) navController.navigate(folderRoute(entry.folderUri, entry.name))
     else if (entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX)) navController.navigate(localPlaylistRoute(entry.spotifyId.removePrefix(LOCAL_PLAYLIST_PREFIX)))
+    else if (entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX)) navController.navigate(showRoute(entry.spotifyId.removePrefix(Api.HomeCache.SHOW_PREFIX), entry.name))
     else if (entry.spotifyId == Api.HomeCache.DOWNLOADS_ID) navController.navigate(Routes.Downloads.route)
     else if (entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID) navController.navigate(Routes.LocalFiles.route)
     else if (entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
     else if (entry.spotifyId == Api.HomeCache.EPISODES_ID) navController.navigate(Routes.Episodes.route)
+    else if (entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID) navController.navigate(Routes.NewEpisodes.route)
     else if (entry.isPlaylist) navController.navigate(playlistRoute(entry.spotifyId, entry.name))
     else navController.navigate(albumRoute(entry.name, entry.artists, entry.spotifyId))
 }

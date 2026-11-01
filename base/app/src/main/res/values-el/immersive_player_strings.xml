@@ -18,6 +18,7 @@
     <string name="immersive_player_repeat_off">Επανάληψη: ανενεργή</string>
     <string name="immersive_player_repeat_all">Επανάληψη: όλα</string>
     <string name="immersive_player_repeat_one">Επανάληψη: ένα</string>
+    <string name="immersive_player_repeat_once">Επανάληψη μία φορά</string>
     <string name="immersive_player_volume_down">Μείωση έντασης</string>
     <string name="immersive_player_volume_up">Αύξηση έντασης</string>
     <string name="immersive_player_ad">Διαφήμιση</string>

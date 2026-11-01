@@ -8,6 +8,7 @@ import app.myspoti.host.android.MyspotiRuntime
 import app.myspoti.spotify.bridge.PageDevice
 import com.music.spotui.data.local.LocalTrack
 import com.music.spotui.data.preferences.ConnectMirrorPref
+import com.music.spotui.data.preferences.DownloadSyncPref
 import com.music.spotui.di.MirrorRules.Follow
 import com.music.spotui.di.MirrorRules.Lead
 import com.music.spotui.di.MirrorRules.Want
@@ -26,7 +27,8 @@ import kotlinx.coroutines.sync.withLock
  * another phone) see the song and command it. Their pause, seek or skip reach the page, whose state
  * the local player follows here; the phone's own controls drive the local player as before, and the
  * page follows it. The play is the page's own, counted by Spotify as any other: the app reports
- * nothing itself. Downloads and files of the device are never mirrored.
+ * nothing itself. A download with a Spotify id is mirrored the same way while the phone is online
+ * ("Sync downloaded songs with Spotify", [DownloadSyncPref]); files of the device never are.
  *
  * Everything runs on the main thread, on the two players' own events (and one slow drift check).
  */
@@ -164,9 +166,21 @@ object ConnectMirror {
         val now = SystemClock.elapsedRealtime()
         val expected = if (uri != localUri) null else localAtMs + if (localWasPlaying) now - localAtTime else 0L
         val moved = MirrorRules.localMoved(localWasPlaying, playing, expected, positionMs)
-        if (uri != localUri) { localUri = uri; failedUri = null; backoffStep = 0 }
+        if (uri != localUri) { localUri = uri; failedUri = null; backoffStep = 0; yieldedUri = null }
         localWasPlaying = playing; localAtMs = positionMs; localAtTime = now
-        if (!MirrorRules.eligible(origin, id, ConnectMirrorPref.on, com.music.spotui.data.DataSaver.active)) {
+        localOrigin = origin
+        val download = origin == MirrorRules.Origin.DOWNLOAD
+        // A download is mirrored by its own setting, only online (offline, the page cannot stream).
+        val online = !download || com.music.spotui.data.offline.OfflineStore.isOnline(com.music.spotui.di.Graph.app)
+        // An extension that mirrors the download itself (playback.mirror) keeps the page, as before that setting.
+        val extensionHolds = download && (yieldedUri == uri || com.music.spotui.extensions.Extensions.mirror.active != null)
+        // Played off 1× (the equalizer's speed): Spotify's page plays music at 1× only, it would
+        // be put back every few seconds; the song plays alone, as with the setting off.
+        if (LocalPlayer.rate() != 1f) {
+            if (running) stop("the song plays at ${LocalPlayer.rate()}×, Spotify plays at 1× only")
+            return
+        }
+        if (extensionHolds || !MirrorRules.eligible(origin, id, ConnectMirrorPref.on, com.music.spotui.data.DataSaver.active, DownloadSyncPref.on, online)) {
             if (running) stop(if (origin == MirrorRules.Origin.AUDIO_SOURCE) "not mirrored: ${t.title}" else "a download or a file of the phone plays")
             return
         }
@@ -495,8 +509,29 @@ object ConnectMirror {
 
     /** "Count extension plays on Spotify" was switched: off ends the mirror, on starts it on the song playing. */
     fun settingChanged() {
-        if (!ConnectMirrorPref.on) { stop("the setting was turned off"); failedUri = null }
+        val on = if (localOrigin == MirrorRules.Origin.DOWNLOAD) DownloadSyncPref.on else ConnectMirrorPref.on
+        if (!on) { stop("the setting was turned off"); failedUri = null }
         else main.post(::poke)
+    }
+
+    /** Where the local player's song at the last event came from (which setting mirrors it). */
+    @Volatile private var localOrigin: MirrorRules.Origin? = null
+    /** The download whose page an extension's own mirror asked for: not mirrored here until the song changes. */
+    private var yieldedUri: String? = null
+
+    /** The mirror holds the page for a download (an extension's own mirror may take it, see [yieldToExtension]). */
+    val mirrorsDownload: Boolean get() = running && localOrigin == MirrorRules.Origin.DOWNLOAD
+
+    /**
+     * An extension's own mirror (player.setLocalMute) was let in while this mirror holds the page for
+     * a download: it gets the page, as it did before downloads were mirrored, once this mirror's end
+     * reached the page (its unmute must not undo the extension's mute).
+     */
+    suspend fun yieldToExtension() {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            if (mirrorsDownload) { yieldedUri = localUri; stop("an extension mirrors this download itself") }
+        }
+        awaitEnded()
     }
 
     /** Another device of the account took playback while mirrored: the local player stops, as it would have. */

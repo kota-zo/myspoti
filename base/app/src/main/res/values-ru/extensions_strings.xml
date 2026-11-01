@@ -218,6 +218,10 @@
     <string name="extension_sign_in_later">Не сейчас</string>
     <string name="extension_sign_in_needed">%1$s: войдите, чтобы и дальше пользоваться его источником</string>
     <string name="outcome_bug">ошибка расширения</string>
+    <string name="ext_section_settings">Настройки %1$s</string>
+    <string name="ext_setting_wifi">%1$s · Wi-Fi</string>
+    <string name="ext_setting_cell">%1$s · Мобильные данные</string>
+    <string name="why_source_ext_quality">Её настройка: %1$s (%2$s)</string>
     <string name="outcome_found">найдено</string>
     <string name="outcome_network">ошибка сети или тайм-аут</string>
     <string name="outcome_not_found">не найдено</string>

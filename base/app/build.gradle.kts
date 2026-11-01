@@ -22,7 +22,7 @@ android {
     // signed with the first key, as "Myspoti Beta"; releases are "app.myspoti.stable",
     // signed with their own key, as "Myspoti".
     // Local builds (no version given) are on the beta side, like the phone test builds.
-    val version = (findProperty("appVersionName") as String?) ?: "2.2.0"
+    val version = (findProperty("appVersionName") as String?) ?: "2.3.0"
     // "-beta" as in UpdateChecker.isBeta, one predicate for the app id, the label and the log stripping.
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     defaultConfig {
@@ -117,6 +117,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // The real org.json in unit tests (android.jar only has stubs).
     testImplementation("org.json:json:20240303")
+    // A real XML pull parser in unit tests (the TTML lyrics parser; the tests skip themselves without it).
+    testImplementation("net.sf.kxml:kxml2:2.3.0")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     implementation(libs.androidx.core.ktx)

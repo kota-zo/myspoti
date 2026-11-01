@@ -271,7 +271,7 @@ fun DownloadsScreen(navController: NavController) {
                 val current = LocalPlayer.active.value && np.uri == "spotify:track:${t.trackId}"
                 com.music.spotui.ui.components.SwipeToRemove(t.trackId, onRemove = {
                     val gone = com.music.spotui.data.offline.OfflineCollections.removeSong(t.trackId)
-                    android.widget.Toast.makeText(context, context.getString(if (gone) R.string.toast_undownload else R.string.download_kept_by_list), android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, if (gone) context.getString(R.string.toast_undownload) else com.music.spotui.data.offline.OfflineCollections.keptMessage(context, t.trackId), android.widget.Toast.LENGTH_SHORT).show()
                 }) { Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().pressable(0.97f) { play(i) }.padding(horizontal = 16.dp, vertical = 8.dp),

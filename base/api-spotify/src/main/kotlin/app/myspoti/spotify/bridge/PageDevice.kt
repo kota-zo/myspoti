@@ -22,6 +22,16 @@ object PageDevice {
     /** The page's device joined Spotify Connect (its connect-state PUT was answered 2xx). */
     fun joined() { reported = true; _joined.value = true }
 
+    /**
+     * When a playback command was last answered DEVICE_NOT_FOUND (0: never). The page's own call
+     * answers "ok" before its Connect command goes out, so the refusal reaches only the host's relay.
+     */
+    @Volatile var commandLostAt = 0L
+        private set
+
+    /** A playback command the page sent was answered 404 DEVICE_NOT_FOUND. */
+    fun commandLost() { commandLostAt = System.currentTimeMillis() }
+
     /** The page is going away (a reload asked for or started): its device is not one to command. */
     fun pageGone() { _joined.value = false }
 }

@@ -2,26 +2,34 @@ package com.music.spotui.di
 
 /**
  * How [LocalPlayer] repeats, kept pure so it is tested off-device. [mode] is SongPlayer.repeatMode:
- * 0 off, 1 the queue, 2 the song.
+ * 0 off, 1 the queue, 2 the song for good, 3 the song once.
  *
  * A song that follows itself (repeat one, or a queue of one song repeated) is not left to
  * ExoPlayer's own repeat: that plays the song again as a new period of the same item, and with an
  * extension's stream it was seen starting again near the last seek instead of at 0:00 (and earlier
  * on each loop). The player pauses at the song's end instead and Myspoti puts it back at 0:00.
  *
- * Repeat one is "repeat once": the song plays again one time, then the queue goes on and the mode
- * goes back to off ([atEnd]). A queue of one song repeated (repeat all) loops it for good.
+ * Repeat one loops the song for good, as Spotify's repeat-track does. Repeat once plays the song
+ * again one time, then the queue goes on and the mode goes back to off ([atEnd]). A queue of one
+ * song repeated (repeat all) loops it for good.
  */
 object LocalRepeat {
     const val OFF = 0
     const val ALL = 1
     const val ONE = 2
+    const val ONCE = 3
 
     /**
      * The song pauses at its end for Myspoti to play it again from 0:00 (see the object's note), or,
      * after repeat once's replay, to go on to the next song ([atEnd]).
      */
-    fun loopsSong(mode: Int, items: Int): Boolean = mode == ONE || mode == ALL && items == 1
+    fun loopsSong(mode: Int, items: Int): Boolean = mode == ONE || mode == ONCE || mode == ALL && items == 1
+
+    /**
+     * The repeat the Web Player is given for [mode]: its repeat-track for both ways of repeating the
+     * song (0 off, 1 the context, 2 the track, as Spotify's Repeat), repeat once being Myspoti's own.
+     */
+    fun pageMode(mode: Int): Int = if (mode >= ONCE) ONE else mode.coerceIn(OFF, ONE)
 
     /** The repeat ExoPlayer is given: its own only for a queue of several songs repeated. */
     fun playerMode(mode: Int, items: Int): Int =
@@ -46,8 +54,8 @@ object LocalRepeat {
 
     /** [replayed]: the song ending is the one repeat once already played again. */
     fun atEnd(mode: Int, items: Int, replayed: Boolean): End = when {
-        mode == ONE -> if (replayed) End.ONCE_DONE else End.REPLAY
-        mode == ALL && items == 1 -> End.REPLAY
+        mode == ONCE -> if (replayed) End.ONCE_DONE else End.REPLAY
+        mode == ONE || mode == ALL && items == 1 -> End.REPLAY
         else -> End.NEXT
     }
 

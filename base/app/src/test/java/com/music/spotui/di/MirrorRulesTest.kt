@@ -59,6 +59,17 @@ class MirrorRulesTest {
         assertFalse(MirrorRules.eligible(Origin.AUDIO_SOURCE, "not-an-id", on = true, dataSaver = false))
     }
 
+    @Test fun `a download with a Spotify id is mirrored online by its own setting`() {
+        assertTrue(MirrorRules.eligible(Origin.DOWNLOAD, id, on = false, dataSaver = false, downloads = true, online = true))
+        assertFalse(MirrorRules.eligible(Origin.DOWNLOAD, id, on = true, dataSaver = false, downloads = false, online = true))
+        assertFalse(MirrorRules.eligible(Origin.DOWNLOAD, id, on = true, dataSaver = false, downloads = true, online = false))
+        assertFalse(MirrorRules.eligible(Origin.DOWNLOAD, id, on = true, dataSaver = true, downloads = true, online = true))
+        assertFalse(MirrorRules.eligible(Origin.DOWNLOAD, "", on = true, dataSaver = false, downloads = true, online = true))
+        // The downloads' setting changes nothing for an extension's stream or a file of the phone.
+        assertFalse(MirrorRules.eligible(Origin.AUDIO_SOURCE, id, on = false, dataSaver = false, downloads = true, online = true))
+        assertFalse(MirrorRules.eligible(Origin.LOCAL_FILE, id, on = true, dataSaver = false, downloads = true, online = true))
+    }
+
     @Test fun `the setting off or the data saver leave the stream alone`() {
         assertFalse(MirrorRules.eligible(Origin.AUDIO_SOURCE, id, on = false, dataSaver = false))
         assertFalse(MirrorRules.eligible(Origin.AUDIO_SOURCE, id, on = true, dataSaver = true))

@@ -1,6 +1,7 @@
 package app.myspoti.host.android
 
 import android.content.Context
+import app.myspoti.spotify.bridge.LogMask
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -23,6 +24,9 @@ object Logbook {
      */
     private const val MAX_LINES = 6000
 
+    /** The longest line kept; the longest ones written on purpose (devices, identity) stay under it. */
+    private const val MAX_LINE = 2000
+
     /** Guarded by its own monitor: [log] is called from the main thread, OkHttp threads and coroutines. */
     private val lines = ArrayDeque<String>(MAX_LINES)
     private val stamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
@@ -32,7 +36,9 @@ object Logbook {
      * Records [line] and mirrors it to Logcat with the same message, so the exported report
      * and `adb logcat -s Myspoti` show the same thing. Safe from any thread.
      */
-    fun log(line: String) {
+    fun log(raw: String) {
+        // Secrets are hidden and a huge line cut here, once, for every caller (see LogMask).
+        val line = LogMask.shown(raw, MAX_LINE)
         android.util.Log.d(WebPlayerHost.LOG, line)
         synchronized(lines) {
             lines.addLast("${stamp.format(Date())} $line")
@@ -72,7 +78,7 @@ object Logbook {
      * where it is known, the latest value wins.
      */
     private val facts = java.util.concurrent.ConcurrentHashMap<String, String>()
-    fun fact(key: String, value: String) { facts[key] = value }
+    fun fact(key: String, value: String) { facts[key] = LogMask.redact(value) }
 
     /** More header lines the app knows of (its extensions), asked when the report is written. */
     @Volatile var headerExtras: (() -> List<Pair<String, String>>)? = null
@@ -118,6 +124,47 @@ object Logbook {
         "music volume $v/$max muted=${am.isStreamMute(android.media.AudioManager.STREAM_MUSIC)} mode=${am.mode} output types=$outs"
     }.getOrNull()
 
+    /**
+     * What decides whether Android lets the app run with the screen off: the battery exemption, the
+     * standby bucket, the power saver, the process importance, the maker's name (Samsung and others
+     * add their own sleeping lists). Music that stops a few seconds after the lock cannot be told
+     * apart without them.
+     */
+    private fun powerLines(context: Context): List<Pair<String, String>> = buildList {
+        runCatching {
+            val pm = context.getSystemService(android.os.PowerManager::class.java)
+            add("exempt" to "ignoring battery optimizations=${pm.isIgnoringBatteryOptimizations(context.packageName)}")
+            add("saver" to "power save mode=${pm.isPowerSaveMode} device idle=${pm.isDeviceIdleMode}")
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 28) runCatching {
+            val bucket = context.getSystemService(android.app.usage.UsageStatsManager::class.java).appStandbyBucket
+            val name = when (bucket) {
+                android.app.usage.UsageStatsManager.STANDBY_BUCKET_ACTIVE -> "active"
+                android.app.usage.UsageStatsManager.STANDBY_BUCKET_WORKING_SET -> "working set"
+                android.app.usage.UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "frequent"
+                android.app.usage.UsageStatsManager.STANDBY_BUCKET_RARE -> "rare"
+                android.app.usage.UsageStatsManager.STANDBY_BUCKET_RESTRICTED -> "restricted"
+                else -> "other"
+            }
+            val restricted = context.getSystemService(android.app.ActivityManager::class.java).isBackgroundRestricted
+            add("standby" to "bucket $bucket ($name) background restricted=$restricted")
+        }
+        runCatching {
+            val me = android.app.ActivityManager.RunningAppProcessInfo().also { android.app.ActivityManager.getMyMemoryState(it) }
+            val importance = when (me.importance) {
+                android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND -> "foreground"
+                android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE -> "foreground service"
+                android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE -> "visible"
+                android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE -> "perceptible"
+                android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE -> "service"
+                android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED -> "cached"
+                else -> "other"
+            }
+            add("process" to "importance ${me.importance} ($importance)")
+        }
+        add("maker" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+    }
+
     /** The lines the 402 analyses read: refusals, the matrix, registration, clusters, licences, routes, ads. */
     private val RELEVANT_402 = Regex("""(?i)refus|\b402\b|registration|cluster:|licence|command headers|commands from the page|relay route|relay: |audio after|ad break|page ready|connect/transfer|previous player device""")
     private const val RELEVANT_LINES = 50
@@ -162,7 +209,15 @@ object Logbook {
             audioDetails(context)?.let { add("audio" to it) }
             runCatching { headerExtras?.invoke() }.getOrNull()?.let { addAll(it) }
         }
+        // With how long ago this WebView was signed in (a new sign-in had its licences refused, 30/10).
+        val signedIn = if (MyspotiRuntime.isStarted) runCatching { MyspotiRuntime.host.signedInSince }.getOrNull() else null
+        val signedInAge = when {
+            signedIn == null || signedIn == 0L -> null
+            signedIn < 0 -> "signed in here before this was noted"
+            else -> "signed in here ${ageBucket(System.currentTimeMillis() - signedIn)}"
+        }
         val installAge = info?.firstInstallTime?.let { ageBucket(System.currentTimeMillis() - it) }
+            ?.let { age -> listOfNotNull(age, signedInAge).joinToString(", ") }
         val summary = app.myspoti.spotify.report.Refusal402.summary(facts["account"], installAge)
         // Masked and cut down (DiagnosticDigest): small enough to paste, nothing that opens an account.
         return buildString {
@@ -172,6 +227,9 @@ object Logbook {
             summary.forEach { (k, v) -> appendLine("${k.padEnd(12)}: ${app.myspoti.spotify.report.DiagnosticDigest.mask(v)}") }
             appendLine()
             header.forEach { (k, v) -> appendLine("${k.padEnd(12)}: ${app.myspoti.spotify.report.DiagnosticDigest.mask(v)}") }
+            appendLine()
+            appendLine("--- power ---")
+            powerLines(context).forEach { (k, v) -> appendLine("${k.padEnd(12)}: ${app.myspoti.spotify.report.DiagnosticDigest.mask(v)}") }
             val relevant = tail.filter { RELEVANT_402.containsMatchIn(it.drop(13)) }.takeLast(RELEVANT_LINES)
             if (relevant.isNotEmpty()) {
                 appendLine()

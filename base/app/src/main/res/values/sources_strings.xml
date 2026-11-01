@@ -14,4 +14,14 @@
     <string name="sources_open">Open the extension</string>
     <string name="sources_order_hint">Sources are asked in the order set in Settings (Playback, Downloads).</string>
     <string name="sources_below_spotify">Not asked: Spotify is above</string>
+    <string name="source_pick_title">Source</string>
+    <string name="source_pick_detail">Plays this song and the next ones from the source you pick, until Myspoti restarts. Your order in Settings stays as it is.</string>
+    <string name="source_pick_playing">Playing now</string>
+    <string name="source_pick_temporary">Temporary: first until Myspoti restarts</string>
+    <string name="source_pick_reset">Back to my order</string>
+    <string name="source_pick_reset_detail">The order set in Settings → Playback</string>
+    <string name="source_pick_tag">temporary</string>
+    <string name="source_pick_missing">%1$s doesn\'t have this song: it goes on from where it played, and your order stays as it was.</string>
+    <string name="source_pick_next">%1$s plays from the next song: this one goes on as it plays.</string>
+    <string name="source_pick_active">Temporary choice for this session: %1$s is asked first, until Myspoti restarts.</string>
 </resources>

@@ -14,4 +14,14 @@
     <string name="sources_open">打开扩展</string>
     <string name="sources_order_hint">来源会按“设置”（播放、下载）中设定的顺序查询。</string>
     <string name="sources_below_spotify">不询问：Spotify 在上方</string>
+    <string name="source_pick_title">来源</string>
+    <string name="source_pick_detail">从你选择的来源播放这首歌曲和接下来的歌曲，直到 Myspoti 重新启动。你在“设置”中的顺序保持不变。</string>
+    <string name="source_pick_playing">正在播放</string>
+    <string name="source_pick_temporary">临时：在 Myspoti 重新启动前排在第一位</string>
+    <string name="source_pick_reset">恢复我的顺序</string>
+    <string name="source_pick_reset_detail">在“设置 → 播放”中设定的顺序</string>
+    <string name="source_pick_tag">临时</string>
+    <string name="source_pick_missing">%1$s 没有这首歌曲：它从原来的位置继续播放，你的顺序保持不变。</string>
+    <string name="source_pick_next">%1$s 从下一首歌曲开始播放：这首歌曲照常继续播放。</string>
+    <string name="source_pick_active">本次会话的临时选择：先查询 %1$s，直到 Myspoti 重新启动。</string>
 </resources>

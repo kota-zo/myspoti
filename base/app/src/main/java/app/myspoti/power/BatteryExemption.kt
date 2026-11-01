@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 
@@ -26,6 +27,14 @@ object BatteryExemption {
         runCatching { context.startActivity(direct) }.onFailure {
             runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
         }
+    }
+
+    /** Samsung adds its own sleeping lists on top of Android's: the exemption alone does not always keep the music going. */
+    fun isSamsung(): Boolean = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+
+    /** The app's own system settings page (its battery entry is one tap away); nothing else is opened. */
+    fun openAppSettings(context: Context) {
+        runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
     }
 
     /** Asks once (onboarding, or the first launch after an update); later from Settings. */

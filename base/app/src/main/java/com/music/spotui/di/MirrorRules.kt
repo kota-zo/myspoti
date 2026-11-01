@@ -19,12 +19,17 @@ object MirrorRules {
     private val SPOTIFY_ID = Regex("[A-Za-z0-9]{22}")
 
     /**
-     * Whether the song is mirrored: one an extension streams ([Origin.AUDIO_SOURCE]) with a Spotify
-     * id, the setting [on], and Spotify able to stream ([dataSaver] off). Downloads and files of the
-     * device never are: nothing of Spotify plays them.
+     * Whether the song is mirrored, always with a Spotify id and Spotify able to stream ([dataSaver]
+     * off): one an extension streams ([Origin.AUDIO_SOURCE]) with the setting [on]; a download with
+     * its own setting [downloads] while the phone is [online] (offline, its file plays alone, as
+     * before). Files of the device never are: Spotify has no song for them.
      */
-    fun eligible(origin: Origin, spotifyId: String, on: Boolean, dataSaver: Boolean): Boolean =
-        on && !dataSaver && origin == Origin.AUDIO_SOURCE && SPOTIFY_ID.matches(spotifyId)
+    fun eligible(origin: Origin, spotifyId: String, on: Boolean, dataSaver: Boolean, downloads: Boolean = false, online: Boolean = true): Boolean =
+        !dataSaver && SPOTIFY_ID.matches(spotifyId) && when (origin) {
+            Origin.AUDIO_SOURCE -> on
+            Origin.DOWNLOAD -> downloads && online
+            Origin.LOCAL_FILE -> false
+        }
 
     /** What the Web Player was last asked to be on (by the mirror, or a remote command it followed). */
     data class Want(val uri: String, val paused: Boolean)

@@ -86,6 +86,9 @@ import java.util.concurrent.ConcurrentHashMap
  * the sandbox does not expect), never the app.
  */
 object Extensions {
+    /** No download source had the song and one could not answer now: the song is worth trying again. */
+    class NotAnswering(message: String) : java.io.IOException(message)
+
     // Every hook's time is in [HookBudgets], shared with the desktop runner (`myspoti-ext`).
     /** A lyrics hook call. */
     const val LYRICS_MS = HookBudgets.LYRICS
@@ -250,7 +253,7 @@ object Extensions {
     private fun deliverOnline(id: String) {
         val rt = runtimes[id] ?: return
         if (!onlineMarker(id).delete()) return
-        scope.launch { runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_ONLINE, "{}", ONLINE_MS) } }.onFailure { failed(id, it.toString()) } }
+        scope.launch { runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_ONLINE, "{}", ONLINE_MS) } }.onSuccess { recheckAfterEvent(id, rt) }.onFailure { failed(id, it.toString()) } }
     }
 
     /** The network went (and the extensions' sources are asked again once it is back). */
@@ -405,13 +408,44 @@ object Extensions {
 
     fun settingValues(id: String): Map<String, String> = settingsOf(id).all()
 
-    /** [json]: the value as JSON text, null to go back to the manifest's default. */
+    /**
+     * [json]: the value as JSON text, null to go back to the manifest's default. [key] may be a
+     * per-network setting's mobile data value ([app.myspoti.extensions.Setting.cellKey]): the
+     * extension hears of its own key.
+     */
     fun setSetting(id: String, key: String, json: String?) {
         val s = settingsOf(id)
         if (json == null) s.remove(key) else s.set(key, json)
+        val base = app.myspoti.extensions.Setting.baseKey(key)
         // Typing changes a text field at each key: the extension hears of it once the user pauses.
-        settingJobs.remove("$id\u0000$key")?.cancel()
-        settingJobs["$id\u0000$key"] = scope.launch { kotlinx.coroutines.delay(SETTING_PAUSE_MS); sendSetting(id, key, pressed = false) }
+        settingJobs.remove("$id\u0000$base")?.cancel()
+        settingJobs["$id\u0000$base"] = scope.launch { kotlinx.coroutines.delay(SETTING_PAUSE_MS); sendSetting(id, base, pressed = false) }
+    }
+
+    /**
+     * The phone went from Wi-Fi to mobile data or back ([com.music.spotui.data.DataSaver.metered]):
+     * each extension hears `{ key, network: true }` for its per-network settings whose value it
+     * reads changed with it.
+     */
+    fun networkChanged() {
+        _registry.value.extensions.filter { it.enabled }.forEach { e ->
+            val keys = manifest(e.id)?.networkKeys(settingsOf(e.id)::get).orEmpty()
+            if (keys.isNotEmpty()) scope.launch { keys.forEach { sendSetting(e.id, it, pressed = false, network = true) } }
+        }
+    }
+
+    /**
+     * The extension settings shown in [section] of Settings, and whether the app's own quality
+     * gives way to them ([SectionSettings]); null: the section is as it always was.
+     */
+    fun sectionPlacement(section: app.myspoti.extensions.SettingSection): SectionPlacement? = _registry.value.let { r ->
+        SectionSettings.place(section, line(r, section.action), { r.find(it)?.enabled == true }, ::manifest)
+    }
+
+    /** What [id]'s own quality setting for [section] is now ("Quality: FLAC"), or null without one. */
+    fun qualityLine(id: String?, section: app.myspoti.extensions.SettingSection): String? {
+        val m = id?.let(::manifest) ?: return null
+        return runCatching { SectionSettings.qualityLine(m, section, settingsOf(id)::get, com.music.spotui.data.DataSaver.metered) }.getOrNull()
     }
 
     /** A button setting was pressed: the extension does what it says (pair again…). */
@@ -422,13 +456,14 @@ object Extensions {
 
     private val settingJobs = ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
-    private suspend fun sendSetting(id: String, key: String, pressed: Boolean) {
+    private suspend fun sendSetting(id: String, key: String, pressed: Boolean, network: Boolean = false) {
         val rt = runtimes[id]?.takeIf { it.listens(ExtensionRuntime.EVENT_SETTING) } ?: return
         val json = kotlinx.serialization.json.buildJsonObject {
             put("key", kotlinx.serialization.json.JsonPrimitive(key))
             if (pressed) put("pressed", kotlinx.serialization.json.JsonPrimitive(true))
+            if (network) put("network", kotlinx.serialization.json.JsonPrimitive(true))
         }.toString()
-        runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_SETTING, json, SETTING_MS) } }.onFailure { failed(id, it.toString()) }
+        runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_SETTING, json, SETTING_MS) } }.onSuccess { recheckAfterEvent(id, rt) }.onFailure { failed(id, it.toString()) }
     }
 
     fun logLines(id: String): List<String> = logOf(id).lines()
@@ -472,13 +507,59 @@ object Extensions {
      */
     fun sourceLine(action: Action): List<String> = line(_registry.value, action)
 
-    private fun line(r: Registry, action: Action): List<String> {
+    /** The order the user set for the source [action] (Settings), without this session's [sessionSource]. */
+    fun savedSourceLine(action: Action): List<String> = savedLine(_registry.value, action)
+
+    private fun savedLine(r: Registry, action: Action): List<String> {
         val ids = r.extensions.filter { action in manifest(it.id)?.actionSet().orEmpty() }.map { it.id }
         return r.bySourceOrder(action.key, Area.AUDIO.key, if (action == Action.AUDIO_SOURCE) ids + SPOTIFY_SOURCE else ids) { it }
     }
 
+    /** The order the source [action] asks in now: the user's, with the audio source picked for this session first ([SessionSource]). */
+    private fun line(r: Registry, action: Action): List<String> {
+        val saved = savedLine(r, action)
+        if (action != Action.AUDIO_SOURCE) return saved
+        return SessionSource.effective(saved, SessionSource.valid(_sessionSource.value, saved) { r.find(it)?.enabled == true })
+    }
+
     /** Moves [id] (an extension, or [SPOTIFY_SOURCE]) up (negative [delta]) or down in the order the source [action] asks in. */
-    fun moveSource(action: Action, id: String, delta: Int) = update { r -> r.move(action.key, line(r, action), id, delta) }
+    fun moveSource(action: Action, id: String, delta: Int) = update { r -> r.move(action.key, savedLine(r, action), id, delta) }
+
+    private val _sessionSource = MutableStateFlow<String?>(null)
+
+    /**
+     * The audio source the user put first from the player for this session ([SessionSource]), or
+     * null: the order of Settings. In memory only, never saved: gone when the app restarts.
+     */
+    val sessionSource: StateFlow<String?> = _sessionSource.asStateFlow()
+
+    /** The audio sources the player's quality sheet offers (Spotify and the extensions on), in the order they are asked now. */
+    fun audioChoices(): List<String> = _registry.value.let { r ->
+        SessionSource.choices(savedLine(r, Action.AUDIO_SOURCE), _sessionSource.value) { r.find(it)?.enabled == true }
+    }
+
+    /**
+     * Puts [id] (an extension, or [SPOTIFY_SOURCE]) first of the audio order for this session; null,
+     * or the source the user's order asks first already: back to that order. The songs after the one
+     * playing are asked again in the new order (as for a change in Settings); the one playing is the
+     * caller's (SongPlayer.switchSource).
+     */
+    fun setSessionSource(id: String?) {
+        val r = _registry.value
+        val lead = id?.let { SessionSource.pick(it, savedLine(r, Action.AUDIO_SOURCE)) { x -> r.find(x)?.enabled == true } }
+        if (lead == _sessionSource.value) return
+        _sessionSource.value = lead
+        Logbook.log("audio: ${lead?.let { "$it first for this session" } ?: "back to the order of Settings"}")
+        refreshProvided()
+    }
+
+    /** The session's source still leads after [r] changed; turned off, removed or no longer a source, it leaves it. */
+    private fun keepSessionSource(r: Registry) {
+        val lead = _sessionSource.value ?: return
+        if (SessionSource.valid(lead, savedLine(r, Action.AUDIO_SOURCE)) { r.find(it)?.enabled == true } != null) return
+        _sessionSource.value = null
+        Logbook.log("audio: $lead no longer a source, back to the order of Settings")
+    }
 
     /** Makes [id] the one acting for the exclusive [action]; the others stay installed, idle. */
     fun setActive(action: Action, id: String) {
@@ -670,7 +751,8 @@ object Extensions {
     /**
      * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
      * from the first extension (priority order) that has any, with that extension's id and name.
-     * A source set aside for a while ([SourceCooldown]) is not asked.
+     * A source set aside for a while ([SourceCooldown]) is not asked. Null when no source has the song;
+     * [NotAnswering] when none had it and one could not answer (busy, a timeout, set aside).
      */
     suspend fun downloadFiles(track: TrackInfo, quality: String): Triple<String, String, List<DownloadFile>>? {
         if (!isReady) return null
@@ -683,9 +765,21 @@ object Extensions {
         }
         val input = DownloadQuery.toJson(track, quality)
         probeStale(Hook.DOWNLOAD_SOURCE)
-        return HookDispatch.firstInOrder(available(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->
-            ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }.value
-        }?.let { (c, files) ->
+        val answers = ConcurrentHashMap<String, Outcome>()
+        val found = HookDispatch.firstInOrder(available(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->
+            val a = ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }
+            answers[id] = a.outcome
+            a.value
+        }
+        if (found == null) {
+            // A source that could not answer (busy, a timeout, a rate limit, set aside) has not said the song is not
+            // there: told apart from "no source has it", so the song is retried instead of marked unavailable.
+            val silent = providing(Hook.DOWNLOAD_SOURCE).map { it.first }.mapNotNull { id ->
+                cooldown.reason(id)?.let { "$id set aside: $it" } ?: answers[id]?.takeIf { it.silent }?.let { "$id ${it.describe()}" }
+            }
+            if (silent.isNotEmpty()) throw NotAnswering(silent.joinToString("; "))
+        }
+        return found?.let { (c, files) ->
             log(c.first, "download files for ${track.title}: ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}")
             did(Area.AUDIO, c.first, "Download of ${track.title} from ${c.second.manifest.name}")
             Triple(c.first, c.second.manifest.name, files)
@@ -757,8 +851,39 @@ object Extensions {
         val (c, a) = found
         log(c.first, "audio for ${track.title} ($ms ms)")
         did(Area.AUDIO, c.first, "Audio of ${track.title} from ${c.second.manifest.name}")
-        attempts.update(attempt) { it.copy(asked = all, chosen = c.first, announced = a.qualityLabel()) }
+        val own = qualityLine(c.first, app.myspoti.extensions.SettingSection.PLAYBACK)
+        attempts.update(attempt) { it.copy(asked = all, chosen = c.first, announced = a.qualityLabel(), sourceQuality = own) }
         return a.copy(providerId = c.first)
+    }
+
+    /**
+     * [track]'s audio from the audio source [id] alone, whatever the order: the one picked for it in
+     * the player's quality sheet (SongPlayer.switchSource), asked while the song goes on where it
+     * plays; one [PlayAttempt] of its own. Null: it does not have it, cannot answer now (set aside,
+     * busy) or is not a running audio source.
+     */
+    suspend fun audioFrom(id: String, track: TrackInfo): AudioStream? {
+        if (!isReady) return null
+        val rt = runtimes[id]?.takeIf { _registry.value.find(id)?.enabled == true && it.provides(Hook.AUDIO_SOURCE) && !health.inactive(id) } ?: return null
+        val attempt = attempts.start(track.id, track.title)
+        val picked = "picked in the player for this session"
+        cooldown.reason(id)?.let { why ->
+            attempts.update(attempt) { it.copy(asked = listOf(PlayAttempt.Ask(id, Outcome.Skipped().key, 0, "set aside: $why")), fallback = "the song goes on where it played") }
+            return null
+        }
+        val a = ask(id, rt, Hook.AUDIO_SOURCE, AudioQuery.toJson(withIsrc(track), false), AUDIO_MS, AudioStream::parse)
+        val asked = listOf(PlayAttempt.Ask(id, a.outcome.key, a.ms, detail = listOfNotNull(picked, a.outcome.detail).joinToString("; ")))
+        val found = a.value ?: run {
+            Logbook.log("audio: $id had no ${track.title} (${a.ms} ms), it goes on where it played")
+            attempts.update(attempt) { it.copy(asked = asked, fallback = "the song goes on where it played") }
+            return null
+        }
+        misses.forget(track.id)
+        log(id, "audio for ${track.title} (${a.ms} ms, picked in the player)")
+        did(Area.AUDIO, id, "Audio of ${track.title} from ${rt.manifest.name}")
+        val own = qualityLine(id, app.myspoti.extensions.SettingSection.PLAYBACK)
+        attempts.update(attempt) { it.copy(asked = asked, chosen = id, announced = found.qualityLabel(), sourceQuality = own) }
+        return found.copy(providerId = id)
     }
 
     /** The last [PlayAttempt]s through the extensions (20), for "Why this source?" and the diagnostic report. */
@@ -1240,7 +1365,17 @@ object Extensions {
         log(id, "sign-in ${result.id}: ${if (result.url != null) "reached the callback" else result.error}")
         if (result.url != null) dismissSignIn(id)
         val json = kotlinx.serialization.json.Json.encodeToString(app.myspoti.extensions.AuthResult.serializer(), result)
-        scope.launch { runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_AUTH, json, AUTH_MS) } }.onFailure { failed(id, it.toString()) } }
+        scope.launch { runCatching { runInterruptible { rt.emit(ExtensionRuntime.EVENT_AUTH, json, AUTH_MS) } }.onSuccess { recheckAfterEvent(id, rt) }.onFailure { failed(id, it.toString()) } }
+    }
+
+    /** Auth, settings and online events can change credentials; do not retain an old inactive probe. */
+    private suspend fun recheckAfterEvent(id: String, rt: ExtensionRuntime) {
+        // An earlier launch probe may still be publishing its pre-auth result.
+        probing[id]?.join()
+        if (runtimes[id] !== rt) return
+        health.forget(id)
+        _statuses.value = health.inactiveNow()
+        probe(id, rt)
     }
 
     private fun failed(id: String, message: String) {
@@ -1268,6 +1403,7 @@ object Extensions {
             val r = change(_registry.value)
             _registry.value = r
             runCatching { Registry.write(File(dir, "registry.json"), r) }.onFailure { Logbook.log("ext: registry not saved: ${it.message}") }
+            keepSessionSource(r)
         }
         // Turned on or off, the order of the sources, the active one: who gives what may have changed.
         refreshProvided()
@@ -1284,11 +1420,8 @@ object Extensions {
     private fun settingsOf(id: String) = settings.getOrPut(id) { FileStore(File(dir, "$id/settings.json")) }
     private fun storeOf(id: String) = stores.getOrPut(id) { FileStore(File(dir, "$id/storage.json")) }
 
-    internal fun writeBytesAtomically(file: File, bytes: ByteArray) {
-        val tmp = File(file.parentFile, file.name + ".tmp")
-        tmp.writeBytes(bytes)
-        if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
-    }
+    /** Replaces [file] whole or throws, never losing the old one (see [com.music.spotui.data.writeBytesSafely]). */
+    internal fun writeBytesAtomically(file: File, bytes: ByteArray) = com.music.spotui.data.writeBytesSafely(file, bytes)
 
     // ── What the sandbox reaches of the app ──
 
@@ -1307,6 +1440,8 @@ object Extensions {
         override fun storage(extensionId: String): Storage = storeOf(extensionId)
 
         override fun setting(extensionId: String, key: String): String? = settingsOf(extensionId).get(key)
+
+        override fun metered(): Boolean = com.music.spotui.data.DataSaver.metered
 
         override fun nowPlaying(): String? = currentTrack()?.toJson()
 
@@ -1350,13 +1485,16 @@ object Extensions {
                 try { return dispatcher.execute(call) } finally { Extensions.mirrorEndedBy(extensionId) }
             }
             // Myspoti's own Connect mirror has the page already ("Count extension plays on Spotify"): it wins.
-            if (com.music.spotui.di.ConnectMirror.running) {
+            // A download mirrored by "Sync downloaded songs with Spotify" gives way instead, as before that setting.
+            val download = com.music.spotui.di.ConnectMirror.mirrorsDownload
+            if (com.music.spotui.di.ConnectMirror.running && !download) {
                 val why = "setLocalMute: Myspoti already plays this song on Spotify (Count extension plays on Spotify)"
                 Extensions.log(extensionId, "refused: $why"); throw IllegalStateException(why)
             }
             if (!arbitrate(extensionId, "setLocalMute")) return "null"
             val (playing, uri, dur) = SongPlayer.localSnapshot3()
             Extensions.mirror.enable(extensionId, playing, uri, dur)?.let { Extensions.log(extensionId, "refused: $it"); throw IllegalStateException(it) }
+            if (download) com.music.spotui.di.ConnectMirror.yieldToExtension()
             return try { dispatcher.execute(call).also { Extensions.mirrorStartedBy(extensionId) } }
             catch (t: Throwable) { Extensions.mirror.disable(extensionId); throw t }
         }
@@ -1405,6 +1543,19 @@ object Extensions {
     suspend fun lyricsFor(trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? =
         if (!hasLyrics()) null
         else withTimeoutOrNull(LYRICS_MS + 1_000) { lyrics(trackInfo(trackId, title, artist, album, durationMs, cover)) }
+
+    /** The running extensions giving lyrics, in their order: (id, name). For the "Try another source" list. */
+    fun lyricsSources(): List<Pair<String, String>> =
+        if (!isReady) emptyList() else providing(Hook.LYRICS).map { (id, rt) -> id to rt.manifest.name }
+
+    /** The lyrics of extension [id] alone (asked even when set aside: the user chose it), or null. */
+    suspend fun lyricsFromExtension(id: String, trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? {
+        val (_, rt) = providing(Hook.LYRICS).firstOrNull { it.first == id } ?: return null
+        val input = trackInfo(trackId, title, artist, album, durationMs, cover).toJson()
+        return withTimeoutOrNull(LYRICS_MS + 1_000) {
+            ask(id, rt, Hook.LYRICS, input, LYRICS_MS) { LyricsResult.parse(it, rt.manifest.name) }.value?.let(LyricsMerge::toLyrics)
+        }
+    }
 
     // ── Debug and beta command line (com.music.spotui.cli) ──
 

@@ -17,6 +17,28 @@ data class HomeSection(
     val items: List<HomeItem>,
 )
 
+/** The shelves without Spotify's DJ (a playlist card named "DJ"); a shelf left empty goes. */
+fun List<HomeSection>.withoutDj(): List<HomeSection> =
+    map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Playlist && (it.id == DJ_PLAYLIST_ID || it.name.trim().equals("DJ", ignoreCase = true)) }) }
+        .filter { it.items.isNotEmpty() }
+
+/**
+ * The home shortcuts with Liked Songs first, named [likedName]: Spotify's own grid does not always
+ * carry it. Left as it is when the grid already has it (no tile twice), and kept to eight tiles.
+ */
+fun List<HomeItem>.withLikedFirst(likedName: String): List<HomeItem> {
+    if (any { it is HomeItem.Playlist && it.id == com.music.spotui.data.api.Api.HomeCache.LIKED_SONGS_ID }) return take(8)
+    val liked = HomeItem.Playlist(
+        name = likedName,
+        imageUrl = com.music.spotui.data.api.Api.HomeCache.LIKED_COVER,
+        subtitle = "",
+        id = com.music.spotui.data.api.Api.HomeCache.LIKED_SONGS_ID,
+    )
+    return (listOf<HomeItem>(liked) + this).take(8)
+}
+
+private const val DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq"
+
 @kotlinx.serialization.Serializable
 sealed class HomeItem {
     abstract val name: String

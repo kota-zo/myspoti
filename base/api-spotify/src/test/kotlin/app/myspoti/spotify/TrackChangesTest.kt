@@ -51,5 +51,36 @@ class TrackChangesTest {
         assertFalse(c.record(Cause.OWN, 400, 40_000))
     }
 
+    @Test fun `a command already used does not explain another change`() =
+        assertEquals(Cause.OWN, TrackChanges.cause(400, 200_000, 1_500, afterAd = false, crossfading = false, commandUsed = true))
+
+    @Test fun `a command explains only its first change`() {
+        val c = TrackChanges.Commands()
+        assertFalse(c.used(1_000, "a", target = null))
+        assertTrue(c.used(1_000, "b", target = null))
+        assertTrue(c.used(1_000, "c", target = null))
+        // A new command explains its own first change.
+        assertFalse(c.used(2_000, "d", target = null))
+    }
+
+    @Test fun `a change onto the song played is the command's`() {
+        val c = TrackChanges.Commands()
+        assertFalse(c.used(1_000, "x", target = "t"))
+        assertFalse(c.used(1_000, "t", target = "t"))
+        assertTrue(c.used(1_000, "y", target = "t"))
+    }
+
+    // The 30/10 log (kekstar63): a play, then the page moving on every second, licences refused.
+    @Test fun `a page skipping after a play is a chain`() {
+        val commands = TrackChanges.Commands()
+        val chain = TrackChanges.Chain()
+        val at = 28_156L
+        val fired = listOf("t" to 29_456L, "a" to 30_283L, "b" to 31_359L, "c" to 32_014L).map { (to, now) ->
+            val cause = TrackChanges.cause(0, 200_000, now - at, false, false, commands.used(at, to, target = "t"))
+            chain.record(cause, 0, now)
+        }
+        assertEquals(listOf(false, false, false, true), fired)
+    }
+
     @Test fun `clock`() = assertEquals("3:21", TrackChanges.clock(201_500))
 }

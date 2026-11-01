@@ -96,6 +96,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
+import com.music.spotui.ui.components.RepeatIcons
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.screens.ExplicitBadge
 
@@ -531,7 +532,7 @@ private fun QueueHeader(
         QueueToggle(Icons.Rounded.Shuffle, stringResource(R.string.immersive_queue_shuffle), shuffle, onShuffle)
         Spacer(Modifier.width(8.dp))
         QueueToggle(
-            if (repeatMode == 2) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+            when (repeatMode) { 2 -> Icons.Rounded.RepeatOne; 3 -> RepeatIcons.once; else -> Icons.Rounded.Repeat },
             stringResource(R.string.immersive_queue_repeat),
             repeatMode != 0,
             onRepeat,

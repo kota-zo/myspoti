@@ -14,4 +14,14 @@
     <string name="sources_open">Abrir a extensão</string>
     <string name="sources_order_hint">As fontes são consultadas na ordem definida em Configurações (Reprodução, Downloads).</string>
     <string name="sources_below_spotify">Não é consultado: Spotify está acima</string>
+    <string name="source_pick_title">Fonte</string>
+    <string name="source_pick_detail">Reproduz esta música e as seguintes a partir da fonte que escolher, até o Myspoti reiniciar. A sua ordem em Configurações fica como está.</string>
+    <string name="source_pick_playing">A reproduzir agora</string>
+    <string name="source_pick_temporary">Temporário: primeira até o Myspoti reiniciar</string>
+    <string name="source_pick_reset">Voltar à minha ordem</string>
+    <string name="source_pick_reset_detail">A ordem definida em Configurações → Reprodução</string>
+    <string name="source_pick_tag">temporário</string>
+    <string name="source_pick_missing">%1$s não tem esta música: ela continua de onde estava e a sua ordem fica como estava.</string>
+    <string name="source_pick_next">%1$s reproduz a partir da próxima música: esta continua como está a tocar.</string>
+    <string name="source_pick_active">Escolha temporária para esta sessão: %1$s é consultada primeiro, até o Myspoti reiniciar.</string>
 </resources>

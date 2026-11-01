@@ -1,4 +1,4 @@
-# Builds and tests every push / pull request; a "v*" tag publishes a signed APK
+# Builds and tests every push / pull request; a "v*" tag publishes signed APKs (arm64-v8a, armeabi-v7a)
 # as a GitHub release (the app's update check reads those releases).
 name: Android
 
@@ -82,6 +82,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # Strict semver tags, so Obtainium and the app compare versions right: "v2.2.1-beta.1" (a beta
+      # of the next version, above the last stable) or "v2.2.1". See tools/check_tag.py.
+      - name: Tag format
+        working-directory: .
+        run: python3 tools/check_tag.py "$GITHUB_REF_NAME"
+
       # Two keys, one per channel (they install side by side as two apps):
       # betas ("v2.0.0-beta.3") use MYSPOTI_KEYSTORE_BASE64, MYSPOTI_KEYSTORE_PASSWORD,
       # MYSPOTI_KEY_ALIAS, MYSPOTI_KEY_PASSWORD; releases use the same names with
@@ -104,11 +110,20 @@ jobs:
           MYSPOTI_KEY_PASSWORD: ${{ contains(github.ref_name, '-') && secrets.MYSPOTI_KEY_PASSWORD || secrets.MYSPOTI_STABLE_KEY_PASSWORD }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          ./gradlew assembleRelease \
-            -PappVersionName="$VERSION" \
-            -PappVersionCode="$((1000 + GITHUB_RUN_NUMBER))" \
-            -PupdateRepo="$GITHUB_REPOSITORY"
-          mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/myspoti-$VERSION.apk"
+          # One APK per ABI, same versionCode (a phone installs only its own; the app's update check
+          # picks it, UpdateChecker.apkAsset): myspoti-beta-2.2.1-beta.1-arm64-v8a.apk,
+          # myspoti-stable-2.2.1-armeabi-v7a.apk... Obtainium filters on the channel and the ABI.
+          # Each APK leaves apk/release/, which the next assembleRelease empties.
+          CHANNEL=stable; case "$VERSION" in *-*) CHANNEL=beta ;; esac
+          mkdir -p app/build/release-apks
+          for ABI in arm64-v8a armeabi-v7a; do
+            ./gradlew assembleRelease \
+              -Pabis="$ABI" \
+              -PappVersionName="$VERSION" \
+              -PappVersionCode="$((1000 + GITHUB_RUN_NUMBER))" \
+              -PupdateRepo="$GITHUB_REPOSITORY"
+            mv app/build/outputs/apk/release/app-release.apk "app/build/release-apks/myspoti-$CHANNEL-$VERSION-$ABI.apk"
+          done
 
       # This version's section of CHANGELOG.md becomes the release description.
       - name: Release notes
@@ -127,7 +142,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v3
         with:
-          files: base/app/build/outputs/apk/release/myspoti-*.apk
+          files: base/app/build/release-apks/myspoti-*.apk
           body_path: base/release-notes.md
           generate_release_notes: true
           # "v2.0.0-beta.1": a pre-release, offered only to beta builds.

@@ -71,7 +71,8 @@
     /**
      * Listens to the app: on('track' | 'playback', fn) needs playback.events, on('auth', fn)
      * webview.auth, on('online', fn) network, on('setting', fn) settings.page ({ key } when one of
-     * its settings changed, { key, pressed: true } for a button setting).
+     * its settings changed, { key, pressed: true } for a button setting, { key, network: true } when the
+     * network changed a perNetwork setting's value).
      */
     on: function (event, fn) {
       if (typeof fn !== 'function') throw new TypeError('on("' + event + '", fn): fn must be a function');
@@ -122,9 +123,12 @@
 
     /**
      * What this app understands beyond the first API, for an extension to adapt to: "audio.manifest",
-     * "audio.expires", "audio.quality", "audio.source", "audio.ahead", "http.all", "status", "raw.base64", "results" (source hooks may answer { outcome }), "player.localMute" only when the user granted playback.mirror, and "attest" only when it granted attest.
+     * "audio.expires", "audio.quality", "audio.source", "audio.ahead", "http.all", "status", "raw.base64", "results" (source hooks may answer { outcome }), "settings.section" (manifest section, role, perNetwork), "player.localMute" only when the user granted playback.mirror, and "attest" only when it granted attest.
      */
-    features: Object.freeze(['audio.manifest', 'audio.expires', 'audio.quality', 'audio.source', 'audio.ahead', 'http.all', 'status', 'raw.base64', 'results'].concat(parse(host.info()).mirror ? ['player.localMute'] : [], parse(host.info()).attest ? ['attest'] : [])),
+    sources: Object.freeze({ race: function (hook, query, lanes) {
+      return parse(host.sourceRace(String(hook),JSON.stringify(query),JSON.stringify(lanes)));
+    } }),
+    features: Object.freeze(['audio.manifest', 'audio.expires', 'audio.quality', 'audio.source', 'audio.ahead', 'http.all', 'status', 'raw.base64', 'results', 'download.transform', 'audio.transform', 'sources.race', 'settings.section'].concat(parse(host.info()).mirror ? ['player.localMute'] : [], parse(host.info()).attest ? ['attest'] : [])),
 
     /**
      * A sign-in page (webview.auth): open({ url, callback, hidden }) shows url in a web view of its

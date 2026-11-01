@@ -15,6 +15,23 @@ class LocalRepeatTest {
         assertEquals(Player.REPEAT_MODE_OFF, LocalRepeat.playerMode(LocalRepeat.ONE, 1))
     }
 
+    @Test fun repeatOnceLoopsTheSongItselfToo() {
+        assertTrue(LocalRepeat.loopsSong(LocalRepeat.ONCE, 50))
+        assertTrue(LocalRepeat.loopsSong(LocalRepeat.ONCE, 1))
+        assertEquals(Player.REPEAT_MODE_OFF, LocalRepeat.playerMode(LocalRepeat.ONCE, 50))
+        assertEquals(Player.REPEAT_MODE_OFF, LocalRepeat.playerMode(LocalRepeat.ONCE, 1))
+    }
+
+    @Test fun theWebPlayerRepeatsTheTrackForBothWaysOfRepeatingTheSong() {
+        assertEquals(0, LocalRepeat.pageMode(LocalRepeat.OFF))
+        assertEquals(1, LocalRepeat.pageMode(LocalRepeat.ALL))
+        assertEquals(2, LocalRepeat.pageMode(LocalRepeat.ONE))
+        assertEquals(2, LocalRepeat.pageMode(LocalRepeat.ONCE))
+        // The mode is Spotify's Repeat ordinal for the first three.
+        assertEquals(app.myspoti.api.Repeat.TRACK.ordinal, LocalRepeat.pageMode(LocalRepeat.ONCE))
+        assertEquals(0, LocalRepeat.pageMode(-1))
+    }
+
     @Test fun repeatAllOfSeveralSongsIsThePlayersOwn() {
         assertFalse(LocalRepeat.loopsSong(LocalRepeat.ALL, 2))
         assertEquals(Player.REPEAT_MODE_ALL, LocalRepeat.playerMode(LocalRepeat.ALL, 50))
@@ -41,13 +58,26 @@ class LocalRepeatTest {
     // ── Repeat once ──
 
     @Test fun repeatOncePlaysTheSongAgainOneTimeThenGoesOn() {
-        assertEquals(LocalRepeat.End.REPLAY, LocalRepeat.atEnd(LocalRepeat.ONE, 50, replayed = false))
-        assertEquals(LocalRepeat.End.ONCE_DONE, LocalRepeat.atEnd(LocalRepeat.ONE, 50, replayed = true))
+        assertEquals(LocalRepeat.End.REPLAY, LocalRepeat.atEnd(LocalRepeat.ONCE, 50, replayed = false))
+        assertEquals(LocalRepeat.End.ONCE_DONE, LocalRepeat.atEnd(LocalRepeat.ONCE, 50, replayed = true))
         // The only song of the queue too: once, then the queue's end (its song radio).
-        assertEquals(LocalRepeat.End.REPLAY, LocalRepeat.atEnd(LocalRepeat.ONE, 1, replayed = false))
-        assertEquals(LocalRepeat.End.ONCE_DONE, LocalRepeat.atEnd(LocalRepeat.ONE, 1, replayed = true))
+        assertEquals(LocalRepeat.End.REPLAY, LocalRepeat.atEnd(LocalRepeat.ONCE, 1, replayed = false))
+        assertEquals(LocalRepeat.End.ONCE_DONE, LocalRepeat.atEnd(LocalRepeat.ONCE, 1, replayed = true))
         // Repeat once still pauses at the end in both turns: Myspoti decides, never the player.
-        assertTrue(LocalRepeat.loopsSong(LocalRepeat.ONE, 50))
+        assertTrue(LocalRepeat.loopsSong(LocalRepeat.ONCE, 50))
+    }
+
+    @Test fun repeatOneReplaysForGood() {
+        for (items in listOf(1, 50)) {
+            assertEquals(LocalRepeat.End.REPLAY, LocalRepeat.atEnd(LocalRepeat.ONE, items, replayed = false))
+            // Whatever was replayed before: it never ends into the next song.
+            assertEquals(LocalRepeat.End.REPLAY, LocalRepeat.atEnd(LocalRepeat.ONE, items, replayed = true))
+        }
+    }
+
+    @Test fun theModesAreTheCycleOfTheButton() {
+        // Off, the queue, the song for good, the song once: Android's REPEAT_MODE_ONE is the third.
+        assertEquals(listOf(0, 1, 2, 3), listOf(LocalRepeat.OFF, LocalRepeat.ALL, LocalRepeat.ONE, LocalRepeat.ONCE))
     }
 
     @Test fun repeatAllOfOneSongLoopsForGood() {

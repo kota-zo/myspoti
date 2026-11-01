@@ -75,6 +75,34 @@ class AdQueueTest {
         assertNull(AdBlock.adAhead(AdBlock.withoutAds(first)!!.first))
     }
 
+    // Repeat one (captured 21/10): the song's advance is its own repeat, its skip the next song with repeat off.
+    private fun repeatState(track: Int, repeating: Boolean, advance: Int? = null, next: Int? = null, show: Int? = null) =
+        state(track, advance, next, show).dropLast(1) + ""","options":{"repeating_track":$repeating}}"""
+
+    private val repeated = reply(
+        listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
+        listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 3, show = 4), repeatState(1, true, show = 4),
+            repeatState(2, false, show = 4), repeatState(2, false)),
+        current = 1,
+    )
+
+    @Test fun `the end of a repeated song before an ad goes to its repeat, not to the next song`() {
+        val (body, notes) = AdBlock.withoutAds(repeated)!!
+        val t = transitions(body, 1)
+        assertEquals(2, index(t, "advance"))
+        assertEquals(3, index(t, "skip_next"))
+        assertEquals(listOf("advance after Playing: repeated instead of an ad"), notes)
+    }
+
+    @Test fun `a repeated song with no state of its repeat falls back to the skip's target`() {
+        val noRepeat = reply(
+            listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
+            listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 2, show = 3), repeatState(2, false, show = 3), repeatState(2, false)),
+            current = 1,
+        )
+        assertEquals(2, index(transitions(AdBlock.withoutAds(noRepeat)!!.first, 1), "advance"))
+    }
+
     @Test fun `a reply without an ad is left alone`() {
         val plain = reply(listOf(track("TRACK", "A"), track("TRACK", "B")), listOf(state(0, advance = 1, next = 1), state(1)), current = 0)
         assertNull(AdBlock.withoutAds(plain))

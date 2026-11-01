@@ -43,7 +43,10 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.ThumbDownOffAlt
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -108,6 +111,16 @@ fun SongOptionsSheet(
     var showSleep by remember { mutableStateOf(false) }
     var showCredits by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
+    var showNerd by remember { mutableStateOf(false) }
+    var showQuality by remember { mutableStateOf(false) }
+    if (showNerd) {
+        StatsForNerdsSheet(onDismiss = { showNerd = false; onDismiss() })
+        return
+    }
+    if (showQuality) {
+        QualitySheet(onDismiss = { showQuality = false; onDismiss() })
+        return
+    }
     if (showCredits) {
         CreditsSheet(song = song, onDismiss = { showCredits = false; onDismiss() })
         return
@@ -212,7 +225,7 @@ fun SongOptionsSheet(
                         com.music.spotui.data.offline.PodcastDownloader.remove(downloadKey)
                         true
                     } else com.music.spotui.data.offline.OfflineCollections.removeSong(downloadKey)
-                    toast(context.getString(if (gone) R.string.toast_undownload else R.string.download_kept_by_list))
+                    toast(if (gone) context.getString(R.string.toast_undownload) else com.music.spotui.data.offline.OfflineCollections.keptMessage(context, downloadKey))
                     onDismiss()
                 }
                 offline == com.music.spotui.data.offline.OfflineStatus.Queued ||
@@ -257,6 +270,14 @@ fun SongOptionsSheet(
                 playerViewModel.goToArtist(song.spotifyTrackId, song.singer) { route -> navController.navigate(route) }
             }
             MenuRow(Icons.Outlined.Info, stringResource(R.string.track_credits), enabled = hasId) { showCredits = true }
+            // "Not interested": kept on this phone only; the song leaves the queue and lists skip it.
+            if (hasId && episodeKey == null) {
+                val hidden = com.music.spotui.data.preferences.HiddenSongs.isHidden(song.spotifyTrackId)
+                MenuRow(Icons.Outlined.ThumbDownOffAlt, stringResource(if (hidden) R.string.show_song_again else R.string.hide_song)) {
+                    if (hidden) com.music.spotui.data.preferences.HiddenSongs.show(context, song.spotifyTrackId) else SongPlayer.hideSong(song)
+                    onDismiss()
+                }
+            }
             // Taste profile: the server says whether the track is excluded (the page's own cache can lag).
             val trackUri = "spotify:track:${song.spotifyTrackId}"
             val excluded by androidx.compose.runtime.produceState<Boolean?>(null, trackUri) {
@@ -307,6 +328,13 @@ fun SongOptionsSheet(
             if (nowPlaying && song.url.startsWith("episode:")) {
                 MenuRow(Icons.Outlined.Speed, stringResource(R.string.playback_speed)) { showSpeed = true }
             }
+            // The app's own playback (extensions, downloads, files): its equalizer, speed and silences.
+            if (nowPlaying && com.music.spotui.di.LocalPlayer.active.value) {
+                MenuRow(Icons.Outlined.GraphicEq, stringResource(R.string.equalizer_title)) {
+                    onDismiss()
+                    navController.navigate(com.music.spotui.ui.navigation.Routes.Equalizer.route)
+                }
+            }
             MenuRow(Icons.Outlined.Share, stringResource(R.string.context_menu_share), enabled = hasId) {
                 SpotifyCode.show(ShareTarget("spotify:track:${song.spotifyTrackId}", song.title, song.singer, song.coverUri))
                 onDismiss()
@@ -318,6 +346,11 @@ fun SongOptionsSheet(
                     stringResource(R.string.context_menu_sleep_timer),
                     tint = if (active) MenuGreen else MenuIconColor,
                 ) { showSleep = true }
+                // The source line of the player is turned off: its sheet is here instead.
+                if (!com.music.spotui.data.preferences.PlayerSourceLinePref.on) {
+                    MenuRow(Icons.Outlined.GraphicEq, stringResource(R.string.quality_sheet_title)) { showQuality = true }
+                }
+                MenuRow(Icons.Outlined.Analytics, stringResource(R.string.nerd_title)) { showNerd = true }
             }
             // Entries from extensions (menu.items), after the app's own; each names its extension.
             if (hasId) com.music.spotui.extensions.ExtensionMenuEntries(

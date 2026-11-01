@@ -221,7 +221,7 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
                             val gone = OfflineCollections.removeSong(t.trackId)
                             Toast.makeText(
                                 context,
-                                context.getString(if (gone) R.string.toast_undownload else R.string.download_kept_by_list),
+                                if (gone) context.getString(R.string.toast_undownload) else OfflineCollections.keptMessage(context, t.trackId),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }) {

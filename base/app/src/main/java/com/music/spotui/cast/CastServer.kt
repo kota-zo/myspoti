@@ -46,6 +46,10 @@ object CastServer {
     private val busy = AtomicInteger()
     private const val MAX_BUSY = 8
 
+    /** The most a client may take to send its request head, and the biggest cover served. */
+    private const val HEAD_MS = 5_000
+    private const val MAX_COVER = 5 * 1024 * 1024
+
     /**
      * Listens on [address] (a new token and port when it was not listening there: true, the
      * addresses given before are dead). Blocks briefly.
@@ -144,10 +148,13 @@ object CastServer {
 
     private fun serveOpen(c: Socket) {
         c.use { socket ->
-            socket.soTimeout = 20_000
+            // The request's head is a few hundred bytes: a client that dribbles it (or says nothing)
+            // holds a worker for HEAD_MS at most, not for the 20 s a quiet player may wait on a seek.
+            socket.soTimeout = HEAD_MS
             val input = BufferedInputStream(socket.getInputStream())
             val out = BufferedOutputStream(socket.getOutputStream(), 64 * 1024)
             val head = try { readHead(input) } catch (e: IOException) { return } ?: return
+            socket.soTimeout = 20_000
             val lines = head.split("\r\n")
             val parts = lines.first().split(' ')
             if (parts.size < 3) return status(out, 400, "Bad Request")
@@ -205,11 +212,24 @@ object CastServer {
     }
 
     private fun cover(out: OutputStream, e: Entry, headOnly: Boolean) {
-        val bytes = Graph.app.contentResolver.openInputStream(e.uri)?.use { it.readBytes() } ?: return status(out, 404, "Not Found")
+        val bytes = readCover(e.uri) ?: return status(out, 404, "Not Found")
         val headers = listOf("Content-Type" to CastFormats.imageMime(bytes.copyOf(minOf(bytes.size, 16))),
             "Content-Length" to bytes.size.toString(), "Access-Control-Allow-Origin" to "*")
         write(out, 200, "OK", headers, flush = headOnly)
         if (!headOnly) { out.write(bytes); out.flush() }
+    }
+
+    /** The cover's bytes, or null when there is none or it is bigger than [MAX_COVER] (a cover is a few hundred KB). */
+    private fun readCover(uri: Uri): ByteArray? = Graph.app.contentResolver.openInputStream(uri)?.use { stream ->
+        val all = java.io.ByteArrayOutputStream()
+        val chunk = ByteArray(16 * 1024)
+        while (true) {
+            val n = stream.read(chunk)
+            if (n < 0) break
+            all.write(chunk, 0, n)
+            if (all.size() > MAX_COVER) { log("cover refused: more than ${MAX_COVER / 1024} KB"); return@use null }
+        }
+        all.toByteArray()
     }
 
     private fun sameToken(t: String): Boolean {
@@ -220,7 +240,9 @@ object CastServer {
     /** The request line and headers, up to the blank line (null past 8 KB or at the end of input). */
     private fun readHead(input: InputStream): String? {
         val b = StringBuilder()
+        val deadline = System.nanoTime() + HEAD_MS * 1_000_000L
         while (b.length < 8192) {
+            if (System.nanoTime() > deadline) throw java.net.SocketTimeoutException("request head too slow")
             val c = input.read()
             if (c < 0) return null
             b.append(c.toChar())

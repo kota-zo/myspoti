@@ -309,7 +309,7 @@ fun ImmersiveExtensionScreen(navController: NavController, id: String) {
             }
         }
         if (m.settings.isNotEmpty()) immersiveGroup("settings", headerRes = R.string.extension_settings) {
-            m.settings.forEach { s -> row { SettingRow(id, s) } }
+            m.settings.forEach { s -> row { Column { com.music.spotui.ui.screens.networkEditors(id, s).forEach { SettingRow(id, it) } } } }
         }
 
         immersiveGroup("details", headerRes = R.string.extension_details) {
@@ -394,6 +394,15 @@ fun ImmersiveExtensionScreen(navController: NavController, id: String) {
     )
     InstallPrompt()
 }
+
+/**
+ * An extension's settings announced in Settings → Playback or Downloads (manifest `section`), as a
+ * card under a discreet [header] ("<name> settings"), drawn as on its page.
+ */
+internal fun androidx.compose.foundation.lazy.LazyListScope.extensionSectionGroup(p: com.music.spotui.extensions.SectionPlacement, header: String) =
+    immersiveGroup("ext-section:${p.extensionId}", header = header) {
+        p.settings.forEach { s -> row { Column { com.music.spotui.ui.screens.networkEditors(p.extensionId, s).forEach { SettingRow(p.extensionId, it) } } } }
+    }
 
 /** One of the extension's options (manifest `settings`), saved as JSON as it changes (see `saveSetting`). */
 @Composable

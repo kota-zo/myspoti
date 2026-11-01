@@ -14,4 +14,14 @@
     <string name="sources_open">Ouvrir l\'extension</string>
     <string name="sources_order_hint">Les sources sont demandées dans l\'ordre réglé dans les Paramètres (Lecture, Téléchargements).</string>
     <string name="sources_below_spotify">Pas demandée : Spotify est au-dessus</string>
+    <string name="source_pick_title">Source</string>
+    <string name="source_pick_detail">Joue ce titre et les suivants depuis la source choisie, jusqu\'au redémarrage de Myspoti. Ton ordre dans les Paramètres reste inchangé.</string>
+    <string name="source_pick_playing">En cours de lecture</string>
+    <string name="source_pick_temporary">Temporaire : en premier jusqu\'au redémarrage de Myspoti</string>
+    <string name="source_pick_reset">Revenir à mon ordre</string>
+    <string name="source_pick_reset_detail">L\'ordre réglé dans Paramètres → Lecture</string>
+    <string name="source_pick_tag">temporaire</string>
+    <string name="source_pick_missing">%1$s n\'a pas ce titre : il continue là où il en était, et ton ordre reste comme il était.</string>
+    <string name="source_pick_next">%1$s joue à partir du titre suivant : celui-ci continue comme il joue.</string>
+    <string name="source_pick_active">Choix temporaire pour cette session : %1$s est demandée en premier, jusqu\'au redémarrage de Myspoti.</string>
 </resources>

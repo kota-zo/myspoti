@@ -14,4 +14,14 @@
     <string name="sources_open">Apri l\'estensione</string>
     <string name="sources_order_hint">Le sorgenti vengono interrogate nell\'ordine impostato nelle Impostazioni (Riproduzione, Download).</string>
     <string name="sources_below_spotify">Non interpellato: Spotify è sopra</string>
+    <string name="source_pick_title">Sorgente</string>
+    <string name="source_pick_detail">Riproduce questo brano e i successivi dalla sorgente che scegli, fino al riavvio di Myspoti. Il tuo ordine nelle Impostazioni resta com\'è.</string>
+    <string name="source_pick_playing">In riproduzione</string>
+    <string name="source_pick_temporary">Temporanea: per prima fino al riavvio di Myspoti</string>
+    <string name="source_pick_reset">Torna al mio ordine</string>
+    <string name="source_pick_reset_detail">L\'ordine impostato in Impostazioni → Riproduzione</string>
+    <string name="source_pick_tag">temporanea</string>
+    <string name="source_pick_missing">%1$s non ha questo brano: continua da dove era arrivato e il tuo ordine resta com\'era.</string>
+    <string name="source_pick_next">%1$s riproduce dal brano successivo: questo continua com\'è.</string>
+    <string name="source_pick_active">Scelta temporanea per questa sessione: %1$s viene interrogata per prima, fino al riavvio di Myspoti.</string>
 </resources>

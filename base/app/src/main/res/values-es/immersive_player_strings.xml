@@ -18,6 +18,7 @@
     <string name="immersive_player_repeat_off">Repetir: desactivado</string>
     <string name="immersive_player_repeat_all">Repetir: todo</string>
     <string name="immersive_player_repeat_one">Repetir: una canción</string>
+    <string name="immersive_player_repeat_once">Repetir una vez</string>
     <string name="immersive_player_volume_down">Bajar volumen</string>
     <string name="immersive_player_volume_up">Subir volumen</string>
     <string name="immersive_player_ad">Anuncio</string>

@@ -18,11 +18,32 @@ internal object TrackChanges {
         OWN("the page moved on by itself"),
     }
 
-    fun cause(playedMs: Long, durationMs: Long, sinceCommandMs: Long, afterAd: Boolean, crossfading: Boolean): Cause = when {
-        sinceCommandMs in 0..COMMAND_MS -> Cause.COMMAND
+    /** [commandUsed]: the last command already explained an earlier change (see [Commands]). */
+    fun cause(playedMs: Long, durationMs: Long, sinceCommandMs: Long, afterAd: Boolean, crossfading: Boolean, commandUsed: Boolean = false): Cause = when {
+        !commandUsed && sinceCommandMs in 0..COMMAND_MS -> Cause.COMMAND
         afterAd -> Cause.AD
         crossfading || (durationMs > 0 && durationMs - playedMs <= ENDED_TAIL_MS) -> Cause.ENDED
         else -> Cause.OWN
+    }
+
+    /**
+     * A command explains one change of song, not every change in the [COMMAND_MS] after it: the
+     * first one, or the one onto the song it asked for. Reported (2.2.0, logs of 30/10): a page
+     * refused every licence and moved on about every second after a play, four or five songs in a
+     * row "after a command", and the [Chain] never counted one of them.
+     */
+    class Commands {
+        private var usedAt = Long.MIN_VALUE
+
+        /**
+         * A change onto [to] after the command sent at [commandAt] ([target]: the song a play asked
+         * for, null for a skip): true when that command already explained an earlier change.
+         */
+        fun used(commandAt: Long, to: String, target: String?): Boolean {
+            val used = usedAt == commandAt && to != target
+            usedAt = commandAt
+            return used
+        }
     }
 
     fun clock(ms: Long): String = "%d:%02d".format(ms / 60_000, ms / 1000 % 60)

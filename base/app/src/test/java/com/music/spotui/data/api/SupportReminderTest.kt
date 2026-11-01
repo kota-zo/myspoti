@@ -17,8 +17,17 @@ class SupportReminderTest {
         assertEquals(Level.NONE, SupportReminder.level)
     }
 
-    @Test fun thenEveryTwoWeeksAfterTheLastAnswer() {
-        assertEquals(64 * day, SupportReminder.nextAt(1_000L, lastShown = 50 * day, level = Level.NONE, supportedAt = 0L))
+    @Test fun thenEveryEightToTwelveDaysAfterTheLastAnswer() {
+        val next = SupportReminder.nextAt(1_000L, lastShown = 50 * day, level = Level.NONE, supportedAt = 0L)
+        org.junit.Assert.assertTrue(next in 58 * day until 62 * day)
+        // The same answer each time the app asks.
+        assertEquals(next, SupportReminder.nextAt(1_000L, lastShown = 50 * day, level = Level.NONE, supportedAt = 0L))
+    }
+
+    @Test fun theWaitDiffersBetweenPeople() {
+        val waits = (1L..50L).map { SupportReminder.nextAt(it * 7_919_000L, lastShown = 50 * day, level = Level.NONE, supportedAt = 0L) }.toSet()
+        org.junit.Assert.assertTrue(waits.size > 40)
+        org.junit.Assert.assertTrue(waits.all { it in 58 * day until 62 * day })
     }
 
     @Test fun aOneTimeSupporterHearsAgainAfterThreeMonths() {

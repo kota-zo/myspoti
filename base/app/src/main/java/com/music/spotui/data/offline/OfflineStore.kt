@@ -39,6 +39,11 @@ data class OfflineTrack(
      * podcast episode, or a download made before this field existed.
      */
     val providerId: String? = null,
+    /**
+     * The download-source extension's own quality setting when the file was fetched
+     * ("Quality: FLAC", manifest `role: quality`), for Stats for nerds; null without one.
+     */
+    val extensionQuality: String? = null,
 ) {
     val isEpisode: Boolean get() = kind == KIND_PODCAST
 
@@ -48,6 +53,7 @@ data class OfflineTrack(
         .put("file", file).put("cover", cover).put("source", source).put("verified", verified)
         .put("bytes", bytes).put("added", addedAt).put("kind", kind)
         .apply { providerId?.let { put("providerId", it) } }
+        .apply { extensionQuality?.let { put("extQuality", it) } }
 
     companion object {
         const val KIND_MUSIC = "MUSIC"
@@ -63,6 +69,7 @@ data class OfflineTrack(
             kind = o.optString("kind").ifBlank { KIND_MUSIC },
             // Absent in an index written before it was kept: unknown.
             providerId = o.optString("providerId").ifBlank { null },
+            extensionQuality = o.optString("extQuality").ifBlank { null },
         )
     }
 }
@@ -95,12 +102,30 @@ object OfflineStore {
     fun init(context: Context) {
         if (::root.isInitialized) return
         val plain = load(File(context.filesDir, "offline"))
-        // Songs downloaded before encryption existed: encrypted once, in the background.
+        // Songs downloaded before encryption existed: encrypted once, in the background. One file at a
+        // time under [folderLock], and not after the folder was moved (another account's in its place,
+        // where a file of the same name would be read as this one's): what is left goes at the next launch.
+        val start = moves
         if (plain.isNotEmpty()) Thread {
-            plain.forEach { f -> runCatching { OfflineCrypto.encryptInPlace(context.applicationContext, f) }
-                .onFailure { android.util.Log.w("Offline", "could not encrypt ${f.name}: ${it.message}") } }
+            for (f in plain) {
+                val done = synchronized(folderLock) {
+                    if (moves != start) return@synchronized false
+                    runCatching { OfflineCrypto.encryptInPlace(context.applicationContext, f) }
+                        .onFailure { android.util.Log.w("Offline", "could not encrypt ${f.name}: ${it.message}") }
+                    true
+                }
+                if (!done) break
+            }
         }.apply { name = "offline-encrypt"; priority = Thread.MIN_PRIORITY }.start()
     }
+
+    /** Held while a downloaded file is encrypted in place, and while the downloads folder is moved. */
+    private val folderLock = Any()
+    /** How many times the downloads folder was moved (see [moving]). */
+    @Volatile private var moves = 0
+
+    /** Runs [block], which moves the downloads folder (OfflineAccounts), never during a file's encryption. */
+    internal fun <T> moving(block: () -> T): T = synchronized(folderLock) { moves++; block() }
 
     /** Reads the downloads folder again (main thread): another account's downloads were put in its place. */
     fun reopen(context: Context) {
@@ -115,7 +140,10 @@ object OfflineStore {
         audioDir.mkdirs(); coverDir.mkdirs()
         // The index lists only finished files; anything else in the folders is a leftover.
         // An index that cannot be read fully is never trusted to delete anything: the last
-        // good copy is used instead, and if that fails too the files are all kept.
+        // good copy is used instead, and if that fails too the files are all kept. Only the
+        // index itself, read in full, sweeps leftovers: the last good copy is older and lacks
+        // the songs added since, so with it (or with no index) the files it does not list are
+        // moved to the recovered folder, which nothing deletes, rather than swept by a later load.
         val read = readIndex(indexFile) ?: run {
             if (indexFile.exists()) {
                 indexFile.copyTo(File(root, "index.corrupt-${System.currentTimeMillis()}.json"), overwrite = true)
@@ -126,21 +154,38 @@ object OfflineStore {
         val list = read?.tracks.orEmpty()
         val kept = list.filter { File(audioDir, it.file).isFile }
         kept.forEach { tracks[it.trackId] = it }
-        if (read != null && read.complete) {
-            if (kept.size != list.size || read.file == backupFile) writeIndex()
-            val names = kept.map { it.file }.toSet()
+        val names = kept.map { it.file }.toSet()
+        val covers = kept.map { it.cover }.toSet()
+        if (read != null && read.complete && read.file == indexFile) {
+            if (kept.size != list.size) writeIndex()
             audioDir.listFiles()?.forEach { if (it.name !in names) it.delete() }
-            val covers = kept.map { it.cover }.toSet()
             coverDir.listFiles()?.forEach { if (it.name !in covers) it.delete() }
+        } else {
+            val aside = keepAside(audioDir, names, File(recoveredDir, "audio")) + keepAside(coverDir, covers, File(recoveredDir, "covers"))
+            if (aside > 0) runCatching { app.myspoti.host.android.Logbook.log("offline: download index not read in full; $aside files the index does not list kept in ${recoveredDir.name}/") }
+            if (read != null && read.complete) writeIndex()
         }
         return kept.map { File(audioDir, it.file) }
     }
+
+    /**
+     * Moves the files of [from] not in [listed] to [to], under another name when one is in the way;
+     * returns how many. A file that cannot be moved stays where it is.
+     */
+    private fun keepAside(from: File, listed: Set<String>, to: File): Int =
+        from.listFiles()?.filter { it.name !in listed }?.count { f ->
+            to.mkdirs()
+            val target = File(to, f.name).takeUnless { it.exists() } ?: File(to, "${System.currentTimeMillis()}-${f.name}")
+            f.renameTo(target)
+        } ?: 0
 
     val audioDir: File get() = File(root, "audio")
     val coverDir: File get() = File(root, "covers")
     private val indexFile: File get() = File(root, "index.json")
     /** The index before the last write, the fallback when [indexFile] is damaged. */
     private val backupFile: File get() = File(root, "index.json.bak")
+    /** Files an index read only in part (or its older copy) did not list: kept, never swept. */
+    internal val recoveredDir: File get() = File(root, "recovered")
     internal val pendingFile: File get() = File(root, "pending.json")
     /** The podcast queue: kept apart so a restart resumes episodes without touching music. */
     internal val podcastPendingFile: File get() = File(root, "podcasts-pending.json")
@@ -166,17 +211,30 @@ object OfflineStore {
             File(audioDir, t.file).delete()
             if (t.cover.isNotBlank()) File(coverDir, t.cover).delete()
             writeIndex()
+            deleted(listOf(t))
         }
     }
 
     fun removeAll() {
         synchronized(lock) {
+            val all = tracks.values.toList()
             tracks.clear()
             status.clear()
             audioDir.listFiles()?.forEach { it.delete() }
             coverDir.listFiles()?.forEach { it.delete() }
             writeIndex()
+            deleted(all)
         }
+    }
+
+    /**
+     * Downloads [gone] were deleted: the local player's queue stops pointing at their files (see
+     * LocalPlayer.downloadsDeleted), on the main thread. Their file, and the song each one is.
+     */
+    private fun deleted(gone: List<OfflineTrack>) {
+        if (gone.isEmpty()) return
+        val songs = gone.associate { Uri.fromFile(audioFile(it)).toString() to toSong(it) }
+        android.os.Handler(android.os.Looper.getMainLooper()).post { com.music.spotui.di.LocalPlayer.downloadsDeleted(songs) }
     }
 
     fun totalBytes(): Long = tracks.values.sumOf { it.bytes }

@@ -31,8 +31,8 @@ class OfflineIndexTest {
     @Test fun truncatedIndexKeepsEveryFile() {
         val root = folder("[{\"id\":\"a\",\"file\":\"a.m4a\"", "a", "b")
         OfflineStore.load(root)
-        assertEquals(2, File(root, "audio").list()!!.size)
-        assertEquals(2, File(root, "covers").list()!!.size)
+        assertEquals(2, kept(root, "audio"))
+        assertEquals(2, kept(root, "covers"))
         assertTrue(root.list()!!.any { it.startsWith("index.corrupt-") })
     }
 
@@ -40,7 +40,31 @@ class OfflineIndexTest {
         val root = folder(JSONArray().put(entry("a")).put(JSONObject().put("title", "no id")).toString(), "a", "b")
         OfflineStore.load(root)
         assertEquals(setOf("a"), OfflineStore.tracks.keys.toSet())
-        assertEquals(2, File(root, "audio").list()!!.size)
+        assertEquals(2, kept(root, "audio"))
+    }
+
+    /** Files still on the phone: in place, or kept aside in the recovered folder. */
+    private fun kept(root: File, sub: String) =
+        File(root, sub).list()!!.size + (File(root, "recovered/$sub").list()?.size ?: 0)
+
+    @Test fun damagedIndexWithAnOlderBackupKeepsTheSongsAddedSince() {
+        val root = folder(null)
+        OfflineStore.load(root)
+        listOf("a", "b").forEach { id ->
+            File(root, "audio/$id.m4a").writeText("x"); File(root, "covers/$id.jpg").writeText("x")
+            OfflineStore.add(OfflineTrack.fromJson(entry(id)))
+        }
+        // The index lists a and b, its backup only a; then the index is damaged.
+        File(root, "index.json").writeText("{oops")
+        OfflineStore.load(root)
+        assertEquals(setOf("a"), OfflineStore.tracks.keys.toSet())
+        assertTrue(File(root, "audio/a.m4a").exists())
+        assertTrue(File(root, "recovered/audio/b.m4a").exists())
+        assertTrue(File(root, "recovered/covers/b.jpg").exists())
+        // The index rewritten from the backup, read in full, sweeps nothing that was kept aside.
+        OfflineStore.load(root)
+        assertTrue(File(root, "recovered/audio/b.m4a").exists())
+        root.deleteRecursively()
     }
 
     @Test fun backupIsUsedWhenTheIndexIsDamaged() {

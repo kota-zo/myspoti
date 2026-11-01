@@ -46,7 +46,9 @@ def payload(release):
     version = tag.removeprefix("v")
     url = release["html_url"]
     notes = clean_notes(release.get("body")) or "See the release page for details."
-    apk = next((a for a in release.get("assets", []) if a["name"].endswith(".apk")), None)
+    # One APK per ABI: the link goes to arm64-v8a (most phones); older releases have a single one.
+    apks = [a for a in release.get("assets", []) if a["name"].endswith(".apk")]
+    apk = next((a for a in apks if a["name"].endswith("-arm64-v8a.apk")), apks[0] if apks else None)
     fields = []
     if apk:
         size = apk["size"] / 1_048_576

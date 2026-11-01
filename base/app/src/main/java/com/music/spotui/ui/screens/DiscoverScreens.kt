@@ -211,6 +211,37 @@ fun EpisodesScreen(navController: NavController) {
     }
 }
 
+/** "New episodes": the episodes not played yet of the followed shows, newest first; a tap opens the episode. */
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun NewEpisodesScreen(navController: NavController) {
+    val episodes by produceState<List<com.music.spotui.data.entity.SongsModel>?>(null) { value = Graph.api.getNewEpisodes() }
+    Column(Modifier.fillMaxSize().background(Background).statusBarsPadding()) {
+        ScreenHeader(stringResource(R.string.new_episodes_title), navController)
+        when (val list = episodes) {
+            null -> Loading()
+            else -> if (list.isEmpty()) Text(stringResource(R.string.new_episodes_empty), color = Subtle, fontSize = 14.sp, modifier = Modifier.padding(20.dp))
+            else LazyColumn(contentPadding = PaddingValues(bottom = com.music.spotui.ui.components.bottomBarsSpace())) {
+                items(list, key = { it.url }) { e ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            navController.navigate(com.music.spotui.ui.navigation.episodeRoute(e.url.removePrefix("episode:"), e.title))
+                        }.padding(16.dp, 8.dp),
+                    ) {
+                        GlideImage(transition = CrossFade, model = e.coverUri, contentDescription = null, contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)))
+                        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                            Text(e.title, color = AppText, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(e.singer + " • " + e.releaseDate.take(10), color = Subtle, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun formatMinutes(min: Long) = if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
 

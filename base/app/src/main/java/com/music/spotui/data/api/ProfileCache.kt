@@ -23,6 +23,11 @@ object ProfileCache {
     private val fetching = AtomicBoolean(false)
     private val generation = java.util.concurrent.atomic.AtomicLong()
 
+    /**
+     * The account is no longer known: at sign-out, and when the session is lost without one
+     * (SessionActions.sessionLost), when another account may sign in next. A profile still being
+     * read is dropped, and read again for the session that follows.
+     */
     fun clearSession() {
         generation.incrementAndGet()
         name = null
@@ -33,20 +38,39 @@ object ProfileCache {
     fun ensure(context: Context) {
         if (name != null) return
         if (!fetching.compareAndSet(false, true)) return
-        val requestGeneration = generation.get()
         MyspotiRuntime.scope.launch {
             try {
-                MyspotiRuntime.api.ready.first { it }
-                val me = runCatching { MyspotiRuntime.api.users.me() }.getOrNull() ?: return@launch
-                if (generation.get() != requestGeneration) return@launch
-                name = me.name
-                imageUrl = me.images.best(160)?.url
-                id = me.username.takeIf { it.isNotBlank() }
-                // The downloads shown are this account's own (see OfflineAccounts).
-                id?.let { com.music.spotui.data.offline.OfflineAccounts.claim(context.applicationContext, it) }
+                while (true) {
+                    val requestGeneration = generation.get()
+                    MyspotiRuntime.api.ready.first { it }
+                    val me = runCatching { MyspotiRuntime.api.users.me() }.getOrNull()
+                    // The session was lost meanwhile: this profile may be the account before, the next one's is read.
+                    if (generation.get() != requestGeneration) continue
+                    // No account (an anonymous token): nothing is kept, the next session's is read.
+                    if (me == null || me.username.isBlank()) return@launch
+                    name = me.name
+                    imageUrl = me.images.best(160)?.url
+                    id = me.username
+                    // The downloads shown are this account's own (see OfflineAccounts).
+                    id?.let { com.music.spotui.data.offline.OfflineAccounts.claim(context.applicationContext, it) }
+                    return@launch
+                }
             } finally {
                 fetching.set(false)
             }
+        }
+    }
+
+    /**
+     * The signed-in account's id, read first when it is not known yet ([ensure]): waited for at most
+     * [timeoutMs] (offline, Spotify not answering), null then.
+     */
+    suspend fun awaitId(context: Context, timeoutMs: Long): String? {
+        id?.let { return it }
+        ensure(context)
+        return kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+            while (id == null) kotlinx.coroutines.delay(100)
+            id
         }
     }
 }

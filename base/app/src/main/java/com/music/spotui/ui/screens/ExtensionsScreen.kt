@@ -83,6 +83,9 @@ import kotlinx.coroutines.launch
 internal fun installedRoute(id: String) = "${Routes.Extension.route}/${Uri.encode(id)}"
 internal fun storeRoute(id: String) = "${Routes.ExtensionEntry.route}/${Uri.encode(id)}"
 
+/** A store row's page: the installed extension's own page when that id is installed (whatever its source), else the store's page. */
+internal fun rowRoute(id: String, installed: Boolean) = if (installed) installedRoute(id) else storeRoute(id)
+
 // ── The list: Store and Installed tabs, search, categories ──
 
 @Composable
@@ -137,7 +140,7 @@ fun ExtensionsScreen(navController: NavController) {
                 repo.catalog?.extensions?.filter { Store.matches(it, query, category) }?.forEach { entry ->
                     shown++
                     StoreRow(url, entry, Store.action(entry, installedCodes[entry.id], appVersion), entry.id in busy, registry,
-                        onOpen = { navController.navigate(storeRoute(entry.id)) },
+                        onOpen = { navController.navigate(rowRoute(entry.id, entry.id in installedCodes)) },
                         onInstall = { scope.launch { installFromStore(ctx, url, entry) } },
                         onInstalled = { navController.navigate(installedRoute(entry.id)) })
                 }
@@ -150,7 +153,7 @@ fun ExtensionsScreen(navController: NavController) {
                     val entry = r.item
                     shown++
                     StoreRow(app.myspoti.extensions.Discovery.SOURCE, entry, Store.action(entry, installedCodes[entry.id], appVersion), entry.id in busy, registry,
-                        onOpen = { navController.navigate(storeRoute(entry.id)) },
+                        onOpen = { navController.navigate(rowRoute(entry.id, entry.id in installedCodes)) },
                         onInstall = { scope.launch { installFromStore(ctx, app.myspoti.extensions.Discovery.SOURCE, entry) } },
                         onInstalled = { navController.navigate(installedRoute(entry.id)) },
                         rating = r.rating, hidden = app.myspoti.extensions.Ranking.hidden(r, blocks, System.currentTimeMillis()) != null)

@@ -88,6 +88,8 @@ data class LibraryItem(
     val addedAt: String?,
     /** Items in a folder, tracks in Liked Songs. */
     val count: Int? = null,
+    /** A playlist's owner (`spotify:user:…`), when the list says. */
+    val ownerUri: Uri? = null,
 )
 
 data class SavedTrack(val track: Track, val addedAt: String?)

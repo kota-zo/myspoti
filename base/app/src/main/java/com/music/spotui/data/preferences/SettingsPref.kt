@@ -23,6 +23,21 @@ fun setLyricsWordSync(c: Context, v: Boolean) = prefs(c).edit().putBoolean("lyri
 
 private fun prefs(c: Context) = c.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
+/**
+ * "Show romanization" under the lyrics' lines (the song in Latin letters), offered when the lyrics
+ * carry one. Off by default; read as state by both looks, so the menu and the lines agree.
+ */
+object LyricsRomanizationPref {
+    private const val KEY = "lyrics_romanization"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
 /** The bottom bar: fading into the list (the default), or solid black. Read by the bar as state. */
 object SolidNavBar {
     private const val KEY = "solid_nav_bar"
@@ -48,12 +63,47 @@ object AutoplayPref {
 }
 
 /**
+ * "Myspoti shuffle" (off by default): with shuffle on, a list plays every one of its songs once, in
+ * an order Myspoti draws, before it starts over, instead of Spotify's shuffle (see
+ * [com.music.spotui.di.AppShuffle]). Off: Spotify shuffles, as before.
+ */
+object AppShufflePref {
+    private const val KEY = "myspoti_shuffle"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+        if (!value) com.music.spotui.di.AppShuffle.forget()
+    }
+}
+
+/**
  * "Count extension plays on Spotify" (on by default): a song an extension streams is played by the
  * Web Player too, unheard, so Spotify counts it and Spotify Connect sees and controls it (see
  * [com.music.spotui.di.ConnectMirror]). Off: the extension's stream alone, as before.
  */
 object ConnectMirrorPref {
     private const val KEY = "connect_mirror"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+        com.music.spotui.di.ConnectMirror.settingChanged()
+    }
+}
+
+/**
+ * "Sync downloaded songs with Spotify" (on by default): a downloaded song with a Spotify id, played
+ * from its file while the phone is online, is played by the Web Player too, unheard, as an
+ * extension's stream is (see [com.music.spotui.di.ConnectMirror]): Spotify counts it, Spotify Connect
+ * sees and controls it. Off, or offline: the file plays alone, as before.
+ */
+object DownloadSyncPref {
+    private const val KEY = "download_spotify_sync"
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
 
@@ -145,6 +195,21 @@ object MusicVideoPref {
     }
 }
 
+/**
+ * "Hide the DJ" on Home (off by default): Spotify's DJ, which comes in the home feed as a
+ * playlist card, leaves the shelves. Read by both Home screens as state.
+ */
+object HideDjPref {
+    private const val KEY = "hide_dj"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
 fun getCrossfadeSeconds(c: Context): Int =
     prefs(c).getInt(KEY_CROSSFADE, 0).coerceIn(0, CrossfadePref.MAX)
 
@@ -170,6 +235,69 @@ fun setLyricTranslateLang(c: Context, code: String) =
 object LiquidGlassPref {
     private const val KEY = "immersive_liquid_glass"
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Lyrics preview in the player" (Settings > Display, Classic look): the lyrics card under the
+ * player. On by default; off, the lyrics still open with a flick up on the cover.
+ */
+object PlayerLyricsCardPref {
+    private const val KEY = "player_lyrics_card"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Source and quality in the player" (Settings > Display, both looks): the line that says what
+ * plays and how (under the title in the Immersive look, under the device in the Classic one). On
+ * by default; off, the player's menu has the Sound quality row (and Stats for nerds) instead.
+ */
+object PlayerSourceLinePref {
+    private const val KEY = "player_source_line"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Capsule in the player" (Settings > Display, Immersive look): the capsule at the bottom of the
+ * player (devices, with shuffle and repeat when [PlayerModesPref] is on). On by default; off, the
+ * player's menu has a Listen on row for the devices.
+ */
+object PlayerCapsulePref {
+    private const val KEY = "immersive_player_capsule"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Shuffle and repeat in the player" (Settings > Display, Immersive look): on, the player's
+ * bottom capsule holds shuffle, repeat and devices (2.2); off, only devices, as in 2.1.0 (the
+ * queue panel keeps shuffle and repeat). Off by default: the owner's call, and asked on Discord.
+ */
+object PlayerModesPref {
+    private const val KEY = "immersive_player_modes"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
         private set
 
     fun set(c: Context, value: Boolean) {

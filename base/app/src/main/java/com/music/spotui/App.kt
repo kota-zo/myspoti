@@ -150,6 +150,8 @@ fun App() {
         if (immersive) ImmersiveShell(navController)
         // Over the pages and the bottom bar: pulling it down shows them, already in place.
         else com.music.spotui.ui.navigation.PlayerOverlay(navController)
+        // "Not interested" and its Undo, over the pages and the players.
+        com.music.spotui.ui.components.HiddenSongUndo()
     }
     }
 }

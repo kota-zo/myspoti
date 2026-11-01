@@ -26,6 +26,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
@@ -52,6 +53,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -220,6 +222,7 @@ fun ImmersivePlayer(
     var showMenu by remember { mutableStateOf(false) }
     var showDevices by remember { mutableStateOf(false) }
     var showQuality by remember { mutableStateOf(false) }
+    var showNerd by remember { mutableStateOf(false) }
     val lyricsOpen = panel == Panel.LYRICS
     val queueOpen = panel == Panel.QUEUE
 
@@ -299,6 +302,7 @@ fun ImmersivePlayer(
                 onOpenDevices = { showDevices = true },
                 onMore = if (navController != null && state.song != null) ({ showMenu = true }) else null,
                 onSource = { showQuality = true },
+                onSourceLong = { showNerd = true },
                 sidePane = sidePane,
             ) else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
@@ -317,15 +321,19 @@ fun ImmersivePlayer(
                     val left = (maxWidth - contentWidth) / 2
                     val fullArt = minOf(contentWidth, maxHeight - ART_BOX_TOP_PAD - ART_TITLE_GAP - HEADER_HEIGHT - 16.dp)
                         .coerceAtLeast(THUMB_SIZE)
-                    // The cover and the credits sit centred as a pair while the player is whole.
-                    val groupTop = (maxHeight - ART_BOX_TOP_PAD - fullArt - ART_TITLE_GAP - HEADER_HEIGHT - 16.dp)
-                        .coerceAtLeast(0.dp) / 2
+                    // While the player is whole the credits sit just above the scrubber and the cover is
+                    // centred in the room above them (centred as a pair, the spare height of a tall
+                    // phone all went between the credits and the scrubber: reported as the like and
+                    // more glyphs sitting far too high).
+                    val spare = (maxHeight - ART_BOX_TOP_PAD - fullArt - ART_TITLE_GAP - HEADER_HEIGHT - 16.dp)
+                        .coerceAtLeast(0.dp)
+                    val groupTop = spare / 2
                     // Functions of the collapse, called at placement and measure: composition never reads them.
                     fun p() = collapse.value
                     fun artSize(): Dp = lerp(fullArt, THUMB_SIZE, p())
                     fun artTop(): Dp = ART_BOX_TOP_PAD + lerp(groupTop, 0.dp, p())
                     fun artStart(): Dp = left + lerp((contentWidth - fullArt) / 2, 0.dp, p())
-                    fun titleTop(): Dp = ART_BOX_TOP_PAD + lerp(groupTop + fullArt + ART_TITLE_GAP, 0.dp, p())
+                    fun titleTop(): Dp = ART_BOX_TOP_PAD + lerp(spare + fullArt + ART_TITLE_GAP, 0.dp, p())
                     fun titleStart(): Dp = lerp(0.dp, THUMB_SIZE + 12.dp, p())
                     // The credits only crawl while they are the screen: over a list they would pull the eye.
                     val scrolls by remember { derivedStateOf { collapse.value < 0.01f } }
@@ -421,6 +429,7 @@ fun ImmersivePlayer(
                             state = state, actions = actions, tint = tint, scrolls = scrolls, collapse = { p() },
                             onMore = if (navController != null && state.song != null) ({ showMenu = true }) else null,
                             onSource = { showQuality = true },
+                            onSourceLong = { showNerd = true },
                         )
                     }
                 }
@@ -448,6 +457,7 @@ fun ImmersivePlayer(
 
     if (showDevices) DevicesSheet { showDevices = false }
     if (showQuality) com.music.spotui.ui.components.QualitySheet { showQuality = false }
+    if (showNerd) com.music.spotui.ui.components.StatsForNerdsSheet { showNerd = false }
     val song = state.song
     if (showMenu && song != null && navController != null) {
         ImmersiveSongOptionsSheet(
@@ -457,6 +467,7 @@ fun ImmersivePlayer(
             onDismiss = { showMenu = false },
             nowPlaying = true,
             onOpenQueue = { panel = Panel.QUEUE },
+            lyricsOpen = lyricsOpen,
         )
     }
 }
@@ -523,18 +534,23 @@ private fun RowScope.PlayerCredits(
     collapse: () -> Float,
     onMore: (() -> Unit)?,
     onSource: () -> Unit,
+    onSourceLong: () -> Unit = {},
 ) {
     // The header is a fixed HEADER_HEIGHT: the three lines are set tighter, so none is
     // clipped at the bottom. The source line's room is kept from the start (it is only known
     // a moment after the song starts), so its arrival fades in below the title and artist
     // instead of moving them.
     val sourceLabel = com.music.spotui.ui.components.playingSourceLabel()
+    val sourceShown = com.music.spotui.data.preferences.PlayerSourceLinePref.on
     val hasSource = sourceLabel.isNotBlank() && !state.adPlaying
     val sourceAlpha by animateFloatAsState(if (hasSource) 1f else 0f, tween(250), label = "sourceLine")
     val lineH = if (state.adPlaying) 24.sp else 22.sp
     Column(
         Modifier
             .weight(1f)
+            // Measured at its own height and centred on the header's: held to HEADER_HEIGHT, the
+            // source line was cut at the bottom with a larger font (reported twice).
+            .wrapContentHeight(unbounded = true)
             // Scaling the already measured type is a draw-only operation.
             .graphicsLayer {
                 val scale = 1f - 0.2f * collapse()
@@ -586,7 +602,7 @@ private fun RowScope.PlayerCredits(
         }
         // What the sound is when Myspoti's own player plays it (an extension's stream, a
         // download); a tap opens what plays and its quality. Same state as the Classic player.
-        if (!state.adPlaying) Text(
+        if (!state.adPlaying && sourceShown) Text(
             text = sourceLabel.ifEmpty { " " },
             style = Immersive.Caption.copy(lineHeight = 14.sp),
             color = tint.copy(alpha = 0.45f),
@@ -595,7 +611,7 @@ private fun RowScope.PlayerCredits(
             modifier = Modifier
                 .graphicsLayer { alpha = sourceAlpha }
                 .then(
-                    if (hasSource) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onSource)
+                    if (hasSource) Modifier.combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onLongClick = onSourceLong, onClick = onSource)
                     else Modifier,
                 ),
         )
@@ -685,6 +701,7 @@ private fun LandscapePlayer(
     onOpenDevices: () -> Unit,
     onMore: (() -> Unit)?,
     onSource: () -> Unit,
+    onSourceLong: () -> Unit = {},
     sidePane: Boolean = false,
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -744,7 +761,7 @@ private fun LandscapePlayer(
                 val showVolume = maxHeight >= LANDSCAPE_VOLUME_MIN_HEIGHT
                 Column(Modifier.widthIn(max = PLAYER_MAX_WIDTH).verticalScroll(rememberScrollState())) {
                     Row(Modifier.fillMaxWidth().height(HEADER_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
-                        PlayerCredits(state, actions, tint, scrolls = true, collapse = { 0f }, onMore = onMore, onSource = onSource)
+                        PlayerCredits(state, actions, tint, scrolls = true, collapse = { 0f }, onMore = onMore, onSource = onSource, onSourceLong = onSourceLong)
                     }
                     Spacer(Modifier.height(8.dp))
                     PlayerControlsBlock(

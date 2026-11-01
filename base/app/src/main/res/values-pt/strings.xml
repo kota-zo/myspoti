@@ -12,10 +12,10 @@
     <string name="notif_shuffle_enable">Ativar reprodução aleatória</string>
     <string name="notif_shuffle_disable">Desativar reprodução aleatória</string>
     <string name="notif_shuffle_disable_smart">Desativar a reprodução aleatória inteligente</string>
-    <string name="energy_saver_title">Poupança de bateria</string>
+    <string name="energy_saver_title">Economia de bateria</string>
     <string name="energy_saver_summary">Canvas desligado, vídeos e animações mais leves</string>
-    <string name="video_fullscreen_enter">Entrar em ecrã inteiro</string>
-    <string name="video_fullscreen_exit">Sair do ecrã inteiro</string>
+    <string name="video_fullscreen_enter">Entrar em tela cheia</string>
+    <string name="video_fullscreen_exit">Sair da tela cheia</string>
     <string name="playback_seek_description">Posição de reprodução</string>
     <string name="account_page_title">Conta Spotify</string>
     <string name="account_page_detail">Plano, privacidade e dispositivos, em spotify.com</string>

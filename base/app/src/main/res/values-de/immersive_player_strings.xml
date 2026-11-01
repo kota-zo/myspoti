@@ -18,6 +18,7 @@
     <string name="immersive_player_repeat_off">Wiederholen: aus</string>
     <string name="immersive_player_repeat_all">Wiederholen: alle</string>
     <string name="immersive_player_repeat_one">Wiederholen: Titel</string>
+    <string name="immersive_player_repeat_once">Einmal wiederholen</string>
     <string name="immersive_player_volume_down">Leiser</string>
     <string name="immersive_player_volume_up">Lauter</string>
     <string name="immersive_player_ad">Werbung</string>

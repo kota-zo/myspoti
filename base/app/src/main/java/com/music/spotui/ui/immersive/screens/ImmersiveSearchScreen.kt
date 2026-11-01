@@ -129,7 +129,12 @@ fun ImmersiveSearchScreen(navController: NavController) {
     menuSong?.let { sel ->
         ImmersiveSongOptionsSheet(song = sel, navController = navController, context = context, onDismiss = { menuSong = null })
     }
+    // A tap on a result puts the keyboard away; the query and the list stay as they are.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val dismissKeyboard = { keyboard?.hide(); focusManager.clearFocus() }
     val recordRecent: (RecentItem) -> Unit = { item ->
+        dismissKeyboard()
         addRecentItem(context, item)
         recents = loadRecents(context)
     }
@@ -267,6 +272,7 @@ fun ImmersiveSearchScreen(navController: NavController) {
                         navController.navigate(showRoute(show.id, show.name))
                     },
                     onProfile = { card ->
+                        dismissKeyboard()
                         navController.navigate(profileRoute(card.uri.substringAfterLast(':'), card.title))
                     },
                 )

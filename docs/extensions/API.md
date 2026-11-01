@@ -11,6 +11,10 @@ API it unlocks; the user sees them as icons, each with your reason, before insta
 This page documents what the build ships (API version 1). Nothing here is a promise about
 anything else.
 
+Feature-gated media transforms and concurrent source resolution are described in
+[SOURCE-PIPELINES.md](SOURCE-PIPELINES.md). Providers and recording matching remain
+extension responsibilities; the host keeps its existing safe media transport.
+
 ## 1. A minimal extension
 
 `manifest.json`:
@@ -138,7 +142,7 @@ An action entry: `{ "name": "...", "why": "...", "hosts": [...] }`.
 **Old manifests** (before actions: `provides` + `permissions`) still load and install, mapped to
 actions (section 4.1); `myspoti-ext check` says so. `actions` cannot be mixed with them.
 
-A setting: `{ "key", "type", "label", "description", "default", "options" }`.
+A setting: `{ "key", "type", "label", "description", "default", "options", "section"?, "role"?, "perNetwork"? }`.
 
 - `key`: letters, digits, `_`, 1 to 40 characters.
 - `type`: `text` (default), `secret` (a password field, never logged), `toggle`, `number`, `choice`, `button`.
@@ -149,6 +153,35 @@ A setting: `{ "key", "type", "label", "description", "default", "options" }`.
   Pressing it sends the `setting` event with `pressed: true` (section 3). Typical uses: pair again
   with a server, clear a cache, sign in again.
 - Read it with `myspoti.settings.get(key)`: the user's value, else `default`, else `undefined`.
+- `section` (optional): `"playback"` or `"downloads"`. The setting is also shown in the app's
+  Settings → Playback or Settings → Downloads, in a card headed "<your extension's name> settings",
+  drawn as on your page (same value: changing it in one place changes it in the other). Only the
+  **first source** of the user's order shows its settings there:
+  - Playback: the first source of the audio order (section 3, `audio-source`), when it is your
+    extension, above Spotify, and turned on. Spotify's own Wi-Fi and mobile data quality then leave
+    that screen (they keep their value, and Spotify still uses it for the songs it plays); moving
+    Spotify back to the top brings them back and your settings stay on your page only.
+  - Downloads: the first extension of the download order, turned on. The app's own download
+    quality leaves that screen only for your `role: quality` setting; the app still sends its own
+    value as `quality` to every extension in `download-source`.
+  An extension below the first one, turned off or not installed shows nothing there. Without
+  `section`, a setting is on your page only, as always. An unknown value is ignored (your page only);
+  `myspoti-ext check` warns. A section is only ever shown for an extension that asks the matching
+  action (`audio.source`, `download.source`).
+- `role` (optional): `"quality"`, on a `choice` with a `section`, one per section at most: your
+  extension's quality. Shown first-class in that section (in the place of the app's), and its value
+  when the song was played or downloaded is cited in "Why this source?" and in Stats for nerds
+  ("Quality: FLAC", your label and option). Any other value is ignored (check warns).
+- `perNetwork` (optional, `true`; for `choice`, `toggle`, `number`, `text`): one value on Wi-Fi and
+  one on mobile data, both shown ("<label> · Wi-Fi", "<label> · Mobile data").
+  `myspoti.settings.get(key)` still gives one plain value: the one of the network the phone is on,
+  by the app's own rule for Spotify's streaming quality (a metered network is mobile data, Wi-Fi
+  otherwise). Until the user sets the mobile data value it is the Wi-Fi one, then `default`. When
+  the phone changes network and the value `get` gives changes with it, the `setting` event comes
+  with `{ key, network: true }` (section 3). Ignored on `secret` and `button` (check refuses it).
+
+`myspoti.features` contains `settings.section` on a Myspoti that knows these three fields; an older
+one ignores them (the setting is on your page, one value), so a manifest using them stays valid there.
 
 Settings are shown on the extension's page. Every installed extension that declares settings is also
 listed in the app's Settings screen, in the section "Extensions", and each row opens its page.
@@ -159,6 +192,39 @@ A downloader with a quality choice and a button (its manifest also lists `settin
 "settings": [
   { "key": "quality", "type": "choice", "label": "Quality", "options": ["FLAC", "MP3 320", "AAC 256"], "default": "FLAC" },
   { "key": "pair", "type": "button", "label": "Pair again with the server" }
+]
+```
+
+A sound source (actions `audio.source` and `settings.page`) that shows its quality, one per
+network, and a switch in Settings → Playback while it is above Spotify:
+
+```json
+"settings": [
+  { "key": "quality", "type": "choice", "label": "Quality", "options": ["Hi-Res", "FLAC", "AAC 256"],
+    "default": "FLAC", "section": "playback", "role": "quality", "perNetwork": true },
+  { "key": "gapless", "type": "toggle", "label": "Gapless albums", "default": true, "section": "playback" },
+  { "key": "token", "type": "secret", "label": "Account token" }
+]
+```
+
+```js
+myspoti.provide('audio-source', function (t) {
+  var q = myspoti.settings.get('quality'); // "FLAC" on Wi-Fi, "AAC 256" on mobile data if the user set so
+  // ...
+});
+myspoti.on('setting', function (e) {
+  if (e.key === 'quality') myspoti.log((e.network ? 'network changed: ' : '') + 'quality ' + myspoti.settings.get('quality'));
+});
+```
+
+A downloader (actions `download.source` and `settings.page`) whose quality replaces the app's in
+Settings → Downloads while it is the first downloader:
+
+```json
+"settings": [
+  { "key": "format", "type": "choice", "label": "Format", "options": ["FLAC 24-bit", "FLAC 16-bit", "MP3 320"],
+    "default": "FLAC 16-bit", "section": "downloads", "role": "quality" },
+  { "key": "folder", "type": "text", "label": "Album folder name", "section": "downloads" }
 ]
 ```
 
@@ -216,14 +282,29 @@ Asked among the app's own lyrics sources. Return one of:
     { time: 1500,                   // ms from the start; missing = 0
       end: 4000,                    // optional ms
       text: 'line',                 // 500 characters at most
-      words: [ { time: 1500, end: 1900, text: 'word' } ]   // optional, `time` required, 200 at most
-    } ] }
+      words: [ { time: 1500, end: 1900, text: 'word' } ],  // optional, `time` required, 200 at most
+      translation: 'translated line',   // optional, in `translationLanguage`
+      romanization: 'line in latin letters',  // optional
+      voice: 2,                         // optional: who sings, 1 = first singer, 2 = second..., 0 = together
+      background: 'ooh'                 // optional: backing vocals sung over the line, 500 characters at most
+    } ],
+  translationLanguage: 'en'             // optional: the language of the `translation`s ('en', 'pt-BR')
+}
 ```
 
 or `{ provider?, plain: 'text\nof the song' }` for unsynced lyrics (one line per row; used only
 when `lines` is absent). At most 3000 lines (more is an error). Times are numbers or numeric
 strings, in milliseconds. Lyrics with no non-blank text count as no answer. Word-by-word display
 needs `synced` and at least one line with `words`.
+
+`translation`, `romanization`, `voice`, `background` and `translationLanguage` are optional and
+additive: leave them out and nothing changes, and one of the wrong type (a number for a text, a
+`voice` that is not a number, `"v2"` or `"2"`) is ignored, never an error. A `translation` is shown in
+place of Myspoti's machine translation only when `translationLanguage` is sent and is the language
+the reader asked for (the first part of the tag decides: `en` covers `en-US`); lines without one are
+machine translated. `voice` marks a duet when at least two different singers appear; `romanization`
+is for scripts that are not Latin (Japanese, Korean, Chinese, Cyrillic...). An older Myspoti
+simply does not read these fields.
 
 Action: `lyrics.provide` (normal). Usually you also need `network`.
 
@@ -593,6 +674,9 @@ extension's settings (section 2):
 - `{ key }` when a setting changed. For a text field, it comes once the user stops typing for a
   moment. Read the new value with `myspoti.settings.get(key)`. The event carries only the key.
 - `{ key, pressed: true }` when the user presses a `button` setting.
+- `{ key, network: true }` when the phone went from Wi-Fi to mobile data or back and a `perNetwork`
+  setting's value (what `myspoti.settings.get(key)` gives) changed with it. Changing either of its
+  two values by hand sends `{ key }`, as any setting.
 
 It needs `settings.page` in the manifest (checked when you call `on`). Time limit 30 s per delivery.
 
@@ -708,7 +792,7 @@ A script that throws while loading fails to load, with `file:line` in the messag
 |---|---|
 | `myspoti.apiVersion` | `1`. |
 | `myspoti.extension` | `{ id, name, version }` from the manifest. |
-| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
+| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
 | `myspoti.provide(hook, fn)` | Section 3. |
 | `myspoti.on('track' \| 'playback', fn)` | Section 3. Needs `playback.events`. |
 | `myspoti.on('auth', fn)` | Section 3, sign in. Needs `webview.auth`. |
@@ -1208,7 +1292,14 @@ to the confirmation prompt below. Give absolute paths.)
 `run` options: `--title T` (required), `--artist "A, B"` (comma-separated; the first one is
 `artist`), `--album B`, `--duration MS`, `--id SPOTIFY_ID` (also sets `uri`), `--isrc ISRC`,
 `--set key=value` (a setting; repeat; `true`, `false` and numbers are passed as such, anything else
-as text; unset ones use the manifest `default`).
+as text; unset ones use the manifest `default`; `--set key@cell=value` is a `perNetwork` setting's
+mobile data value), `--network cell` (the phone is on mobile data, for `perNetwork` settings; default
+Wi-Fi).
+
+`check` also checks `section`, `role` and `perNetwork`: `role: quality` on a non-`choice`, without
+a section or twice in a section, and `perNetwork` on a `secret` or `button` are problems (✗, exit 1);
+an unknown `section` or `role`, or a section the extension's actions can never lead, are warnings (!).
+The app itself never refuses such a package: it shows the setting on its page, as one value.
 
 What the runner does: every right the manifest asks is granted. Each hook and event gets the app's
 own time limit (section 7). An answer `{ outcome }` is printed as the app reads it. Storage is in

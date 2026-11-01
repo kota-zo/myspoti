@@ -33,6 +33,11 @@ PlayerQueue; `sharedUi/.../ui/components/` Common, SearchField, Skeletons, SongT
 floatingtabbar/FloatingTabBar, floatingtabbar/GlassSelectionPill; `app/.../ui/player/PlayerSheetMotion`;
 `app/.../ui/screens/` DetailScreen, LibraryPhoneParts; `app/.../ui/utils/IosOverscroll`.
 
+The local player's equalizer, `base/app/src/main/java/com/music/spotui/di/EqualizerProcessor.kt`, is
+adapted from BitChord's `app/src/main/java/com/music/bitchord/playback/EqualizerProcessor.kt` (commit
+`b690dc1`): its state-variable filter sections, their coefficients and the gliding of a change. It
+stays under the GPL-3.0-or-later and says so in its header.
+
 No BitChord fonts, icons, images or brand are included.
 
 Code that BitChord itself carries from other projects, kept with its own header:

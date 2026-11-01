@@ -455,7 +455,8 @@ class SpotifyDevices(private val bridge: Bridge) : Devices {
 
     override suspend fun transfer(deviceId: String, play: Boolean) {
         bridge.service("ConnectTransferAPI", "transferPlayback", JsonPrimitive(deviceId), json(mapOf("playOnTransfer" to play)))
-        refresh()
+        // The transfer is done: a list that cannot be read now is not a failed transfer.
+        runCatching { refresh() }
     }
 
     override suspend fun pullHere() {

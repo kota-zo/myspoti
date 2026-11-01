@@ -93,10 +93,19 @@ fun SettingsScreen(navController: NavController) {
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+            // The first source of each order, when it is an extension announcing settings in that tab.
+            val registry by com.music.spotui.extensions.Extensions.registry.collectAsStateWithLifecycle()
+            // A source picked in the player for this session leads too ([com.music.spotui.extensions.SessionSource]).
+            val session by com.music.spotui.extensions.Extensions.sessionSource.collectAsStateWithLifecycle()
             if (tab == 0) {
             Section(R.string.settings_section_playback)
-            StreamingQualityPicker(title = R.string.quality_streaming_wifi_title)
-            StreamingQualityPicker(cellular = true, title = R.string.quality_streaming_cell_title)
+            // An extension above Spotify: its settings, and Spotify's quality (kept, still used for what Spotify plays) leaves.
+            val ext = remember(registry, session) { com.music.spotui.extensions.Extensions.sectionPlacement(app.myspoti.extensions.SettingSection.PLAYBACK) }
+            ext?.let { ExtensionSectionSettings(it) }
+            if (ext?.hidesAppQuality != true) {
+                StreamingQualityPicker(title = R.string.quality_streaming_wifi_title)
+                StreamingQualityPicker(cellular = true, title = R.string.quality_streaming_cell_title)
+            }
             var canvasWifiOnly by remember { mutableStateOf(com.music.spotui.data.preferences.isCanvasWifiOnly(ctx)) }
             OptionRow(
                 label = stringResource(R.string.canvas_wifi_only),
@@ -110,7 +119,21 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.AutoplayPref.on,
                 onChecked = { com.music.spotui.data.preferences.AutoplayPref.set(ctx, it) },
             )
+            OptionRow(
+                label = stringResource(R.string.myspoti_shuffle_title),
+                detail = stringResource(R.string.myspoti_shuffle_detail),
+                checked = com.music.spotui.data.preferences.AppShufflePref.on,
+                onChecked = { com.music.spotui.data.preferences.AppShufflePref.set(ctx, it) },
+            )
             CrossfadeRow()
+            // The local player's equalizer, speed and silence skipping (never Spotify's own songs).
+            Column(
+                Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.Equalizer.route) }
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.equalizer_title), color = AppText, fontSize = 16.sp)
+                Text(stringResource(R.string.equalizer_settings_detail), color = AppMuted, fontSize = 12.sp)
+            }
             var keepPlaying by remember { mutableStateOf(app.myspoti.host.android.PlaybackService.keepsPlayingOnClose(ctx)) }
             OptionRow(
                 label = stringResource(R.string.settings_keep_playing_title),
@@ -146,6 +169,21 @@ fun SettingsScreen(navController: NavController) {
                     checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
                     onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
                 )
+            // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
+            OptionRow(
+                label = stringResource(R.string.settings_download_sync_title),
+                detail = stringResource(R.string.settings_download_sync_detail),
+                checked = com.music.spotui.data.preferences.DownloadSyncPref.on,
+                onChecked = { com.music.spotui.data.preferences.DownloadSyncPref.set(ctx, it) },
+            )
+            // Songs marked "Not interested": skipped by lists, listed here to be shown again.
+            Column(
+                Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.HiddenSongs.route) }
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.hidden_songs_title), color = AppText, fontSize = 16.sp)
+                Text(stringResource(R.string.hidden_songs_detail), color = AppMuted, fontSize = 12.sp)
+            }
             Divider()
             SourcesBlock(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
 
@@ -176,10 +214,21 @@ fun SettingsScreen(navController: NavController) {
                     else app.myspoti.power.BatteryExemption.request(ctx)
                 },
             )
+            // Samsung's "Sleeping apps" is a second list: the app has to be in Never sleeping apps too.
+            if (app.myspoti.power.BatteryExemption.isSamsung()) Column(
+                Modifier.fillMaxWidth().clickable { app.myspoti.power.BatteryExemption.openAppSettings(ctx) }
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.background_playback_open), color = AppText, fontSize = 16.sp)
+                Text(stringResource(R.string.background_playback_samsung), color = AppMuted, fontSize = 12.sp)
+            }
             }
             if (tab == 1) {
             Section(R.string.settings_section_downloads)
-            DownloadQualityPicker()
+            // Its role quality takes the place of the app's (kept, and still passed to every extension as `quality`).
+            val ext = remember(registry) { com.music.spotui.extensions.Extensions.sectionPlacement(app.myspoti.extensions.SettingSection.DOWNLOADS) }
+            if (ext?.hidesAppQuality != true) DownloadQualityPicker()
+            ext?.let { ExtensionSectionSettings(it) }
             // Where downloads come from: the download-source extensions, in the order they are asked.
             if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isNotEmpty())
                 SourcesBlock(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, navController)
@@ -221,10 +270,28 @@ fun SettingsScreen(navController: NavController) {
                 onChecked = { com.music.spotui.data.preferences.MusicVideoPref.set(ctx, it) },
             )
             OptionRow(
+                label = stringResource(R.string.settings_player_lyrics_card_title),
+                detail = stringResource(R.string.settings_player_lyrics_card_detail),
+                checked = com.music.spotui.data.preferences.PlayerLyricsCardPref.on,
+                onChecked = { com.music.spotui.data.preferences.PlayerLyricsCardPref.set(ctx, it) },
+            )
+            OptionRow(
+                label = stringResource(R.string.settings_player_source_title),
+                detail = stringResource(R.string.settings_player_source_detail),
+                checked = com.music.spotui.data.preferences.PlayerSourceLinePref.on,
+                onChecked = { com.music.spotui.data.preferences.PlayerSourceLinePref.set(ctx, it) },
+            )
+            OptionRow(
                 label = stringResource(R.string.settings_solid_nav_title),
                 detail = stringResource(R.string.settings_solid_nav_detail),
                 checked = com.music.spotui.data.preferences.SolidNavBar.on,
                 onChecked = { com.music.spotui.data.preferences.SolidNavBar.set(ctx, it) },
+            )
+            OptionRow(
+                label = stringResource(R.string.settings_hide_dj_title),
+                detail = stringResource(R.string.settings_hide_dj_detail),
+                checked = com.music.spotui.data.preferences.HideDjPref.on,
+                onChecked = { com.music.spotui.data.preferences.HideDjPref.set(ctx, it) },
             )
             AccentRow(com.music.spotui.data.preferences.Look.CLASSIC)
             LookRow()
@@ -323,7 +390,7 @@ private fun SourcesBlock(action: app.myspoti.extensions.Action, navController: N
 }
 
 @Composable
-private fun Section(title: Int) {
+internal fun Section(title: Int) {
     Text(stringResource(title).uppercase(), color = com.music.spotui.ui.theme.AppAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp))
 }
@@ -535,7 +602,7 @@ private fun RemoveDownloadsRow() {
 
 
 @Composable
-private fun OptionRow(label: String, detail: String, checked: Boolean,
+internal fun OptionRow(label: String, detail: String, checked: Boolean,
     enabled: Boolean = true, onChecked: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)

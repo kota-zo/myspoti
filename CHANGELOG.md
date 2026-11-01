@@ -2,6 +2,22 @@
 
 Each release on GitHub shows its section below. The app shows it too when it offers the update. Every detail: [docs/CHANGELOG-full.md](docs/CHANGELOG-full.md).
 
+## 2.3.0
+
+- 🔁 **Repeat the song for good** is back, with Repeat once as a fourth mode.
+- 🔀 **Myspoti shuffle** (Settings, Playback, off by default): every song of the list once, in a really random order, before any comes back.
+- 🎚️ **Equalizer**, playback speed and skip silence for extension, downloaded and device songs, and **Stats for nerds** in the player's menu.
+- 🧩 **Extensions bring their own settings** to Playback and Downloads: the first source of the order shows its own (its quality, per network), and an extension above Spotify replaces Spotify's quality settings there.
+- 🎛️ **Switch the source from the player**: the quality sheet lists Spotify and your audio extensions; the one you pick plays this song at the same spot and the next ones, until Myspoti restarts, with Back to my order.
+- 📚 **Library**: a By me filter, a Podcasts filter with every show you follow, and New episodes of them.
+- 🎤 **Lyric translation** in the Immersive player; the liked star and the download mark on Immersive song rows.
+- ⬇️ **Downloads and Spotify**: a downloaded song also plays muted on Spotify when you are online, so it counts and your devices see it (Settings, Playback); likes made offline are kept per account and sent as soon as Spotify answers; deleting downloads while they play no longer stops playback.
+- 📺 **Chromecast** plays Spotify songs too, through Spotify's own receiver.
+- 🏠 **Liked Songs** first in Home's shortcuts; switches in Settings, Display to hide the player's lyrics preview, its source line or its capsule; the keyboard closes when you tap a search result; a tap on an installed extension in the store opens its full page.
+- 🛠️ **Fixes**: no run of skips or the wrong song after an ad, a pause during an ad stays a pause, a tap on the title opens the album for every song, playback on a locked Samsung explained in Settings, and the issues found by a code audit (downloads never removed when the app reads a backup index, safer file writes, stale page answers ignored, masked secrets in the diagnostic, a hardened Cast server and updater).
+- 📦 **One APK per phone architecture** (arm64-v8a, armeabi-v7a), lighter to download: the in-app update takes yours, and Obtainium users set the new APK filter from the README.
+- 🌍 **Brazilian Portuguese**, and translations of everything new.
+
 ## 2.2.0
 
 - 📺 **Chromecast** for extension, downloaded and device songs, without Google Play Services: Cast devices show up in the device picker and the song streams from your phone over your network.

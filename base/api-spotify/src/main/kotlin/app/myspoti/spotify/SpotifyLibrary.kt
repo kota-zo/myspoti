@@ -94,6 +94,7 @@ class SpotifyLibrary(private val bridge: Bridge, private val gql: Gql) : Library
                 uri = if (kind == MediaKind.FOLDER) stableFolderUri(c.uri) else c.uri, kind = kind, name = c.title, subtitle = c.subtitle, images = c.images,
                 pinned = row.bool("pinned") ?: false, addedAt = row.str("addedAt.isoString"),
                 count = d.int("playlistCount")?.plus(d.int("folderCount") ?: 0) ?: d.int("count"),
+                ownerUri = d.str("ownerV2.data.uri"),
             )
         }
         val total = lib.int("totalCount") ?: items.size

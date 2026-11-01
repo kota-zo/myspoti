@@ -41,6 +41,7 @@ class AppRepository constructor(private val api: Api = Graph.api) {
     suspend fun provideLibraryFolder(uri: String) = api.getLibraryFolder(uri)
 
     suspend fun provideFollowedArtists() = api.getFollowedArtists()
+    suspend fun provideFollowedShows() = api.getFollowedShows()
 
     suspend fun provideCategoryPlaylists(genre: String) = api.getCategoryPlaylists(genre)
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_liquid_glass_title">Liquid Glass</string>
+    <string name="settings_liquid_glass_detail">As barras se curvam e refletem a página atrás delas, como vidro</string>
+    <string name="settings_liquid_glass_unsupported">Requer Android 12 ou superior</string>
+    <string name="settings_liquid_glass_reduced">Efeito fosco enquanto o telefone reduz o desfoque ou as animações</string>
+    <string name="immersive_expand_tab_bar">Mostrar todas as abas</string>
+</resources>

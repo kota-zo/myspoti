@@ -14,4 +14,14 @@
     <string name="sources_open">Otwórz rozszerzenie</string>
     <string name="sources_order_hint">Źródła są pytane w kolejności ustawionej w Ustawieniach (Odtwarzanie, Pobieranie).</string>
     <string name="sources_below_spotify">Nie pytamy: Spotify jest wyżej</string>
+    <string name="source_pick_title">Źródło</string>
+    <string name="source_pick_detail">Odtwarza ten utwór i kolejne z wybranego źródła, do ponownego uruchomienia Myspoti. Twoja kolejność w Ustawieniach pozostaje bez zmian.</string>
+    <string name="source_pick_playing">Teraz odtwarzane</string>
+    <string name="source_pick_temporary">Tymczasowo: najpierw do ponownego uruchomienia Myspoti</string>
+    <string name="source_pick_reset">Wróć do mojej kolejności</string>
+    <string name="source_pick_reset_detail">Kolejność ustawiona w Ustawienia → Odtwarzanie</string>
+    <string name="source_pick_tag">tymczasowo</string>
+    <string name="source_pick_missing">Źródło %1$s nie ma tego utworu: gra dalej od miejsca, w którym był odtwarzany, a Twoja kolejność zostaje taka, jak była.</string>
+    <string name="source_pick_next">Źródło %1$s odtwarza od następnego utworu: ten gra dalej tak, jak grał.</string>
+    <string name="source_pick_active">Tymczasowy wybór na tę sesję: źródło %1$s jest pytane jako pierwsze, do ponownego uruchomienia Myspoti.</string>
 </resources>

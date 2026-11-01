@@ -21,6 +21,17 @@ class SafeWriteTest {
     }
 
     @Test
+    fun replacesBytesWholeAndKeepsNoOldCopy() {
+        val dir = Files.createTempDirectory("safe").toFile()
+        val f = File(dir, "package.zip")
+        f.writeBytes(byteArrayOf(1, 2))
+        writeBytesSafely(f, byteArrayOf(3, 4, 5), sync = false)
+        assertEquals(listOf<Byte>(3, 4, 5), f.readBytes().toList())
+        assertEquals(listOf("package.zip"), dir.list()!!.toList())
+        dir.deleteRecursively()
+    }
+
+    @Test
     fun createsMissingFolders() {
         val dir = Files.createTempDirectory("safe").toFile()
         val f = File(dir, "a/b/collections.json")

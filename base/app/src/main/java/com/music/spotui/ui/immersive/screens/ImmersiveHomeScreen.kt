@@ -48,9 +48,12 @@ import app.myspoti.engine.R
 import com.music.spotui.data.api.Features
 import com.music.spotui.data.api.ProfileCache
 import com.music.spotui.data.api.Response
+import com.music.spotui.data.api.Api
 import com.music.spotui.data.entity.HomeFeedModel
 import com.music.spotui.data.entity.HomeItem
 import com.music.spotui.data.entity.HomeSection
+import com.music.spotui.data.entity.withLikedFirst
+import com.music.spotui.data.entity.withoutDj
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.components.pressHint
@@ -71,6 +74,7 @@ import com.music.spotui.ui.immersive.shell.LocalBarControlSize
 import com.music.spotui.ui.immersive.shell.immersiveChromeScroll
 import com.music.spotui.ui.immersive.shell.immersiveHeaderContentPadding
 import com.music.spotui.ui.immersive.shell.rememberTopBarCollapse
+import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.TabReselect
 import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
@@ -120,17 +124,21 @@ fun ImmersiveHomeScreen(navController: NavController) {
     }
 
     // Podcasts can be off: their shows and episodes then leave the feed.
-    val sections = remember(feed) { feed?.let { visibleSections(it) }.orEmpty() }
+    val hideDj = com.music.spotui.data.preferences.HideDjPref.on
+    val sections = remember(feed, hideDj) { feed?.let { visibleSections(it) }.orEmpty().let { if (hideDj) it.withoutDj() else it } }
     // Only the untitled section the web home starts with is a shortcut grid; a titled lead
     // section is a carousel like any other.
     val gridSection = sections.firstOrNull()?.takeIf { it.title.isBlank() }
     val carousels = if (gridSection != null) sections.drop(1) else sections
+    // Liked Songs leads the shortcuts when Spotify's grid does not carry it.
+    val likedName = stringResource(R.string.collection_liked_songs_title)
+    val shortcuts = remember(gridSection, likedName) { gridSection?.items?.withLikedFirst(likedName) }
     // The shortcuts at the top load in the background, ready before a tap.
-    LaunchedEffect(gridSection?.items?.map { it.name }) {
-        val top = gridSection?.items.orEmpty().take(8).mapNotNull { item ->
+    LaunchedEffect(shortcuts?.map { it.name }) {
+        val top = shortcuts.orEmpty().mapNotNull { item ->
             when (item) {
                 is HomeItem.Album -> item.id.takeIf { it.isNotBlank() }?.let { "album" to it }
-                is HomeItem.Playlist -> item.id.takeIf { it.isNotBlank() }?.let { "playlist" to it }
+                is HomeItem.Playlist -> if (item.id == Api.HomeCache.LIKED_SONGS_ID) "liked" to "" else item.id.takeIf { it.isNotBlank() }?.let { "playlist" to it }
                 else -> null
             }
         }
@@ -165,9 +173,9 @@ fun ImmersiveHomeScreen(navController: NavController) {
             }
             when {
                 feed != null && feed.sections.isNotEmpty() -> {
-                    gridSection?.let { section ->
+                    shortcuts?.let { tiles ->
                         item(key = "home:shortcuts") {
-                            ShortcutGrid(navController, section.items.take(8), playingContext)
+                            ShortcutGrid(navController, tiles, playingContext)
                         }
                     }
                     carousels.forEachIndexed { index, section ->
@@ -223,7 +231,9 @@ private fun visibleSections(feed: HomeFeedModel): List<HomeSection> =
 private fun prefetchHomeItem(item: HomeItem) {
     when (item) {
         is HomeItem.Album -> if (item.id.isNotBlank()) ContextViewModel.prefetch("album", item.id)
-        is HomeItem.Playlist -> if (item.id.isNotBlank()) ContextViewModel.prefetch("playlist", item.id)
+        is HomeItem.Playlist ->
+            if (item.id == Api.HomeCache.LIKED_SONGS_ID) ContextViewModel.prefetch("liked", "")
+            else if (item.id.isNotBlank()) ContextViewModel.prefetch("playlist", item.id)
         else -> {}
     }
 }
@@ -237,7 +247,8 @@ private fun onHomeItemClick(navController: NavController, item: HomeItem) {
             else navController.navigate(showRoute(item.id, item.name))
         // The real playlist content by its id (daily mixes, etc).
         is HomeItem.Playlist ->
-            if (item.id.isNotBlank()) navController.navigate(playlistRoute(item.id, item.name))
+            if (item.id == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
+            else if (item.id.isNotBlank()) navController.navigate(playlistRoute(item.id, item.name))
             else navController.navigate(albumRoute(item.name))
     }
 }

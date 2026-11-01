@@ -240,4 +240,11 @@
     <string name="outcome_network">network error or timeout</string>
     <string name="outcome_skipped">skipped</string>
     <string name="outcome_bug">extension error</string>
+    <!-- An extension's settings shown in Settings → Playback or Downloads (manifest "section"): %1$s is its name. -->
+    <string name="ext_section_settings">%1$s settings</string>
+    <!-- A per-network setting (manifest "perNetwork"): %1$s is its label. -->
+    <string name="ext_setting_wifi">%1$s · Wi-Fi</string>
+    <string name="ext_setting_cell">%1$s · Mobile data</string>
+    <!-- "Why this source?": the chosen extension's own quality setting; %1$s is "Quality: FLAC", %2$s the extension. -->
+    <string name="why_source_ext_quality">Its setting: %1$s (%2$s)</string>
 </resources>

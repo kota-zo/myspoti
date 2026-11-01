@@ -170,6 +170,30 @@ fun ImmersiveEpisodesScreen(navController: NavController) {
     }
 }
 
+/** "New episodes": the episodes not played yet of the followed shows, newest first; a tap opens the episode. */
+@Composable
+fun ImmersiveNewEpisodesScreen(navController: NavController) {
+    val episodes by produceState<List<com.music.spotui.data.entity.SongsModel>?>(null) { value = Graph.api.getNewEpisodes() }
+    ImmersivePage(title = stringResource(R.string.new_episodes_title), onBack = { navController.popBackStack() }) {
+        val list = episodes
+        when {
+            list == null -> immersiveSongListSkeleton(count = 7)
+            list.isEmpty() -> item(key = "empty") { ImmersiveMessageState(stringResource(R.string.new_episodes_empty)) }
+            else -> items(list, key = { it.url }) { e ->
+                Column(immersiveItemPlacement()) {
+                    ImmersiveListRow(
+                        title = e.title,
+                        subtitle = e.singer + " • " + e.releaseDate.take(10),
+                        imageUrl = e.coverUri,
+                        round = false,
+                        onClick = { navController.navigate(com.music.spotui.ui.navigation.episodeRoute(e.url.removePrefix("episode:"), e.title)) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 private fun episodeMinutesLabel(min: Long) = if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
 
 /**

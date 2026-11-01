@@ -156,7 +156,12 @@ fun SumUpSearchScreen(
         )
     }
 
+    // A tap on a result puts the keyboard away; the query and the list stay as they are.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val dismissKeyboard = { keyboard?.hide(); focusManager.clearFocus() }
     val recordRecent: (com.music.spotui.data.preferences.RecentItem) -> Unit = { item ->
+        dismissKeyboard()
         com.music.spotui.data.preferences.addRecentItem(context, item)
         recents = com.music.spotui.data.preferences.getRecentItems(context).filter { com.music.spotui.data.api.Features.PODCASTS || it.type != "show" }
     }
@@ -319,6 +324,7 @@ fun SumUpSearchScreen(
                 items(profiles.size) { i ->
                     val u = profiles[i]
                     SearchProfileRow(u.title, u.images.firstOrNull()?.url) {
+                        dismissKeyboard()
                         navController.navigate(com.music.spotui.ui.navigation.profileRoute(u.uri.substringAfterLast(':'), u.title))
                     }
                 }

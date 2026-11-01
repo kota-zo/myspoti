@@ -46,9 +46,11 @@ class CastChannel(
         val s = ctx.socketFactory.createSocket() as SSLSocket
         try {
             s.connect(InetSocketAddress(host, port), timeoutMs)
-            s.soTimeout = 0
+            // The handshake is bounded too: a device that accepts and stays silent must not hold the caller.
+            s.soTimeout = timeoutMs
             s.tcpNoDelay = true
             s.startHandshake()
+            s.soTimeout = 0
         } catch (e: Exception) {
             // Not connected: the socket is closed here, nothing else holds it.
             runCatching { s.close() }

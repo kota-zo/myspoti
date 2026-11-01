@@ -19,6 +19,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.myspoti.engine.R
+import app.myspoti.host.android.MyspotiRuntime
 import com.music.spotui.di.LocalPlayer
 import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppMuted
@@ -37,8 +39,9 @@ import com.music.spotui.ui.theme.AppText
 /**
  * The Cast devices of the network in the device picker, under the Spotify Connect devices: Myspoti's
  * own songs (extensions, downloads, the phone's files) are cast to them. While a Spotify song
- * plays they are shown greyed: Spotify Connect casts those. While casting: back to this phone,
- * and the device's volume.
+ * plays, a tap wakes the device's Spotify receiver ([CastSpotify]) and the song moves to it as a
+ * Spotify Connect device; one already listed above under the same name is not repeated. While
+ * casting: back to this phone, and the device's volume.
  */
 @Composable
 fun CastDeviceRows(onDismiss: () -> Unit) {
@@ -63,12 +66,18 @@ fun CastDeviceRows(onDismiss: () -> Unit) {
             CastPlayback.stop(back = true); onDismiss()
         }
     }
-    CastDiscovery.devices.filter { it.id != casting?.id }.forEach { d ->
+    val waking = CastSpotify.waking.value
+    val connectNames = MyspotiRuntime.spotify.devices.devices.collectAsState().value.filter { !it.local }.map { it.name }.toSet()
+    CastDiscovery.devices.filter { it.id != casting?.id && (ownSong || it.name !in connectNames) }.forEach { d ->
         val detail = when {
-            !ownSong -> stringResource(R.string.cast_spotify_via_connect)
+            waking?.id == d.id -> stringResource(R.string.cast_connecting)
+            !ownSong -> stringResource(R.string.cast_spotify_detail)
             else -> d.model.ifBlank { stringResource(R.string.cast_device_detail) }
         }
-        CastRow(Icons.Default.Cast, d.name, detail, enabled = ownSong) { CastPlayback.start(d); onDismiss() }
+        CastRow(Icons.Default.Cast, d.name, detail, enabled = waking == null) {
+            if (ownSong) CastPlayback.start(d) else CastSpotify.start(d)
+            onDismiss()
+        }
     }
     if (casting != null && CastPlayback.connecting.value)
         CastRow(Icons.Default.CastConnected, casting.name, stringResource(R.string.cast_connecting), current = true) {}

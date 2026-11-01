@@ -30,6 +30,11 @@ class OutcomeTest {
         assertEquals(Outcome.MAX_DETAIL, (Outcome.parse(Hook.LYRICS, """{"outcome":"sign-in","detail":"${"x".repeat(500)}"}""") as Outcome.SignIn).detail!!.length)
     }
 
+    @Test fun silentIsNotNothingToOffer() {
+        listOf(Outcome.Skipped(), Outcome.Network(), Outcome.RateLimited(), Outcome.ServerDown(), Outcome.SignIn()).forEach { assertTrue(it.key, it.silent) }
+        listOf(Outcome.Found, Outcome.NotFound, Outcome.QualityUnavailable(), Outcome.Bug("x")).forEach { assertFalse(it.key, it.silent) }
+    }
+
     @Test fun failuresAreClassified() {
         assertEquals("network", Outcome.of(ExtensionTimeout("took longer than 15000 ms")).key)
         assertEquals("network", Outcome.of(ExtensionException("Error: http: api.example.com: no such host (main.js:3)")).key)

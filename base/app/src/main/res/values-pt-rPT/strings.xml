@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Myspoti</string>
+    <string name="aa_playlists">Playlists</string>
+    <string name="aa_albums">Álbuns</string>
+    <string name="aa_artists">Artistas</string>
+    <string name="settings_amoled_theme">Tema AMOLED</string>
+    <string name="settings_amoled_theme_subtitle">Fundo preto puro para economizar bateria</string>
+    <string name="main_update_available">Uma nova atualização está disponível</string>
+    <string name="notif_action_play">Tocar</string>
+    <string name="notif_action_pause">Pausar</string>
+    <string name="notif_shuffle_enable">Ativar reprodução aleatória</string>
+    <string name="notif_shuffle_disable">Desativar reprodução aleatória</string>
+    <string name="notif_shuffle_disable_smart">Desativar a reprodução aleatória inteligente</string>
+    <string name="energy_saver_title">Poupança de bateria</string>
+    <string name="energy_saver_summary">Canvas desligado, vídeos e animações mais leves</string>
+    <string name="video_fullscreen_enter">Entrar em ecrã inteiro</string>
+    <string name="video_fullscreen_exit">Sair do ecrã inteiro</string>
+    <string name="playback_seek_description">Posição de reprodução</string>
+    <string name="account_page_title">Conta Spotify</string>
+    <string name="account_page_detail">Plano, privacidade e dispositivos, em spotify.com</string>
+    <string name="player_source_downloaded">Baixada</string>
+    <string name="extension_change_write">Agora também pode enviar ao Spotify: %1$s</string>
+</resources>

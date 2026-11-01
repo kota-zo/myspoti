@@ -217,6 +217,43 @@ data class Manifest(
             .forEach { add("\"${it.key}\" is a critical action: say why the extension needs it in \"why\" (15 to 80 characters), the user reads it before installing") }
     }
 
+    /** Its settings shown in [section] of the app's Settings, in the manifest's order. */
+    fun settingsIn(section: SettingSection): List<Setting> = settings.filter { it.sectionOf == section }
+
+    /** Its quality for [section] (`role: quality`), the first if it lists more (the check refuses that). */
+    fun qualitySetting(section: SettingSection): Setting? = settingsIn(section).firstOrNull { it.isQuality }
+
+    /**
+     * The keys of its per-network settings whose value differs between Wi-Fi and mobile data:
+     * the ones a network change changes, for the `setting` event `{ key, network: true }`.
+     */
+    fun networkKeys(stored: (String) -> String?): List<String> =
+        settings.filter { it.splitsByNetwork && it.value(stored, false) != it.value(stored, true) }.map { it.key }
+
+    /**
+     * What is wrong with the settings' `section`, `role` and `perNetwork`, for `myspoti-ext check`.
+     * Never a reason to refuse the package: the app shows such a setting on its page only, as one value.
+     */
+    fun settingFieldProblems(): List<String> = buildList {
+        settings.forEach { s ->
+            if (s.role == Setting.ROLE_QUALITY && s.type != "choice") add("setting \"${s.key}\": role quality is a choice (its options are the qualities)")
+            if (s.role == Setting.ROLE_QUALITY && s.section == null) add("setting \"${s.key}\": role quality needs a section (playback or downloads)")
+            if (s.perNetwork && s.type !in Setting.NETWORK_TYPES) add("setting \"${s.key}\": perNetwork is for ${Setting.NETWORK_TYPES.joinToString()}, not ${s.type}")
+        }
+        SettingSection.entries.forEach { sec ->
+            if (settingsIn(sec).count { it.role == Setting.ROLE_QUALITY } > 1) add("settings: one role quality per section at most (${sec.key} has more)")
+        }
+    }
+
+    /** Values of `section` and `role` this Myspoti does not know, and a section the extension can never lead: told, not refused. */
+    fun settingFieldWarnings(): List<String> = buildList {
+        settings.forEach { s ->
+            if (s.section != null && s.sectionOf == null) add("setting \"${s.key}\": section \"${s.section}\" unknown (known: ${SettingSection.entries.joinToString { it.key }}), shown on the extension's page only")
+            if (s.role != null && s.role !in Setting.ROLES) add("setting \"${s.key}\": role \"${s.role}\" unknown (known: ${Setting.ROLES.joinToString()}), ignored")
+            s.sectionOf?.let { sec -> if (sec.action !in actionSet()) add("setting \"${s.key}\": section ${sec.key} is shown only for an extension with ${sec.action.key}, which this one does not ask") }
+        }
+    }
+
     /** Where the store files it: the declared category if its actions fit it, else [Category.OTHER]. */
     fun category(): Category = Category.of(category, actionSet())
 
@@ -276,9 +313,61 @@ data class Setting(
     val default: JsonElement? = null,
     /** choice only. */
     val options: List<String> = emptyList(),
+    /**
+     * `playback` or `downloads`: also shown in that section of the app's Settings, under the
+     * extension's name, while it is the first source there ([SettingSection]). Absent: its page only.
+     * Any other value: its page only too (`myspoti-ext check` warns).
+     */
+    val section: String? = null,
+    /** `quality` (a choice): the extension's quality, shown in the place of the app's own. Any other value is ignored. */
+    val role: String? = null,
+    /** One value on Wi-Fi and one on mobile data (choice, toggle, number, text); `get` gives the current network's. */
+    val perNetwork: Boolean = false,
 ) {
+    /** The section of Settings it is also shown in, or null (none, or one this Myspoti does not know). */
+    val sectionOf: SettingSection? get() = SettingSection.of(section)
+
+    /** It is the extension's quality for its section: `role: quality` on a choice. */
+    val isQuality: Boolean get() = role == ROLE_QUALITY && type == "choice" && sectionOf != null
+
+    /** It has a Wi-Fi and a mobile data value: `perNetwork` on a type that has a value to split. */
+    val splitsByNetwork: Boolean get() = perNetwork && type in NETWORK_TYPES
+
+    /**
+     * The value `myspoti.settings.get` reads, as JSON text: on mobile data ([metered]) the mobile
+     * value of a [splitsByNetwork] setting, else (and while it has none) the Wi-Fi one, which is
+     * the one any setting has; else [default]. As the app's own streaming quality: mobile data
+     * follows Wi-Fi until it is set.
+     */
+    fun value(stored: (String) -> String?, metered: Boolean): String? =
+        (if (metered && splitsByNetwork) stored(cellKey(key)) else null) ?: stored(key) ?: default?.toString()
+
     companion object {
         val TYPES = listOf("text", "secret", "toggle", "number", "choice", "button")
+        const val ROLE_QUALITY = "quality"
+        val ROLES = listOf(ROLE_QUALITY)
+        /** The types `perNetwork` splits: a secret or a button has no value per network. */
+        val NETWORK_TYPES = listOf("choice", "toggle", "number", "text")
+        /** Suffix of the stored mobile data value; never in a declared key (letters, digits, _). */
+        private const val CELL = "@cell"
+
+        /** Where the mobile data value of [key] is kept, next to its Wi-Fi value (kept under [key]). */
+        fun cellKey(key: String) = key + CELL
+
+        /** The declared key a stored key belongs to ([cellKey] undone). */
+        fun baseKey(stored: String) = stored.removeSuffix(CELL)
+    }
+}
+
+/** `section` of a setting: the section of the app's Settings it is also shown in, and the source order that decides. */
+enum class SettingSection(val key: String, val action: Action) {
+    /** Settings → Playback, while the extension is the first source of the audio order (above Spotify). */
+    PLAYBACK("playback", Action.AUDIO_SOURCE),
+    /** Settings → Downloads, while it is the first extension of the download order. */
+    DOWNLOADS("downloads", Action.DOWNLOAD_SOURCE);
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key }
     }
 }
 

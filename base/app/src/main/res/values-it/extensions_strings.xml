@@ -218,6 +218,10 @@
     <string name="extension_sign_in_later">Non ora</string>
     <string name="extension_sign_in_needed">%1$s: accedi per continuare a usare la sua sorgente</string>
     <string name="outcome_bug">errore dell\'estensione</string>
+    <string name="ext_section_settings">Impostazioni di %1$s</string>
+    <string name="ext_setting_wifi">%1$s · Wi-Fi</string>
+    <string name="ext_setting_cell">%1$s · Dati mobili</string>
+    <string name="why_source_ext_quality">La sua impostazione: %1$s (%2$s)</string>
     <string name="outcome_found">trovato</string>
     <string name="outcome_network">errore di rete o tempo scaduto</string>
     <string name="outcome_not_found">non trovato</string>

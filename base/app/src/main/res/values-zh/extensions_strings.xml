@@ -218,6 +218,10 @@
     <string name="extension_sign_in_later">以后再说</string>
     <string name="extension_sign_in_needed">%1$s：登录后才能继续使用其来源</string>
     <string name="outcome_bug">扩展出错</string>
+    <string name="ext_section_settings">%1$s 设置</string>
+    <string name="ext_setting_wifi">%1$s · Wi-Fi</string>
+    <string name="ext_setting_cell">%1$s · 移动数据</string>
+    <string name="why_source_ext_quality">其设置：%1$s（%2$s）</string>
     <string name="outcome_found">已找到</string>
     <string name="outcome_network">网络错误或超时</string>
     <string name="outcome_not_found">未找到</string>

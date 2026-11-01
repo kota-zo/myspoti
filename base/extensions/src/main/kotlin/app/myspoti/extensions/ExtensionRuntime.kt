@@ -64,6 +64,7 @@ class ExtensionRuntime(
     grantedKeys: Set<String>,
     private val limits: Limits = Limits(),
     private val guard: SurfaceGuard = SurfaceGuard.app,
+    private val raceChild: Boolean = false,
 ) : AutoCloseable {
     private val granted: Set<String> = Action.migrateGranted(grantedKeys)
     private val declared: Set<Action> = manifest.actionSet()
@@ -322,6 +323,7 @@ class ExtensionRuntime(
         }
         def("http", 1) { a -> http(str(a, 0)) }
         def("httpAll", 1) { a -> httpAll(str(a, 0)) }
+        def("sourceRace", 3) { a -> sourceRace(str(a,0),str(a,1),str(a,2)) }
         def("storageGet", 1) { a -> need(Action.STORAGE); host.storage(id).get(str(a, 0)) }
         def("storageSet", 2) { a ->
             need(Action.STORAGE)
@@ -336,7 +338,9 @@ class ExtensionRuntime(
         def("storageRemove", 1) { a -> need(Action.STORAGE); host.storage(id).remove(str(a, 0)); null }
         def("setting", 1) { a ->
             val key = str(a, 0)
-            host.setting(id, key) ?: manifest.settings.firstOrNull { it.key == key }?.default?.toString()
+            val s = manifest.settings.firstOrNull { it.key == key }
+            // A per-network setting: the value of the network the phone is on (one value, as any get).
+            if (s == null) host.setting(id, key) else s.value({ host.setting(id, it) }, s.splitsByNetwork && host.metered())
         }
         def("nowPlaying", 0) { need(Action.PLAYBACK_EVENTS); host.nowPlaying() }
         def("control", 2) { a ->
@@ -481,6 +485,61 @@ class ExtensionRuntime(
         }
     }
 
+    /** Independent source lanes: no shared Rhino scope, no recursive races or extra privileges. */
+    private fun sourceRace(hookName: String, query: String, sources: String): String? {
+        if (raceChild) throw error("sources.race: nested races are not allowed")
+        val hook = Hook.of(hookName)?.takeIf { it == Hook.AUDIO_SOURCE || it == Hook.DOWNLOAD_SOURCE }
+            ?: throw error("sources.race: audio-source or download-source only")
+        hook.action?.let(::need)
+        val input = ExtJson.parseToJsonElement(query) as? JsonObject ?: throw error("sources.race: query must be an object")
+        val lanes = (ExtJson.parseToJsonElement(sources) as? JsonArray)?.map {
+            (it as? JsonPrimitive)?.content ?: throw error("sources.race: invalid lane")
+        }?.distinct() ?: throw error("sources.race: lanes must be an array")
+        if (lanes.isEmpty() || lanes.size > 4 || lanes.any { !it.matches(Regex("[a-zA-Z0-9_-]{1,40}")) })
+            throw error("sources.race: one to four named lanes")
+        val until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(leftMs())
+        val sharedHost = object : Host by host {
+            override fun http(extensionId: String, request: HttpRequest): HttpResponse {
+                refusal(request)?.let { throw IllegalArgumentException(it) }
+                if (!allowRequest()) throw IllegalArgumentException("HTTP quota exceeded")
+                return host.http(extensionId, request)
+            }
+            override fun notify(extensionId: String, text: String) {
+                if (allowRequest(notifyTimes, MAX_NOTIFY_PER_HOUR, 3_600_000L)) host.notify(extensionId,text)
+            }
+        }
+        val children = java.util.concurrent.ConcurrentLinkedQueue<ExtensionRuntime>()
+        val completion = java.util.concurrent.ExecutorCompletionService<String?>(parallel())
+        val keys = granted.intersect(setOf("download.source", "audio.source", "network", "network.any", "storage", "notify"))
+        val jobs = lanes.map { lane -> completion.submit(java.util.concurrent.Callable {
+            val child = ExtensionRuntime(manifest,script,sharedHost,keys,limits,guard,raceChild=true)
+            children.add(child)
+            try {
+                if (Thread.currentThread().isInterrupted) return@Callable null
+                child.start()
+                val left = TimeUnit.NANOSECONDS.toMillis(until-System.nanoTime())
+                if (left <= 0 || Thread.currentThread().isInterrupted) return@Callable null
+                val out = child.call(hook,JsonObject(input + ("source" to JsonPrimitive(lane))).toString(),left)
+                    ?: return@Callable null
+                if (hook == Hook.DOWNLOAD_SOURCE) {
+                    val files = DownloadFile.parseList(out)
+                    val lossless = (input["quality"] as? JsonPrimitive)?.content != "small"
+                    if (files.isEmpty() || (lossless && files.any { !it.lossless })) null else out
+                } else if (AudioStream.parse(out) == null) null else out
+            } catch (_: Exception) { null } finally { child.close() }
+        }) }
+        try {
+            repeat(jobs.size) {
+                val result = completion.poll(leftMs(), TimeUnit.MILLISECONDS)?.get()
+                if (result != null) return result
+            }
+            return null
+        } finally {
+            jobs.forEach { it.cancel(true) }
+            children.forEach { it.close() }
+        }
+    }
+
     private fun throttle(times: ArrayDeque<Long> = requestTimes, max: Int = limits.requestsPerMinute, what: String = "requests") {
         if (!allowRequest(times, max)) throw error("more than $max $what in a minute")
     }
@@ -613,7 +672,10 @@ class ExtensionRuntime(
         const val EVENT_AUTH = "auth"
         /** The network is there after [Host.whenOnline]: the time to send what waited. */
         const val EVENT_ONLINE = "online"
-        /** One of its settings changed (`{ key }`), or a button setting was pressed (`{ key, pressed: true }`). */
+        /**
+         * One of its settings changed (`{ key }`), a button setting was pressed (`{ key, pressed: true }`),
+         * or the network changed the value of a per-network setting (`{ key, network: true }`).
+         */
         const val EVENT_SETTING = "setting"
         /** Each event, and the action an extension needs to receive it. */
         val EVENTS: Map<String, Action> = mapOf(
