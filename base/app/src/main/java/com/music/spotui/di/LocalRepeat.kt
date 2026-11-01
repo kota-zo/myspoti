@@ -72,6 +72,18 @@ object LocalRepeat {
     fun seekTarget(ms: Long, knownMs: Long?): Long =
         if (knownMs != null && knownMs > 0) ms.coerceIn(0L, knownMs - 1) else ms.coerceAtLeast(0L)
 
+    /** The page's clock is within [PAGE_END_WINDOW_MS] of the song's end ([lengthMs] > 0). */
+    fun atSongEnd(positionMs: Long, lengthMs: Long): Boolean =
+        lengthMs > 0 && positionMs >= lengthMs - PAGE_END_WINDOW_MS
+
+    /**
+     * The page played the song at its end again, without Myspoti asking: its clock was at the end
+     * ([beforeMs] of [lengthMs]) and is near 0:00 ([nowMs]). A manual skip near the end looks the
+     * same; the caller only keeps a repeat the user chose on it.
+     */
+    fun pagePlayedAgain(beforeMs: Long, lengthMs: Long, nowMs: Long): Boolean =
+        atSongEnd(beforeMs, lengthMs) && nowMs <= PAGE_RESTART_MS && nowMs < beforeMs
+
     /**
      * Repeat once on a Spotify song: Spotify's repeat-track loops for good, so the page seen
      * starting the same song again ([sameSong]) near 0 ([nowMs]) when its clock had it at the end
@@ -79,7 +91,17 @@ object LocalRepeat {
      * into the next song.
      */
     fun pageRestarted(sameSong: Boolean, beforeMs: Long, lengthMs: Long, nowMs: Long): Boolean =
-        sameSong && lengthMs > 0 && beforeMs >= lengthMs - PAGE_END_WINDOW_MS && nowMs <= PAGE_RESTART_MS && nowMs < beforeMs
+        sameSong && pagePlayedAgain(beforeMs, lengthMs, nowMs)
+
+    /**
+     * The page reports less repeat ([reported]) than the repeat one or all the user chose ([mode])
+     * as the song or album comes round again ([cameRound]): the choice still stands, not what the
+     * page says there. It drops repeat one to the queue's repeat at the song's end (seen on the
+     * phone), and repeat off just as well. A weaker repeat away from the loop is a change from
+     * another device: theirs.
+     */
+    fun pageForgotRepeat(mode: Int, reported: Int, cameRound: Boolean): Boolean =
+        cameRound && (mode == ONE || mode == ALL) && reported < mode
 
     /** The page's clock this close to the end: the song was ending (the page reports every few seconds). */
     const val PAGE_END_WINDOW_MS = 5_000L

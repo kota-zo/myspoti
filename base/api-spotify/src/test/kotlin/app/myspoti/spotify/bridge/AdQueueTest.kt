@@ -94,13 +94,25 @@ class AdQueueTest {
         assertEquals(listOf("advance after Playing: repeated instead of an ad"), notes)
     }
 
-    @Test fun `a repeated song with no state of its repeat falls back to the skip's target`() {
-        val noRepeat = reply(
-            listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
-            listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 2, show = 3), repeatState(2, false, show = 3), repeatState(2, false)),
-            current = 1,
-        )
-        assertEquals(2, index(transitions(AdBlock.withoutAds(noRepeat)!!.first, 1), "advance"))
+    // Captured on the phone (1/11, free account, repeat one on): the song's end goes to the ad, its
+    // skip to the next song, and no state of the song repeats it. Repeat one was lost there.
+    private val noRepeatState = reply(
+        listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
+        listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 2, show = 3), repeatState(2, false, show = 3), repeatState(2, false)),
+        current = 1,
+    )
+
+    @Test fun `a repeated song with no state of its repeat keeps the ad, which leads back to it`() {
+        // Sent to the skip's target (the next song) the repeat ended there; left as it is, the ad
+        // plays and Spotify's own way on from it is the same song again.
+        assertNull(AdBlock.withoutAds(noRepeatState))
+        assertNull(AdBlock.adAhead(noRepeatState))
+    }
+
+    @Test fun `a repeated song whose repeat state takes its end is left to it`() {
+        // Its end goes to the repeat state: no ad is reached at all, nothing to play before it.
+        assertNull(AdBlock.adAhead(repeated))
+        assertNull(AdBlock.adAhead(AdBlock.withoutAds(repeated)!!.first))
     }
 
     @Test fun `a reply without an ad is left alone`() {

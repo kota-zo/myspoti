@@ -374,8 +374,8 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
         // The songs' media manifests, for extensions to read (spotify.media).
         if (it.code in 200..299 && url.contains("/track-playback/")) app.myspoti.spotify.bridge.MediaManifests.record(sent)
         // Both ways on from this song lead to the ad: the player plays the next song
-        // just before this one ends (AdBlock.adAhead).
-        if (url.contains("/track-playback/")) app.myspoti.spotify.bridge.AdBlock.adAhead(sent)?.let { a ->
+        // just before this one ends (AdBlock.adAhead). Read before the ads are left out.
+        if (url.contains("/track-playback/")) app.myspoti.spotify.bridge.AdBlock.adAhead(text)?.let { a ->
             if (app.myspoti.spotify.bridge.AdBlock.ahead.value != a) Logbook.log("ad ahead: ${a.nextUri} is played before the end")
             app.myspoti.spotify.bridge.AdBlock.ahead.value = a
         }

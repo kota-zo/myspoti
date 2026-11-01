@@ -1154,6 +1154,15 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             return
         }
         val ctx = s.contextUri
+        // Repeat one: the way on from the song is the song again (that is its end). An ad takes that
+        // end in Spotify's state machine (see AdBlock.machineWithoutAds), and the page is left on the
+        // next song after it, or a reload to get past one plays on: the song is played again instead.
+        val again = s.item?.takeIf { wantedRepeat == Repeat.TRACK && it.kind != ItemKind.AD }
+        if (again != null) {
+            bridge.logger?.invoke("repeat one: ${again.name} played again, not the next song")
+            playNow(ctx ?: again.uri, trackUri = again.uri, order = lastOrder?.takeIf { it.first == ctx }?.second, origin = "repeat one")
+            return
+        }
         val target = onwardTarget(s, _queue.value?.nextUp.orEmpty())
         // A new play reshuffles a shuffled list (measured 21/10) and does not find a song the user
         // queued in the list: both go on within the queue the page has, as a skip would.
@@ -1251,6 +1260,20 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val adJustEnded = _adPlaying.value
         _adPlaying.value = false
         if (adJustEnded) bridge.logger?.invoke("ad break over after ${(System.currentTimeMillis() - adSince) / 1000} s: ${s?.item?.name ?: "nothing"}${if (s?.isPaused == true) " (paused)" else ""}")
+        // Repeat one: the song's end is the song again, but an ad took that end (see
+        // AdBlock.machineWithoutAds) and the page went on from the ad to another song. The song
+        // before the ad plays again, unless the user chose something meanwhile.
+        val songBeforeAd = lastTrackState?.item
+        if (adJustEnded && pickBeforeAd == null && wantedRepeat == Repeat.TRACK && !pausedByUser && !remoteActive && !mirroring &&
+            liveIntent() == null && songBeforeAd != null && songBeforeAd.kind == ItemKind.TRACK &&
+            s?.item?.kind == ItemKind.TRACK && s.item?.uri != songBeforeAd.uri) {
+            val ctx = lastTrackState?.contextUri ?: songBeforeAd.uri
+            bridge.logger?.invoke("ad break over: repeat one, ${songBeforeAd.name} played again instead of ${s.item?.name}")
+            scope.launch {
+                runCatching { playNow(ctx, trackUri = songBeforeAd.uri, order = lastOrder?.takeIf { it.first == ctx }?.second, origin = "repeat one after an ad") }
+                    .onFailure { bridge.logger?.invoke("repeat one after the ad refused: ${it.message}") }
+            }
+        }
         // A page reloaded to get past an ad: heard again only once a real song plays on it.
         if (muteUntilSong && s?.item != null && !s.isPaused && !s.isBuffering) {
             muteUntilSong = false

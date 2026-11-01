@@ -643,8 +643,10 @@ object SongPlayer {
         val trackChanged = uri != _nowPlaying.value.uri
         // Repeat once on a Spotify song: the page's repeat-track loops for good. The page seen
         // starting the song again is its one replay: repeat goes off there, and that replay ends
-        // into the next song. Another song under repeat-track (a skip, a pick) cancels it.
-        if (item != null && s.repeat == Repeat.TRACK && _repeatMode.value == LocalRepeat.ONCE) {
+        // into the next song. Another song under repeat-track (a skip, a pick) cancels it. This
+        // does not wait for the page to report repeat-track: at the loop it may already report it
+        // off (the same report that turned repeat one off, see below), and once must still end.
+        if (item != null && _repeatMode.value == LocalRepeat.ONCE) {
             if (LocalRepeat.pageRestarted(!trackChanged, predicted, lengthBefore, reported)) {
                 app.myspoti.host.android.Logbook.log("repeat once: ${item.name} replayed, back to off")
                 setRepeatMode(LocalRepeat.OFF)
@@ -694,12 +696,36 @@ object SongPlayer {
         // A song from an extension keeps its own repeat: the muted Spotify copy that counts it
         // reports repeat off and turned the button back off right after a tap (reported: loop
         // button does nothing). A tap on a Spotify song is held until the page shows it.
-        val repeatHeld = SystemClock.elapsedRealtime() < repeatWantedUntil
+        val now = SystemClock.elapsedRealtime()
+        val repeatHeld = now < repeatWantedUntil
         if (repeatHeld && s.repeat.ordinal == repeatWanted) repeatWantedUntil = 0L
-        if (!LocalPlayer.active.value && (!repeatHeld || s.repeat.ordinal == repeatWanted)) {
-            // Repeat once is the page's repeat-track too: the page reporting it does not turn once into for good.
-            if (!(s.repeat == Repeat.TRACK && _repeatMode.value == LocalRepeat.ONCE)) _repeatMode.value = s.repeat.ordinal
-            state.repeat.value = s.repeat != Repeat.OFF
+        val chosenRepeat = repeatChosen
+        // Reported (2.1.0 to 2.3.0): repeat one, and repeat all, turned themselves off at the first
+        // loop, so the song/album played once more and the queue went on. The page reports less
+        // repeat when it comes round again (off, or the queue's repeat for the song's); the mode the
+        // user chose is not what it says there, so it stays, and the page is given it again.
+        val cameRound = LocalRepeat.atSongEnd(reported, durationMs) ||
+            LocalRepeat.pagePlayedAgain(predicted, lengthBefore, reported)
+        val repeatForgotten = LocalRepeat.pageForgotRepeat(chosenRepeat, s.repeat.ordinal, cameRound)
+        if (!LocalPlayer.active.value && (repeatForgotten || !repeatHeld || s.repeat.ordinal == repeatWanted)) {
+            if (repeatForgotten) {
+                state.repeat.value = true
+                if (!repeatHeld) {
+                    val want = LocalRepeat.pageMode(chosenRepeat)
+                    app.myspoti.host.android.Logbook.log("repeat: the page forgot it at the loop, set again (${if (chosenRepeat == LocalRepeat.ONE) "the song" else "the queue"})")
+                    repeatWanted = want
+                    repeatWantedUntil = now + REPEAT_LOOP_HOLD_MS
+                    command { api.player.setRepeat(Repeat.entries[want]) }
+                }
+            } else {
+                // Repeat once is the page's repeat-track too: the page reporting it does not turn once into for good.
+                if (!(s.repeat == Repeat.TRACK && chosenRepeat == LocalRepeat.ONCE)) {
+                    _repeatMode.value = s.repeat.ordinal
+                    // More repeat than the choice is the page's word (another device turned it up).
+                    if (s.repeat.ordinal >= repeatChosen) repeatChosen = s.repeat.ordinal
+                }
+                state.repeat.value = s.repeat != Repeat.OFF
+            }
         }
         if (item == null) {
             state.updatePlayingState(playing)
@@ -1876,14 +1902,23 @@ object SongPlayer {
     @Volatile private var repeatWantedUntil = 0L
     @Volatile private var shuffleWantedUntil = 0L
     private const val SHUFFLE_HOLD_MS = 2_500L
+    /** At a loop the page reports repeat off: the mode the user chose is kept this long while the page is given it again. */
+    private const val REPEAT_LOOP_HOLD_MS = 10_000L
 
     /** 0 = off, 1 = context, 2 = track for good, 3 = track once (see [LocalRepeat]). */
     private val _repeatMode = mutableStateOf(0)
     val repeatMode: State<Int> get() = _repeatMode
+    /**
+     * The mode the user chose last, kept apart from [_repeatMode]: the page resets its own repeat
+     * when it plays a song by itself (an ad skipped, a song put back), and such a reset is no
+     * choice of theirs. A report of as much repeat or more is taken for one, less is not.
+     */
+    @Volatile private var repeatChosen = 0
 
     fun setRepeat(on: Boolean) = setRepeatMode(if (on) 1 else 0)
 
     fun setRepeatMode(mode: Int) {
+        repeatChosen = mode
         if (LocalPlayer.active.value) { _repeatMode.value = mode; boundState?.repeat?.value = mode != 0; LocalPlayer.setRepeatMode(mode); lastTrackPrefs().edit().putInt("repeat", mode.coerceIn(0, 3)).apply(); return }
         Haptics.toggle(mode != 0)
         _repeatMode.value = mode
@@ -1903,6 +1938,7 @@ object SongPlayer {
         val p = lastTrackPrefs()
         if (!p.contains("repeat")) return
         val mode = p.getInt("repeat", 0).coerceIn(0, 3)
+        repeatChosen = mode
         _repeatMode.value = mode
         state.repeat.value = mode != 0
         MyspotiRuntime.spotify.player.restoreRepeat(Repeat.entries[LocalRepeat.pageMode(mode)])

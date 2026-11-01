@@ -109,6 +109,33 @@ class LocalRepeatTest {
         assertEquals(140_000, LocalRepeat.seekTarget(140_000, null))
     }
 
+    @Test fun thePageComingRoundAgainIsSeenForBothRepeatOneAndRepeatAll() {
+        // The same song at its end starting again: repeat one (and a queue of one song repeated).
+        assertTrue(LocalRepeat.pagePlayedAgain(beforeMs = 130_500, lengthMs = 131_000, nowMs = 40))
+        // The queue's last song followed by its first: repeat all.
+        assertTrue(LocalRepeat.pagePlayedAgain(beforeMs = 200_000, lengthMs = 200_000, nowMs = 200))
+        // A skip mid-song, or long after the next song started, is no loop.
+        assertFalse(LocalRepeat.pagePlayedAgain(beforeMs = 60_000, lengthMs = 131_000, nowMs = 0))
+        assertFalse(LocalRepeat.pagePlayedAgain(beforeMs = 130_500, lengthMs = 131_000, nowMs = 15_000))
+        assertFalse(LocalRepeat.pagePlayedAgain(beforeMs = 130_500, lengthMs = 0, nowMs = 40))
+    }
+
+    @Test fun aRepeatChosenStaysWhenThePageForgetsItAtTheLoop() {
+        // Repeat one: the page drops it to the queue's repeat (seen on the phone at a loop) or off.
+        assertTrue(LocalRepeat.pageForgotRepeat(LocalRepeat.ONE, reported = LocalRepeat.ALL, cameRound = true))
+        assertTrue(LocalRepeat.pageForgotRepeat(LocalRepeat.ONE, reported = LocalRepeat.OFF, cameRound = true))
+        assertTrue(LocalRepeat.pageForgotRepeat(LocalRepeat.ALL, reported = LocalRepeat.OFF, cameRound = true))
+        // The repeat chosen, or more of it, is the page keeping up.
+        assertFalse(LocalRepeat.pageForgotRepeat(LocalRepeat.ONE, reported = LocalRepeat.ONE, cameRound = true))
+        assertFalse(LocalRepeat.pageForgotRepeat(LocalRepeat.ALL, reported = LocalRepeat.ALL, cameRound = true))
+        assertFalse(LocalRepeat.pageForgotRepeat(LocalRepeat.ALL, reported = LocalRepeat.ONE, cameRound = true))
+        // Repeat once is Myspoti's own: the page's repeat-track never stands for it.
+        assertFalse(LocalRepeat.pageForgotRepeat(LocalRepeat.ONCE, reported = LocalRepeat.OFF, cameRound = true))
+        assertFalse(LocalRepeat.pageForgotRepeat(LocalRepeat.OFF, reported = LocalRepeat.OFF, cameRound = true))
+        // A weaker repeat from another device, away from the loop, is theirs.
+        assertFalse(LocalRepeat.pageForgotRepeat(LocalRepeat.ONE, reported = LocalRepeat.OFF, cameRound = false))
+    }
+
     @Test fun theSpotifyPageStartingTheSongAgainIsTheReplay() {
         assertTrue(LocalRepeat.pageRestarted(sameSong = true, beforeMs = 130_500, lengthMs = 131_000, nowMs = 40))
         assertTrue(LocalRepeat.pageRestarted(sameSong = true, beforeMs = 131_000, lengthMs = 131_000, nowMs = 2_000))
