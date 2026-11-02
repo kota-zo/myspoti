@@ -1,5 +1,7 @@
 package app.myspoti.spotify
 
+import app.myspoti.api.Uri
+
 /**
  * How [SpotifyPlayer] gets past an ad and what plays on a new page, without the page.
  *
@@ -72,4 +74,15 @@ object AdRecoveryRules {
 
     /** After our own reload: whether the player plays a song there itself (else the mirror does). */
     fun playsAfterOwnReload(mirrored: Boolean): Boolean = !mirrored
+
+    /**
+     * The songs of the user's queue [queued] (before our reload) to add again to the new page's:
+     * all in their order, but for the one now [playing] (played on from the queue) and those the
+     * page lists already ([has]). Reported: the queue was gone after an ad got past by a reload (#144).
+     */
+    fun requeued(queued: List<Uri>, playing: Uri?, has: Set<Uri>): List<Uri> {
+        // Played on from the queue: that song and the ones before it in the queue are done.
+        val from = queued.indexOf(playing).let { if (it >= 0) it + 1 else 0 }
+        return queued.drop(from).filter { it !in has }
+    }
 }

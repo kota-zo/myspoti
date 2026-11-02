@@ -336,6 +336,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // (the new page's is a new station, see RepeatRules.stationOrder).
         val nextUp = s?.takeIf { RepeatRules.isStation(it.contextUri) && !it.shuffle && lastOrder?.first != it.contextUri }
             ?.let { _queue.value?.nextUp }
+        // The songs the user queued: the new page has no queue, they are added to it again (#144).
+        val queued = _queue.value?.queued.orEmpty().filter { it.kind == ItemKind.TRACK || it.kind == ItemKind.EPISODE }
         ownReload = true
         try {
             runCatching {
@@ -358,6 +360,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 }
                 if (next) playOnNewPage { playOn(s, nextUp) } else { awaitDeviceJoined(); resumeAfterReload(s, nextUp) }
             }
+            if (queued.isNotEmpty() && AdRecoveryRules.playsAfterOwnReload(mirroring)) runCatching { requeue(queued) }
+                .onFailure { bridge.logger?.invoke("page back after a reload: the queue was not added again (${it.message})") }
         } finally {
             ownReload = false
             playingAtLoss = null
@@ -453,6 +457,21 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     /** Between our reload's start and its new page's "ready": a pick then is held ([playAsked]). */
     @Volatile private var reloadUnderWay = false
+
+    /**
+     * [queued] (the user's queue before a reload of ours) added again to the new page's queue, but
+     * for the song now playing (played on from the first of them) and those the page has already.
+     */
+    private suspend fun requeue(queued: List<NowPlaying>) {
+        // The queue the page reports after the song it plays on.
+        delay(REQUEUE_WAIT_MS)
+        val playing = _state.value?.item?.uri
+        val has = _queue.value?.queued.orEmpty().map { it.uri }.toSet()
+        val missing = AdRecoveryRules.requeued(queued.map { it.uri }, playing, has)
+        if (missing.isEmpty()) return
+        bridge.logger?.invoke("page back after a reload: ${missing.size} queued songs added to the queue again")
+        addToQueue(missing)
+    }
 
     /**
      * A new page after [lost] was playing: the page restores the session paused, or not at
@@ -2274,6 +2293,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val AD_MUTE_MAX_MS = 75_000L
         /** A reloaded page reports its restored state within that long. */
         const val RESTORE_WAIT_MS = 6_000L
+        /** After a play on a new page, how long its queue is given to be reported before the user's is added again. */
+        const val REQUEUE_WAIT_MS = 2_000L
         /** How long a play on a new page waits for its device to join Spotify Connect (see [awaitDeviceJoined]). */
         const val JOIN_WAIT_MS = 5_000L
         /** How long after a play on a new page its DEVICE_NOT_FOUND is waited for (seen 0.5 s after). */
