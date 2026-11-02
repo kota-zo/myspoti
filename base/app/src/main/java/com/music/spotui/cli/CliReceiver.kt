@@ -201,14 +201,16 @@ class CliReceiver : BroadcastReceiver() {
         }
         is CliCommand.Play -> {
             // With a context, its songs too, as Android Auto and the phone give them: an audio-source
-            // extension plays the list on from the song, under its name. `songs` says how many were read (0: none).
+            // extension plays the list on from the song, under its name. `songs` says how many were
+            // handed over (0: none, or a list without the song, which then plays alone as before).
             val page = c.context?.let { pageOf(it) }
             val songs = page?.tracks?.takeIf { it.isNotEmpty() }
             onMain {
                 page?.let { SongPlayer.registerContextName(it.uri, it.name) }
                 SongPlayer.playSong(c.uri, contextUri = c.context, songs = songs)
             }
-            if (c.context == null) JsonNull else buildJsonObject { put("songs", songs?.size ?: 0) }
+            val id = c.uri.substringAfterLast(':')
+            if (c.context == null) JsonNull else buildJsonObject { put("songs", songs?.takeIf { l -> l.any { it.spotifyTrackId == id } }?.size ?: 0) }
         }
         CliCommand.Pause -> onMain { SongPlayer.pause(by = "cli"); JsonNull }
         CliCommand.Resume -> onMain { SongPlayer.play(by = "cli"); JsonNull }
@@ -234,7 +236,11 @@ class CliReceiver : BroadcastReceiver() {
         return CliMask.knownSecrets(m?.settings.orEmpty(), Extensions.settingValues(id), Extensions.storageValues(id))
     }
 
-    /** The playlist, album or Liked Songs [uri] as its first answer gives it; null when it cannot be read. */
+    /**
+     * The playlist, album or Liked Songs [uri], read to its last song (or what came within
+     * [READ_MS]); null when it cannot be read. Seen in review: stopped at its first answer, a big
+     * playlist gave its first 100 songs and registered only those as the list (SongPlayer.rowIndex).
+     */
     private suspend fun pageOf(uri: String): ContextPageModel? {
         val api = Graph.api
         val id = uri.substringAfterLast(':')
@@ -244,8 +250,9 @@ class CliReceiver : BroadcastReceiver() {
             uri.startsWith("spotify:playlist:") -> api.getPlaylistPage(id)
             else -> return null
         }
-        val first = runCatching { withTimeoutOrNull(READ_MS) { flow.first { it !is Response.Loading } } }.getOrNull()
-        return (first as? Response.Success)?.data
+        var read: ContextPageModel? = null
+        runCatching { withTimeoutOrNull(READ_MS) { flow.first { it is Response.Error || (it as? Response.Success)?.data?.also { p -> read = p }?.complete == true } } }
+        return read
     }
 
     private suspend fun <T> onMain(block: () -> T): T = withContext(Dispatchers.Main) { block() }
