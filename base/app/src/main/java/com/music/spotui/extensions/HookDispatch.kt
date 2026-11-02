@@ -8,6 +8,8 @@ import com.music.spotui.data.entity.Lyrics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The order hooks are asked in, without Android: every extension providing the hook is asked
@@ -40,6 +42,56 @@ object HookDispatch {
             if (best == null || rank(r) > rank(best.second)) best = c to r
         }
         best
+    }
+
+    /**
+     * Every candidate asked at once, the answers handed to [use] in rounds until it takes one
+     * (non-null). A round starts once an answer is in, then waits [graceMs] at most for better
+     * ones: it starts sooner when the best answer so far fits [bestFit] and every candidate before
+     * it has answered. A round holds the answers not tried yet, best [fit] first, ties in
+     * [candidates]' order; the answers that come in during [use] make the next round. The
+     * candidates still asking are cancelled once [use] takes one or none is left to ask.
+     */
+    suspend fun <C, R : Any, T : Any> inRounds(
+        candidates: List<C>,
+        ask: suspend (C) -> R?,
+        fit: (R) -> Int,
+        bestFit: Int,
+        graceMs: (bestSoFar: Int) -> Long,
+        use: suspend (List<Pair<C, R>>) -> T?,
+    ): T? = coroutineScope {
+        val asked = candidates.map { c -> async { answer { ask(c) } } }
+        val done = BooleanArray(asked.size)
+        val results = arrayOfNulls<Any>(asked.size)
+        val tried = BooleanArray(asked.size)
+        suspend fun awaitOne() = select<Unit> {
+            asked.forEachIndexed { i, d -> if (!done[i]) d.onAwait { done[i] = true; results[i] = it } }
+        }
+        @Suppress("UNCHECKED_CAST")
+        fun fresh() = results.indices.filter { !tried[it] && results[it] != null }
+            .sortedWith(compareByDescending<Int> { fit(results[it] as R) }.thenBy { it })
+        @Suppress("UNCHECKED_CAST")
+        fun ready(): Boolean {
+            val best = fresh().firstOrNull() ?: return false
+            return fit(results[best] as R) >= bestFit && (0 until best).all { done[it] }
+        }
+        try {
+            var taken: T? = null
+            while (taken == null) {
+                while (fresh().isEmpty() && done.any { !it }) awaitOne()
+                val first = fresh().firstOrNull() ?: break
+                @Suppress("UNCHECKED_CAST")
+                withTimeoutOrNull(graceMs(fit(results[first] as R))) {
+                    while (done.any { !it } && !ready()) awaitOne()
+                }
+                val round = fresh().onEach { tried[it] = true }
+                @Suppress("UNCHECKED_CAST")
+                taken = use(round.map { candidates[it] to results[it] as R })
+            }
+            taken
+        } finally {
+            asked.forEach { it.cancel() }
+        }
     }
 
     private suspend fun <R> answer(block: suspend () -> R?): R? = try {

@@ -18,6 +18,9 @@ interface Host {
 
     fun log(extensionId: String, message: String)
 
+    /** Waits on the extension's own thread; the runtime bounds the duration and its deadline. */
+    fun sleep(millis: Long) = Thread.sleep(millis)
+
     /** The extension's own small store (key → JSON text). */
     fun storage(extensionId: String): Storage
 

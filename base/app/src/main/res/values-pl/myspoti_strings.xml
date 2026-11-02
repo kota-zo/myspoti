@@ -268,7 +268,7 @@
     <string name="downloads_off_toast">Pobieranie jest wyłączone. Włącz je w Ustawieniach.</string>
     <string name="quality_streaming_high_detail">160 kbit/s, najlepszy dźwięk</string>
     <string name="quality_download_small">Najmniejsza</string>
-    <string name="quality_download_small_detail">AAC 96 kbit/s, najlżejsza: około 3 MB na utwór</string>
+    <string name="quality_download_small_detail">Mały plik źródłowy lub AAC 96 kbit/s po konwersji; rozmiar może się różnić</string>
     <string name="settings_solid_nav_title">Pełny dolny pasek</string>
     <string name="settings_solid_nav_detail">Czerń pod kartami zamiast zanikania nad listą</string>
     <string name="quality_download_ask">Pytaj za każdym razem</string>

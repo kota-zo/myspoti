@@ -244,7 +244,7 @@
     <string name="downloads_off_toast">Downloads sind aus. Schalte sie in den Einstellungen ein.</string>
     <string name="quality_streaming_high_detail">160 kbit/s, der beste Klang</string>
     <string name="quality_download_small">Kleinste</string>
-    <string name="quality_download_small_detail">AAC 96 kbit/s, am leichtesten: etwa 3 MB pro Song</string>
+    <string name="quality_download_small_detail">Kleine Quelldatei oder AAC mit 96 kbit/s bei Konvertierung; Größe variiert</string>
     <string name="settings_solid_nav_title">Feste untere Leiste</string>
     <string name="settings_solid_nav_detail">Schwarz hinter den Tabs, statt eines Verlaufs über der Liste</string>
     <string name="quality_download_ask">Jedes Mal fragen</string>
