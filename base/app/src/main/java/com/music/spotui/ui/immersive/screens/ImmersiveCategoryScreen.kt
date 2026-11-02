@@ -38,8 +38,6 @@ import com.music.spotui.ui.immersive.components.ImmersiveShimmerBox
 import com.music.spotui.ui.immersive.shell.ImmersiveLargeTitle
 import com.music.spotui.ui.immersive.shell.ImmersiveTopBar
 import com.music.spotui.ui.immersive.shell.immersiveTopContentPadding
-import com.music.spotui.ui.navigation.albumRoute
-import com.music.spotui.ui.navigation.playlistRoute
 import com.music.spotui.ui.screens.ContextViewModel
 import com.music.spotui.ui.viewmodel.CategoryViewModel
 
@@ -102,10 +100,7 @@ private fun CategoryCard(entry: LibraryEntry, navController: NavController) {
         subtitle = entry.subtitle,
         imageUrl = entry.coverUri,
         onClick = {
-            navController.navigate(
-                if (entry.isPlaylist) playlistRoute(entry.spotifyId, entry.name)
-                else albumRoute(entry.name, entry.subtitle, entry.spotifyId),
-            )
+            navController.navigate(com.music.spotui.ui.screens.categoryEntryRoute(entry))
         },
         modifier = Modifier
             .fillMaxWidth()

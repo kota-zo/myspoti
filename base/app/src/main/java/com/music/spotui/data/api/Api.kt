@@ -649,9 +649,11 @@ class Api constructor(
         }
         val entries = runCatching {
             if (pageUri != null) {
+                // Shows, episodes and books too: the Podcasts and Documentaries pages hold little else
+                // and showed empty (reported). Each opens by the kind its uri says (categoryEntryRoute).
                 api.home.category(pageUri).shelves.flatMap { it.items }.distinctBy { it.uri }.mapNotNull { c ->
-                    if (c.kind != MediaKind.PLAYLIST && c.kind != MediaKind.ALBUM) return@mapNotNull null
-                    LibraryEntry(c.uri.substringAfterLast(':'), c.title, c.subtitle.orEmpty(), cover(c.images), isPlaylist = c.kind == MediaKind.PLAYLIST)
+                    if (c.kind !in CATEGORY_KINDS) return@mapNotNull null
+                    LibraryEntry(c.uri.substringAfterLast(':'), c.title, c.subtitle.orEmpty(), cover(c.images), isPlaylist = c.kind == MediaKind.PLAYLIST, uri = c.uri)
                 }
             } else api.search.playlists(genre, limit = 24).items.map(::playlistEntry)
         }
@@ -660,6 +662,9 @@ class Api constructor(
             onFailure = { Log.e("Api", "getCategoryPlaylists failed", it); emit(Response.Error(it.message ?: "error")) },
         )
     }
+
+    /** What a browse category page lists: the cards a tap can open. */
+    private val CATEGORY_KINDS = setOf(MediaKind.PLAYLIST, MediaKind.ALBUM, MediaKind.SHOW, MediaKind.EPISODE, MediaKind.AUDIOBOOK, MediaKind.CHAPTER)
 
     // ── Artists ──
 

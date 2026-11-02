@@ -116,7 +116,7 @@ private fun CategoryGrid(entries: List<LibraryEntry>, navController: NavControll
         items(entries) { entry ->
             Column(
                 modifier = Modifier.pressable(0.96f, onPressHint = { if (entry.isPlaylist) ContextViewModel.prefetch("playlist", entry.spotifyId) }) {
-                    navController.navigate(if (entry.isPlaylist) playlistRoute(entry.spotifyId, entry.name) else com.music.spotui.ui.navigation.albumRoute(entry.name, entry.subtitle, entry.spotifyId))
+                    navController.navigate(categoryEntryRoute(entry))
                 }
                     
             ) {
@@ -154,4 +154,11 @@ private fun CategoryGrid(entries: List<LibraryEntry>, navController: NavControll
             }
         }
     }
+}
+
+/** Where a card of a browse category opens, by the kind its uri says (both looks). */
+internal fun categoryEntryRoute(entry: com.music.spotui.data.entity.LibraryEntry): String = when (entry.uri.substringBeforeLast(':')) {
+    "spotify:show", "spotify:audiobook" -> com.music.spotui.ui.navigation.showRoute(entry.spotifyId, entry.name)
+    "spotify:episode", "spotify:chapter" -> com.music.spotui.ui.navigation.episodeRoute(entry.spotifyId, entry.name)
+    else -> if (entry.isPlaylist) playlistRoute(entry.spotifyId, entry.name) else com.music.spotui.ui.navigation.albumRoute(entry.name, entry.subtitle, entry.spotifyId)
 }
