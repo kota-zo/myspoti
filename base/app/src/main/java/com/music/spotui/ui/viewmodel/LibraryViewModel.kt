@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 class LibraryViewModel constructor(
     private val repository: AppRepository = Graph.repository,
     private val context: android.content.Context = Graph.app,
+    private val api: com.music.spotui.data.api.Api = Graph.api,
 ) : ViewModel() {
 
     private val _entries: MutableStateFlow<Response<List<LibraryEntry>>> = MutableStateFlow(Response.Loading())
@@ -34,9 +35,12 @@ class LibraryViewModel constructor(
         MutableStateFlow(emptyList())
     val followedArtists: StateFlow<List<com.music.spotui.data.entity.ArtistsModel>> = _followedArtists
 
-    private val _followedShows: MutableStateFlow<List<LibraryEntry>> = MutableStateFlow(emptyList())
-    /** The shows the user follows, read when the Podcasts chip is chosen (see [loadFollowedShows]). */
-    val followedShows: StateFlow<List<LibraryEntry>> = _followedShows
+    private val _followedShows: MutableStateFlow<Response<List<LibraryEntry>>> = MutableStateFlow(Response.Loading())
+    /**
+     * The shows the user follows, read when the Podcasts chip is chosen (see [loadFollowedShows]):
+     * an error only while none was ever read, so the chip says so instead of "none followed".
+     */
+    val followedShows: StateFlow<Response<List<LibraryEntry>>> = _followedShows
 
     /** The list as Spotify gave it; [entries] is this with the changes not yet in Spotify's list on top. */
     @Volatile private var server: List<LibraryEntry>? = null
@@ -102,11 +106,14 @@ class LibraryViewModel constructor(
     /** The Podcasts chip was chosen once: a pull-to-refresh reads the shows again too. */
     @Volatile private var showsAsked = false
 
-    /** Reads the followed shows again; the list stays as it was when Spotify does not answer. */
+    /** Reads the followed shows again; a list already read stays when Spotify does not answer. */
     fun loadFollowedShows() = viewModelScope.launch(Dispatchers.IO) {
         showsAsked = true
-        val shows = repository.provideFollowedShows()
-        if (shows.isNotEmpty()) _followedShows.value = shows
+        if (_followedShows.value !is Response.Success) _followedShows.value = Response.Loading()
+        api.followedShows().fold(
+            onSuccess = { _followedShows.value = Response.Success(it) },
+            onFailure = { if (_followedShows.value !is Response.Success) _followedShows.value = Response.Error(it.message ?: "error") },
+        )
     }
 
     private fun loadAccount() = viewModelScope.launch(Dispatchers.IO) {

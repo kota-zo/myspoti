@@ -321,24 +321,37 @@ class Api constructor(
 
     /**
      * Every show the user follows (library "Podcasts" filter), as library rows. The list is read
-     * page after page to its end: the Home podcasts shelf holds only the first 20.
+     * page after page to its end: the Home podcasts shelf holds only the first 20. Empty when it
+     * could not be read; [followedShows] tells that apart from no show followed.
      */
-    suspend fun getFollowedShows(): List<LibraryEntry> {
-        if (!ready()) return emptyList()
+    suspend fun getFollowedShows(): List<LibraryEntry> = followedShows().getOrDefault(emptyList())
+
+    /**
+     * [getFollowedShows], failing when Spotify did not answer its first page (no session, an error):
+     * the Podcasts chip said "nothing followed" for an error and logged nothing (#136). A later
+     * page that fails ends the list with the shows already read.
+     */
+    suspend fun followedShows(): Result<List<LibraryEntry>> {
+        if (!ready()) return Result.failure(IllegalStateException(notSignedIn()))
         val out = ArrayList<LibraryEntry>()
         var offset = 0
         while (true) {
-            val page = runCatching { api.library.items(filter = LibraryFilter.PODCASTS, offset = offset, limit = 50) }.getOrNull() ?: break
+            val page = runCatching { api.library.items(filter = LibraryFilter.PODCASTS, offset = offset, limit = 50) }.getOrElse {
+                if (it is CancellationException) throw it
+                Log.e("Api", "getFollowedShows failed at $offset", it)
+                if (offset == 0) return Result.failure(it)
+                null
+            } ?: break
             page.items.filter { it.kind == MediaKind.SHOW }.forEach {
                 out += LibraryEntry(SHOW_PREFIX + it.uri.substringAfterLast(':'), it.name,
                     context.getString(R.string.album_type_podcast) + (it.subtitle?.let { s -> " • $s" } ?: ""), cover(it.images), isPlaylist = false)
             }
             offset = page.nextOffset ?: break
         }
-        if (out.isEmpty()) return out
+        if (out.isEmpty()) return Result.success(out)
         val news = LibraryEntry(NEW_EPISODES_ID, context.getString(R.string.new_episodes_title), context.getString(R.string.new_episodes_subtitle),
             out.first().coverUri, isPlaylist = true)
-        return listOf(news) + out
+        return Result.success(listOf(news) + out)
     }
 
     /**

@@ -39,7 +39,10 @@ object MyspotiRuntime {
         // Repairs wait while Spotify limits playback, and while a Spotify sign-in page is open:
         // the player is not there to answer, and the "page not answering" reload threw the user
         // off the e-mail code step while they were away reading the code (reported, log seen).
-        spotify.player.recoveryHeld = { host.licenseLimited() || host.loginRequired.value }
+        // And while the phone is offline (airplane mode): a stalled song got a seek, a skip, then
+        // a reload whose page could not load, so the music on screen was thrown away for nothing.
+        // Downloads and extension audio play outside the page and never ask this.
+        spotify.player.recoveryHeld = { host.licenseLimited() || host.loginRequired.value || !host.online.value }
         spotify.player.playbackHeld = { host.licenseLimited() }
         // Spotify limiting this client: stop asking (a paused player requests no licence).
         scope.launch {
@@ -62,7 +65,7 @@ object MyspotiRuntime {
                 kotlinx.coroutines.delay(10_000)
                 val clock = android.os.SystemClock.elapsedRealtime()
                 val waiting = !spotify.ready.value && !host.loginRequired.value && !host.licenseLimited() &&
-                    host.url.value.startsWith(WebPlayerHost.PLAYER_URL)
+                    host.online.value && host.url.value.startsWith(WebPlayerHost.PLAYER_URL)
                 if (!waiting) { notReadySince = 0L; if (spotify.ready.value) notReadyWait = 60_000L }
                 else if (notReadySince == 0L) notReadySince = clock
                 else if (clock - notReadySince >= notReadyWait) {

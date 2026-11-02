@@ -47,6 +47,13 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     /** The page's current URL. */
     val url: StateFlow<String> = _url
 
+    private val _online = MutableStateFlow(true)
+    /**
+     * The phone's default network can reach the internet (airplane mode, no signal: false). Kept by
+     * [watchNetwork]; true when connectivity cannot be watched, so nothing is held for nothing.
+     */
+    val online: StateFlow<Boolean> = _online
+
     /*
      * Spotify limiting this client: measured on the test phone after an evening of test runs,
      * the page asked for an audio licence ~4 times a second, each answered 429, and every repair
@@ -118,19 +125,57 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     private fun watchNetwork() {
         val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java) ?: return
         runCatching {
+            // No default network at start (airplane mode) calls nothing: the state is read once here.
+            _online.value = hasInternet(connectivity.getNetworkCapabilities(connectivity.activeNetwork))
             connectivity.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
                 private var current: android.net.Network? = null
 
                 override fun onAvailable(network: android.net.Network) {
                     val was = current
                     current = network
+                    setOnline(true)
                     // The first call names the network the app started on: nothing to drop.
                     if (was == null || was == network) return
                     Logbook.log("network changed: the relay's idle connections dropped")
                     ControlRelay.resetConnections()
                 }
+
+                override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
+                    if (network == current) setOnline(hasInternet(caps))
+                }
+
+                // Called for the default network only when no other one takes its place.
+                override fun onLost(network: android.net.Network) {
+                    if (network != current) return
+                    current = null
+                    setOnline(false)
+                }
             })
-        }.onFailure { Logbook.log("network changes not watched: ${it.message}") }
+        }.onFailure { _online.value = true; Logbook.log("network changes not watched: ${it.message}") }
+    }
+
+    /*
+     * INTERNET, not VALIDATED: a network the system has not validated (some carriers, a portal
+     * that answers late) still plays, and taking it for offline held every repair on it.
+     */
+    private fun hasInternet(caps: android.net.NetworkCapabilities?): Boolean =
+        caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+    /**
+     * Offline, the player's repairs wait (see MyspotiRuntime): a seek, a reload or a skip can do
+     * nothing without a network but throw the page away. The network back, a player page that
+     * failed to load meanwhile is loaded again at once rather than at its next retry.
+     */
+    private fun setOnline(now: Boolean) {
+        if (_online.value == now) return
+        _online.value = now
+        Logbook.log(if (now) "network back: repairs resume" else "network lost: repairs held until it is back")
+        if (now) main.post {
+            if (!mainFrameFailed || !loadAsked || _loginRequired.value) return@post
+            pageFailures = 0
+            main.removeCallbacks(retryPlayerPage)
+            retryPlayerPage.run()
+        }
     }
 
     private lateinit var relay: ControlRelay
@@ -528,6 +573,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     private var pageFailures = 0
     private val retryPlayerPage = Runnable {
         if (!loadAsked || _loginRequired.value) return@Runnable
+        // Offline, the load could only fail again: [setOnline] loads it when the network is back.
+        if (!_online.value) { Logbook.log("player page: offline, loaded again when the network is back"); return@Runnable }
         Logbook.log("player page: load again (attempt ${pageFailures + 1})")
         view.stopLoading()
         view.loadUrl(playerRoot())

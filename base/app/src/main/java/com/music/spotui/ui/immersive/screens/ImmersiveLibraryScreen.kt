@@ -150,7 +150,8 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     val entries by vm.entries.collectAsState()
     val account by vm.account.collectAsState()
     val followedArtists by vm.followedArtists.collectAsState()
-    val followedShows by vm.followedShows.collectAsState()
+    val showsLoad by vm.followedShows.collectAsState()
+    val followedShows = (showsLoad as? Response.Success)?.data.orEmpty()
     val context = LocalContext.current
     LaunchedEffect(Unit) { ProfileCache.ensure(context) }
 
@@ -207,6 +208,14 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     }
     // Only the whole library, unfiltered, can be put in a new order.
     val reorderLevel = if (kind == LibraryChip.ALL && searchQuery.isBlank()) LibraryOrder.ROOT else null
+    // The Podcasts chip waits for the shows, and says when none is followed or they could not be read (#136).
+    val podcasts = kind == LibraryChip.PODCASTS
+    val showsLoading = podcasts && showsLoad is Response.Loading
+    val showsFailed = podcasts && showsLoad is Response.Error
+    val chipEmpty = if (podcasts && showsLoad is Response.Success && followedShows.isEmpty() && searchQuery.isBlank())
+        stringResource(R.string.library_podcasts_empty) else null
+    val chipError = if (showsFailed) stringResource(R.string.library_podcasts_error) else null
+    val retry: () -> Unit = { if (showsFailed) vm.loadFollowedShows(); if (entries !is Response.Success) vm.load() }
 
     val title = stringResource(R.string.navigationbar_musicappitems_yourlibrary_title)
     val listState = rememberLazyListState()
@@ -237,31 +246,35 @@ fun ImmersiveLibraryScreen(navController: NavController) {
         onRefresh = { vm.refresh() },
         modifier = Modifier.fillMaxSize(),
       ) {
-        if (gridView && !loading) {
+        if (gridView && !loading && !showsLoading) {
             LibraryGrid(
                 gridState = gridState,
                 header = header,
                 entries = shownEntries,
                 artists = shownArtists,
-                loadFailed = entries !is Response.Success,
-                onRetry = { vm.load() },
+                loadFailed = entries !is Response.Success || showsFailed,
+                onRetry = retry,
                 navController = navController,
                 reorderLevel = reorderLevel,
                 pinned = pinned,
+                emptyText = chipEmpty,
+                errorText = chipError,
             )
         } else {
             LibraryList(
                 listState = listState,
                 header = header,
-                loading = loading,
+                loading = loading || showsLoading,
                 entries = shownEntries,
                 artists = shownArtists,
-                loadFailed = !loading && entries !is Response.Success,
-                onRetry = { vm.load() },
+                loadFailed = !loading && (entries !is Response.Success || showsFailed),
+                onRetry = retry,
                 navController = navController,
                 reorderLevel = reorderLevel,
                 pinned = pinned,
                 onMenu = { itemMenu = it },
+                emptyText = chipEmpty,
+                errorText = chipError,
             )
         }
       }
@@ -493,6 +506,8 @@ internal fun LibraryList(
     reorderLevel: String?,
     pinned: Int,
     onMenu: (LibraryEntry) -> Unit,
+    emptyText: String? = null,
+    errorText: String? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -568,7 +583,7 @@ internal fun LibraryList(
                 immersiveLibrarySkeleton()
                 return@LazyColumn
             }
-            if (entries.isEmpty() && artists.isEmpty() && !loadFailed) {
+            if (entries.isEmpty() && artists.isEmpty() && !loadFailed && emptyText == null) {
                 item(key = "library:empty") { ImmersiveMessageState(stringResource(R.string.library_empty)) }
             }
             itemsIndexed(rows, key = { _, e -> LibraryOrder.key(e) }) { index, entry ->
@@ -641,10 +656,12 @@ internal fun LibraryList(
                     }
                 }
             }
+            // A chip with nothing of its own (no show followed) says so under the rows it keeps.
+            if (emptyText != null && !loadFailed) item(key = "library:chip-empty") { ImmersiveMessageState(emptyText) }
             if (loadFailed) {
                 item(key = "library:error") {
                     ImmersiveMessageState(
-                        message = stringResource(R.string.library_error),
+                        message = errorText ?: stringResource(R.string.library_error),
                         actionLabel = stringResource(R.string.home_retry),
                         onAction = onRetry,
                     )
@@ -703,6 +720,8 @@ private fun LibraryGrid(
     navController: NavController,
     reorderLevel: String?,
     pinned: Int,
+    emptyText: String? = null,
+    errorText: String? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -782,7 +801,7 @@ private fun LibraryGrid(
         item(key = "library:header", span = { GridItemSpan(maxLineSpan) }) {
             Box(Modifier.immersiveBleed(Immersive.Gutter)) { header() }
         }
-        if (entries.isEmpty() && artists.isEmpty() && !loadFailed) {
+        if (entries.isEmpty() && artists.isEmpty() && !loadFailed && emptyText == null) {
             item(key = "library:empty", span = { GridItemSpan(maxLineSpan) }) {
                 ImmersiveMessageState(stringResource(R.string.library_empty))
             }
@@ -867,10 +886,13 @@ private fun LibraryGrid(
                 }
             }
         }
+        if (emptyText != null && !loadFailed) {
+            item(key = "library:chip-empty", span = { GridItemSpan(maxLineSpan) }) { ImmersiveMessageState(emptyText) }
+        }
         if (loadFailed) {
             item(key = "library:error", span = { GridItemSpan(maxLineSpan) }) {
                 ImmersiveMessageState(
-                    message = stringResource(R.string.library_error),
+                    message = errorText ?: stringResource(R.string.library_error),
                     actionLabel = stringResource(R.string.home_retry),
                     onAction = onRetry,
                 )

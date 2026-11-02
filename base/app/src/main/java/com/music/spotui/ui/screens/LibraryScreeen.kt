@@ -276,7 +276,8 @@ fun LibraryScreen(navController: NavController) {
         }
 
         val followedArtists by libraryViewModel.followedArtists.collectAsState()
-        val followedShows by libraryViewModel.followedShows.collectAsState()
+        val showsLoad by libraryViewModel.followedShows.collectAsState()
+        val followedShows = (showsLoad as? Response.Success)?.data.orEmpty()
         // The shows are only read once the Podcasts chip is chosen.
         androidx.compose.runtime.LaunchedEffect(chip) {
             if (chip == com.music.spotui.data.local.LibraryChip.PODCASTS) libraryViewModel.loadFollowedShows()
@@ -351,11 +352,21 @@ fun LibraryScreen(navController: NavController) {
                     else chipArtists.filter { it.name.contains(searchQuery, ignoreCase = true) }
                 // Moving rows only makes sense on the whole list.
                 val movable = searchQuery.isBlank() && chip == com.music.spotui.data.local.LibraryChip.ALL
-                if (gridView) LibraryGridScreen(PaddingValues(0.dp), filteredEntries, filteredArtists, navController,
-                    reorderLevel = if (movable) LibraryOrder.ROOT else null, pinned = rootPinned)
+                // The Podcasts chip waits for the shows, and says when none is followed or they could not be read (#136).
+                val podcasts = chip == com.music.spotui.data.local.LibraryChip.PODCASTS
+                val chipNote = when {
+                    !podcasts -> null
+                    showsLoad is Response.Error -> stringResource(R.string.library_podcasts_error)
+                    showsLoad is Response.Success && followedShows.isEmpty() && searchQuery.isBlank() -> stringResource(R.string.library_podcasts_empty)
+                    else -> null
+                }
+                val chipRetry: (() -> Unit)? = if (podcasts && showsLoad is Response.Error) { { libraryViewModel.loadFollowedShows() } } else null
+                if (podcasts && showsLoad is Response.Loading) LibrarySkeleton(PaddingValues(0.dp))
+                else if (gridView) LibraryGridScreen(PaddingValues(0.dp), filteredEntries, filteredArtists, navController,
+                    reorderLevel = if (movable) LibraryOrder.ROOT else null, pinned = rootPinned, note = chipNote, onRetry = chipRetry)
                 else SumUpLibraryScreen(PaddingValues(0.dp), filteredEntries, filteredArtists, navController,
                     reorderLevel = if (movable) LibraryOrder.ROOT else null, pinned = rootPinned,
-                    onChanged = { libraryViewModel.load() })
+                    onChanged = { libraryViewModel.load() }, note = chipNote, onRetry = chipRetry)
                 if (entries !is Response.Success) Box(modifier = Modifier.padding(20.dp, 100.dp)) { Snackbar(showMessage = stringResource(R.string.library_error)) }
             }
         }
@@ -422,10 +433,14 @@ fun SumUpLibraryScreen(
     pinned: Int = 0,
     /** A pin, move or delete changed the library: load it again. */
     onChanged: () -> Unit = {},
+    /** Said under the rows, in place of "Your Library is empty" (a chip with nothing of its own). */
+    note: String? = null,
+    /** With [note]: it tells a failure, and offers to try again. */
+    onRetry: (() -> Unit)? = null,
 ) {
     var itemMenu by remember { mutableStateOf<LibraryEntry?>(null) }
     itemMenu?.let { LibraryItemSheet(it, onDismiss = { itemMenu = null }, onChanged = onChanged) }
-    if (entries.isEmpty() && followedArtists.isEmpty()) {
+    if (entries.isEmpty() && followedArtists.isEmpty() && note == null) {
         Box(modifier = Modifier.padding(20.dp, 40.dp)) { Snackbar(showMessage = stringResource(R.string.library_empty)) }
         return
     }
@@ -597,6 +612,7 @@ fun SumUpLibraryScreen(
                 }
             }
         }
+        if (note != null) item(key = "library:note") { LibraryNote(note, onRetry) }
     }
     com.music.spotui.ui.components.FastScrollbar(listState, Modifier.align(Alignment.CenterEnd))
     }
@@ -663,8 +679,11 @@ fun LibraryGridScreen(
     reorderLevel: String? = null,
     /** Entries at the top that never move (Liked Songs, Local Files, Downloaded). */
     pinned: Int = 0,
+    /** As in [SumUpLibraryScreen]. */
+    note: String? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
-    if (entries.isEmpty() && followedArtists.isEmpty()) {
+    if (entries.isEmpty() && followedArtists.isEmpty() && note == null) {
         Box(modifier = Modifier.padding(20.dp, 40.dp)) { Snackbar(showMessage = stringResource(R.string.library_empty)) }
         return
     }
@@ -823,6 +842,21 @@ fun LibraryGridScreen(
                     Text(text = stringResource(R.string.artist_subtitle), color = AppMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
                 }
             }
+        }
+        if (note != null) item(key = "library:note", span = { GridItemSpan(maxLineSpan) }) { LibraryNote(note, onRetry) }
+    }
+}
+
+/** A line under the library's rows: why a chip shows nothing, with "Try again" when it failed. */
+@Composable
+private fun LibraryNote(text: String, onRetry: (() -> Unit)?) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth().padding(20.dp, 24.dp),
+    ) {
+        Text(text = text, color = AppText, fontSize = 15.sp, textAlign = TextAlign.Center)
+        if (onRetry != null) androidx.compose.material3.TextButton(onClick = onRetry) {
+            Text(stringResource(R.string.home_retry), color = com.music.spotui.ui.theme.AppAccent)
         }
     }
 }
