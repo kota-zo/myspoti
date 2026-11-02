@@ -248,7 +248,9 @@ object OfflineDownloader {
         }
     }
 
-    private suspend fun setStatus(id: String, s: OfflineStatus?) = withContext(Dispatchers.Main) {
+    /** [by]: the download sources a failure waits for (Extensions.NotAnswering), shown on its row. */
+    private suspend fun setStatus(id: String, s: OfflineStatus?, by: List<String> = emptyList()) = withContext(Dispatchers.Main) {
+        if (by.isEmpty()) OfflineStore.notAnswering.remove(id) else OfflineStore.notAnswering[id] = by.joinToString(", ")
         if (s == null) OfflineStore.status.remove(id) else OfflineStore.status[id] = s
     }
 
@@ -261,6 +263,7 @@ object OfflineDownloader {
             if (synchronized(pending) { !pending.containsKey(r.trackId) }) return
         }
         val job = scope.launch {
+            var by = emptyList<String>()
             val outcome: OfflineStatus? = try {
                 setStatus(r.trackId, OfflineStatus.Downloading(-1f))
                 val t = download(r)
@@ -277,13 +280,14 @@ object OfflineDownloader {
                 // Failed, not unavailable: a source could not answer or was not asked (inactive, still starting),
                 // so a tap on the song tries it again.
                 Log.i(TAG, "${r.title}: download source not answering: ${e.message}")
+                by = e.sources
                 OfflineStatus.Failed
             } catch (t: Throwable) {
                 Log.w(TAG, "${r.title} failed", t)
                 OfflineStatus.Failed
             }
             synchronized(pending) { pending.remove(r.trackId); savePending() }
-            if (outcome != null) setStatus(r.trackId, outcome)
+            if (outcome != null) setStatus(r.trackId, outcome, by)
         }
         running[r.trackId] = job
         job.join()

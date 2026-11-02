@@ -663,4 +663,5 @@
     <string name="equalizer_speed_detail">Everything the app plays itself, music and downloaded episodes alike. Episodes streamed by Spotify keep the podcast player\'s speed. At any speed but 1×, Spotify does not play the song along (it is not counted there and your other devices do not see it): Spotify plays music at 1× only.</string>
     <string name="equalizer_skip_silence">Skip silences</string>
     <string name="equalizer_skip_silence_detail">Silent stretches are skipped (long pauses in an episode, a silence before a hidden track).</string>
+    <string name="download_source_not_answering">%1$s is not answering for now</string>
 </resources>

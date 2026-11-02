@@ -86,8 +86,11 @@ import java.util.concurrent.ConcurrentHashMap
  * the sandbox does not expect), never the app.
  */
 object Extensions {
-    /** No download source had the song and one could not answer now, or was not asked: the song is worth trying again. */
-    class NotAnswering(message: String) : java.io.IOException(message)
+    /**
+     * No download source had the song and one could not answer now, or was not asked: the song is
+     * worth trying again. [sources]: the names of those sources, for the song's row.
+     */
+    class NotAnswering(message: String, val sources: List<String> = emptyList()) : java.io.IOException(message)
 
     // Every hook's time is in [HookBudgets], shared with the desktop runner (`myspoti-ext`).
     /** A lyrics hook call. */
@@ -777,11 +780,12 @@ object Extensions {
             // there, nor has one on that was not asked: told apart from "no source has it", so the song is retried
             // instead of marked unavailable.
             val silent = providing(Hook.DOWNLOAD_SOURCE).map { it.first }.mapNotNull { id ->
-                cooldown.reason(id)?.let { "$id set aside: $it" } ?: answers[id]?.takeIf { it.silent }?.let { "$id ${it.describe()}" }
+                (cooldown.reason(id)?.let { "$id set aside: $it" } ?: answers[id]?.takeIf { it.silent }?.let { "$id ${it.describe()}" })?.let { id to it }
             } + downloadNotAsked()
             if (silent.isNotEmpty()) {
-                Logbook.log("download: ${track.title} not found, not marked unavailable: ${silent.joinToString("; ")}")
-                throw NotAnswering(silent.joinToString("; "))
+                val why = silent.joinToString("; ") { it.second }
+                Logbook.log("download: ${track.title} not found, not marked unavailable: $why")
+                throw NotAnswering(why, silent.map { (id, _) -> manifest(id)?.name ?: id }.distinct())
             }
         }
         return found?.let { (c, files) ->
@@ -795,14 +799,14 @@ object Extensions {
      * The download sources on that [providing] leaves out, with why ("x inactive: …", "x still starting"):
      * their `status` said they do not answer now, or they are not running yet. Neither said a song is not there.
      */
-    private fun downloadNotAsked(): List<String> = _registry.value.let { r ->
+    private fun downloadNotAsked(): List<Pair<String, String>> = _registry.value.let { r ->
         line(r, Action.DOWNLOAD_SOURCE).mapNotNull(r::find).filter { it.enabled }.mapNotNull { e ->
             val rt = runtimes[e.id]
             when {
                 rt == null -> "${e.id} still starting".takeIf { Action.DOWNLOAD_SOURCE.key in e.granted }
                 rt.provides(Hook.DOWNLOAD_SOURCE) && health.inactive(e.id) -> "${e.id} inactive: ${health.last(e.id)?.detail ?: "no detail"}"
                 else -> null
-            }
+            }?.let { e.id to it }
         }
     }
 

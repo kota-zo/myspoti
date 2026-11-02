@@ -604,4 +604,5 @@
     <string name="lan_logging_in">A iniciar sessão…</string>
     <string name="lan_failed">%1$s não aceitou o início de sessão. Abra-o uma vez com a aplicação Spotify e tente novamente.</string>
     <string name="lan_others">Mais %1$d dispositivos nesta rede precisam primeiro de iniciar sessão através da aplicação Spotify</string>
+    <string name="download_source_not_answering">%1$s sem resposta por agora</string>
 </resources>

@@ -672,4 +672,5 @@
     <string name="equalizer_speed_detail">Wszystko, co aplikacja odtwarza sama, muzyka i pobrane odcinki. Odcinki streamowane przez Spotify zachowują prędkość odtwarzacza podcastów. Przy każdej prędkości innej niż 1× Spotify nie odtwarza utworu równolegle (nie jest tam liczony, a Twoje inne urządzenia go nie widzą): Spotify gra muzykę tylko z prędkością 1×.</string>
     <string name="equalizer_skip_silence">Pomijaj ciszę</string>
     <string name="equalizer_skip_silence_detail">Ciche fragmenty są pomijane (długie przerwy w odcinku, cisza przed ukrytym utworem).</string>
+    <string name="download_source_not_answering">%1$s chwilowo nie odpowiada</string>
 </resources>

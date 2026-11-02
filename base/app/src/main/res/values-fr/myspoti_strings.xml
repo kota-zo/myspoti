@@ -662,4 +662,5 @@
     <string name="equalizer_speed_detail">Tout ce que l’appli joue elle-même, musique et épisodes téléchargés. Les épisodes diffusés par Spotify gardent la vitesse du lecteur de podcasts. À toute vitesse autre que 1×, Spotify ne joue pas le titre en parallèle (il n’y est pas compté et vos autres appareils ne le voient pas) : Spotify ne joue la musique qu’à 1×.</string>
     <string name="equalizer_skip_silence">Sauter les silences</string>
     <string name="equalizer_skip_silence_detail">Les passages silencieux sont sautés (longues pauses dans un épisode, silence avant un titre caché).</string>
+    <string name="download_source_not_answering">%1$s ne répond pas pour le moment</string>
 </resources>

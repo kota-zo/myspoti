@@ -98,6 +98,8 @@ object OfflineStore {
     val tracks: SnapshotStateMap<String, OfflineTrack> = mutableStateMapOf()
     /** Songs in the download queue, or whose last attempt did not succeed. */
     val status: SnapshotStateMap<String, OfflineStatus> = mutableStateMapOf()
+    /** The download sources a [OfflineStatus.Failed] song waits for (not answering, inactive, still starting), by track id. */
+    val notAnswering: SnapshotStateMap<String, String> = mutableStateMapOf()
 
     fun init(context: Context) {
         if (::root.isInitialized) return

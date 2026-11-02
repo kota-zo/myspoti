@@ -217,7 +217,8 @@ fun DownloadsScreen(navController: NavController) {
                         Text(r.title, color = AppText.copy(alpha = 0.6f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val line = when (status) {
                             OfflineStatus.Unavailable -> stringResource(R.string.download_unavailable)
-                            OfflineStatus.Failed -> stringResource(R.string.download_badge_error_content_description) + " · " + stringResource(R.string.download_retry)
+                            OfflineStatus.Failed -> (OfflineStore.notAnswering[r.trackId]?.let { stringResource(R.string.download_source_not_answering, it) }
+                                ?: stringResource(R.string.download_badge_error_content_description)) + " · " + stringResource(R.string.download_retry)
                             else -> stringResource(R.string.download_notification_downloading)
                         }
                         Text(line, color = if (problem) AppDestructive else AppMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

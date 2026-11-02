@@ -657,4 +657,5 @@
     <string name="equalizer_speed_detail">Tudo o que o app toca por conta própria, música e episódios baixados. Os episódios transmitidos pelo Spotify mantêm a velocidade do player de podcasts. A qualquer velocidade diferente de 1×, o Spotify não toca a música em paralelo (ela não é contada lá e os seus outros dispositivos não a veem): o Spotify só toca música a 1×.</string>
     <string name="equalizer_skip_silence">Pular silêncios</string>
     <string name="equalizer_skip_silence_detail">Os trechos silenciosos são pulados (pausas longas em um episódio, um silêncio antes de uma faixa oculta).</string>
+    <string name="download_source_not_answering">%1$s sem resposta por enquanto</string>
 </resources>

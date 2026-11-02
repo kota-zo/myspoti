@@ -657,4 +657,5 @@
     <string name="equalizer_speed_detail">Alles, was die App selbst abspielt, Musik und heruntergeladene Folgen. Von Spotify gestreamte Folgen behalten die Geschwindigkeit des Podcast-Players. Bei jeder Geschwindigkeit außer 1× spielt Spotify den Titel nicht mit (er wird dort nicht gezählt und deine anderen Geräte sehen ihn nicht): Spotify spielt Musik nur mit 1×.</string>
     <string name="equalizer_skip_silence">Stille überspringen</string>
     <string name="equalizer_skip_silence_detail">Stille Abschnitte werden übersprungen (lange Pausen in einer Folge, Stille vor einem versteckten Titel).</string>
+    <string name="download_source_not_answering">%1$s antwortet gerade nicht</string>
 </resources>

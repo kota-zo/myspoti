@@ -657,4 +657,5 @@
     <string name="equalizer_speed_detail">应用自己播放的所有内容，包括音乐和已下载的节目。由 Spotify 串流的节目保持播客播放器的速度。在 1× 以外的任何速度下，Spotify 不会同步播放这首歌（那里不会计入，你的其他设备也看不到）：Spotify 只以 1× 播放音乐。</string>
     <string name="equalizer_skip_silence">跳过静音</string>
     <string name="equalizer_skip_silence_detail">会跳过静音片段（节目中的长时间停顿、隐藏曲目前的静音）。</string>
+    <string name="download_source_not_answering">%1$s 暂时无响应</string>
 </resources>

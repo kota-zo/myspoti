@@ -672,4 +672,5 @@
     <string name="equalizer_speed_detail">Всё, что приложение воспроизводит само, музыка и скачанные выпуски. Выпуски, которые передаёт Spotify, сохраняют скорость подкаст-плеера. При любой скорости, кроме 1×, Spotify не воспроизводит песню параллельно (там она не засчитывается, а ваши другие устройства её не видят): Spotify играет музыку только на 1×.</string>
     <string name="equalizer_skip_silence">Пропускать тишину</string>
     <string name="equalizer_skip_silence_detail">Тихие участки пропускаются (долгие паузы в выпуске, тишина перед скрытым треком).</string>
+    <string name="download_source_not_answering">Источник %1$s пока не отвечает</string>
 </resources>

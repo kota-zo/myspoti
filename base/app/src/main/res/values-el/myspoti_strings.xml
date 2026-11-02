@@ -657,4 +657,5 @@
     <string name="equalizer_speed_detail">Όλα όσα αναπαράγει η ίδια η εφαρμογή, μουσική και κατεβασμένα επεισόδια. Τα επεισόδια που μεταδίδει το Spotify κρατούν την ταχύτητα του player podcast. Σε οποιαδήποτε ταχύτητα εκτός από 1×, το Spotify δεν παίζει το κομμάτι παράλληλα (δεν καταμετράται εκεί και οι άλλες συσκευές σου δεν το βλέπουν): το Spotify παίζει μουσική μόνο στο 1×.</string>
     <string name="equalizer_skip_silence">Παράλειψη σιωπών</string>
     <string name="equalizer_skip_silence_detail">Τα σιωπηλά διαστήματα παραλείπονται (μεγάλες παύσεις σε ένα επεισόδιο, σιωπή πριν από κρυφό κομμάτι).</string>
+    <string name="download_source_not_answering">Η πηγή %1$s δεν απαντά προς το παρόν</string>
 </resources>
