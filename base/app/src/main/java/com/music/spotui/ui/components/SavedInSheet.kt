@@ -95,8 +95,9 @@ fun SavedInSheet(
     val folder = folders.lastOrNull()
 
     LaunchedEffect(folder?.first) {
-        // Only playlists the user can change (theirs and collaborative ones), level by level.
-        playlists = null
+        // Only playlists the user can change (theirs and collaborative ones), level by level: the
+        // last list of the level at once, read again behind it.
+        playlists = com.music.spotui.data.api.EditablePlaylists.cachedLevel(folder?.first)
         playlists = com.music.spotui.data.api.EditablePlaylists.level(folder?.first)
     }
     androidx.activity.compose.BackHandler(enabled = folders.isNotEmpty()) { folders.removeAt(folders.lastIndex) }

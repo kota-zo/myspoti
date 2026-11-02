@@ -44,6 +44,7 @@ object SessionActions {
         SongPlayer.clearSession()
         // The desktop token a Sonos login kept, and the way that logged one in.
         com.music.spotui.connect.ConnectCode.clear(app)
+        com.music.spotui.data.api.EditablePlaylists.clear()
         // The last track, likes, albums and followed artists of older builds are never read
         // again: cleared too, so no ids of this account outlive it.
         listOf("LibraryCache", "RecentItems", "PlaybackState", "LikedSongs",

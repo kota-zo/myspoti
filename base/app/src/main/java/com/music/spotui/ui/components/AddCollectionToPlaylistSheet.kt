@@ -56,7 +56,7 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var playlists by remember { mutableStateOf<List<EditablePlaylist>?>(null) }
+    var playlists by remember { mutableStateOf(EditablePlaylists.cachedWithCovers()) }
     var query by remember { mutableStateOf("") }
     var reading by remember { mutableStateOf(false) }
     var asking by remember { mutableStateOf<Pair<EditablePlaylist, MergePlan>?>(null) }

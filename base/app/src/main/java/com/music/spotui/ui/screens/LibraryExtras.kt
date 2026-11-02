@@ -519,7 +519,7 @@ fun LocalPlaylistScreen(navController: NavController, id: String) {
 @Composable
 fun AddLocalToPlaylistSheet(track: LocalTrack, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    var spotifyLists by remember { mutableStateOf<List<com.music.spotui.data.api.EditablePlaylist>?>(null) }
+    var spotifyLists by remember { mutableStateOf(com.music.spotui.data.api.EditablePlaylists.cachedWithCovers()) }
     var creating by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         spotifyLists = com.music.spotui.data.api.EditablePlaylists.loadWithCovers()

@@ -71,7 +71,8 @@ fun AddToPlaylistSheet(
     excludePlaylistId: String? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var playlists by remember { mutableStateOf<List<EditablePlaylist>?>(null) }
+    // The last list at once, read again behind it.
+    var playlists by remember { mutableStateOf(EditablePlaylists.cachedWithCovers()) }
     var query by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
         // Folders flattened: adding to a playlist does not need the folder tree.

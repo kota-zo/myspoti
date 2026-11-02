@@ -25,6 +25,28 @@ object EditablePlaylists {
     @Volatile private var idsAt = 0L
     private const val IDS_TTL_MS = 5 * 60_000L
 
+    /**
+     * The pickers' last lists ([ALL] for [loadWithCovers], a folder's uri or [ROOT] for [level]):
+     * shown at once while they are read again. Reported: a minute of "Loading playlists" each
+     * time a song was saved to a playlist (#145).
+     */
+    private val shown = java.util.concurrent.ConcurrentHashMap<String, List<EditablePlaylist>>()
+    /** Playlist uri → the library's cover, kept so the library is walked again only for a new playlist. */
+    private val covers = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private const val ALL = "all"
+    private const val ROOT = "root"
+
+    /** What [loadWithCovers] gave last, or null. */
+    fun cachedWithCovers(): List<EditablePlaylist>? = shown[ALL]
+
+    /** What [level] gave last for [folderUri], or null. */
+    fun cachedLevel(folderUri: String?): List<EditablePlaylist>? = shown[folderUri ?: ROOT]
+
+    /** Sign-out: nothing of the account's playlists is kept. */
+    fun clear() {
+        shown.clear(); covers.clear(); ids = null
+    }
+
     suspend fun ids(): Set<String> {
         val now = System.currentTimeMillis()
         ids?.takeIf { now - idsAt < IDS_TTL_MS }?.let { return it }
@@ -43,10 +65,11 @@ object EditablePlaylists {
      * mosaic of its albums); the library has it, so those are read from there, folders walked.
      */
     suspend fun loadWithCovers(): List<EditablePlaylist> {
-        val list = load()
-        if (list.all { it.imageUrl != null }) return list
-        val covers = libraryCovers()
+        // Not read (offline, the page reloading): the last list rather than none.
+        val list = load().ifEmpty { return shown[ALL].orEmpty() }
+        if (list.any { it.imageUrl == null && !covers.containsKey("spotify:playlist:${it.id}") }) covers.putAll(libraryCovers())
         return list.map { if (it.imageUrl != null) it else it.copy(imageUrl = covers["spotify:playlist:${it.id}"]) }
+            .also { shown[ALL] = it }
     }
 
     /** Playlist uri → cover, as the library shows them, folders included. */
@@ -78,7 +101,7 @@ object EditablePlaylists {
      */
     suspend fun level(folderUri: String?): List<EditablePlaylist> {
         val api = MyspotiRuntime.api
-        val editable = runCatching { api.playlists.editable() }.getOrNull()?.associateBy { it.uri } ?: return load()
+        val editable = runCatching { api.playlists.editable() }.getOrNull()?.associateBy { it.uri } ?: return shown[folderUri ?: ROOT] ?: load()
         val items = ArrayList<app.myspoti.api.LibraryItem>()
         runCatching {
             var offset = 0
@@ -87,7 +110,7 @@ object EditablePlaylists {
                 items += page.items
                 offset = page.nextOffset ?: return@runCatching
             }
-        }.onFailure { if (items.isEmpty()) return if (folderUri == null) load() else emptyList() }
+        }.onFailure { if (items.isEmpty()) return shown[folderUri ?: ROOT] ?: if (folderUri == null) load() else emptyList() }
         return items.mapNotNull { item ->
             when (item.kind) {
                 MediaKind.FOLDER -> EditablePlaylist(item.uri, item.name, item.count ?: 0, null, folderUri = item.uri)
@@ -97,6 +120,6 @@ object EditablePlaylists {
                 }
                 else -> null
             }
-        }
+        }.also { shown[folderUri ?: ROOT] = it }
     }
 }
