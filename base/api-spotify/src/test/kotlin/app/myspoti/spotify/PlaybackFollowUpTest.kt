@@ -150,7 +150,9 @@ class PlaybackFollowUpTest {
         player.restoreRepeat(Repeat.CONTEXT)
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), repeat = 0))
-        waitFor("repeat set again") { called("player.setRepeat") == 1 }
+        // Sent once the watcher read the element (this phone the one playing, not another device):
+        // at its first tick, up to WATCH_IDLE_TICK_MS after it started.
+        waitFor("repeat set again", ms = 10_000) { called("player.setRepeat") == 1 }
         assertEquals("{\"mode\":1}", host.calls.last { it.first == "player.setRepeat" }.second)
     }
 

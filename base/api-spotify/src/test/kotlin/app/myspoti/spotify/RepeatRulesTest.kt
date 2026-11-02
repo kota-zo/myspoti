@@ -21,7 +21,7 @@ class RepeatRulesTest {
             speed = 1.0, shuffle = false, repeat = Repeat.OFF, restrictions = PlayerRestrictions())
 
     private fun report(wanted: Repeat, reported: Repeat, held: Boolean = false, afterOwnPlay: Boolean = false, atLoop: Boolean = false,
-                       elsewhere: Boolean = false, mirrored: Boolean = false) =
+                       elsewhere: Boolean? = false, mirrored: Boolean = false) =
         RepeatRules.onReport(wanted, reported, held, afterOwnPlay, atLoop, elsewhere, mirrored)
 
     @Test fun `less repeat at the loop is the page forgetting it, set again`() {
@@ -42,6 +42,12 @@ class RepeatRulesTest {
     @Test fun `another device playing is never given the repeat from here`() {
         assertEquals(Report.THEIRS, report(Repeat.TRACK, Repeat.OFF, atLoop = true, elsewhere = true))
         assertEquals(Report.THEIRS, report(Repeat.TRACK, Repeat.OFF, afterOwnPlay = true, elsewhere = true))
+    }
+
+    @Test fun `where the page plays not read yet, nothing is set and the choice is kept`() {
+        assertEquals(Report.WAIT, report(Repeat.TRACK, Repeat.OFF, afterOwnPlay = true, elsewhere = null))
+        assertEquals(Report.WAIT, report(Repeat.TRACK, Repeat.OFF, atLoop = true, elsewhere = null))
+        assertEquals(Report.THEIRS, report(Repeat.TRACK, Repeat.OFF, elsewhere = null))
     }
 
     @Test fun `a set of ours not answered yet, the same repeat or a mirror leave the choice alone`() {

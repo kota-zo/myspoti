@@ -150,4 +150,40 @@ class RepeatOneTest {
         assertEquals(0, called("player.setRepeat"), "nothing sent to the other device: ${host.calls.map { it.first }}")
         assertEquals(Repeat.OFF, player.state.value?.repeat)
     }
+
+    @Test fun `a play here taking the music back from another device is given the repeat chosen`() = runBlocking {
+        host.mediaActive = false
+        host.mediaPaused = true
+        host.post("""{"type":"ready"}""")
+        host.post(state(track("A"), repeat = 0))
+        waitFor("another device seen", ms = 10_000) { player.remoteActive }
+        player.restoreRepeat(Repeat.TRACK)
+        // The play takes the music here; the page's first report (its own options) comes before
+        // the watcher reads the element again, which still says another device.
+        player.play("spotify:playlist:C", trackUri = "spotify:track:B")
+        host.post(state(track("B"), repeat = 0))
+        host.mediaActive = true
+        host.mediaPaused = false
+        waitFor("repeat set again") { called("player.setRepeat") > 0 }
+        assertEquals(Repeat.TRACK, player.state.value?.repeat)
+    }
+
+    @Test fun `a report before the element is read gives another device playing no repeat`() = runBlocking {
+        host.mediaActive = false
+        host.mediaPaused = true
+        player.restoreRepeat(Repeat.TRACK)
+        host.post("""{"type":"ready"}""")
+        host.post(state(track("A"), repeat = 0))
+        waitFor("another device seen", ms = 10_000) { player.remoteActive }
+        delay(400)
+        assertEquals(0, called("player.setRepeat"), "nothing sent to the other device: ${host.calls.map { it.first }}")
+    }
+
+    @Test fun `a report before the element is read is given the repeat once this page is seen playing`() = runBlocking {
+        player.restoreRepeat(Repeat.TRACK)
+        host.post("""{"type":"ready"}""")
+        host.post(state(track("A"), repeat = 0))
+        waitFor("repeat set again", ms = 10_000) { called("player.setRepeat") > 0 }
+        assertEquals(1, called("player.setRepeat"))
+    }
 }

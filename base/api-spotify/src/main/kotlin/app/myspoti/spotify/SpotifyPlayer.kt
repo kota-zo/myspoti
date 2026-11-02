@@ -505,6 +505,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     /** The media element as the watcher last read it. */
     @Volatile private var lastMedia: Media? = null
+    /** When the watcher read [lastMedia] (its tick's start). */
+    @Volatile private var lastMediaAt = 0L
 
     /**
      * Another device of the account is Spotify Connect's active one: this page's element stands
@@ -652,7 +654,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             pageSuspect = false
             val media = read.getOrNull()
             lastMedia = media
+            lastMediaAt = now
             _playsElsewhere.value = remoteActive
+            if (media != null) repeatOnRead()
             val s = _state.value
             preloadNextSong(s, media)
             tickCrossfade(s, media, now)
@@ -2070,12 +2074,14 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * with the chosen repeat while the page is being told it.
      */
     private fun followRepeat(s: PlayerState): PlayerState {
+        repeatUnread = null
         val want = wantedRepeat ?: return s
         if (s.item == null || s.repeat == want) return s
         val now = System.currentTimeMillis()
         val afterPlay = now < repeatRestoreUntil
+        val elsewhere = elsewhere()
         val how = RepeatRules.onReport(want, s.repeat, held = now < repeatHeldUntil, afterOwnPlay = afterPlay,
-            atLoop = RepeatRules.atLoop(want, lastTrackState, s, now), elsewhere = remoteActive, mirrored = mirroring)
+            atLoop = RepeatRules.atLoop(want, lastTrackState, s, now), elsewhere = elsewhere, mirrored = mirroring)
         when (how) {
             RepeatRules.Report.SET_AGAIN -> {
                 repeatRestoreUntil = 0L
@@ -2086,16 +2092,49 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             }
             RepeatRules.Report.THEIRS -> {
                 wantedRepeat = s.repeat
-                bridge.logger?.invoke("repeat is ${s.repeat} from the page${if (remoteActive) " (another device plays)" else ""}: $want no longer kept")
+                bridge.logger?.invoke("repeat is ${s.repeat} from the page${if (elsewhere == true) " (another device plays)" else ""}: $want no longer kept")
             }
+            RepeatRules.Report.WAIT -> repeatUnread = s.repeat
             RepeatRules.Report.KEPT, RepeatRules.Report.IGNORED -> {}
         }
-        return if (how == RepeatRules.Report.KEPT || how == RepeatRules.Report.SET_AGAIN) s.copy(repeat = want) else s
+        return if (how == RepeatRules.Report.KEPT || how == RepeatRules.Report.SET_AGAIN || how == RepeatRules.Report.WAIT) s.copy(repeat = want) else s
+    }
+
+    /**
+     * Another device plays, for the repeat: no for a play of ours since the watcher's last read,
+     * which plays here and is newer than the element it read (seen in review: the first report of a
+     * play taken back from the desktop, repeat off, was taken for the desktop's); null while the
+     * element was never read (a cold start).
+     */
+    private fun elsewhere(): Boolean? = when {
+        lastPlay?.let { it.third >= lastMediaAt } == true -> false
+        lastMedia == null -> null
+        else -> remoteActive
+    }
+
+    /** The repeat a page reported while [elsewhere] was not known ([RepeatRules.Report.WAIT]), judged at the watcher's read. */
+    @Volatile private var repeatUnread: Repeat? = null
+
+    /**
+     * [repeatUnread] once the element is read: this page playing is told the choice again. Not
+     * while another device plays (a page with no active device reads the same): nothing is sent,
+     * and the choice is kept for a play here, that device's next report judged as any other.
+     */
+    private fun repeatOnRead() {
+        val reported = repeatUnread ?: return
+        repeatUnread = null
+        val want = wantedRepeat ?: return
+        if (elsewhere() != false) return
+        repeatRestoreUntil = 0L
+        repeatHeldUntil = System.currentTimeMillis() + RepeatRules.REPEAT_HOLD_MS
+        bridge.logger?.invoke("repeat is $reported before the element was read, $want was chosen: set again")
+        scope.launch { runCatching { setRepeat(want) } }
     }
 
     /**
      * The repeat mode chosen in an earlier run of the app: nothing is sent now. The page starts
-     * with repeat off, so the mode is set again on the first song it reports, as after a play.
+     * with repeat off, so the mode is set again on the first song it reports once this phone is
+     * known to be the one playing, as after a play.
      */
     fun restoreRepeat(mode: Repeat) {
         if (wantedRepeat != null) return
@@ -2105,6 +2144,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     override suspend fun setRepeat(mode: Repeat) {
         wantedRepeat = mode
+        repeatUnread = null
         repeatHeldUntil = System.currentTimeMillis() + RepeatRules.REPEAT_HOLD_MS
         bridge.call("player.setRepeat", buildJsonObject { put("mode", mode.ordinal) })
     }

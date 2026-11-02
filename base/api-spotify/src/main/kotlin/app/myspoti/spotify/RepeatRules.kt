@@ -26,22 +26,25 @@ object RepeatRules {
         THEIRS,
         /** Left as it is: the page only mirrors, its repeat is not the user's. */
         IGNORED,
+        /** Would be set again, but where the page plays is not read yet: kept, judged at that read. */
+        WAIT,
     }
 
     /**
      * [held]: our own set is not answered yet. [afterOwnPlay]: the state is the first of a play or
      * a page of ours (it starts on its own options). [atLoop]: the song (or the list) is coming
      * round again, see [atLoop]. [elsewhere]: another device plays, and nothing is ever set on it
-     * from here. [mirrored]: the page only mirrors.
+     * from here; null while not known (the element not read yet since the app started), when
+     * nothing is set either. [mirrored]: the page only mirrors.
      */
-    fun onReport(wanted: Repeat, reported: Repeat, held: Boolean, afterOwnPlay: Boolean, atLoop: Boolean, elsewhere: Boolean, mirrored: Boolean): Report = when {
+    fun onReport(wanted: Repeat, reported: Repeat, held: Boolean, afterOwnPlay: Boolean, atLoop: Boolean, elsewhere: Boolean?, mirrored: Boolean): Report = when {
         reported == wanted || held -> Report.KEPT
-        elsewhere -> Report.THEIRS
-        afterOwnPlay -> Report.SET_AGAIN
+        elsewhere == true -> Report.THEIRS
+        afterOwnPlay -> if (elsewhere == null) Report.WAIT else Report.SET_AGAIN
         mirrored -> Report.IGNORED
         // Less repeat away from the loop is a change from another device (or the page's own word
         // after a skip): theirs. At the loop it is the page forgetting it.
-        atLoop && reported < wanted -> Report.SET_AGAIN
+        atLoop && reported < wanted -> if (elsewhere == null) Report.WAIT else Report.SET_AGAIN
         else -> Report.THEIRS
     }
 
