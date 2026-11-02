@@ -94,13 +94,38 @@ class AdQueueTest {
         assertEquals(listOf("advance after Playing: repeated instead of an ad"), notes)
     }
 
-    @Test fun `a repeated song with no state of its repeat falls back to the skip's target`() {
-        val noRepeat = reply(
-            listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
-            listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 2, show = 3), repeatState(2, false, show = 3), repeatState(2, false)),
-            current = 1,
-        )
-        assertEquals(2, index(transitions(AdBlock.withoutAds(noRepeat)!!.first, 1), "advance"))
+    // Captured on the phone (1/11, free account, repeat one on): the song's end goes to the ad, its
+    // skip to the next song, and no state of the song repeats it. Repeat one was lost there.
+    private val noRepeatState = reply(
+        listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
+        listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 2, show = 3), repeatState(2, false, show = 3), repeatState(2, false)),
+        current = 1,
+    )
+
+    @Test fun `a repeated song with no state of its repeat keeps the ad, which leads back to it`() {
+        // Sent to the skip's target (the next song) the repeat ended there; left as it is, the ad
+        // plays and Spotify's own way on from it is the same song again.
+        assertNull(AdBlock.withoutAds(noRepeatState))
+        assertNull(AdBlock.adAhead(noRepeatState))
+    }
+
+    // Repeat one with an ad left out once already: the song's end and its skip both go to the ad,
+    // and a state of the song repeats it.
+    private val bothToTheAd = reply(
+        listOf(track("AD", "An ad"), track("TRACK", "Playing"), track("TRACK", "After")),
+        listOf(repeatState(0, true), repeatState(1, true, advance = 0, next = 0, show = 4), repeatState(1, true, show = 4),
+            repeatState(2, false, show = 4), repeatState(2, false)),
+        current = 1,
+    )
+
+    @Test fun `a repeated song whose skip goes to the ad too has its end sent to its repeat, and nothing played before it`() {
+        val (body, notes) = AdBlock.withoutAds(bothToTheAd)!!
+        assertEquals(2, index(transitions(body, 1), "advance"))
+        assertEquals(listOf("advance after Playing: repeated instead of an ad", "skip_next after Playing: an ad, and no song to send it to"), notes)
+        // What the host reads (ControlRelay): the reply as sent, its end now the repeat. Read on
+        // Spotify's own reply, the next song would be played before the end, and repeat one lost.
+        assertNull(AdBlock.adAhead(body))
+        assertEquals("spotify:track:After", AdBlock.adAhead(bothToTheAd)!!.nextUri)
     }
 
     @Test fun `a reply without an ad is left alone`() {

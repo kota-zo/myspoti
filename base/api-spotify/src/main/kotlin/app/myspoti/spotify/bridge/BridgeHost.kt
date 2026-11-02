@@ -218,6 +218,12 @@ object AdBlock {
                     notes += "$key after ${nameOf(i)}: repeated instead of an ad"
                     continue
                 }
+                // Repeat one: the ad is the song's only way round when Spotify sends no repeat state
+                // of it. Sent to the skip's target instead, the repeat ended there (reported: "loops
+                // 2-3 times then plays the next song"); left as it is, the ad plays and Spotify's own
+                // way on from it is the same song again (the player plays it again otherwise, see
+                // SpotifyPlayer.playOn).
+                if (key == "advance" && repeatsTrack(i)) continue
                 if (target == null) { notes += "$key after ${nameOf(i)}: an ad, and no song to send it to"; continue }
                 next[key] = JsonObject(target.toMutableMap().apply { t["paused"]?.let { put("paused", it) } })
                 notes += "$key after ${nameOf(i)}: ${indexOf(target)?.let(::nameOf)} instead of an ad"

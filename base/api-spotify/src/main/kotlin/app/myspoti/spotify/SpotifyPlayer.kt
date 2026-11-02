@@ -332,6 +332,10 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val reload = reloadHost ?: return
         if (repairsHeld()) { bridge.logger?.invoke("reload held: a sign-in page is open or Spotify is limiting or refusing playback"); return }
         val startedAt = System.currentTimeMillis()
+        // A station without an order of ours: what came next on this page, taken before it goes
+        // (the new page's is a new station, see RepeatRules.stationOrder).
+        val nextUp = s?.takeIf { RepeatRules.isStation(it.contextUri) && !it.shuffle && lastOrder?.first != it.contextUri }
+            ?.let { _queue.value?.nextUp }
         ownReload = true
         try {
             runCatching {
@@ -352,7 +356,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     bridge.logger?.invoke("page back after a reload: played or picked meanwhile, ${s.item?.name} not played on")
                     return@runCatching
                 }
-                if (next) playOnNewPage { playOn(s) } else { awaitDeviceJoined(); resumeAfterReload(s) }
+                if (next) playOnNewPage { playOn(s, nextUp) } else { awaitDeviceJoined(); resumeAfterReload(s, nextUp) }
             }
         } finally {
             ownReload = false
@@ -455,7 +459,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * all, and takes commands only once its device is registered again. The song goes on from
      * where it was, checked and tried again, unless the user paused or played something since.
      */
-    private suspend fun resumeAfterReload(lost: PlayerState) {
+    private suspend fun resumeAfterReload(lost: PlayerState, nextUp: List<NowPlaying>? = null) {
         if (licenceRefusedHold) { bridge.logger?.invoke("page back after a reload: nothing resumed, Spotify refuses this account's licences"); return }
         // Skipped during the reload: that song, not the one that played before it.
         if (liveIntent() != null) {
@@ -485,7 +489,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     // A state without a list would play the song alone, and Spotify then goes on
                     // with its own autoplay: the list of the song before it is the next best.
                     val ctx = lost.contextUri ?: lastSong?.contextUri ?: uri
-                    playNow(ctx, trackUri = uri.takeIf { ctx != it }, positionMs = at, order = lastOrder?.takeIf { it.first == ctx }?.second, origin = "restore")
+                    val station = nextUp?.takeIf { ctx == lost.contextUri }?.let { RepeatRules.stationOrder(uri, it) }
+                    playNow(ctx, trackUri = uri.takeIf { ctx != it }, positionMs = at, order = station ?: lastOrder?.takeIf { it.first == ctx }?.second,
+                        keepsOrder = station == null, origin = "restore")
                 }
             }.onFailure { bridge.logger?.invoke("restore attempt $attempt failed: ${it.message}") }
             // The play just sent is ours, not the user's.
@@ -1068,7 +1074,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     /**
      * Plays [a]'s next song [AD_AHEAD_LEAD_MS] before the song [a] names ends, unless another song
-     * plays by then (a skip, a pick). Waits while it is paused or buffering.
+     * plays by then (a skip, a pick). Waits while it is paused or buffering. Under repeat one the
+     * song itself is played again instead: its end is the song again, not the next one.
      */
     private suspend fun playBeforeAd(a: app.myspoti.spotify.bridge.AdBlock.AdAhead) {
         fun isThat(item: NowPlaying?) = item != null && ((a.songUid != null && item.uid == a.songUid) || item.uri == a.songUri)
@@ -1091,7 +1098,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             // Re-read now and then: a seek or a late state moves the end.
             delay((left - AD_AHEAD_LEAD_MS).coerceAtMost(AD_AHEAD_CHECK_MS))
         }
-        val ctx = _state.value?.contextUri ?: return
+        val song = _state.value ?: return
+        val ctx = song.contextUri ?: return
         if (userMoveAt != movedAt) return
         // Another device plays this list (the ad is this phone's page's, not its): not skipped from here.
         if (remoteActive) return
@@ -1099,6 +1107,14 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // finish, or the skip is sent and its put-back never is.
         withContext(NonCancellable) {
             app.myspoti.spotify.bridge.AdBlock.ahead.compareAndSet(a, null)
+            // Repeat one, read now (the user may have changed it while the song played): the ad
+            // is avoided by a new play of the same song, as it would be by the next one.
+            if (wantedRepeat == Repeat.TRACK) {
+                bridge.logger?.invoke("ad after this song, repeat one: ${song.item?.name} played again before its end")
+                runCatching { playAgain(song, origin = "repeat one, before an ad") }
+                    .onFailure { bridge.logger?.invoke("play again before the ad refused: ${it.message}") }
+                return@withContext
+            }
             bridge.logger?.invoke("ad after this song: ${a.nextUri} played before its end")
             if (skipPastAd(a)) return@withContext
             runCatching { playNow(ctx, trackUri = a.nextUri, order = lastOrder?.takeIf { it.first == ctx }?.second, origin = "before an ad") }
@@ -1142,7 +1158,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             .onFailure { bridge.logger?.invoke("skip past the ad: ${target.name} not put back: ${it.message}") }
     }
 
-    private suspend fun playOn(s: PlayerState) {
+    /**
+     * Plays on from [s], a song stuck at its end or before an ad: what the user asked for
+     * meanwhile, the song again under repeat one, or the song after it. [nextUp]: what came next
+     * on a page our reload took away (a station's, see [reloadAndPlayOn]).
+     */
+    private suspend fun playOn(s: PlayerState, nextUp: List<NowPlaying>? = null) {
         // The user skipped meanwhile: their song, not the one after the last state seen.
         if (playIntent()) return
         // Or picked one during the ad that is being got past: that one, in the order it was picked.
@@ -1152,20 +1173,45 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             playNow(pick.context, trackUri = pick.track, index = pick.index, positionMs = pick.positionMs, order = pick.order, refusable = true, origin = "pick during the ad")
             return
         }
+        // Repeat one: the way on from the song is the song again (that is its end). An ad takes that
+        // end in Spotify's state machine (see AdBlock.machineWithoutAds), and the page is left on the
+        // next song after it, or a reload to get past one plays on: the song is played again instead.
+        if (wantedRepeat == Repeat.TRACK && s.item?.let { it.kind != ItemKind.AD } == true) {
+            bridge.logger?.invoke("repeat one: ${s.item?.name} played again, not the next song")
+            playAgain(s, origin = "repeat one")
+            return
+        }
         val ctx = s.contextUri
-        val target = onwardTarget(s, _queue.value?.nextUp.orEmpty())
+        val target = onwardTarget(s, nextUp ?: _queue.value?.nextUp.orEmpty())
         // A new play reshuffles a shuffled list (measured 21/10) and does not find a song the user
         // queued in the list: both go on within the queue the page has, as a skip would.
         val inQueue = target?.let { t -> upcoming().firstOrNull { it.uri == t } }
         if (inQueue != null && (s.shuffle || inQueue.provider == "queue") &&
             runCatching { command("queue.skipTo", ref(inQueue), timeoutMs = PLAY_TIMEOUT_MS) }.isSuccess) return
+        val station = nextUp?.let { target?.let { t -> RepeatRules.stationOrder(t, it) } }
         when {
-            ctx != null && target != null -> playNow(ctx, trackUri = target, order = lastOrder?.takeIf { it.first == ctx }?.second, origin = "play on")
+            ctx != null && target != null -> playNow(ctx, trackUri = target, order = station ?: lastOrder?.takeIf { it.first == ctx }?.second,
+                keepsOrder = station == null, origin = "play on")
             target != null -> next()
             // Nothing after it: a song is started again (the page's own end-of-context behaviour);
-            // an episode is left finished rather than replayed from the start.
+            // an episode is left finished rather than replayed from the start. Not a song autoplay
+            // brought or a station's: its list would start over (#135), the page goes on itself.
+            ctx != null && s.item?.kind == ItemKind.TRACK && RepeatRules.replayList(s) == null -> {
+                bridge.logger?.invoke("play on: nothing after ${s.item?.name} (autoplay or a station), the page's next asked for")
+                command("player.next")
+            }
             ctx != null && s.item?.kind == ItemKind.TRACK -> playNow(ctx, trackUri = s.item?.uri, origin = "play on")
         }
+    }
+
+    /**
+     * [s]'s song from its start, in its list (with the order it was played in) or alone where
+     * the list would not find it ([RepeatRules.replayList]).
+     */
+    private suspend fun playAgain(s: PlayerState, origin: String) {
+        val song = s.item ?: return
+        val list = RepeatRules.replayList(s)
+        playNow(list ?: song.uri, trackUri = song.uri.takeIf { list != null }, order = lastOrder?.takeIf { list != null && it.first == list }?.second, origin = origin)
     }
 
     private val skipChain = TrackChanges.Chain()
@@ -1250,6 +1296,23 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val adJustEnded = _adPlaying.value
         _adPlaying.value = false
         if (adJustEnded) bridge.logger?.invoke("ad break over after ${(System.currentTimeMillis() - adSince) / 1000} s: ${s?.item?.name ?: "nothing"}${if (s?.isPaused == true) " (paused)" else ""}")
+        // The page plays on from an ad by itself, on its own options: its repeat then is no change of the user's.
+        if (adJustEnded) repeatRestoreUntil = System.currentTimeMillis() + REPEAT_RESTORE_MS
+        // Repeat one: the song's end is the song again, but an ad took that end (see
+        // AdBlock.machineWithoutAds) and the page went on from the ad to another song. The song
+        // before the ad plays again, unless the user picked or skipped something meanwhile.
+        val beforeAd = lastTrackState
+        val songBeforeAd = beforeAd?.item
+        if (adJustEnded && wantedRepeat == Repeat.TRACK && pickBeforeAd == null && liveIntent() == null && userMoveAt < adSince &&
+            !pausedByUser && !remoteActive && !mirroring && !ownReload && bridge.ready.value &&
+            beforeAd != null && songBeforeAd != null && songBeforeAd.kind == ItemKind.TRACK &&
+            s != null && s.item?.kind == ItemKind.TRACK && s.item?.uri != songBeforeAd.uri) {
+            bridge.logger?.invoke("ad break over: repeat one, ${songBeforeAd.name} played again instead of ${s.item?.name}")
+            scope.launch {
+                runCatching { playAgain(beforeAd, origin = "repeat one after an ad") }
+                    .onFailure { bridge.logger?.invoke("repeat one after the ad refused: ${it.message}") }
+            }
+        }
         // A page reloaded to get past an ad: heard again only once a real song plays on it.
         if (muteUntilSong && s?.item != null && !s.isPaused && !s.isBuffering) {
             muteUntilSong = false
@@ -1319,8 +1382,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // Another song: the stall was the last one's (the watcher judges this one on its next tick).
         if (s?.item?.uri != lastTrackState?.item?.uri) _stalled.value = false
         noteTrackChange(lastTrackState, s, adJustEnded)
-        lastTrackState = s
-        _state.value = s
+        val shown = s?.let { followRepeat(it) }
+        lastTrackState = shown
+        _state.value = shown
         // A song plays, the user's pause over: nothing left to play on from after a paused ad.
         if (s?.item != null && !s.isPaused && !pausedByUser) { onwardAfterPausedAd = null; pickAfterPause = null }
         // Reported (2.0.2-beta.3, log seen): Spotify refusing the audio licences (429), the page
@@ -1335,17 +1399,6 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             heldPausedUri = s.item?.uri
             bridge.logger?.invoke("playback held (Spotify limiting): ${s.item?.name} paused")
             scope.launch { runCatching { pause() } }
-        }
-        // Reported: the repeat button forgets what it was. A play command (and a reloaded page) starts
-        // the page on its own options, repeat off; the mode the user chose is set again, once, when the
-        // first song of that play reports another. Only within a few seconds of our own play: a repeat
-        // changed from another device later is theirs.
-        wantedRepeat?.let { want ->
-            if (s?.item != null && s.repeat != want && System.currentTimeMillis() < repeatRestoreUntil) {
-                repeatRestoreUntil = 0L
-                bridge.logger?.invoke("repeat is ${s.repeat} after a play, $want was chosen: set again")
-                scope.launch { runCatching { setRepeat(want) } }
-            }
         }
         val i = liveIntent() ?: run { intent = null; return }
         val uri = s?.item?.uri
@@ -1700,17 +1753,22 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         playNow(contextUri, trackUri, index, positionMs, order, refusable = true, origin = origin)
     }
 
-    /** A play sent to the page; [refusable]: the user's own, whose refusal walks [onRefused]'s steps. */
-    private suspend fun playNow(contextUri: Uri, trackUri: Uri? = null, index: Int? = null, positionMs: Long? = null, order: List<Uri>? = null, refusable: Boolean = false, origin: String) {
+    /**
+     * A play sent to the page; [refusable]: the user's own, whose refusal walks [onRefused]'s steps.
+     * [keepsOrder] false: [order] is for this play only, later plays of the list go without it.
+     */
+    private suspend fun playNow(contextUri: Uri, trackUri: Uri? = null, index: Int? = null, positionMs: Long? = null, order: List<Uri>? = null, refusable: Boolean = false, keepsOrder: Boolean = true, origin: String) {
         // A new song picked (or the intent itself played): any earlier skip is over.
         if (trackUri == null || trackUri != liveIntent()?.item?.uri) intent = null
-        lastOrder = order?.let { contextUri to it }
+        lastOrder = order?.takeIf { keepsOrder }?.let { contextUri to it }
         lastPlay = Triple(contextUri, trackUri, System.currentTimeMillis())
         lastIndex = index
         lastPlayRefusable = refusable
         refusalStep = 0
         pausedByUser = false
+        // The play starts the page on its own options: what it reports next is no answer to a set of ours.
         repeatRestoreUntil = System.currentTimeMillis() + REPEAT_RESTORE_MS
+        repeatHeldUntil = 0L
         withFade {
             try {
                 command("player.play", timeoutMs = PLAY_TIMEOUT_MS, label = origin, args = buildJsonObject {
@@ -1992,10 +2050,48 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         }
     }
 
-    /** The repeat mode the user chose last: a play or a reload that leaves the page on another one is put back (see [onState]). */
+    /**
+     * The repeat mode the user chose last, the one value of it ([followRepeat]): put back where a
+     * play, a reload or the loop leaves the page on less, taken from the page where another device
+     * changed it.
+     */
     @Volatile private var wantedRepeat: Repeat? = null
     /** Until when a page reporting another repeat mode than [wantedRepeat] counts as having forgotten it. */
     @Volatile private var repeatRestoreUntil = 0L
+    /** Until when the page has not answered our last set of [wantedRepeat] yet. */
+    @Volatile private var repeatHeldUntil = 0L
+
+    /**
+     * Reported: the repeat button forgets what it was, and repeat one loops a song two or three
+     * times, then the next song plays. A play command (and a reloaded page, an ad over) starts the
+     * page on its own options, repeat off, and the page drops repeat one at the loop: the mode the
+     * user chose is set again there. Anywhere else a repeat other than the choice is theirs (another
+     * device), and never set from here while another device plays. [s] is returned as it is shown:
+     * with the chosen repeat while the page is being told it.
+     */
+    private fun followRepeat(s: PlayerState): PlayerState {
+        val want = wantedRepeat ?: return s
+        if (s.item == null || s.repeat == want) return s
+        val now = System.currentTimeMillis()
+        val afterPlay = now < repeatRestoreUntil
+        val how = RepeatRules.onReport(want, s.repeat, held = now < repeatHeldUntil, afterOwnPlay = afterPlay,
+            atLoop = RepeatRules.atLoop(want, lastTrackState, s, now), elsewhere = remoteActive, mirrored = mirroring)
+        when (how) {
+            RepeatRules.Report.SET_AGAIN -> {
+                repeatRestoreUntil = 0L
+                // Held from now: the next report may come before the set below is sent.
+                repeatHeldUntil = now + RepeatRules.REPEAT_HOLD_MS
+                bridge.logger?.invoke("repeat is ${s.repeat} ${if (afterPlay) "after a play" else "at the loop"}, $want was chosen: set again")
+                scope.launch { runCatching { setRepeat(want) } }
+            }
+            RepeatRules.Report.THEIRS -> {
+                wantedRepeat = s.repeat
+                bridge.logger?.invoke("repeat is ${s.repeat} from the page${if (remoteActive) " (another device plays)" else ""}: $want no longer kept")
+            }
+            RepeatRules.Report.KEPT, RepeatRules.Report.IGNORED -> {}
+        }
+        return if (how == RepeatRules.Report.KEPT || how == RepeatRules.Report.SET_AGAIN) s.copy(repeat = want) else s
+    }
 
     /**
      * The repeat mode chosen in an earlier run of the app: nothing is sent now. The page starts
@@ -2009,6 +2105,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
     override suspend fun setRepeat(mode: Repeat) {
         wantedRepeat = mode
+        repeatHeldUntil = System.currentTimeMillis() + RepeatRules.REPEAT_HOLD_MS
         bridge.call("player.setRepeat", buildJsonObject { put("mode", mode.ordinal) })
     }
 
