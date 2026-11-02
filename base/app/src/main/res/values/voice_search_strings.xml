@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Voice search mic button (Search screen, both themes): opens the Google app's own voice search. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="voice_search" tools:ignore="MissingTranslation">Search by voice</string>
+    <string name="voice_search_unavailable" tools:ignore="MissingTranslation">Voice search needs the Google app installed</string>
+</resources>

@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
@@ -47,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -75,6 +77,7 @@ import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.immersive.sheets.ImmersiveSongOptionsSheet
 import com.music.spotui.ui.components.SwipeToQueue
+import com.music.spotui.ui.components.launchVoiceSearch
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.components.ImmersiveButton
 import com.music.spotui.ui.immersive.components.ImmersiveCover
@@ -185,16 +188,24 @@ fun ImmersiveSearchScreen(navController: NavController) {
             immersiveLargeTitle(title)
             stickyHeader(key = "search:field") {
                 Column(Modifier.fillMaxWidth().background(Immersive.Page).padding(top = 4.dp, bottom = 6.dp)) {
-                    ImmersiveSearchField(
-                        query = text,
-                        onQueryChange = { vm.search(it) },
-                        onSubmit = { vm.search(text) },
-                        focusRequester = fieldFocus,
-                        placeholder = stringResource(R.string.search_header_field_hint),
-                        modifier = Modifier
-                            .padding(horizontal = Immersive.Gutter)
-                            .onFocusChanged { searchFocused = it.hasFocus },
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Immersive.Gutter),
+                    ) {
+                        ImmersiveSearchField(
+                            query = text,
+                            onQueryChange = { vm.search(it) },
+                            onSubmit = { vm.search(text) },
+                            focusRequester = fieldFocus,
+                            placeholder = stringResource(R.string.search_header_field_hint),
+                            modifier = Modifier
+                                .weight(1f)
+                                .onFocusChanged { searchFocused = it.hasFocus },
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        // Voice search: the Google app's own "Search with your voice" for music.
+                        ImmersiveVoiceSearchButton(onClick = { launchVoiceSearch(context) })
+                    }
                     if (text.isNotBlank()) {
                         ImmersiveChipRow {
                             val filters = SearchFilter.entries.filter { it != SearchFilter.Podcasts || Features.PODCASTS }
@@ -385,6 +396,26 @@ private fun LazyListScope.recentSearches(
                         .padding(6.dp),
                 )
             },
+        )
+    }
+}
+
+/** The mic button beside the search field: opens the device's voice search for music. */
+@Composable
+private fun ImmersiveVoiceSearchButton(onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(Immersive.Raised, CircleShape)
+            .clickable(role = Role.Button, onClick = onClick),
+    ) {
+        Icon(
+            Icons.Outlined.Mic,
+            contentDescription = stringResource(R.string.voice_search),
+            tint = Color(0xFFE3E3E3),
+            modifier = Modifier.size(22.dp),
         )
     }
 }

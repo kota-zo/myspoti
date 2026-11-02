@@ -8,6 +8,7 @@ import com.music.spotui.ui.theme.AppMuted
 import kotlinx.coroutines.launch
 import com.music.spotui.ui.components.SearchClearButton
 import com.music.spotui.ui.components.pressable
+import com.music.spotui.ui.components.launchVoiceSearch
 import androidx.compose.ui.res.stringResource
 
 import android.os.Build
@@ -32,10 +33,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -880,51 +883,75 @@ fun SearchStickyBar(
     // The field is always attached to a requester, so the clear button can put the cursor back in it.
     val ownFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     val fieldFocus = focusRequester ?: ownFocus
-    Row(verticalAlignment = Alignment.CenterVertically,
+    val context = LocalContext.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(10.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .height(55.dp)
-            .background(Color.White)
-            .padding(10.dp, 0.dp)
-    ){
-        Icon(
-            painterResource(id = R.drawable.ic_search_big),
-            tint = Color.Black,
-            contentDescription = "")
-
-        TextField(
-            enabled = true,
+            .padding(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .focusRequester(fieldFocus)
-                .onFocusChanged { onFocusChange(it.isFocused) },
-            value = text,
-            textStyle = TextStyle.Default.copy(fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight(500)),
-            colors = TextFieldDefaults.colors(
-                unfocusedContainerColor = Color.Transparent,
-                disabledContainerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = Color.Black
+                .weight(1f)
+                .clip(RoundedCornerShape(10.dp))
+                .height(55.dp)
+                .background(Color.White)
+                .padding(10.dp, 0.dp)
+        ){
+            Icon(
+                painterResource(id = R.drawable.ic_search_big),
+                tint = Color.Black,
+                contentDescription = "")
 
-            ),
-            singleLine = true,
-            onValueChange = onTextChange,
-            placeholder = {
-                Text(
-                     textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold,
-                    text = stringResource(R.string.search_header_field_hint)
+            TextField(
+                enabled = true,
+                modifier = Modifier
+                    .focusRequester(fieldFocus)
+                    .onFocusChanged { onFocusChange(it.isFocused) },
+                value = text,
+                textStyle = TextStyle.Default.copy(fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight(500)),
+                colors = TextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = Color.Black
 
-                )
-            },
-            trailingIcon = if (text.isEmpty()) null else {
-                { SearchClearButton(fieldFocus, Color.Black) { onTextChange("") } }
-            },
-        )
+                ),
+                singleLine = true,
+                onValueChange = onTextChange,
+                placeholder = {
+                    Text(
+                         textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                        text = stringResource(R.string.search_header_field_hint)
+
+                    )
+                },
+                trailingIcon = if (text.isEmpty()) null else {
+                    { SearchClearButton(fieldFocus, Color.Black) { onTextChange("") } }
+                },
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        // Voice search: the Google app's own "Search with your voice" for music, one tap away.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(55.dp)
+                .clip(CircleShape)
+                .background(tone(0xFF2A2A2A))
+                .pressable(0.9f) { launchVoiceSearch(context) },
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Mic,
+                contentDescription = stringResource(R.string.voice_search),
+                tint = Color(0xFFE3E3E3),
+                modifier = Modifier.size(24.dp),
+            )
+        }
     }
 }
 
