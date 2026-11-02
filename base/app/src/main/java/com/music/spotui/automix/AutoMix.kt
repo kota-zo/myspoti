@@ -86,8 +86,9 @@ object AutoMix {
         // A stream is read a second time for the analysis: on unmetered networks only.
         if (uri.scheme == ExtensionAudio.SCHEME) {
             if (com.music.spotui.data.DataSaver.metered) { journal("not analysed (metered network): ${uri.lastPathSegment}"); return null }
+            // DASH answers too: the data source reads them as one file, as the player does.
             val s = runCatching { ExtensionAudio.resolve(uri, ahead = true) }.getOrNull()
-            if (s == null || s.manifest != null) { synchronized(memory) { failed += key }; journal("not analysed (${if (s == null) "no stream" else "DASH stream"}): ${uri.lastPathSegment}"); return null }
+            if (s == null) { synchronized(memory) { failed += key }; journal("not analysed (no stream): ${uri.lastPathSegment}"); return null }
         }
         val t0 = System.currentTimeMillis()
         return try {
@@ -97,7 +98,8 @@ object AutoMix {
             val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, THREADS)
             save(key, a)
             journal(String.format("analysed %s: %.1f BPM%s, %d bars, key %d, decode %d ms, analysis %d ms", label(uri), a.bpm,
-                if (a.steady) " steady" else (if (a.tail != null) " (tail grid)" else " (no grid)"), a.bars, a.key, t1 - t0, System.currentTimeMillis() - t1))
+                if (a.steady) " steady" else (if (a.tail != null) " (tail grid)" else " (no grid)"), a.bars, a.key, t1 - t0, System.currentTimeMillis() - t1) +
+                (if (a.note.isNotEmpty()) " | grids refused: ${a.note}" else ""))
             a
         } catch (e: InterruptedException) {
             null

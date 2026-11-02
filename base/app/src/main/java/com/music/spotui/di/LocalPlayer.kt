@@ -482,8 +482,11 @@ object LocalPlayer {
         var locked = false
         var worstMs = 0.0
         var loggedAt = 0L
-        /** Progress of the mix from the outgoing song's position. */
-        fun progress(): Double = a?.let { ((it.currentPosition / 1000.0) - plan.exitA) / plan.length } ?: 1.0
+        /** Progress of the mix from the outgoing song's position (1 once it ended). */
+        fun progress(): Double = a?.let {
+            if (it.playbackState == Player.STATE_ENDED || it.playbackState == Player.STATE_IDLE) 1.0
+            else ((it.currentPosition / 1000.0) - plan.exitA) / plan.length
+        } ?: 1.0
     }
 
     /** The plan for the song playing → the next one, once both are analysed. */
@@ -492,7 +495,7 @@ object LocalPlayer {
     private var mix: MixRun? = null
     /** The main player's EQ (a deck's once it took over). */
     private var deckEq: com.music.spotui.automix.DeckEq? = null
-    private var asking: Pair<Int, String>? = null
+    private var asking: String? = null
     /** The pair whose deck was dropped: no new deck for it. */
     private var dropped: Pair<Int, String>? = null
 
@@ -556,8 +559,10 @@ object LocalPlayer {
         planned?.takeIf { it.fromIndex == cur && it.toId == nextId }?.let { return it.plan }
         val a = tracks.getOrNull(cur) ?: return null
         val b = tracks.getOrNull(next) ?: return null
-        if (asking != cur to nextId) {
-            asking = cur to nextId
+        // Asked again whenever the songs ahead change (a queue edit): the next one and the one after it.
+        val ahead = "$cur|$nextId|${p.getMediaItemAt(next).mediaId}|${if (next + 1 < p.mediaItemCount) p.getMediaItemAt(next + 1).mediaId else ""}"
+        if (asking != ahead) {
+            asking = ahead
             // The song after the next one too: a skip then finds both of its songs analysed.
             com.music.spotui.automix.AutoMix.request(listOfNotNull(a.uri, b.uri, tracks.getOrNull(next + 1)?.uri)) {}
             if (followsOnAlbum(a, b)) com.music.spotui.automix.AutoMix.journal("${a.title} → ${b.title}: next on the album, no mix")
@@ -741,6 +746,12 @@ object LocalPlayer {
         d.repeatMode = a.repeatMode
         d.shuffleModeEnabled = false
         mainListener?.let(a::removeListener)
+        // The old player keeps its own song alone: at its end it stops there (with the queue it went
+        // on to the next song, the one the deck plays, from 0:00, heard at full volume).
+        val own = a.currentMediaItemIndex
+        if (own + 1 < a.mediaItemCount) a.removeMediaItems(own + 1, a.mediaItemCount)
+        if (own > 0) a.removeMediaItems(0, own)
+        a.repeatMode = Player.REPEAT_MODE_OFF
         // The focus moves with the main role: given up by the old player first, so it does not pause.
         a.setAudioAttributes(audioAttributes, false); a.setHandleAudioBecomingNoisy(false)
         d.setAudioAttributes(audioAttributes, !mirrorActive); d.setHandleAudioBecomingNoisy(true)

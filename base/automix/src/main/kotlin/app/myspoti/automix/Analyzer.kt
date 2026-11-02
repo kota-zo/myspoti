@@ -65,16 +65,40 @@ object Analyzer {
             val q = BeatTracker.quality(env, g, span.first, span.second)
             return q.beats >= 16 && q.driftMs <= 40 && (q.steadiness >= 0.8 || (q.steadiness >= 0.6 && agreement(g, mb, span) >= 0.75))
         }
-        fun local(span: Pair<Double, Double>): Grid? =
-            BeatTracker.fit(env, (span.first * FPS).toInt(), min(n, (span.second * FPS).toInt()), global?.period?.times(FPS) ?: p0)
-                ?.let { onModel(it, mb) }?.takeIf { holds(it, span) }
+        // A grid of its own there: on the onsets, else on the model's beats alone (sparse or uneven
+        // onsets, as in much trap, where the model still hears a steady beat).
+        val why = StringBuilder()
+        /**
+         * The longest span from the song's start or end (60–90 s, then 45, then 25: a mix only needs
+         * that much) where a grid holds: the global one, else one fitted on the onsets there; only
+         * then one on the model's beats alone (it can be wrong where the onsets are right).
+         */
+        fun near(start: Boolean): Grid? {
+            val spans = doubleArrayOf(if (start) HEAD_SEC else TAIL_SEC, 45.0, 25.0).map { len ->
+                if (start) contentStart to min(contentEnd, contentStart + len) else max(contentStart, contentEnd - len) to contentEnd
+            }
+            val notes = StringBuilder()
+            for (span in spans) {
+                if (global != null && holds(global, span)) return global
+                val g = BeatTracker.fit(env, (span.first * FPS).toInt(), min(n, (span.second * FPS).toInt()), global?.period?.times(FPS) ?: p0)?.let { onModel(it, mb) }
+                if (g != null && holds(g, span)) return g
+                notes.append(String.format("%.0f s: onsets %s; ", span.second - span.first, g?.let { BeatTracker.quality(env, it, span.first, span.second).toString() } ?: "no fit"))
+            }
+            for (span in spans) {
+                val (fb, reason) = fromBeats(mb, span, global?.period ?: (p0 / FPS))
+                if (fb != null) return fb
+                notes.append(String.format("%.0f s: model %s; ", span.second - span.first, reason))
+            }
+            why.append(if (start) "start: " else "end: ").append(notes)
+            return null
+        }
         // One grid for the whole song (made on a fixed tempo, as most are): it holds in quiet intros too.
         val whole = global?.let { BeatTracker.quality(env, it, contentStart, contentEnd) }
         lastWhole = whole
         val steady = global != null && whole != null && whole.driftMs <= 40 &&
             (whole.steadiness >= 0.75 || (whole.steadiness >= 0.6 && agreement(global, mb, contentStart to contentEnd) >= 0.75))
-        val head = if (steady || (global != null && holds(global, headSpan))) global else local(headSpan)
-        val tail = if (steady || (global != null && holds(global, tailSpan))) global else local(tailSpan)
+        val head = if (steady) global else near(start = true)
+        val tail = if (steady) global else near(start = false)
         val period = global?.period?.times(FPS) ?: p0
         val beats = (when {
             steady -> DoubleArray(global!!.count) { global.beat(it) }
@@ -118,7 +142,7 @@ object Analyzer {
         fun downOn(g: Grid?, span: Pair<Double, Double>): Double {
             if (g == null) return Double.NaN
             val vote = DoubleArray(4)
-            for ((t, v) in modelDowns) if (t in span.first..span.second) {
+            for ((t, v) in modelDowns) if (t in max(span.first, g.first - g.period)..min(span.second, g.last + g.period)) {
                 val k = Math.round(g.index(t)).toInt()
                 if (abs(g.beat(k) - t) < g.period * 0.3) vote[Math.floorMod(k, 4)] += v.toDouble()
             }
@@ -132,7 +156,7 @@ object Analyzer {
         val (key, keyStrength) = key(f, level, gate)
         val loud = loudness(f.rmsDb, peak - 20f)
         return TrackAnalysis(f.durationSec, contentStart, contentEnd, loud, key, keyStrength, bpm, steady, head, tail,
-            beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown)
+            beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'))
     }
 
     /**
@@ -202,6 +226,46 @@ object Analyzer {
         val gaps = modelBeats.filter { it >= g.first - g.period / 2 && it <= g.last + g.period / 2 }
             .map { t -> (t - g.beat(Math.round(g.index(t)).toInt())) }.filter { abs(it) < g.period * 0.25 }.sorted()
         return if (gaps.size < 8) g else g.copy(first = g.first + gaps[gaps.size / 2])
+    }
+
+    /**
+     * A constant grid fitted on the model's beats in [span] alone (least squares on their times, a
+     * missed beat counted as such), kept when they sit on it: median gap ≤ 15 ms, 90 % within 35 ms,
+     * no 8-beat stretch off by more than 30 ms, at least 16 beats.
+     */
+    private fun fromBeats(beats: DoubleArray, span: Pair<Double, Double>, period: Double): Pair<Grid?, String> {
+        val t = beats.filter { it >= span.first && it <= span.second }
+        if (t.size < 16) return null to "${t.size} beats"
+        val gaps = t.zipWithNext { a, b -> b - a }.filter { abs(it - period) < 0.15 * period }.sorted()
+        if (gaps.size < 12) return null to "${gaps.size} regular gaps of ${t.size}"
+        var per = gaps[gaps.size / 2]; var first = t[0]
+        val keep = BooleanArray(t.size) { true }
+        repeat(3) { pass ->
+            var n = 0.0; var sk = 0.0; var st = 0.0; var skk = 0.0; var skt = 0.0
+            for (i in t.indices) {
+                val k = Math.round((t[i] - first) / per).toDouble()
+                if (pass > 0) keep[i] = abs(t[i] - (first + k * per)) < 0.08 * per
+                if (!keep[i]) continue
+                n++; sk += k; st += t[i]; skk += k * k; skt += k * t[i]
+            }
+            val den = n * skk - sk * sk
+            if (n < 12 || den <= 0) return null to "too few beats on a grid"
+            per = (n * skt - sk * st) / den; first = (st - per * sk) / n
+        }
+        // Extra detections (off-beats the model also marked) are left out before judging: the beats
+        // that sit on the grid must be most of them, close to it, and not drift.
+        val all = t.map { x -> x - (first + Math.round((x - first) / per) * per) }
+        val res = all.filter { abs(it) <= 0.12 * per }
+        if (res.size < 16) return null to "${res.size} of ${t.size} beats on a grid"
+        val abs = res.map { abs(it) }.sorted()
+        var drift = 0.0
+        for (i in 0..res.size - 8) drift = max(drift, abs(res.subList(i, i + 8).average()))
+        val share = res.size.toDouble() / t.size
+        val text = String.format("%d beats, %.0f %% on the grid, median %.0f ms, 90%% %.0f ms, drift %.0f ms", t.size, share * 100,
+            abs[abs.size / 2] * 1000, abs[(abs.size * 0.9).toInt()] * 1000, drift * 1000)
+        if (share < 0.75 || abs[abs.size / 2] > 0.015 || abs[(abs.size * 0.9).toInt()] > 0.035 || drift > 0.030) return null to text
+        val count = Math.round((t.last() - first) / per).toInt() + 1
+        return Grid(first, per, count, res.count { abs(it) <= 0.035 }.toDouble() / res.size, drift * 1000, 1.0) to text
     }
 
     /** Share of the model's beats (in [span] and the grid's) within 50 ms of a grid beat; 1 without the model. */

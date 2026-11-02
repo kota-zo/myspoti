@@ -19,7 +19,7 @@ import java.nio.ByteOrder
 /**
  * Decodes a whole song to the analysis signals: mid ((L+R)/2) and side ((L-R)/2) at 22.05 kHz.
  * The bytes come through the player's own data source (downloads are decrypted there, extension
- * streams resolved), so a song is read the way it plays. Not for DASH answers (no single file).
+ * streams resolved, DASH answers read as one file), so a song is read the way it plays.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 object TrackDecoder {

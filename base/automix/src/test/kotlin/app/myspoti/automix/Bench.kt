@@ -34,6 +34,7 @@ fun main(args: Array<String>) {
         }
         "model" -> dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted().forEach { modelDebug(dir, it) }
         "profile" -> args.drop(2).forEach { profile(dir, it) }
+        "grids" -> args.drop(2).forEach { gridDebug(dir, it) }
         "tempo" -> dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted().forEach { tempoDebug(dir, it) }
         else -> println("unknown $cmd")
     }
@@ -191,5 +192,17 @@ fun profile(dir: File, name: String) {
         t("track") { BeatTracker.track(env, Features.FPS * 60 / 120) }
         t("total") { Analyzer.analyze(mid, side, model, threads = System.getenv("AUTOMIX_THREADS")?.toInt() ?: 2) }
         println()
+    }
+}
+
+/** One song's grids against the reference beats, by region. */
+fun gridDebug(dir: File, name: String) {
+    val a = analysisOf(dir, name)
+    val rb = File(dir, "$name.beats").readLines().filter { it.isNotBlank() }.map { it.trim().split(Regex("\\s+"))[0].toDouble() }.toDoubleArray()
+    for ((label, g) in listOf("head" to a.head, "tail" to a.tail)) {
+        if (g == null) { println("$name $label none"); continue }
+        val gb = DoubleArray(g.count) { g.beat(it) }
+        println(String.format("%s %s %.3f..%.1f s %.2f BPM: F vs ref %.2f, offset %+.0f ms | note: %s", name, label, g.first, g.last, g.bpm,
+            fMeasure(gb, rb.filter { it in g.first..g.last }.toDoubleArray()), meanOffset(gb, rb) * 1000, a.note))
     }
 }

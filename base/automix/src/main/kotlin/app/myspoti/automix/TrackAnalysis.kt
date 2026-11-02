@@ -40,6 +40,8 @@ class TrackAnalysis(
     /** A downbeat of the [head] and of the [tail] grid (NaN without the grid): bars there start every 4 beats from it. */
     val headDown: Double,
     val tailDown: Double,
+    /** Why a start or end got no grid (for the journal), "" otherwise. */
+    val note: String = "",
 ) {
     val bars get() = barStarts.size
 
@@ -64,12 +66,12 @@ class TrackAnalysis(
         o.writeInt(beats.size); beats.forEach(o::writeDouble)
         o.writeInt(bars); barStarts.forEach(o::writeDouble)
         for (a in listOf(barDb, barLowDb, barHighDb, barCentre, barNovelty)) a.forEach(o::writeFloat)
-        o.writeInt(phraseOffset); o.writeBoolean(stereo); o.writeDouble(headDown); o.writeDouble(tailDown)
+        o.writeInt(phraseOffset); o.writeBoolean(stereo); o.writeDouble(headDown); o.writeDouble(tailDown); o.writeUTF(note.take(2000))
         o.flush()
     }
 
     companion object {
-        const val VERSION = 4_02
+        const val VERSION = 4_07
 
         fun read(input: InputStream): TrackAnalysis? {
             val i = DataInputStream(input)
@@ -82,7 +84,7 @@ class TrackAnalysis(
             val starts = DoubleArray(n) { i.readDouble() }
             val arrays = List(5) { FloatArray(n) { i.readFloat() } }
             return TrackAnalysis(duration, cs, ce, loud, key, ks, bpm, steady, head, tail, beats, starts,
-                arrays[0], arrays[1], arrays[2], arrays[3], arrays[4], i.readInt(), i.readBoolean(), i.readDouble(), i.readDouble())
+                arrays[0], arrays[1], arrays[2], arrays[3], arrays[4], i.readInt(), i.readBoolean(), i.readDouble(), i.readDouble(), i.readUTF())
         }
 
         private fun writeGrid(o: DataOutputStream, g: Grid?) {

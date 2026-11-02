@@ -92,23 +92,27 @@ object MixPlanner {
         if (exits.isEmpty() || entries.isEmpty()) return null
         val keyPenalty = keyDistance(a, b)
         var best: MixPlan? = null; var bestScore = Double.NEGATIVE_INFINITY
-        for (e in exits) for (n in entries) for (bars in intArrayOf(16, 8, 4, 2)) {
+        val drops = drops(b, gb)
+        for (e in exits) for (bars in intArrayOf(16, 12, 8, 6, 4, 2)) for (n in entries + dropEntries(b, gb, drops, bars * barA * m.speed)) {
             val len = bars * barA
             if (len > s.maxSec + 0.01 && bars > 2) continue
             // A must still be playing (its audible part) for most of the mix.
             if (e.time + len > musicEnd(a) + barA) continue
             val bEnd = n.time + len * m.speed
             if (bEnd > b.contentEnd - 10) continue
+            // The whole mix where both grids were checked (a grid of a song's first 25 s holds there only).
+            if (bEnd > gb.last + gb.period || n.time < gb.first - gb.period || e.time < ga.first - ga.period) continue
             var score = e.score + n.score
             // Long mixes suit songs in compatible keys with steady grids; clashing keys favour short ones.
-            score += when (bars) { 16 -> 1.0; 8 -> 1.5; 4 -> 0.8; else -> 0.0 } - keyPenalty * bars / 8.0
+            score += when (bars) { 16 -> 1.0; 12 -> 0.6; 8 -> 1.5; 6 -> 0.4; 4 -> 0.8; else -> 0.0 } - keyPenalty * bars / 8.0
             // Strong tempo changes are heard: shorter mixes then.
             score -= abs(m.speed - 1) / 0.08 * bars / 16.0
             // A's loud bars after the mix (cut short) and a long silence of A inside the mix.
             score -= loudCut(a, e.time + len) * 0.6
             score -= max(0.0, e.time + len - musicEnd(a)) / barA * 0.5
-            // B's change (drop, first verse) when A is gone: a novelty peak near the end of the mix.
-            score += changeNear(b, bEnd, 4 * gb.period * m.beatsPerB) * 1.2
+            // B's strong beat (the drop, the first verse: where its level and bass jump) when A is gone,
+            // the mix's best moment; a lesser change there still counts.
+            score += dropAt(b, bEnd) * 2.5 + changeNear(b, bEnd, 4 * gb.period * m.beatsPerB) * 0.6
             // Two voices at once.
             score -= voiceClash(a, e.time, e.time + len, b, n.time, bEnd) * bars / 8.0
             // Two loud songs over each other for long: worse than a loud A over a quiet intro.
@@ -137,8 +141,13 @@ object MixPlanner {
 
     private fun fade(a: TrackAnalysis, b: TrackAnalysis, s: Settings, why: String): MixPlan {
         val len = min(s.fadeSec, (a.contentEnd - a.contentStart) / 4)
-        val exit = max(a.contentStart, musicEnd(a) - len * 0.6)
-        return MixPlan(MixPlan.Style.FADE, exit, b.contentStart, len, 1.0, 0, 0.5, 0.1, matchGain(a, b), 0.0, "fade: $why")
+        // On a bar of A (its bars come from the model's beats even without a steady grid), with B's
+        // first downbeat on it when B has one.
+        val target = max(a.contentStart, musicEnd(a) - len * 0.6)
+        val exit = a.barStarts.lastOrNull { it <= target && it >= target - 6 } ?: target
+        val gb = b.head?.takeIf { !b.headDown.isNaN() }
+        val entry = if (gb != null) firstDown(gb, b.headDown, b.contentStart - 0.08) else b.contentStart
+        return MixPlan(MixPlan.Style.FADE, exit, entry, len, 1.0, 0, 0.5, 0.1, matchGain(a, b), 0.0, "fade: $why")
     }
 
     /**
@@ -147,8 +156,9 @@ object MixPlanner {
      */
     private fun exitCues(a: TrackAnalysis, g: Grid): List<Cue> {
         val end = musicEnd(a)
-        val from = max(a.contentStart + (end - a.contentStart) * 0.5, end - 90)
-        val to = end - 2 * g.period
+        // Within the grid's own span (a grid of the last 25 s holds there only).
+        val from = maxOf(a.contentStart + (end - a.contentStart) * 0.5, end - 90, g.first)
+        val to = min(end, g.last) - 2 * g.period
         val out = ArrayList<Cue>()
         val loud = loudLevel(a)
         var t = firstDown(g, a.tailDown, from)
@@ -174,12 +184,31 @@ object MixPlanner {
         return out
     }
 
+    /** B's strong beats in its first minute: downbeats of its grid where it comes in (see [dropAt]). */
+    private fun drops(b: TrackAnalysis, g: Grid): List<Double> {
+        val out = ArrayList<Double>()
+        var t = firstDown(g, b.headDown, b.contentStart + 4 * g.period)
+        while (t < b.contentStart + 60 && t < g.last) { if (dropAt(b, t) >= 0.5) out.add(t); t += 4 * g.period }
+        return out
+    }
+
+    /** Entries that put one of B's strong beats [drops] right at the end of a mix lasting [lengthB] of B's seconds. */
+    private fun dropEntries(b: TrackAnalysis, g: Grid, drops: List<Double>, lengthB: Double): List<Cue> =
+        drops.mapNotNull { d ->
+            val n = d - lengthB
+            if (n < b.contentStart - 0.1) return@mapNotNull null
+            // On B's own downbeat (the mix lasts whole bars of B when the tempos match beat for beat).
+            val down = firstDown(g, b.headDown, n - 2 * g.period)
+            if (abs(down - n) > 0.1 * g.period) null
+            else Cue(down, 1.5 - (down - b.contentStart) / 25.0, String.format("B from %.1f for its strong beat at %.1f", down, d))
+        }
+
     /** B's entry cues: its first downbeat, and phrase starts in its first 32 s (each skip costs). */
     private fun entryCues(b: TrackAnalysis, g: Grid): List<Cue> {
         val first = firstDown(g, b.headDown, b.contentStart - 0.08)
         val out = arrayListOf(Cue(first, 1.0, String.format("B first downbeat %.1f", first)))
         var t = first + 4 * g.period
-        while (t < b.contentStart + 32 && t < b.contentEnd / 3) {
+        while (t < b.contentStart + 32 && t < b.contentEnd / 3 && t < g.last - 8 * g.period) {
             val bar = b.barAt(t + 0.05)
             if (bar >= 0 && b.phrasePos(bar) == 0) {
                 // Skipping a quiet intro is fine, skipping music costs.
@@ -227,6 +256,24 @@ object MixPlanner {
         var n = 0.0
         for (i in max(0, a.barAt(end) + 1) until a.bars) if (a.barDb[i] > loud - 4) n += 1.0
         return n
+    }
+
+    /**
+     * How strongly B "comes in" at [t]: the rise of level and of bass from the 4 bars before the bar
+     * starting nearest [t] (within half a bar) to the 4 after, 0 (none) to 2 (a big drop).
+     */
+    private fun dropAt(b: TrackAnalysis, t: Double): Double {
+        val i = (0 until b.bars).minByOrNull { abs(b.barStarts[it] - t) } ?: return 0.0
+        val bar = if (i + 1 < b.bars) b.barStarts[i + 1] - b.barStarts[i] else 2.0
+        if (abs(b.barStarts[i] - t) > bar / 2 || i < 2) return 0.0
+        fun mean(x: FloatArray, from: Int, to: Int): Double {
+            var s = 0.0; var c = 0
+            for (k in max(0, from) until min(b.bars, to)) { s += 10.0.pow(x[k] / 10.0); c++ }
+            return if (c == 0) -60.0 else 10 * Math.log10(s / c)
+        }
+        val level = mean(b.barDb, i, i + 4) - mean(b.barDb, i - 4, i)
+        val bass = mean(b.barLowDb, i, i + 4) - mean(b.barLowDb, i - 4, i)
+        return ((max(0.0, level) + 0.5 * max(0.0, bass)) / 4.0).coerceIn(0.0, 2.0)
     }
 
     /** A large novelty (a new section) within a bar of [t] in B. */

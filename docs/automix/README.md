@@ -28,7 +28,7 @@ Two Media3 facts shaped the new design (read in Media3 1.8.0, the version the ap
 
 **Analysis** (`base/automix`, pure Kotlin, the same code on the phone and on the desktop bench).
 Each song is decoded once through the player's own data source (downloads decrypted, extension
-streams resolved; streams only on unmetered networks, no DASH answers), to mid and side at 22.05 kHz.
+streams resolved, DASH answers read as one file; streams only on unmetered networks), to mid and side at 22.05 kHz.
 - Onsets: spectral flux on 40 log bands, plus the bands under 150 Hz (kicks, 808s).
 - Beat This! small0 (MIT, int8 ONNX, ONNX Runtime) on the whole song gives the metrical level
   (pure onset autocorrelation hesitates between the beat and ¾ or 4⁄3 of it on trap hi-hats) and
@@ -37,7 +37,9 @@ streams resolved; streams only on unmetered networks, no DASH answers), to mid a
   least squares on the onset peaks), moved onto the model's beats (same instant for every song),
   and checked: the share of beats on the grid, the drift over 8 beats, and the agreement with the
   model. A song made on a fixed tempo gets one grid; otherwise the start and the end get grids of
-  their own where they hold.
+  their own where they hold: over 60–90 s, else 45, else 25 s from the edge (a mix needs no more),
+  fitted on the onsets first, and only then on the model's beats alone (its extra off-beat marks
+  left out; it can be wrong where the onsets are right). When none holds, the journal says why.
 - Bars (downbeats voted by the model near the start and near the end), per-bar level, low and
   high band, voice-band centre (mid over side), novelty (4 bars against the 4 before) and the
   8-bar phrase offset; key (Krumhansl–Kessler on the chroma), loudness, where the sound starts and ends.
@@ -51,7 +53,9 @@ streams resolved; streams only on unmetered networks, no DASH answers), to mid a
 **Planning** (`MixPlanner`): exit cues on A's downbeats in its last minute and a half (phrase starts,
 a level drop after them, late; never past where its music really ends, before a long fade-out),
 entry cues on B's first downbeat or a phrase start in its intro (a skip costs, less over a quiet
-intro); 16, 8, 4 or 2 bars, scored for: B's next section starting when A is gone, A's loud bars
+intro, or the point that puts B's strong beat right at the end of the mix); 16, 12, 8, 6, 4 or 2
+bars, the whole mix inside the span where both grids were checked, scored first for B's strong beat
+(the drop, the first verse: where its level and bass jump) landing when A is gone, then for: A's loud bars
 left out, two voices at once, two loud songs at once, key distance on the Camelot wheel, size of
 the tempo change. Styles:
 - **BLEND** when both grids hold and the tempo change is at most 8 % (half and double time count):
@@ -60,7 +64,8 @@ the tempo change. Styles:
   its top end going down. B louder than A is brought to A's level, then back to its own over 8 s.
 - **CUT** when A has a grid but the tempos are too far apart: B starts whole on A's downbeat (on
   its own first downbeat or a later phrase), A's bass goes at once and A is out within two beats.
-- **FADE** without a grid: 6 s equal power, A's bass out halfway.
+- **FADE** without a grid: 6 s equal power, A's bass out halfway, from a bar of A (its bars come from
+  the model's beats), B on its first downbeat when it has one.
 
 **Playback** (`LocalPlayer`, "AutoMix" part): two decks, no song ever handed from one player to the other.
 - 15 s before the mix the next song is prepared on a second player at its entry point less a
@@ -83,8 +88,17 @@ the tempo change. Styles:
   downbeat: two bars beat-matched (one when two last over 5.5 s), else a cut on the beat, else a
   2.5 s fade; this holds for songs of one album as well. Not ready within 2.5 s: the plain skip. A
   second Next skips at once.
+- At the hand-over the old player keeps its own song alone: at its end it stops (with the queue it
+  went on to the next song by itself, the one the deck plays, from 0:00).
+- The songs ahead are checked every 200 ms: a queue edit (added, removed, moved, "play next")
+  plans the mix again for the new next song and asks for its analysis and the one after it.
 - Seek, previous, a queue change or AutoMix off: the deck is dropped (before the mix) or the song
   coming in plays on at its own speed (during the mix).
+
+## Known problems
+
+- The cover now changes after a mix (the stuck cover came from the hand-over bug fixed on
+  2026-11-03), but its animation during a mix is to be redone.
 
 ## Checking it
 
