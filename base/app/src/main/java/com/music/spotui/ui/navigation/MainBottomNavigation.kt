@@ -138,7 +138,7 @@ fun MainBottomNavigation(navController: NavHostController) {
                     // Large windows: the tabs are in the rail at the side (MainNavigationRail).
                     if (!com.music.spotui.ui.components.windowSize().large) {
                     // Official bar proportions: a 58 dp strip (the gesture inset is added by
-                    // navigationBarsPadding above), three equal thirds edge to edge, so the
+                    // navigationBarsPadding above), equal shares edge to edge, so the
                     // tabs spread over the full width instead of clustering in the middle.
                     Row(
                         modifier = Modifier
@@ -168,7 +168,7 @@ fun MainBottomNavigation(navController: NavHostController) {
     )
 }
 
-private val TabItems = listOf(Routes.Home, Routes.Search, Routes.Library)
+private val TabItems = listOf(Routes.Home, Routes.Search, Routes.Library, Routes.Friends)
 
 /** The tab shown (also on its sub-pages) and what a tap on a tab does; shared by the bar and the rail. */
 private class TabNavigation(private val navController: NavHostController, private val state: androidx.compose.runtime.MutableState<String>, private val currentRoute: String?) {
@@ -293,6 +293,8 @@ private fun RowScope.NavBarTab(
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.2.sp,
                 maxLines = 1,
+                // Four tabs: a long label (Bibliothèque, with large text) shrinks a little instead of being cut.
+                autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 11.sp, stepSize = 0.5.sp),
             )
         }
     }

@@ -83,6 +83,7 @@ class SpotifyApi(
             // direct call asks the page for its current token.
             ready.filter { it }.collect {
                 this@SpotifyApi.http.forgetWebToken()
+                users.forgetUsername()
                 try {
                     player.refresh()
                 } catch (e: kotlinx.coroutines.CancellationException) {

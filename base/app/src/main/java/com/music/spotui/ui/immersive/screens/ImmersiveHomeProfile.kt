@@ -167,10 +167,6 @@ internal fun ImmersiveProfileSheet(onOpen: (route: String) -> Unit, onDismiss: (
             SheetRow(stringResource(R.string.recents_title), stringResource(R.string.recents_detail)) {
                 onOpen(Routes.Recent.route)
             }
-            // What the followed people are listening to (the official Friend Activity feed).
-            SheetRow(stringResource(R.string.friends_title), stringResource(R.string.friends_detail)) {
-                onOpen(Routes.Friends.route)
-            }
             // Third-party extensions: installed, enabled, repositories.
             val extRegistry by com.music.spotui.extensions.Extensions.registry.collectAsState()
             val installed = extRegistry.extensions

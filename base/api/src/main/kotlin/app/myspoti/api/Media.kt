@@ -144,9 +144,11 @@ data class FriendActivity(
     val timestampMs: Long,
     val contextName: String? = null,
     val trackImageUrl: String? = null,
+    /** What the mobile feed says (playing right now or not); null when the feed does not say (the buddylist). */
+    val playing: Boolean? = null,
 ) {
-    /** The official feed shows a friend as listening now for 15 minutes after their last play started. */
-    fun isNowPlaying(nowMs: Long = System.currentTimeMillis()): Boolean = nowMs - timestampMs in 0 until NOW_PLAYING_MS
+    /** The feed's own answer when it gives one, else "listening now" for 15 minutes after the last play started, as the official feed shows it. */
+    fun isNowPlaying(nowMs: Long = System.currentTimeMillis()): Boolean = playing ?: (nowMs - timestampMs in 0 until NOW_PLAYING_MS)
 
     companion object { const val NOW_PLAYING_MS = 15 * 60_000L }
 }

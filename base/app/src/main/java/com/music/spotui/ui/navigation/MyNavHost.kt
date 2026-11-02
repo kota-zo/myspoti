@@ -285,7 +285,7 @@ fun MyNavHost(
     }
 }
 
-private val tabRoutes = setOf(Routes.Home.route, Routes.Search.route, Routes.Library.route)
+private val tabRoutes = setOf(Routes.Home.route, Routes.Search.route, Routes.Library.route, Routes.Friends.route)
 // Full-height sheets over the current page (the official player / queue).
 private val sheetRoutes = setOf(Routes.Player.route, Routes.Queue.route)
 

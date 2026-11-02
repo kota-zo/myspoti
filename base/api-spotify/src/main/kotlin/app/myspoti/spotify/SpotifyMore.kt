@@ -205,6 +205,7 @@ class SpotifyPodcasts(private val gql: Gql, private val bridge: Bridge, private 
 class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val http: SpotifyHttp) : Users {
     internal companion object {
         val BUDDYLIST_HOSTS = listOf("guc-spclient.spotify.com", "spclient.wg.spotify.com")
+        const val LISTENING_FEED_URL = "https://spclient.wg.spotify.com/listening-activity/v1/feed"
 
         /** `/{me}/is-blocking/{user}` on the social graph; both ids are the usernames, never the uris. */
         fun blockUrl(username: String, userUri: Uri): String {
@@ -291,6 +292,9 @@ class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val
     @Volatile private var username: String? = null
     private suspend fun ownUsername(): String = username ?: me().username.also { username = it }
 
+    /** Another page load may be another account: the next [ownUsername] asks again. */
+    internal fun forgetUsername() { username = null }
+
     override suspend fun blockUser(userUri: Uri) = writeBlock("POST", userUri)
     override suspend fun unblockUser(userUri: Uri) = writeBlock("DELETE", userUri)
 
@@ -300,11 +304,63 @@ class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val
     }
 
     /**
+     * The desktop client's buddylist first (below). Only when it is empty or unanswered, the mobile
+     * client's feed, which the page's token reads too: the buddylist came back empty for accounts
+     * whose friends show in the phone app. A buddylist that answers costs no more than before.
+     */
+    override suspend fun friendActivity(): List<FriendActivity> {
+        var failure: Exception? = null
+        try {
+            buddyListActivity().let { if (it.isNotEmpty()) return it }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failure = e
+        }
+        val feed = try {
+            listeningFeedActivity()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failure?.addSuppressed(e)
+            null
+        }
+        // An empty buddylist stays an empty list when the feed does not answer.
+        return feed ?: failure?.let { throw it } ?: emptyList()
+    }
+
+    /**
+     * The mobile client's feed (`listening-activity/v1/feed`, protobuf), or null when it does not
+     * answer 200. It sends uris only, so names, covers and avatars are looked up in two calls.
+     */
+    private suspend fun listeningFeedActivity(): List<FriendActivity>? {
+        val (code, body) = http.sendProto("POST", LISTENING_FEED_URL, proto { varint(1, 1) })
+        if (code != 200) return null
+        val feed = listeningFeed(body)
+        if (feed.isEmpty()) return emptyList()
+        val (entities, avatars) = kotlinx.coroutines.coroutineScope {
+            val names = async { lookupEntities(gql, feed.flatMap { listOfNotNull(it.userUri, it.itemUri, it.contextUri) }) }
+            // Avatars are a nicety: the rows show without them.
+            val pictures = async {
+                try {
+                    lookupAvatars(gql, feed.map { it.userUri })
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+            }
+            names.await() to pictures.await()
+        }
+        return feedActivity(feed, entities, avatars)
+    }
+
+    /**
      * The Web Player's own friend feed is a stub (its BuddyFeedAPI says `isSupported: false`), so
      * this reads the endpoint the desktop client's feed uses, with the page's token: guc-spclient
      * first (the desktop's host), then the generic spclient host.
      */
-    override suspend fun friendActivity(): List<FriendActivity> {
+    private suspend fun buddyListActivity(): List<FriendActivity> {
         var last: Exception? = null
         for (host in BUDDYLIST_HOSTS) {
             try {
