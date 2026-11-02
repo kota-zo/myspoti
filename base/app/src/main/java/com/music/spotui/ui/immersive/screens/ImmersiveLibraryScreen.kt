@@ -197,9 +197,10 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     // The kind and search filters only run again when their inputs change, not on every recomposition.
     // Read through the name, which redraws the screen once the account is known.
     val myId = ProfileCache.name?.let { ProfileCache.id }
-    val (shownEntries, shownArtists) = remember(kind, allEntries, followedArtists, followedShows, searchQuery, myId) {
+    val artistSort = LibraryOrder.sort
+    val (shownEntries, shownArtists) = remember(kind, allEntries, followedArtists, followedShows, searchQuery, myId, artistSort) {
         val (byKind, artists) = LibraryChips.apply(
-            kind, allEntries, followedArtists, LIBRARY_SONG_IDS, myId, followedShows, setOf(Api.HomeCache.EPISODES_ID),
+            kind, allEntries, LibraryOrder.arrangeArtists(followedArtists, artistSort), LIBRARY_SONG_IDS, myId, followedShows, setOf(Api.HomeCache.EPISODES_ID),
         )
         if (searchQuery.isBlank()) byKind to artists
         else byKind.filter {

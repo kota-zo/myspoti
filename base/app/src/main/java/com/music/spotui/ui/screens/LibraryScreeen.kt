@@ -348,8 +348,9 @@ fun LibraryScreen(navController: NavController) {
                         it.name.contains(searchQuery, ignoreCase = true) ||
                         it.subtitle.contains(searchQuery, ignoreCase = true)
                     }
-                val filteredArtists = if (searchQuery.isBlank()) chipArtists
-                    else chipArtists.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                val filteredArtists = LibraryOrder.arrangeArtists(chipArtists, LibraryOrder.sort).let { sorted ->
+                    if (searchQuery.isBlank()) sorted else sorted.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                }
                 // Moving rows only makes sense on the whole list.
                 val movable = searchQuery.isBlank() && chip == com.music.spotui.data.local.LibraryChip.ALL
                 // The Podcasts chip waits for the shows, and says when none is followed or they could not be read (#136).
