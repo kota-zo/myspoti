@@ -679,4 +679,6 @@
     <string name="lan_sonos_consent">To log in %1$s, Spotify asks once for the permission its desktop app uses. Allow it, or close this page. Myspoti only reads the address the page ends on.</string>
     <string name="lan_sonos_refused">%1$s needs a Spotify login Myspoti could not get. Open it once with the Spotify app, then try again.</string>
     <string name="lan_sonos_group">%1$s is grouped with other speakers: pick the group’s main speaker, or ungroup it in the Sonos app.</string>
+    <string name="voice_search">Search by voice</string>
+    <string name="voice_search_unavailable">Voice search needs the Google app installed</string>
 </resources>

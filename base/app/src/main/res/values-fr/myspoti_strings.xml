@@ -678,4 +678,6 @@
     <string name="lan_sonos_consent">Pour connecter %1$s, Spotify demande une fois l’autorisation qu’utilise son application de bureau. Autorisez-la ou fermez cette page. Myspoti ne lit que l’adresse sur laquelle la page se termine.</string>
     <string name="lan_sonos_refused">%1$s demande une connexion Spotify que Myspoti n’a pas pu obtenir. Ouvrez-le une fois avec l’application Spotify, puis réessayez.</string>
     <string name="lan_sonos_group">%1$s est groupé avec d’autres enceintes : choisissez l’enceinte principale du groupe, ou dégroupez-le dans l’application Sonos.</string>
+    <string name="voice_search">Rechercher par la voix</string>
+    <string name="voice_search_unavailable">La recherche vocale nécessite l\'application Google</string>
 </resources>

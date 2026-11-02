@@ -688,4 +688,6 @@
     <string name="lan_sonos_consent">Aby zalogować %1$s, Spotify raz prosi o zgodę, z której korzysta jego aplikacja na komputer. Zezwól na nią lub zamknij tę stronę. Myspoti odczytuje tylko adres, na którym kończy się strona.</string>
     <string name="lan_sonos_refused">%1$s wymaga logowania Spotify, którego Myspoti nie mógł uzyskać. Otwórz go raz w aplikacji Spotify i spróbuj ponownie.</string>
     <string name="lan_sonos_group">%1$s jest zgrupowany z innymi głośnikami: wybierz główny głośnik grupy albo rozgrupuj go w aplikacji Sonos.</string>
+    <string name="voice_search">Szukaj głosowo</string>
+    <string name="voice_search_unavailable">Wyszukiwanie głosowe wymaga aplikacji Google</string>
 </resources>

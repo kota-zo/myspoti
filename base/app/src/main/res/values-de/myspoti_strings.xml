@@ -673,4 +673,6 @@
     <string name="lan_sonos_consent">Um %1$s anzumelden, fragt Spotify einmal nach der Erlaubnis, die seine Desktop-App nutzt. Erlaube sie oder schließe diese Seite. Myspoti liest nur die Adresse, auf der die Seite endet.</string>
     <string name="lan_sonos_refused">%1$s braucht eine Spotify-Anmeldung, die Myspoti nicht bekommen hat. Öffne es einmal mit der Spotify-App und versuche es erneut.</string>
     <string name="lan_sonos_group">%1$s ist mit anderen Lautsprechern gruppiert: Wähle den Hauptlautsprecher der Gruppe oder hebe die Gruppierung in der Sonos-App auf.</string>
+    <string name="voice_search">Sprachsuche</string>
+    <string name="voice_search_unavailable">Für die Sprachsuche wird die Google-App benötigt</string>
 </resources>

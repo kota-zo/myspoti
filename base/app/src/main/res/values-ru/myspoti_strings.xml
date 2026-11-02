@@ -688,4 +688,6 @@
     <string name="lan_sonos_consent">Чтобы подключить %1$s, Spotify один раз запрашивает разрешение, которое использует его приложение для компьютера. Разрешите его или закройте эту страницу. Myspoti читает только адрес, на котором заканчивается страница.</string>
     <string name="lan_sonos_refused">%1$s требует входа в Spotify, который Myspoti не удалось получить. Откройте его один раз в приложении Spotify и повторите попытку.</string>
     <string name="lan_sonos_group">%1$s сгруппирован с другими колонками: выберите главную колонку группы или разгруппируйте его в приложении Sonos.</string>
+    <string name="voice_search">Голосовой поиск</string>
+    <string name="voice_search_unavailable">Для голосового поиска нужно приложение Google</string>
 </resources>

@@ -673,4 +673,6 @@
     <string name="lan_sonos_consent">Για να συνδεθεί η συσκευή %1$s, το Spotify ζητά μία φορά την άδεια που χρησιμοποιεί η εφαρμογή του για υπολογιστή. Επιτρέψτε την ή κλείστε αυτή τη σελίδα. Το Myspoti διαβάζει μόνο τη διεύθυνση στην οποία καταλήγει η σελίδα.</string>
     <string name="lan_sonos_refused">Η συσκευή %1$s χρειάζεται μια σύνδεση Spotify που το Myspoti δεν μπόρεσε να πάρει. Ανοίξτε την μία φορά με την εφαρμογή Spotify και δοκιμάστε ξανά.</string>
     <string name="lan_sonos_group">Η συσκευή %1$s είναι σε ομάδα με άλλα ηχεία: επιλέξτε το κύριο ηχείο της ομάδας ή καταργήστε την ομάδα στην εφαρμογή Sonos.</string>
+    <string name="voice_search">Φωνητική αναζήτηση</string>
+    <string name="voice_search_unavailable">Η φωνητική αναζήτηση χρειάζεται την εφαρμογή Google</string>
 </resources>
