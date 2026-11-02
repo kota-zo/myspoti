@@ -752,14 +752,27 @@ object Extensions {
     private fun startingDownloadSource(): Boolean =
         !started.isCompleted && _registry.value.extensions.any { it.enabled && Action.DOWNLOAD_SOURCE.key in it.granted }
 
+    /** One extension's answer for a download: its files, best first as it gave them. */
+    class DownloadOffer(val extensionId: String, val name: String, val files: List<DownloadFile>)
+
     /**
-     * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
-     * from the first extension (priority order) that has any, with that extension's id and name.
-     * A source set aside for a while ([SourceCooldown]) is not asked. Null when every source asked said it
-     * does not have the song; [NotAnswering] when none had it and one could not answer (busy, a timeout,
-     * set aside) or was not asked (its `status` said inactive, still starting: [downloadNotAsked]).
+     * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`): every
+     * download extension is asked at once, and [use] gets their answers in rounds
+     * ([HookDispatch.inRounds]): the ones that fit [quality] best first ([fit], up to [bestFit]),
+     * ties in the user's order, until it saves a file (non-null). A slow extension holds a round
+     * back for [graceMs] at most once another has answered; its answer still comes in a later
+     * round. A source set aside for a while ([SourceCooldown]) is not asked. Null when every source asked said it
+     * does not have the song, or [use] took none of their files; [NotAnswering] when none had it and one could not
+     * answer (busy, a timeout, set aside) or was not asked (its `status` said inactive, still starting: [downloadNotAsked]).
      */
-    suspend fun downloadFiles(track: TrackInfo, quality: String): Triple<String, String, List<DownloadFile>>? {
+    suspend fun <T : Any> download(
+        track: TrackInfo,
+        quality: String,
+        fit: (List<DownloadFile>) -> Int,
+        bestFit: Int,
+        graceMs: (bestSoFar: Int) -> Long,
+        use: suspend (List<DownloadOffer>) -> T?,
+    ): T? {
         if (!isReady) throw NotAnswering("extensions not started yet")
         // Asked right after launch (downloads resumed from the last session): the extensions still
         // loading are waited for, rather than the song marked unavailable for want of a source.
@@ -771,12 +784,20 @@ object Extensions {
         val input = DownloadQuery.toJson(track, quality)
         probeStale(Hook.DOWNLOAD_SOURCE)
         val answers = ConcurrentHashMap<String, Outcome>()
-        val found = HookDispatch.firstInOrder(available(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->
-            val a = ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }
-            answers[id] = a.outcome
-            a.value
+        var offered = false
+        val taken = HookDispatch.inRounds(
+            available(Hook.DOWNLOAD_SOURCE),
+            ask = { (id, rt) ->
+                val a = ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }
+                answers[id] = a.outcome
+                a.value?.also { files -> log(id, "download files for ${track.title} ($quality, ${a.ms} ms): ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}") }
+            },
+            fit = fit, bestFit = bestFit, graceMs = graceMs,
+        ) { round ->
+            offered = true
+            use(round.map { (c, files) -> DownloadOffer(c.first, c.second.manifest.name, files) })
         }
-        if (found == null) {
+        if (taken == null && !offered) {
             // A source that could not answer (busy, a timeout, a rate limit, set aside) has not said the song is not
             // there, nor has one on that was not asked: told apart from "no source has it", so the song is retried
             // instead of marked unavailable.
@@ -789,11 +810,12 @@ object Extensions {
                 throw NotAnswering(why, silent.map { (id, _) -> manifest(id)?.name ?: id }.distinct())
             }
         }
-        return found?.let { (c, files) ->
-            log(c.first, "download files for ${track.title}: ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}")
-            did(Area.AUDIO, c.first, "Download of ${track.title} from ${c.second.manifest.name}")
-            Triple(c.first, c.second.manifest.name, files)
-        }
+        return taken
+    }
+
+    /** [extensionId]'s file of [title] was saved: shown in its activity. */
+    fun downloaded(extensionId: String, title: String) {
+        did(Area.AUDIO, extensionId, "Download of $title from ${manifest(extensionId)?.name ?: extensionId}")
     }
 
     /**

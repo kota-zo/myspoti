@@ -31,6 +31,50 @@ class HookDispatchTest {
         assertNull(HookDispatch.firstInOrder(emptyList<String>()) { "x" })
     }
 
+    @Test fun aRoundTheUseRefusesGivesTheTurnToTheOthers() = runBlocking {
+        val rounds = mutableListOf<List<String>>()
+        val r = HookDispatch.inRounds(listOf("a", "b", "c"), ask = { c -> when (c) { "a" -> "from a"; "b" -> { delay(200); "from b" }; else -> null } },
+            fit = { 1 }, bestFit = 1, graceMs = { 1_000 }) { round ->
+            rounds += round.map { it.first }
+            round.firstOrNull { it.first == "b" }?.second
+        }
+        assertEquals("from b", r)
+        assertEquals(listOf(listOf("a"), listOf("b")), rounds)
+    }
+
+    @Test fun theBestFitGoesFirstThenTheOrder() = runBlocking {
+        val r = HookDispatch.inRounds(listOf("a", "b", "c"), ask = { c -> c }, fit = { if (it == "c") 3 else 1 },
+            bestFit = 3, graceMs = { 1_000 }) { round -> round.map { it.first } }
+        assertEquals(listOf("c", "a", "b"), r)
+    }
+
+    @Test fun aSlowCandidateIsWaitedForOnlyItsGraceThenComesNext() = runBlocking {
+        val rounds = mutableListOf<List<String>>()
+        val started = System.currentTimeMillis()
+        val r = HookDispatch.inRounds(listOf("slow", "quick"), ask = { c -> if (c == "slow") { delay(1_500); "slow" } else "quick" },
+            fit = { 1 }, bestFit = 2, graceMs = { 300 }) { round ->
+            rounds += round.map { it.first }
+            round.firstOrNull { it.first == "slow" }?.second
+        }
+        assertEquals("slow", r)
+        assertEquals(listOf(listOf("quick"), listOf("slow")), rounds)
+        assertTrue(System.currentTimeMillis() - started < 3_000)
+    }
+
+    @Test fun theBestFitStartsWithoutWaitingTheGraceOnceThoseAboveAnswered() = runBlocking {
+        val started = System.currentTimeMillis()
+        val r = HookDispatch.inRounds(listOf("a", "b", "late"), ask = { c -> if (c == "late") { delay(5_000); c } else c },
+            fit = { if (it == "b") 3 else 1 }, bestFit = 3, graceMs = { 4_000 }) { round -> round.first().first }
+        assertEquals("b", r)
+        assertTrue(System.currentTimeMillis() - started < 2_000)
+    }
+
+    @Test fun noAnswerAtAllIsNullWithoutARound() = runBlocking {
+        var used = false
+        assertNull(HookDispatch.inRounds(listOf("a", "b"), ask = { null as String? }, fit = { 1 }, bestFit = 1, graceMs = { 100 }) { used = true; "x" })
+        assertTrue(!used)
+    }
+
     @Test fun theOthersAreNotWaitedForOnceTheFirstAnswers() = runBlocking {
         val started = System.currentTimeMillis()
         val r = HookDispatch.firstInOrder(listOf("a", "b")) { c -> if (c == "a") "quick" else { delay(5_000); "slow" } }

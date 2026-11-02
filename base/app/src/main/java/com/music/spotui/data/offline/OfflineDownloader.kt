@@ -340,7 +340,10 @@ object OfflineDownloader {
                 OfflineTrack(
                     trackId = r.trackId, title = meta.title, artist = meta.artist, album = meta.album,
                     albumId = meta.albumId, durationMs = meta.durationMs, coverUrl = meta.coverUrl,
-                    file = out.name, cover = cover, source = file.provider, verified = file.isrcMatched,
+                    file = out.name, cover = cover,
+                    source = if (quality == com.music.spotui.data.preferences.DownloadQuality.SMALL && file.lossy == null)
+                        "${providerWithoutQuality(file.providerName)} AAC ${AacTranscoder.BITRATE / 1000} kbit/s" else file.provider,
+                    verified = file.isrcMatched,
                     bytes = out.length(), addedAt = System.currentTimeMillis(), providerId = file.extensionId,
                     extensionQuality = com.music.spotui.extensions.Extensions.qualityLine(file.extensionId, app.myspoti.extensions.SettingSection.DOWNLOADS),
                 )
@@ -357,6 +360,8 @@ object OfflineDownloader {
         val extensionId: String,
         /** The extension of a lossy file kept as served (m4a, mp3); null for a FLAC. */
         val lossy: String? = null,
+        /** Source name before the measured quality is appended (encoding may change it). */
+        val providerName: String = provider,
     )
 
     /** This download's quality: the one chosen when it started, else Settings (CD when Settings says "ask"). */
@@ -374,77 +379,114 @@ object OfflineDownloader {
 
     /**
      * Asks the download-source extensions for [meta]'s files and saves the first one that works
-     * into [out]. Unavailable when no extension has a file, or none of them could be used.
+     * into [out]: all of them are asked at once, and their files are tried best fit to [quality]
+     * first ([downloadFit]; ties: the exact recording, then the user's order, then the order the
+     * extension gave). When none of a round's files can be used, the extensions that answered
+     * meanwhile are tried. Unavailable when no extension has a file, or none of them could be used.
      */
     private suspend fun resolveAndFetch(r: Request, meta: Meta, out: File, quality: com.music.spotui.data.preferences.DownloadQuality): Fetched {
         val track = com.music.spotui.extensions.Extensions.trackInfo(r.trackId, meta.title, meta.artist, meta.album, meta.durationMs, meta.coverUrl)
             .copy(isrc = meta.isrc)
-        val (extensionId, extension, files) = com.music.spotui.extensions.Extensions.downloadFiles(track, queryQuality(quality))
-            ?: throw Unavailable("no download source has this song")
+        val seen = mutableListOf<String>()
+        var tried = 0
         // The last error of a file that could not be fetched (not refused or failed a check): the song is then
         // a download that failed and can be tried again, not a recording that was not found.
         var fetchError: Exception? = null
-        for (file in files) {
-            currentCoroutineContext().ensureActive()
-            setStatus(r.trackId, OfflineStatus.Downloading(-1f))
-            val label = listOfNotNull(file.provider ?: extension, file.bitDepth?.takeIf { file.lossless }?.let { "$it-bit" }).joinToString(" ")
-            val ok = try {
-                when {
-                    file.format == "dash-flac" -> runInterruptible(Dispatchers.IO) {
-                        DashFlacRemux.download("data:application/dash+xml;base64,${file.manifest}", out, file.headers)
-                    }
-                    else -> fetchWithProgress(r.trackId, file.url!!, out, file.headers)
-                } && out.length() >= 10_000 && runInterruptible(Dispatchers.IO) {
-                    file.transform?.let { spec ->
-                        val staged = File.createTempFile("download-transform-", ".partial", out.parentFile)
-                        try {
-                            out.inputStream().use { input -> staged.outputStream().use { output ->
-                                app.myspoti.extensions.PatternedBlowfish.transform(input, output, spec)
-                            } }
-                            if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException("transform cancelled")
-                            java.nio.file.Files.move(staged.toPath(), out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                        } finally { staged.delete() }
-                    }
-                    true
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "${meta.title}: $label ${file.format}: ${e.message}")
-                if (e !is app.myspoti.extensions.ExtensionMediaHttp.Refused && !app.myspoti.extensions.SafeNet.isRefusal(e)) fetchError = e
-                false
+        val fetched = com.music.spotui.extensions.Extensions.download(
+            track, queryQuality(quality),
+            fit = { files -> files.maxOf { downloadFit(quality, it) } },
+            bestFit = BEST_FIT,
+            graceMs = { best -> if (best >= BEST_FIT) GRACE_BEST_MS else GRACE_MS },
+        ) { offers ->
+            seen += offers.map { it.name }
+            val files = downloadOrder(quality, offers.map { it.files })
+            Log.i(TAG, "${meta.title}: trying ${files.size} files from ${offers.joinToString { it.name }}")
+            files.firstNotNullOfOrNull { (i, file) ->
+                tried++
+                fetchOne(r, meta, out, file, offers[i].extensionId, offers[i].name) { fetchError = it }
             }
-            if (!ok) continue
-            val refused = runCatching {
-                if (file.lossless) checkFlacHeader(out, meta, file.bitDepth) else checkAudio(out, meta)
-            }.exceptionOrNull()
-            if (refused != null) { Log.i(TAG, "${meta.title}: $label: ${refused.message}"); continue }
-            if (!file.lossless) {
-                Log.i(TAG, "${meta.title}: saved $label ${file.format}")
-                return Fetched(label, file.isrcMatched, extensionId, lossy = file.format)
-            }
-            Log.i(TAG, "${meta.title}: saved FLAC from $label")
-            return Fetched(label, file.isrcMatched, extensionId)
         }
-        fetchError?.let { throw IOException("none of the ${files.size} files from $extension could be fetched: ${it.message}", it) }
-        throw Unavailable("none of the ${files.size} files from $extension could be used")
+        if (fetched != null) {
+            com.music.spotui.extensions.Extensions.downloaded(fetched.extensionId, meta.title)
+            return fetched
+        }
+        if (seen.isEmpty()) throw Unavailable("no download source has this song")
+        fetchError?.let { throw IOException("none of the $tried files from ${seen.joinToString()} could be fetched: ${it.message}", it) }
+        throw Unavailable("none of the $tried files from ${seen.joinToString()} could be used")
+    }
+
+    /**
+     * [file] saved into [out] and checked, or null when it could not be fetched or is not the song
+     * ([onFetchError] hears of a failure that is not a refusal).
+     */
+    private suspend fun fetchOne(
+        r: Request, meta: Meta, out: File, file: app.myspoti.extensions.DownloadFile, extensionId: String, extension: String,
+        onFetchError: (Exception) -> Unit,
+    ): Fetched? {
+        currentCoroutineContext().ensureActive()
+        setStatus(r.trackId, OfflineStatus.Downloading(-1f))
+        val provider = file.provider ?: extension
+        var label = provider
+        val ok = try {
+            when {
+                file.format == "dash-flac" -> runInterruptible(Dispatchers.IO) {
+                    DashFlacRemux.download("data:application/dash+xml;base64,${file.manifest}", out, file.headers)
+                }
+                else -> fetchWithProgress(r.trackId, file.url!!, out, file.headers)
+            } && out.length() >= 10_000 && runInterruptible(Dispatchers.IO) {
+                file.transform?.let { spec ->
+                    val staged = File.createTempFile("download-transform-", ".partial", out.parentFile)
+                    try {
+                        out.inputStream().use { input -> staged.outputStream().use { output ->
+                            app.myspoti.extensions.PatternedBlowfish.transform(input, output, spec)
+                        } }
+                        if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException("transform cancelled")
+                        java.nio.file.Files.move(staged.toPath(), out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    } finally { staged.delete() }
+                }
+                true
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "${meta.title}: $label ${file.format}: ${e.message}")
+            if (e !is app.myspoti.extensions.ExtensionMediaHttp.Refused && !app.myspoti.extensions.SafeNet.isRefusal(e)) onFetchError(e)
+            false
+        }
+        if (!ok) return null
+        val refused = runCatching {
+            if (file.lossless) {
+                val actual = checkFlacHeader(out, meta)
+                label = downloadSourceLabel(provider, actual)
+                if (file.bitDepth != null && file.bitDepth != actual.bitDepth)
+                    Log.i(TAG, "${meta.title}: source labelled ${file.bitDepth}-bit, file is ${actual.bitDepth}-bit")
+            } else checkAudio(out, meta)
+        }.exceptionOrNull()
+        if (refused != null) { Log.i(TAG, "${meta.title}: $label: ${refused.message}"); return null }
+        if (!file.lossless) {
+            Log.i(TAG, "${meta.title}: saved $label ${file.format}")
+            return Fetched(label, file.isrcMatched, extensionId, lossy = file.format)
+        }
+        Log.i(TAG, "${meta.title}: saved FLAC from $label")
+        return Fetched(label, file.isrcMatched, extensionId, providerName = provider)
     }
 
     /**
      * A STREAMINFO read on the saved file: anything that is not a FLAC file (an encrypted or
      * AAC stream) is refused, a preview or another cut is caught (the header states the real
-     * length), and a misplaced 24-bit label shows up in the log.
+     * length). Bit depth and sample rate come from the file, not the extension's label.
      */
-    private fun checkFlacHeader(file: File, meta: Meta, bitDepth: Int?) {
-        val seconds = runCatching {
+    private fun checkFlacHeader(file: File, meta: Meta): FlacStreamInfo {
+        val actual = runCatching {
             file.inputStream().use { s ->
                 val head = ByteArray(42); var off = 0
                 while (off < head.size) { val n = s.read(head, off, head.size - off); if (n < 0) break; off += n }
-                flacDurationSec(head)
+                flacStreamInfo(head.copyOf(off))
             }
         }.getOrNull() ?: throw Unavailable("the source did not send a FLAC file")
-        checkLength(seconds.toLong(), meta)
-        Log.d(TAG, "${meta.title}: FLAC ${seconds}s header check, labelled ${bitDepth ?: "-"}-bit")
+        checkLength(actual.durationSeconds, meta)
+        Log.d(TAG, "${meta.title}: FLAC ${actual.durationSeconds}s, ${actual.bitDepth}-bit, ${actual.sampleRate} Hz")
+        return actual
     }
 
     /** An M4A / MP3 as served: the phone's own extractor must find an audio track of the song's length. */
@@ -629,17 +671,72 @@ object OfflineDownloader {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-    /** Length from a FLAC STREAMINFO header, or null if [head] is not one. */
-    internal fun flacDurationSec(head: ByteArray): Int? {
-        if (head.size < 26 || String(head, 0, 4, Charsets.US_ASCII) != "fLaC") return null
+    internal data class FlacStreamInfo(val sampleRate: Int, val bitDepth: Int, val channels: Int, val totalSamples: Long) {
+        val durationSeconds: Long get() = totalSamples / sampleRate
+    }
+
+    /** The first metadata block must be the complete, 34-byte FLAC STREAMINFO block. */
+    internal fun flacStreamInfo(head: ByteArray): FlacStreamInfo? {
+        if (head.size < 42 || String(head, 0, 4, Charsets.US_ASCII) != "fLaC") return null
+        if ((head[4].toInt() and 0x7F) != 0 || head[5] != 0.toByte() || head[6] != 0.toByte() || head[7] != 34.toByte()) return null
         // Bytes 18..25: sample rate (20 bits), channels (3), bits/sample (5), total samples (36).
         var bits = 0L
         for (i in 18..25) bits = (bits shl 8) or (head[i].toLong() and 0xFF)
         val sampleRate = (bits ushr 44).toInt()
+        val channels = ((bits ushr 41) and 7).toInt() + 1
+        val bitDepth = ((bits ushr 36) and 31).toInt() + 1
         val totalSamples = bits and 0xFFFFFFFFFL
-        if (sampleRate <= 0 || totalSamples <= 0) return null
-        return (totalSamples / sampleRate).toInt()
+        if (sampleRate !in 1..768_000 || bitDepth !in 4..32 || totalSamples <= 0) return null
+        return FlacStreamInfo(sampleRate, bitDepth, channels, totalSamples)
     }
+
+    /** Length from a checked FLAC STREAMINFO header. */
+    internal fun flacDurationSec(head: ByteArray): Int? = flacStreamInfo(head)?.durationSeconds?.toInt()
+
+    /** Strip descriptive quality suffixes before appending what the file actually contains. */
+    internal fun providerWithoutQuality(provider: String): String = provider.trim()
+        .replace(Regex("(?i)(?:\\s+(?:\\d{1,2}\\s*-?\\s*bit|hi[- ]?res))+$"), "").trim()
+
+    internal fun downloadSourceLabel(provider: String, actual: FlacStreamInfo): String {
+        val rate = if (actual.sampleRate % 1000 == 0) (actual.sampleRate / 1000).toString()
+            else "%.1f".format(java.util.Locale.ROOT, actual.sampleRate / 1000.0)
+        return "${providerWithoutQuality(provider)} ${actual.bitDepth}-bit · $rate kHz"
+    }
+
+    /** The best [downloadFit]. */
+    internal const val BEST_FIT = 3
+    /** How long the best fit waits for the extensions above it, once it is in. */
+    private const val GRACE_BEST_MS = 2_000L
+    /** How long a lesser fit waits for a better one from a slower extension. */
+    private const val GRACE_MS = 8_000L
+
+    /**
+     * How well [file] fits [quality], up to [BEST_FIT]: hi-res wants more than 16-bit or 48 kHz,
+     * CD a 16-bit FLAC (a bigger one next), small a file kept as served (a FLAC is encoded to AAC
+     * on the phone). A lossy file for CD or hi-res comes last, but is still kept as served.
+     */
+    internal fun downloadFit(quality: com.music.spotui.data.preferences.DownloadQuality, file: app.myspoti.extensions.DownloadFile): Int = when (quality) {
+        com.music.spotui.data.preferences.DownloadQuality.SMALL -> if (file.lossless) 2 else 3
+        com.music.spotui.data.preferences.DownloadQuality.HI_RES -> when {
+            !file.lossless -> 1
+            (file.bitDepth ?: 0) > 16 || (file.sampleRate ?: 0) > 48_000 -> 3
+            else -> 2
+        }
+        else -> when {
+            !file.lossless -> 1
+            (file.bitDepth ?: 16) > 16 -> 2
+            else -> 3
+        }
+    }
+
+    /**
+     * The files of a round's [offers] (best first, as [Extensions.download] gave them) in the
+     * order they are tried, each with its offer's index: best fit, then the exact recording
+     * (found by ISRC), then the offers' order, then each extension's own order.
+     */
+    internal fun downloadOrder(quality: com.music.spotui.data.preferences.DownloadQuality, offers: List<List<app.myspoti.extensions.DownloadFile>>): List<Pair<Int, app.myspoti.extensions.DownloadFile>> =
+        offers.flatMapIndexed { i, files -> files.map { i to it } }
+            .sortedWith(compareByDescending<Pair<Int, app.myspoti.extensions.DownloadFile>> { downloadFit(quality, it.second) }.thenByDescending { it.second.isrcMatched })
 
     /** Why a file of [seconds] is not the song of [durationMs], or null when it is (or the song's length is unknown). */
     internal fun lengthMismatch(seconds: Long, durationMs: Long): String? {

@@ -268,7 +268,7 @@
     <string name="downloads_off_toast">Загрузки отключены. Включите их в настройках.</string>
     <string name="quality_streaming_high_detail">160 кбит/с, лучший звук</string>
     <string name="quality_download_small">Наименьшее</string>
-    <string name="quality_download_small_detail">AAC 96 кбит/с, самое лёгкое: около 3 МБ на трек</string>
+    <string name="quality_download_small_detail">Небольшой файл источника или AAC 96 кбит/с после конвертации; размер может отличаться</string>
     <string name="settings_solid_nav_title">Сплошная нижняя панель</string>
     <string name="settings_solid_nav_detail">Чёрный фон под вкладками вместо затухания поверх списка</string>
     <string name="quality_download_ask">Спрашивать каждый раз</string>

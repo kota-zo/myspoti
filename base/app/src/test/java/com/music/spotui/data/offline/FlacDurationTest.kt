@@ -9,11 +9,13 @@ class FlacDurationTest {
     private fun fakeFlac(sampleRate: Int = 44_100, samples: Long = sampleRate * 200L): ByteArray {
         val head = ByteArray(42)
         "fLaC".toByteArray().copyInto(head)
+        head[4] = 0x80.toByte() // last metadata block, STREAMINFO
+        head[7] = 34
         // STREAMINFO fields a real FLAC carries, packed as the parser expects:
         // 20 bits sample rate | 3 channels | 5 bits/sample | 36-bit total samples.
         val packed = (sampleRate.toLong() and 0xFFFFF) shl 44 or
-            (2L shl 41) or // stereo
-            (16L shl 36) or ((samples and 0xFFFFFFFFL))
+            (1L shl 41) or // stereo (channels - 1)
+            (15L shl 36) or ((samples and 0xFFFFFFFFL))
         for (i in 0 until 8) head[18 + i] = (packed ushr (56 - 8 * i)).toByte()
         return head
     }

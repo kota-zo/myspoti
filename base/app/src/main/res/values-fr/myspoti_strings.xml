@@ -292,7 +292,7 @@
     <string name="downloads_off_toast">Les téléchargements sont désactivés. Activez-les dans les Réglages.</string>
     <string name="quality_streaming_high_detail">160 kbit/s, le meilleur son</string>
     <string name="quality_download_small">La plus légère</string>
-    <string name="quality_download_small_detail">AAC 96 kbit/s, le minimum : environ 3 Mo par titre</string>
+    <string name="quality_download_small_detail">Petit fichier de la source, ou AAC 96 kbit/s après conversion ; taille variable</string>
     <string name="settings_solid_nav_title">Barre du bas opaque</string>
     <string name="settings_solid_nav_detail">Noire derrière les onglets, au lieu d\'un fondu sur la liste</string>
     <string name="quality_download_ask">Demander à chaque fois</string>

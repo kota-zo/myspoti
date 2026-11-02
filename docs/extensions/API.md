@@ -255,7 +255,7 @@ player.buttons action in the manifest`):
 
 The lyrics, song details, Home, search, menu and player hooks are **additive**: every extension is
 asked, the answers merged in the area's order (lyrics: the best, ties to the higher one). Audio and
-downloads are **ordered**: asked one after the other in the user's order until one answers (section 4.2). Registering twice replaces. Returning
+downloads are **ordered**: asked one after the other in the user's order until one answers (section 4.2); for downloads the file that fits the quality best goes first (`download-source` below). Registering twice replaces. Returning
 `null`/`undefined` means "no answer": the app goes on without this extension. A throw is a
 failure (recorded as the extension's last error, shown on its page; 3 in a row turn it off). A
 timeout, or an `http` error your script did not catch (DNS, connection, timeout), is a **network**
@@ -418,13 +418,17 @@ described by one `SegmentTemplate` with `initialization`, `media` using `$Number
 `SegmentTimeline`; Myspoti fetches the segments with your `headers` and joins them into one FLAC
 file. Anything else a service needs (another manifest layout, decryption, an API call per
 segment, a token refresh) is yours to do: hand over a plain file `url`, or a manifest in that form.
-Myspoti tries the files in your order and keeps the first that passes the checks: a FLAC must be
+Myspoti keeps the first file that passes the checks: a FLAC must be
 a real FLAC file (its header is read), an `m4a` or `mp3` must hold an audio track the phone can
 read, and the length must be the song's (Spotify's duration): not shorter by more than 5 s
 (previews are refused) nor longer by more than 15 s (another version). `m4a` and `mp3` are kept as
-served. A format outside the list, a private address or a missing `format` is an error. The
-extensions are asked in the user's order for downloads (section 4.2); the first one that answers
-wins. Time limit: 30 s (the desktop runner: the same).
+served. A format outside the list, a private address or a missing `format` is an error. All
+download extensions are asked at once; their files are tried best fit to `quality` first (hi-res:
+more than 16-bit or 48 kHz; cd: a 16-bit FLAC; small: a file kept as served), then a file found by
+ISRC, then the user's order for downloads (section 4.2), then your own order. When none of them can
+be used, the files of the extensions that answered later are tried. Once one extension has
+answered, a slower one is waited for 2 s (8 s when nothing fits the quality yet); its files still
+come next if needed. Time limit: 30 s (the desktop runner: the same).
 
 ### `status`
 
@@ -794,7 +798,7 @@ A script that throws while loading fails to load, with `file:line` in the messag
 | `myspoti.apiVersion` | `1`. |
 | `myspoti.locale` | The language Myspoti shows, as a BCP 47 tag: `"fr"`, `"pt-BR"`, `"zh-TW"`. Below. |
 | `myspoti.extension` | `{ id, name, version }` from the manifest. |
-| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
+| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `util.sleep`, `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
 | `myspoti.provide(hook, fn)` | Section 3. |
 | `myspoti.on('track' \| 'playback', fn)` | Section 3. Needs `playback.events`. |
 | `myspoti.on('auth', fn)` | Section 3, sign in. Needs `webview.auth`. |
@@ -820,6 +824,7 @@ A script that throws while loading fails to load, with `file:line` in the messag
 | `myspoti.util.base64Encode(s)` / `base64Decode(s)` | UTF-8 text. Decode throws on bad input. |
 | `myspoti.util.md5(s)`, `sha1(s)`, `sha256(s)` | Lower-case hex. |
 | `myspoti.util.hmacSha256(key, text)` | Lower-case hex. |
+| `myspoti.util.sleep(ms)` | Synchronous backoff on the extension thread, with no permission required. `ms` must be a finite, non-negative integer; values above 2000 are capped to 2000 ms. Returns `undefined`. Counts against the current hook/event time limit and stops on cancellation. An older host has no method: check `myspoti.util && typeof myspoti.util.sleep === 'function'` or the `util.sleep` feature before use. |
 
 `myspoti.locale` needs no action. It is the language picked in Myspoti's settings, or the
 phone's when the app follows the phone, so it is never empty. It is read again each time you
@@ -1260,6 +1265,7 @@ is. `playlists.setCover` takes a JPEG as base64.
 | Script work | Checked every 5000 instructions against the call's time; a loop cannot hold the thread. A call that runs over is abandoned, and it cannot be caught by `try/catch`. The next call waits behind it on the extension's own thread, never on the app's. |
 | Recursion | 800 interpreter frames |
 | Time spent waiting for the user to confirm | Not counted |
+| `myspoti.util.sleep(ms)` | At most 2000 ms per call, counted in the current hook/event budget; never extends its deadline |
 | `myspoti.http` | 120 requests/min, 5 MB per response, 20 s per request, https only; `http.all`: 4 at once |
 | `myspoti.spotify` | 60 calls/min, 256 KB of arguments, 1000 items per list, 2 MB per answer |
 | `myspoti.attest` | `sign` 120/min and 64 KB of text; `enroll` 5/hour and a challenge of 128 bytes |

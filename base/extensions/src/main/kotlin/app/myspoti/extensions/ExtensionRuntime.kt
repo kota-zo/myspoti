@@ -644,6 +644,20 @@ class ExtensionRuntime(
     }
 
     private fun util(op: String, input: String): String = when (op) {
+        "sleep" -> {
+            val millis = input.toLongOrNull()?.takeIf { it >= 0 }?.coerceAtMost(MAX_SLEEP_MS)
+                ?: throw error("util.sleep: a non-negative integer number of milliseconds")
+            // A backoff is the script's time, unlike waiting for the user to confirm an action.
+            if (millis >= leftMs()) throw TimeLimit()
+            try {
+                host.sleep(millis)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw TimeLimit() // Neither close nor timeout may be swallowed by JS try/catch.
+            }
+            leftMs() // Also enforce the deadline if scheduling delayed the wake-up.
+            ""
+        }
         "base64Encode" -> java.util.Base64.getEncoder().encodeToString(input.toByteArray())
         "base64Decode" -> runCatching { String(java.util.Base64.getDecoder().decode(input)) }.getOrElse { throw error("base64Decode: not base64") }
         "md5" -> hex(MessageDigest.getInstance("MD5").digest(input.toByteArray()))
@@ -694,6 +708,8 @@ class ExtensionRuntime(
         const val MAX_NOTIFY_PER_HOUR = 5
         /** `http.all`: the most requests sent together. */
         const val MAX_PARALLEL = 4
+        /** `util.sleep`: a bounded synchronous backoff; never a timer or a wait on the app's main thread. */
+        const val MAX_SLEEP_MS = 2_000L
         private val CONTROLS = setOf("play", "pause", "next", "previous", "seek")
 
         private val PRELUDE: String = ExtensionRuntime::class.java.getResource("prelude.js")!!.readText()

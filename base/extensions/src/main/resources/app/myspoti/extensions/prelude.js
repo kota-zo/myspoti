@@ -125,12 +125,12 @@
 
     /**
      * What this app understands beyond the first API, for an extension to adapt to: "audio.manifest",
-     * "audio.expires", "audio.quality", "audio.source", "audio.ahead", "http.all", "status", "raw.base64", "results" (source hooks may answer { outcome }), "settings.section" (manifest section, role, perNetwork), "player.localMute" only when the user granted playback.mirror, and "attest" only when it granted attest.
+     * "audio.expires", "audio.quality", "audio.source", "audio.ahead", "http.all", "status", "raw.base64", "results" (source hooks may answer { outcome }), "settings.section" (manifest section, role, perNetwork), "util.sleep", "player.localMute" only when the user granted playback.mirror, and "attest" only when it granted attest.
      */
     sources: Object.freeze({ race: function (hook, query, lanes) {
       return parse(host.sourceRace(String(hook),JSON.stringify(query),JSON.stringify(lanes)));
     } }),
-    features: Object.freeze(['audio.manifest', 'audio.expires', 'audio.quality', 'audio.source', 'audio.ahead', 'http.all', 'status', 'raw.base64', 'results', 'download.transform', 'audio.transform', 'sources.race', 'settings.section'].concat(parse(host.info()).mirror ? ['player.localMute'] : [], parse(host.info()).attest ? ['attest'] : [])),
+    features: Object.freeze(['audio.manifest', 'audio.expires', 'audio.quality', 'audio.source', 'audio.ahead', 'http.all', 'status', 'raw.base64', 'results', 'download.transform', 'audio.transform', 'sources.race', 'settings.section', 'util.sleep'].concat(parse(host.info()).mirror ? ['player.localMute'] : [], parse(host.info()).attest ? ['attest'] : [])),
 
     /**
      * A sign-in page (webview.auth): open({ url, callback, hidden }) shows url in a web view of its
@@ -181,6 +181,11 @@
     },
 
     util: Object.freeze({
+      /** Synchronous backoff, counted in the hook's budget; at most two seconds. */
+      sleep: function (ms) {
+        if (typeof ms !== 'number' || !isFinite(ms) || ms < 0 || Math.floor(ms) !== ms) throw new TypeError('util.sleep: a non-negative integer number of milliseconds');
+        host.util('sleep', String(Math.min(ms, 2000)));
+      },
       base64Encode: function (text) { return host.util('base64Encode', String(text)); },
       base64Decode: function (text) { return host.util('base64Decode', String(text)); },
       md5: function (text) { return host.util('md5', String(text)); },

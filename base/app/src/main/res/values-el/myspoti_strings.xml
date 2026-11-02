@@ -244,7 +244,7 @@
     <string name="downloads_off_toast">Οι λήψεις είναι απενεργοποιημένες. Ενεργοποίησέ τες στις Ρυθμίσεις.</string>
     <string name="quality_streaming_high_detail">160 kbit/s, ο καλύτερος ήχος</string>
     <string name="quality_download_small">Μικρότερη</string>
-    <string name="quality_download_small_detail">AAC 96 kbit/s, η ελαφρύτερη: περίπου 3 MB ανά τραγούδι</string>
+    <string name="quality_download_small_detail">Μικρό αρχείο πηγής ή AAC 96 kbit/s μετά τη μετατροπή· το μέγεθος ποικίλλει</string>
     <string name="settings_solid_nav_title">Συμπαγής κάτω μπάρα</string>
     <string name="settings_solid_nav_detail">Μαύρο πίσω από τις καρτέλες, αντί για σβήσιμο πάνω από τη λίστα</string>
     <string name="quality_download_ask">Ρώτα κάθε φορά</string>
