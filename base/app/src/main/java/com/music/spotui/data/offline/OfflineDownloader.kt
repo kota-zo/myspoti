@@ -274,7 +274,8 @@ object OfflineDownloader {
                 Log.i(TAG, "${r.title}: ${e.message}")
                 OfflineStatus.Unavailable
             } catch (e: com.music.spotui.extensions.Extensions.NotAnswering) {
-                // Failed, not unavailable: the source could not answer, so a tap on the song tries it again.
+                // Failed, not unavailable: a source could not answer or was not asked (inactive, still starting),
+                // so a tap on the song tries it again.
                 Log.i(TAG, "${r.title}: download source not answering: ${e.message}")
                 OfflineStatus.Failed
             } catch (t: Throwable) {

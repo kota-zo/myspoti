@@ -86,7 +86,7 @@ import java.util.concurrent.ConcurrentHashMap
  * the sandbox does not expect), never the app.
  */
 object Extensions {
-    /** No download source had the song and one could not answer now: the song is worth trying again. */
+    /** No download source had the song and one could not answer now, or was not asked: the song is worth trying again. */
     class NotAnswering(message: String) : java.io.IOException(message)
 
     // Every hook's time is in [HookBudgets], shared with the desktop runner (`myspoti-ext`).
@@ -751,11 +751,12 @@ object Extensions {
     /**
      * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
      * from the first extension (priority order) that has any, with that extension's id and name.
-     * A source set aside for a while ([SourceCooldown]) is not asked. Null when no source has the song;
-     * [NotAnswering] when none had it and one could not answer (busy, a timeout, set aside).
+     * A source set aside for a while ([SourceCooldown]) is not asked. Null when every source asked said it
+     * does not have the song; [NotAnswering] when none had it and one could not answer (busy, a timeout,
+     * set aside) or was not asked (its `status` said inactive, still starting: [downloadNotAsked]).
      */
     suspend fun downloadFiles(track: TrackInfo, quality: String): Triple<String, String, List<DownloadFile>>? {
-        if (!isReady) return null
+        if (!isReady) throw NotAnswering("extensions not started yet")
         // Asked right after launch (downloads resumed from the last session): the extensions still
         // loading are waited for, rather than the song marked unavailable for want of a source.
         if (!started.isCompleted) {
@@ -773,16 +774,35 @@ object Extensions {
         }
         if (found == null) {
             // A source that could not answer (busy, a timeout, a rate limit, set aside) has not said the song is not
-            // there: told apart from "no source has it", so the song is retried instead of marked unavailable.
+            // there, nor has one on that was not asked: told apart from "no source has it", so the song is retried
+            // instead of marked unavailable.
             val silent = providing(Hook.DOWNLOAD_SOURCE).map { it.first }.mapNotNull { id ->
                 cooldown.reason(id)?.let { "$id set aside: $it" } ?: answers[id]?.takeIf { it.silent }?.let { "$id ${it.describe()}" }
+            } + downloadNotAsked()
+            if (silent.isNotEmpty()) {
+                Logbook.log("download: ${track.title} not found, not marked unavailable: ${silent.joinToString("; ")}")
+                throw NotAnswering(silent.joinToString("; "))
             }
-            if (silent.isNotEmpty()) throw NotAnswering(silent.joinToString("; "))
         }
         return found?.let { (c, files) ->
             log(c.first, "download files for ${track.title}: ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}")
             did(Area.AUDIO, c.first, "Download of ${track.title} from ${c.second.manifest.name}")
             Triple(c.first, c.second.manifest.name, files)
+        }
+    }
+
+    /**
+     * The download sources on that [providing] leaves out, with why ("x inactive: …", "x still starting"):
+     * their `status` said they do not answer now, or they are not running yet. Neither said a song is not there.
+     */
+    private fun downloadNotAsked(): List<String> = _registry.value.let { r ->
+        line(r, Action.DOWNLOAD_SOURCE).mapNotNull(r::find).filter { it.enabled }.mapNotNull { e ->
+            val rt = runtimes[e.id]
+            when {
+                rt == null -> "${e.id} still starting".takeIf { Action.DOWNLOAD_SOURCE.key in e.granted }
+                rt.provides(Hook.DOWNLOAD_SOURCE) && health.inactive(e.id) -> "${e.id} inactive: ${health.last(e.id)?.detail ?: "no detail"}"
+                else -> null
+            }
         }
     }
 
