@@ -14,6 +14,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
+import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -58,6 +59,12 @@ data class NowPlayingInfo(
         playing == other.playing && buffering == other.buffering && liked == other.liked && shuffle == other.shuffle && episode == other.episode
 }
 
+/**
+ * A row of the queue the car shows (Android Auto, some lock screens). [id] is all the car hands back
+ * on a tap ([PlaybackControls.skipToQueueItem]); [iconUri] a content:// URI, the car loads no web image.
+ */
+data class QueueEntry(val id: Long, val title: String, val artist: String, val iconUri: String?)
+
 /** Commands from the system (notification buttons, headset, car, lock screen). */
 interface PlaybackControls {
     fun play()
@@ -74,6 +81,8 @@ interface PlaybackControls {
     val isEpisode: Boolean get() = false
     /** Skips [deltaMs] within the episode; at its end, goes on to the next item. */
     fun skipBy(deltaMs: Long) {}
+    /** A row of the car's queue was tapped: [id] is its [QueueEntry.id] (see [PlaybackService.updateQueue]). */
+    fun skipToQueueItem(id: Long) {}
 }
 
 /** Android Auto / media browser content. */
@@ -120,6 +129,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         sessionToken = session.sessionToken
         createChannel()
         current?.let { apply(it) }
+        applyQueue()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -232,6 +242,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         override fun onSeekTo(pos: Long) = command("seek", wake = false) { seekTo(pos) }
         override fun onStop() = command("stop", wake = false) { pause() }
         override fun onPlayFromMediaId(mediaId: String, extras: Bundle?) = command("play $mediaId") { playFromMediaId(mediaId) }
+        override fun onSkipToQueueItem(id: Long) = command("queue row $id") { skipToQueueItem(id) }
         override fun onPlayFromSearch(query: String, extras: Bundle?) = command("play from search") {
             // "Play music" with no words (Assistant, the car's voice button) is a plain play, not a search.
             if (query.isBlank()) play() else playFromSearch(query)
@@ -288,7 +299,25 @@ class PlaybackService : MediaBrowserServiceCompat() {
             .addCustomAction(ACTION_SHUFFLE, getString(if (info.shuffle) R.string.msp_shuffle_off else R.string.msp_shuffle_on),
                 if (info.shuffle) R.drawable.msp_ic_shuffle_on else R.drawable.msp_ic_shuffle)
             .setState(state, info.positionMs, if (info.playing && !info.buffering) 1f else 0f)
+            .setActiveQueueItemId(activeQueueId)
             .build())
+    }
+
+    /** The pushed queue ([updateQueue]) to the session; the row now playing is marked in the playback state. */
+    private fun applyQueue() {
+        session.setQueueTitle(queueTitle)
+        session.setQueue(queue.map { e ->
+            MediaSessionCompat.QueueItem(MediaDescriptionCompat.Builder()
+                .setTitle(e.title)
+                .setSubtitle(e.artist)
+                .setIconUri(e.iconUri?.let(Uri::parse))
+                .build(), e.id)
+        }.takeIf { it.isNotEmpty() })
+        // Only the marked row changes: the rest of the state (and its position clock) stays as it was.
+        val state = session.controller.playbackState ?: return
+        if (state.activeQueueItemId != activeQueueId) {
+            session.setPlaybackState(PlaybackStateCompat.Builder(state).setActiveQueueItemId(activeQueueId).build())
+        }
     }
 
     private fun loadCover(url: String?) {
@@ -591,7 +620,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         private val ACTIONS = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_PLAY_PAUSE or
             PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
             PlaybackStateCompat.ACTION_SEEK_TO or PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
-            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH
+            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM
         /** Added while an episode plays: the notification's 15 s buttons and the keys of the same name. */
         private val SKIP_ACTIONS = PlaybackStateCompat.ACTION_FAST_FORWARD or PlaybackStateCompat.ACTION_REWIND
         private val http = OkHttpClient()
@@ -604,6 +633,10 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
         @Volatile private var instance: PlaybackService? = null
         @Volatile private var current: NowPlayingInfo? = null
+        /** The queue the car shows, kept like [current] until the session exists (see [updateQueue]). */
+        @Volatile private var queue: List<QueueEntry> = emptyList()
+        @Volatile private var queueTitle: String? = null
+        @Volatile private var activeQueueId = MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
 
         /** True while the service runs (its notification is up): the app may be in the background. */
         val isRunning: Boolean get() = instance != null
@@ -665,10 +698,26 @@ class PlaybackService : MediaBrowserServiceCompat() {
             if ((info.playing || info.buffering) && !svc.foreground) svc.ensureStarted()
         }
 
+        /**
+         * Pushes the queue the car shows: [items] in order, [activeId] the row now playing (none: null).
+         * Call on the main thread and only when the queue changes, never with the position; an
+         * unchanged queue is not sent again.
+         */
+        fun updateQueue(title: String?, items: List<QueueEntry>, activeId: Long?) {
+            val active = activeId ?: MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
+            if (title == queueTitle && items == queue && active == activeQueueId) return
+            queue = items
+            queueTitle = title
+            activeQueueId = active
+            instance?.applyQueue()
+        }
+
         /** Signed out: the notification and the media session go, nothing of the account stays. */
         fun end() {
             current = null
+            queue = emptyList(); queueTitle = null; activeQueueId = MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
             instance?.let { svc ->
+                svc.applyQueue()
                 svc.handler.removeCallbacksAndMessages(null)
                 ServiceCompat.stopForeground(svc, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 svc.foreground = false

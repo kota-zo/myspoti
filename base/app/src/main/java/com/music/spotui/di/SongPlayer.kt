@@ -101,6 +101,10 @@ object SongPlayer {
     private const val LIKED_CONTEXT = "spotify:collection:tracks"
     /** A picked song from this row on is also sent by its place in the list (see [rowIndex]). */
     private const val INDEXED_ROW_FROM = 100
+    /** The car's queue shows the current song and at most this many after it (see [publishCarQueue]). */
+    private const val CAR_QUEUE_MAX = 50
+    /** A burst of queue changes (a skip, a list loading) reaches the car once, this long after its last one. */
+    private const val CAR_QUEUE_SETTLE_MS = 300L
 
     private val api: MyspotiApi get() = MyspotiRuntime.api
     private val scope get() = MyspotiRuntime.scope
@@ -231,6 +235,8 @@ object SongPlayer {
     private val _nowPlaying = mutableStateOf(NowPlaying())
     val nowPlaying: State<NowPlaying> get() = _nowPlaying
     val engineQueue: State<EngineQueue> get() = _queue
+    /** The rows the car's queue was last given, after the current song: the row with id n is carQueue[n - 1]. */
+    private var carQueue: List<QueueItem> = emptyList()
 
     private val main = Handler(Looper.getMainLooper())
     private var boundState: CurrentSongState? = null
@@ -277,6 +283,14 @@ object SongPlayer {
             }
         }
         scope.launch { api.player.queue.collect { q -> if (acceptsSessionUpdates()) applyQueue(q) } }
+        // Android Auto's queue follows the one on screen (Spotify's or the local player's), sent
+        // only when it changes: the position reports never reach it.
+        scope.launch {
+            androidx.compose.runtime.snapshotFlow { _queue.value to _nowPlaying.value.contextName }.collectLatest { (q, name) ->
+                kotlinx.coroutines.delay(CAR_QUEUE_SETTLE_MS)
+                publishCarQueue(q, name)
+            }
+        }
         scope.launch { MyspotiRuntime.spotify.player.stalled.collect { on -> onSoundStalled(on) } }
         // Smart shuffle plays a mixed order as the list and leaves Spotify's own shuffle off, so
         // turning it off sends no shuffle command at all (the button finds shuffle already off):
@@ -364,6 +378,8 @@ object SongPlayer {
             if (deltaMs > 0 && duration > 0 && getCurrentPosition() + deltaMs >= duration) SongPlayer.next(by = "media session")
             else SongPlayer.skipBy(deltaMs)
         }
+        // Row 0 is the song playing: a tap on it changes nothing.
+        override fun skipToQueueItem(id: Long) { carQueue.getOrNull(id.toInt() - 1)?.let(SongPlayer::skipTo) }
     }
 
     // ── Last track: shown at launch (mini player) before the Web Player reports ──
@@ -831,6 +847,23 @@ object SongPlayer {
             current = q.current?.let(::songOf),
             queued = items(q.queued),
             nextUp = items(q.nextUp),
+        )
+    }
+
+    /**
+     * The car's queue: the current song as row 0, then the queued and next songs, capped at
+     * [CAR_QUEUE_MAX]. A row's id is its place, which [Controls.skipToQueueItem] maps back through
+     * [carQueue] (a uid is empty for some rows, and a local row's is an index that moves).
+     */
+    private fun publishCarQueue(q: EngineQueue, contextName: String) {
+        val rows = (q.queued + q.nextUp).take(CAR_QUEUE_MAX)
+        carQueue = rows
+        fun entry(id: Long, s: SongsModel) = app.myspoti.host.android.QueueEntry(id, s.title, s.singer, ArtworkProvider.uriFor(s.coverUri)?.toString())
+        val entries = listOfNotNull(q.current?.let { entry(0L, it) }) + rows.mapIndexed { i, item -> entry(i + 1L, item.song) }
+        PlaybackService.updateQueue(
+            title = contextName.ifBlank { Graph.app.getString(app.myspoti.engine.R.string.next_up) },
+            items = entries,
+            activeId = if (q.current != null) 0L else null,
         )
     }
 
