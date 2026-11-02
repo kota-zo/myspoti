@@ -40,6 +40,8 @@ fun LanDeviceRows() {
         LanDiscovery.start(context)
         onDispose { LanDiscovery.stop() }
     }
+    // Spotify's consent page, when a Sonos needs it (asked by the login, over the picker).
+    DesktopConsentHost()
     val listed = MyspotiRuntime.spotify.devices.devices.collectAsState().value.filter { !it.local }
     val ids = listed.map { it.id }.toSet()
     val names = listed.map { it.name }.toSet()

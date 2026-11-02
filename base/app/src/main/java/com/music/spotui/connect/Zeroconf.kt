@@ -16,14 +16,25 @@ data class ZeroconfInfo(
     val activeUser: String,
     val brand: String,
     val model: String,
+    /** "NOT-LOADED" while its Spotify part is still starting (Sonos after a wake), else "" or "AVAILABLE". */
+    val availability: String = "",
+    /** Its Diffie-Hellman key; [Zeroconf.INVALID_KEY] while it is still starting. Not used by either login. */
+    val publicKey: String = "",
+    /** Spotify's own error code on the device (0: none), for the log. */
+    val spotifyError: Int = 0,
 ) {
     /**
      * Worth a login attempt: it announced the ids Spotify's device-auth needs. A device that says
      * "accesstoken" takes the token as it is (Bose, Onkyo, Yamaha, Audio Pro reported); one that
-     * says "authorization_code" (Sonos, reported once, no source says how its blob is made) is tried
-     * the same way, and the answer is logged, since nothing here can tell beforehand.
+     * says "authorization_code" (Sonos) takes a code Spotify mints for its client id ([CodeExchange]).
      */
     val loginable: Boolean get() = deviceId.isNotBlank() && clientId.isNotBlank()
+
+    /** It wants an authorization code in the blob, not a token. */
+    val wantsCode: Boolean get() = tokenType == Zeroconf.AUTHORIZATION_CODE
+
+    /** Still starting: an addUser now is answered 203 (invalid public key). */
+    val starting: Boolean get() = availability == "NOT-LOADED" || publicKey == Zeroconf.INVALID_KEY
 }
 
 /**
@@ -32,11 +43,16 @@ data class ZeroconfInfo(
  * `addUser`. Devices whose getInfo says `tokenType=accesstoken` (Bose, Onkyo, Yamaha, Audio Pro
  * firmware reported) take a token in the blob as it is; the token is the one Spotify's
  * device-auth issues for the device's client id (the same one the Cast receiver gets), so
- * the account's web token never leaves the phone. Sonos announces `authorization_code`. Pure functions: the sockets are in [ZeroconfClient].
+ * the account's web token never leaves the phone. Sonos announces `authorization_code`: its blob is
+ * a short-lived code from a token exchange at accounts.spotify.com ([CodeExchange]), sent with an
+ * empty client key ([addUserCodeRequest]). Pure functions: the sockets are in [LanDiscovery.call].
  */
 object Zeroconf {
     const val SERVICE_TYPE = "_spotify-connect._tcp"
     const val ACCESS_TOKEN = "accesstoken"
+    const val AUTHORIZATION_CODE = "authorization_code"
+    /** The public key of a device whose Spotify part is not loaded yet ("INVALID" in base64). */
+    const val INVALID_KEY = "SU5WQUxJRA=="
     /** The ZeroConf version announced to the device (the one reported working with accesstoken devices). */
     const val VERSION = "2.7.1"
 
@@ -49,14 +65,35 @@ object Zeroconf {
 
     /** The `addUser` POST: the action in the query, the fields in the body (form encoded), as Spotify's partners' firmware reads it. */
     fun addUserRequest(host: String, port: Int, cpath: String?, userName: String, token: String, info: ZeroconfInfo, controllerName: String, controllerId: String): ByteArray {
-        val body = form(
+        val fields = form(
             "userName" to userName, "blob" to token, "clientKey" to info.clientId, "tokenType" to ACCESS_TOKEN,
             "loginId" to userName, "deviceName" to controllerName, "deviceId" to controllerId, "version" to VERSION,
-        ).toByteArray(Charsets.UTF_8)
+        )
+        return addUserPost(host, port, cpath, fields)
+    }
+
+    /**
+     * The `addUser` POST of a device that wants a code (Sonos), with the fields Spotify's desktop app
+     * sends it: the action in the body too, an empty client key, the code as the blob, the device's
+     * own ZeroConf version, and this phone's id as the SHA-1 of its name.
+     */
+    fun addUserCodeRequest(host: String, port: Int, cpath: String?, userName: String, loginId: String, code: String, info: ZeroconfInfo, controllerName: String): ByteArray {
+        val fields = form(
+            "action" to "addUser", "version" to info.version.ifBlank { VERSION }, "tokenType" to AUTHORIZATION_CODE, "clientKey" to "",
+            "userName" to userName, "loginId" to loginId, "blob" to code, "deviceName" to controllerName, "deviceId" to sha1Hex(controllerName),
+        )
+        return addUserPost(host, port, cpath, fields)
+    }
+
+    private fun addUserPost(host: String, port: Int, cpath: String?, form: String): ByteArray {
+        val body = form.toByteArray(Charsets.UTF_8)
         val head = "POST ${path(cpath)}?action=addUser HTTP/1.1\r\nHost: $host:$port\r\nContent-Type: application/x-www-form-urlencoded\r\n" +
             "Content-Length: ${body.size}\r\nAccept: */*\r\nConnection: close\r\n\r\n"
         return head.toByteArray(Charsets.UTF_8) + body
     }
+
+    fun sha1Hex(text: String): String =
+        java.security.MessageDigest.getInstance("SHA-1").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     fun form(vararg fields: Pair<String, String>): String =
         fields.joinToString("&") { (k, v) -> URLEncoder.encode(k, "UTF-8") + "=" + URLEncoder.encode(v, "UTF-8") }
@@ -75,12 +112,44 @@ object Zeroconf {
             activeUser = j.optString("activeUser"),
             brand = j.optString("brandDisplayName"),
             model = j.optString("modelDisplayName"),
+            availability = j.optString("availability"),
+            publicKey = j.optString("publicKey"),
+            spotifyError = j.optInt("spotifyError", 0),
         )
     }
 
     /** The status and its name from an addUser answer, for the log (no token is ever in one). */
     fun answerSummary(body: String): String =
-        runCatching { JSONObject(body) }.getOrNull()?.let { "status ${it.optInt("status", -1)} ${it.optString("statusString").take(40)}" } ?: "not JSON"
+        runCatching { JSONObject(body) }.getOrNull()?.let { j ->
+            "status ${j.optInt("status", -1)} ${j.optString("statusString").take(40)}" +
+                j.optInt("spotifyError", 0).let { if (it != 0) " spotifyError $it" else "" }
+        } ?: "not JSON len=${body.length}"
+
+    /** What to do after an addUser answer of a device that wants a code. */
+    enum class CodeAnswer { ACCEPTED, LOGIN_FAILED, INVALID_KEY, GROUPED, REFUSED }
+
+    /**
+     * 101 is accepted, and so is a 200 that is not JSON (Sonos answers some actions with a bare "}"):
+     * only the device list tells then. 202 (ERROR-LOGIN-FAILED) is worth a few tries, 203
+     * (ERROR-INVALID-PUBLICKEY) one once the device is ready; a speaker grouped under another
+     * answers HTTP 500.
+     */
+    fun codeAnswer(status: Int, body: String): CodeAnswer {
+        val j = runCatching { JSONObject(body) }.getOrNull()
+        if (j == null) return when (status) {
+            200 -> CodeAnswer.ACCEPTED
+            500 -> CodeAnswer.GROUPED
+            else -> CodeAnswer.REFUSED
+        }
+        val s = j.optString("statusString")
+        return when {
+            j.optInt("status", -1) == 101 -> CodeAnswer.ACCEPTED
+            j.optInt("status", -1) == 202 || s == "ERROR-LOGIN-FAILED" -> CodeAnswer.LOGIN_FAILED
+            j.optInt("status", -1) == 203 || s == "ERROR-INVALID-PUBLICKEY" -> CodeAnswer.INVALID_KEY
+            status == 500 -> CodeAnswer.GROUPED
+            else -> CodeAnswer.REFUSED
+        }
+    }
 
     /** The answer to addUser: accepted (101), already in that state (404 with no body, as Bose does), or refused. */
     fun addUserAccepted(status: Int, body: String): Boolean {

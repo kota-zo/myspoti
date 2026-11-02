@@ -42,6 +42,8 @@ object SessionActions {
         // Likes kept for later stay this account's, sent when it signs in again; the next account gets none.
         com.music.spotui.data.LibraryOutbox.signedOut()
         SongPlayer.clearSession()
+        // The desktop token a Sonos login kept, and the way that logged one in.
+        com.music.spotui.connect.ConnectCode.clear(app)
         // The last track, likes, albums and followed artists of older builds are never read
         // again: cleared too, so no ids of this account outlive it.
         listOf("LibraryCache", "RecentItems", "PlaybackState", "LikedSongs",
