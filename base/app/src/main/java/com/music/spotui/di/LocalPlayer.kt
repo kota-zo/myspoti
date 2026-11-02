@@ -151,6 +151,8 @@ object LocalPlayer {
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     // Anything but the transition the fade itself makes (a skip, a tap in the queue) ends the fade.
                     if (!startingFade) endFade()
+                    // From a station to a song or back: a station's repeat is off (see applyRepeat).
+                    applyRepeat(p)
                     // The song kept from fading out is left behind: the next one fades as usual.
                     if (p.currentMediaItemIndex != noFadeFor) noFadeFor = -1
                     // A song to play again that the player went past by itself: put back, never followed.
@@ -870,8 +872,10 @@ object LocalPlayer {
      * queue of one song repeated) pauses at its end and is played again by [playAgain].
      */
     private fun applyRepeat(p: ExoPlayer) {
-        p.repeatMode = LocalRepeat.playerMode(repeat, p.mediaItemCount)
-        p.pauseAtEndOfMediaItems = LocalRepeat.loopsSong(repeat, p.mediaItemCount)
+        // A station never loops: its stream ending is a drop, reconnected with its tries (see reconnectRadio).
+        val mode = if (current()?.isRadio == true) LocalRepeat.OFF else repeat
+        p.repeatMode = LocalRepeat.playerMode(mode, p.mediaItemCount)
+        p.pauseAtEndOfMediaItems = LocalRepeat.loopsSong(mode, p.mediaItemCount)
     }
 
     /**
@@ -984,8 +988,9 @@ object LocalPlayer {
         val delayMs = (1000L shl (radioRetries - 1)).coerceAtMost(16_000L)
         log("${t.title}: stream dropped, reconnecting in ${delayMs}ms (try $radioRetries/$RADIO_TRIES)")
         handler.postDelayed({
-            // Paused meanwhile: it reconnects when the user plays it again, not by itself.
-            if (exo === p && current() === t && p.playWhenReady) { p.setMediaItem(item(t)); p.prepare(); p.play() }
+            // Paused meanwhile: it reconnects when the user plays it again, not by itself. Loaded
+            // again where it is: songs queued after it stay in the player as in [tracks].
+            if (exo === p && current() === t && p.playWhenReady) { p.seekTo(p.currentMediaItemIndex, 0L); p.prepare(); p.play() }
         }, delayMs)
     }
 
