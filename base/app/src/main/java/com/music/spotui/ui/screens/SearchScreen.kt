@@ -885,7 +885,9 @@ fun SearchStickyBar(
 
         TextField(
             enabled = true,
+            // The rest of the bar, so the clear button sits at its end and not after a 280 dp field.
             modifier = Modifier
+                .weight(1f)
                 .focusRequester(fieldFocus)
                 .onFocusChanged { onFocusChange(it.isFocused) },
             value = text,
