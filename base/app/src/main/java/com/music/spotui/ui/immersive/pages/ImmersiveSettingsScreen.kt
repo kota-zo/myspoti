@@ -242,7 +242,8 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             row {
                 ImmersiveGroupRow(
                     stringResource(R.string.settings_crossfade_title), detail = stringResource(R.string.settings_crossfade_detail),
-                    value = if (crossfade == 0) stringResource(R.string.settings_crossfade_off) else stringResource(R.string.settings_crossfade_seconds, crossfade),
+                    value = if (com.music.spotui.automix.AutoMix.on) stringResource(R.string.settings_automix_title)
+                        else if (crossfade == 0) stringResource(R.string.settings_crossfade_off) else stringResource(R.string.settings_crossfade_seconds, crossfade),
                     chevron = true, onClick = { open(SettingsPage.Crossfade) },
                 )
             }
@@ -368,6 +369,12 @@ private fun CrossfadePage(back: () -> Unit) {
     val ctx = LocalContext.current
     val pref = com.music.spotui.data.preferences.CrossfadePref
     ImmersivePage(title = stringResource(R.string.settings_crossfade_title), onBack = back) {
+        immersiveGroup("automix", footerRes = R.string.settings_automix_detail) {
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_title), checked = com.music.spotui.automix.AutoMix.on,
+                    onChecked = { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) })
+            }
+        }
         immersiveGroup("choices", footerRes = R.string.settings_crossfade_detail) {
             for (v in listOf(0, 3, 6, 9, 12)) {
                 row {

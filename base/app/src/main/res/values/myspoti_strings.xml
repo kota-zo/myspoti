@@ -400,6 +400,8 @@
     <string name="myspoti_shuffle_title">Myspoti shuffle</string>
     <string name="myspoti_shuffle_detail">With shuffle on, a playlist, album or Liked Songs plays every song once, in a random order, before starting over. Off: Spotify\'s shuffle. A free account may keep Spotify\'s shuffle on some lists.</string>
     <string name="myspoti_shuffle_imposed">Spotify keeps its own shuffle on this list for your account: Myspoti shuffle is off for it.</string>
+    <string name="settings_automix_title">AutoMix</string>
+    <string name="settings_automix_detail">DJ-style transitions between songs from extensions, downloads and local files: each song is analysed once (beats, bars, phrases, key) and the next one comes in on the beat, tempo matched, with a bass swap. Songs that cannot be beat-matched get a cut on the beat or a fade. Streams are analysed on unmetered networks only.</string>
     <string name="settings_crossfade_title">Crossfade</string>
     <string name="settings_crossfade_detail">Songs from extensions, downloads and local files overlap: the end of one fades out while the next fades in. Spotify streams cannot overlap (one audio stream): they only fade out and in.</string>
     <string name="settings_crossfade_off">Off</string>

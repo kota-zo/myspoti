@@ -110,6 +110,9 @@ android {
 
 dependencies {
     implementation(project(":host-android"))
+    // AutoMix: song analysis and transition planning (pure Kotlin), Beat This on ONNX Runtime.
+    implementation(project(":automix"))
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
     // Third-party extensions: the sandbox (Rhino), manifests, packages and catalogues.
     implementation(project(":extensions"))
     // Jam: scan the invite QR code (Google code scanner, no camera permission).

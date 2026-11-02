@@ -126,6 +126,12 @@ fun SettingsScreen(navController: NavController) {
                 onChecked = { com.music.spotui.data.preferences.AppShufflePref.set(ctx, it) },
             )
             CrossfadeRow()
+            OptionRow(
+                label = stringResource(R.string.settings_automix_title),
+                detail = stringResource(R.string.settings_automix_detail),
+                checked = com.music.spotui.automix.AutoMix.on,
+                onChecked = { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) },
+            )
             // The local player's equalizer, speed and silence skipping (never Spotify's own songs).
             Column(
                 Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.Equalizer.route) }

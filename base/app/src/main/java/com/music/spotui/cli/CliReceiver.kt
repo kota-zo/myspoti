@@ -212,6 +212,24 @@ class CliReceiver : BroadcastReceiver() {
             val id = c.uri.substringAfterLast(':')
             if (c.context == null) JsonNull else buildJsonObject { put("songs", songs?.takeIf { l -> l.any { it.spotifyTrackId == id } }?.size ?: 0) }
         }
+        is CliCommand.AutoMixSet -> onMain {
+            c.on?.let { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) }
+            JsonPrimitive(com.music.spotui.di.LocalPlayer.autoMixState())
+        }
+        CliCommand.AutoMixStatus -> onMain {
+            buildJsonObject {
+                put("state", com.music.spotui.di.LocalPlayer.autoMixState())
+                put("journal", JsonArray(com.music.spotui.automix.AutoMix.journalLines().takeLast(30).map(::JsonPrimitive)))
+            }
+        }
+        is CliCommand.AutoMixFiles -> {
+            val all = com.music.spotui.data.local.LocalMusic.tracks(ctx, refresh = true)
+            // Each name: a piece of "folder + title" (e.g. "Spotiflaccc/24").
+            val picked = c.names.map { n -> all.firstOrNull { (it.folder + it.title).contains(n, ignoreCase = true) }
+                ?: throw CliError("automix.files: no phone song matches $n") }
+            onMain { com.music.spotui.di.LocalPlayer.play(picked, 0, context = "AutoMix test"); JsonArray(picked.map { JsonPrimitive(it.title) }) }
+        }
+        is CliCommand.AutoMixSeek -> onMain { com.music.spotui.di.LocalPlayer.seekTo(c.ms); JsonNull }
         CliCommand.Pause -> onMain { SongPlayer.pause(by = "cli"); JsonNull }
         CliCommand.Resume -> onMain { SongPlayer.play(by = "cli"); JsonNull }
         CliCommand.Next -> onMain { SongPlayer.next(); JsonNull }

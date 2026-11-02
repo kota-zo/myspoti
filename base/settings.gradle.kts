@@ -28,6 +28,7 @@ dependencyResolutionManagement {
 rootProject.name = "Myspoti"
 include(":app")
 include(":api")
+include(":automix")
 include(":extensions")
 include(":extensions-cli")
 include(":api-spotify")
