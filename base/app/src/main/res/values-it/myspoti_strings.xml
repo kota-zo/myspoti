@@ -658,4 +658,19 @@
     <string name="equalizer_skip_silence">Salta i silenzi</string>
     <string name="equalizer_skip_silence_detail">I tratti silenziosi vengono saltati (lunghe pause in un episodio, un silenzio prima di una traccia nascosta).</string>
     <string name="download_source_not_answering">%1$s non risponde per ora</string>
+    <string name="friends_tab">Amici</string>
+    <string name="library_podcasts_empty">Non segui ancora nessun podcast</string>
+    <string name="library_podcasts_error">Impossibile caricare i tuoi podcast</string>
+    <string name="settings_player_volume_title">Barra del volume nel lettore</string>
+    <string name="settings_player_volume_detail">Il cursore del volume sotto i comandi. Disattivata, i tasti del volume del telefono lo regolano comunque.</string>
+    <string name="settings_lyrics_keep_awake_title">Schermo acceso con i testi</string>
+    <string name="settings_lyrics_keep_awake_detail">Finché il testo è aperto, lo schermo non si spegne da solo.</string>
+    <string name="spatial_title">Audio spaziale</string>
+    <string name="spatial_enable">Allarga lo stereo</string>
+    <string name="spatial_detail">Elaborazione mid/side: ciò che sta ai lati viene messo in risalto, ciò che sta al centro resta dov\'è. Solo brani da estensioni, download e file locali: gli stream di Spotify non vengono elaborati. I brani mono, e tutto quando è disattivato, passano intatti.</string>
+    <string name="spatial_width">Ampiezza</string>
+    <string name="playlist_reorder_hint">Trascina un brano dalla sua maniglia per spostarlo</string>
+    <string name="lan_sonos_consent">Per collegare %1$s, Spotify chiede una volta il permesso che usa la sua app desktop. Consentilo o chiudi questa pagina. Myspoti legge solo l’indirizzo su cui finisce la pagina.</string>
+    <string name="lan_sonos_refused">%1$s richiede un accesso a Spotify che Myspoti non è riuscito a ottenere. Aprilo una volta con l’app Spotify, poi riprova.</string>
+    <string name="lan_sonos_group">%1$s è raggruppato con altri altoparlanti: scegli l’altoparlante principale del gruppo o separalo nell’app Sonos.</string>
 </resources>

@@ -658,4 +658,19 @@
     <string name="equalizer_skip_silence">Παράλειψη σιωπών</string>
     <string name="equalizer_skip_silence_detail">Τα σιωπηλά διαστήματα παραλείπονται (μεγάλες παύσεις σε ένα επεισόδιο, σιωπή πριν από κρυφό κομμάτι).</string>
     <string name="download_source_not_answering">Η πηγή %1$s δεν απαντά προς το παρόν</string>
+    <string name="friends_tab">Φίλοι</string>
+    <string name="library_podcasts_empty">Δεν ακολουθείς ακόμη κανένα podcast</string>
+    <string name="library_podcasts_error">Δεν φορτώθηκαν τα podcast σου</string>
+    <string name="settings_player_volume_title">Μπάρα έντασης στο πρόγραμμα αναπαραγωγής</string>
+    <string name="settings_player_volume_detail">Το ρυθμιστικό έντασης κάτω από τα κουμπιά. Απενεργοποιημένη, τα πλήκτρα έντασης του τηλεφώνου τη ρυθμίζουν ακόμα.</string>
+    <string name="settings_lyrics_keep_awake_title">Οθόνη ανοιχτή με τους στίχους</string>
+    <string name="settings_lyrics_keep_awake_detail">Όσο οι στίχοι είναι ανοιχτοί, η οθόνη δεν σβήνει μόνη της.</string>
+    <string name="spatial_title">Χωρικός ήχος</string>
+    <string name="spatial_enable">Διεύρυνση του στερεοφωνικού</string>
+    <string name="spatial_detail">Επεξεργασία mid/side: ό,τι βρίσκεται στα πλάγια αναδεικνύεται, ό,τι βρίσκεται στη μέση μένει στη θέση του. Μόνο τραγούδια από επεκτάσεις, λήψεις και τοπικά αρχεία: οι ροές του ίδιου του Spotify δεν επεξεργάζονται. Τα μονοφωνικά τραγούδια, και όλα όταν είναι ανενεργό, περνούν ανέγγιχτα.</string>
+    <string name="spatial_width">Εύρος</string>
+    <string name="playlist_reorder_hint">Σύρε ένα τραγούδι από τη λαβή του για να το μετακινήσεις</string>
+    <string name="lan_sonos_consent">Για να συνδεθεί η συσκευή %1$s, το Spotify ζητά μία φορά την άδεια που χρησιμοποιεί η εφαρμογή του για υπολογιστή. Επιτρέψτε την ή κλείστε αυτή τη σελίδα. Το Myspoti διαβάζει μόνο τη διεύθυνση στην οποία καταλήγει η σελίδα.</string>
+    <string name="lan_sonos_refused">Η συσκευή %1$s χρειάζεται μια σύνδεση Spotify που το Myspoti δεν μπόρεσε να πάρει. Ανοίξτε την μία φορά με την εφαρμογή Spotify και δοκιμάστε ξανά.</string>
+    <string name="lan_sonos_group">Η συσκευή %1$s είναι σε ομάδα με άλλα ηχεία: επιλέξτε το κύριο ηχείο της ομάδας ή καταργήστε την ομάδα στην εφαρμογή Sonos.</string>
 </resources>

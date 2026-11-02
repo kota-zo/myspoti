@@ -605,4 +605,19 @@
     <string name="lan_failed">%1$s não aceitou o início de sessão. Abra-o uma vez com a aplicação Spotify e tente novamente.</string>
     <string name="lan_others">Mais %1$d dispositivos nesta rede precisam primeiro de iniciar sessão através da aplicação Spotify</string>
     <string name="download_source_not_answering">%1$s sem resposta por agora</string>
+    <string name="friends_tab">Amigos</string>
+    <string name="library_podcasts_empty">Ainda não segues nenhum podcast</string>
+    <string name="library_podcasts_error">Não foi possível carregar os teus podcasts</string>
+    <string name="settings_player_volume_title">Barra de volume no leitor</string>
+    <string name="settings_player_volume_detail">O controlo de volume por baixo dos botões. Desativada, os botões de volume do telemóvel continuam a ajustá-lo.</string>
+    <string name="settings_lyrics_keep_awake_title">Manter o ecrã ligado com a letra</string>
+    <string name="settings_lyrics_keep_awake_detail">Enquanto a letra está aberta, o ecrã não se desliga sozinho.</string>
+    <string name="spatial_title">Áudio espacial</string>
+    <string name="spatial_enable">Alargar o estéreo</string>
+    <string name="spatial_detail">Processamento mid/side: o que está nos lados ganha destaque, o que está ao centro fica no lugar. Só músicas de extensões, transferências e ficheiros locais: os streams do próprio Spotify não são processados. As músicas mono, e tudo quando está desligado, passam intactas.</string>
+    <string name="spatial_width">Largura</string>
+    <string name="playlist_reorder_hint">Arrasta uma música pela pega para a mover</string>
+    <string name="lan_sonos_consent">Para ligar %1$s, o Spotify pede uma vez a autorização que a sua aplicação para computador utiliza. Autorize-a ou feche esta página. O Myspoti só lê o endereço em que a página termina.</string>
+    <string name="lan_sonos_refused">%1$s precisa de um início de sessão do Spotify que o Myspoti não conseguiu obter. Abra-o uma vez com a aplicação Spotify e tente novamente.</string>
+    <string name="lan_sonos_group">%1$s está agrupado com outras colunas: escolha a coluna principal do grupo ou desagrupe-o na aplicação Sonos.</string>
 </resources>

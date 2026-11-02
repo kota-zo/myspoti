@@ -673,4 +673,19 @@
     <string name="equalizer_skip_silence">Pomijaj ciszę</string>
     <string name="equalizer_skip_silence_detail">Ciche fragmenty są pomijane (długie przerwy w odcinku, cisza przed ukrytym utworem).</string>
     <string name="download_source_not_answering">%1$s chwilowo nie odpowiada</string>
+    <string name="friends_tab">Znajomi</string>
+    <string name="library_podcasts_empty">Nie obserwujesz jeszcze żadnych podcastów</string>
+    <string name="library_podcasts_error">Nie udało się wczytać Twoich podcastów</string>
+    <string name="settings_player_volume_title">Pasek głośności w odtwarzaczu</string>
+    <string name="settings_player_volume_detail">Suwak głośności pod przyciskami. Wyłączony: głośność nadal ustawiają przyciski telefonu.</string>
+    <string name="settings_lyrics_keep_awake_title">Nie wygaszaj ekranu przy tekście</string>
+    <string name="settings_lyrics_keep_awake_detail">Gdy tekst jest otwarty, ekran nie wyłącza się sam.</string>
+    <string name="spatial_title">Dźwięk przestrzenny</string>
+    <string name="spatial_enable">Poszerz stereo</string>
+    <string name="spatial_detail">Przetwarzanie mid/side: to, co po bokach, staje się wyraźniejsze, to, co w środku, zostaje na miejscu. Tylko utwory z rozszerzeń, pobrane i pliki lokalne: własne strumienie Spotify nie są przetwarzane. Utwory mono, a po wyłączeniu wszystko, przechodzą nietknięte.</string>
+    <string name="spatial_width">Szerokość</string>
+    <string name="playlist_reorder_hint">Przeciągnij utwór za uchwyt, aby go przenieść</string>
+    <string name="lan_sonos_consent">Aby zalogować %1$s, Spotify raz prosi o zgodę, z której korzysta jego aplikacja na komputer. Zezwól na nią lub zamknij tę stronę. Myspoti odczytuje tylko adres, na którym kończy się strona.</string>
+    <string name="lan_sonos_refused">%1$s wymaga logowania Spotify, którego Myspoti nie mógł uzyskać. Otwórz go raz w aplikacji Spotify i spróbuj ponownie.</string>
+    <string name="lan_sonos_group">%1$s jest zgrupowany z innymi głośnikami: wybierz główny głośnik grupy albo rozgrupuj go w aplikacji Sonos.</string>
 </resources>

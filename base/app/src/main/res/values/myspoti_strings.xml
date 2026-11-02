@@ -664,4 +664,19 @@
     <string name="equalizer_skip_silence">Skip silences</string>
     <string name="equalizer_skip_silence_detail">Silent stretches are skipped (long pauses in an episode, a silence before a hidden track).</string>
     <string name="download_source_not_answering">%1$s is not answering for now</string>
+    <string name="friends_tab">Friends</string>
+    <string name="library_podcasts_empty">No podcasts followed yet</string>
+    <string name="library_podcasts_error">Couldn\'t load your podcasts</string>
+    <string name="settings_player_volume_title">Volume bar in the player</string>
+    <string name="settings_player_volume_detail">The volume slider under the controls. Off, the phone\'s volume buttons still set it.</string>
+    <string name="settings_lyrics_keep_awake_title">Keep the screen on with lyrics</string>
+    <string name="settings_lyrics_keep_awake_detail">While the lyrics are open, the screen does not turn off by itself.</string>
+    <string name="spatial_title">Spatial audio</string>
+    <string name="spatial_enable">Widen the stereo</string>
+    <string name="spatial_detail">Mid/side processing: what sits at the sides is brought out, what sits in the middle stays put. Songs from extensions, downloads and local files only: Spotify\'s own streams are not processed. Mono songs, and everything when off, pass untouched.</string>
+    <string name="spatial_width">Width</string>
+    <string name="playlist_reorder_hint">Drag a song by its handle to move it</string>
+    <string name="lan_sonos_consent">To log in %1$s, Spotify asks once for the permission its desktop app uses. Allow it, or close this page. Myspoti only reads the address the page ends on.</string>
+    <string name="lan_sonos_refused">%1$s needs a Spotify login Myspoti could not get. Open it once with the Spotify app, then try again.</string>
+    <string name="lan_sonos_group">%1$s is grouped with other speakers: pick the group’s main speaker, or ungroup it in the Sonos app.</string>
 </resources>

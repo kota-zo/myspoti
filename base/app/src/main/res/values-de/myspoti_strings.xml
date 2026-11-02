@@ -658,4 +658,19 @@
     <string name="equalizer_skip_silence">Stille überspringen</string>
     <string name="equalizer_skip_silence_detail">Stille Abschnitte werden übersprungen (lange Pausen in einer Folge, Stille vor einem versteckten Titel).</string>
     <string name="download_source_not_answering">%1$s antwortet gerade nicht</string>
+    <string name="friends_tab">Freunde</string>
+    <string name="library_podcasts_empty">Du folgst noch keinen Podcasts</string>
+    <string name="library_podcasts_error">Deine Podcasts konnten nicht geladen werden</string>
+    <string name="settings_player_volume_title">Lautstärkeregler im Player</string>
+    <string name="settings_player_volume_detail">Der Lautstärkeregler unter den Tasten. Aus: Die Lautstärketasten des Telefons regeln sie weiterhin.</string>
+    <string name="settings_lyrics_keep_awake_title">Bildschirm bei Songtexten anlassen</string>
+    <string name="settings_lyrics_keep_awake_detail">Solange der Songtext offen ist, schaltet sich der Bildschirm nicht von selbst aus.</string>
+    <string name="spatial_title">Raumklang</string>
+    <string name="spatial_enable">Stereobild verbreitern</string>
+    <string name="spatial_detail">Mitte/Seite-Verarbeitung: Was an den Seiten liegt, tritt hervor, was in der Mitte liegt, bleibt, wo es ist. Nur Songs aus Erweiterungen, Downloads und lokalen Dateien: Spotifys eigene Streams werden nicht bearbeitet. Mono-Songs, und aus alles, bleiben unverändert.</string>
+    <string name="spatial_width">Breite</string>
+    <string name="playlist_reorder_hint">Zieh einen Song an seinem Griff, um ihn zu verschieben</string>
+    <string name="lan_sonos_consent">Um %1$s anzumelden, fragt Spotify einmal nach der Erlaubnis, die seine Desktop-App nutzt. Erlaube sie oder schließe diese Seite. Myspoti liest nur die Adresse, auf der die Seite endet.</string>
+    <string name="lan_sonos_refused">%1$s braucht eine Spotify-Anmeldung, die Myspoti nicht bekommen hat. Öffne es einmal mit der Spotify-App und versuche es erneut.</string>
+    <string name="lan_sonos_group">%1$s ist mit anderen Lautsprechern gruppiert: Wähle den Hauptlautsprecher der Gruppe oder hebe die Gruppierung in der Sonos-App auf.</string>
 </resources>

@@ -663,4 +663,19 @@
     <string name="equalizer_skip_silence">Sauter les silences</string>
     <string name="equalizer_skip_silence_detail">Les passages silencieux sont sautés (longues pauses dans un épisode, silence avant un titre caché).</string>
     <string name="download_source_not_answering">%1$s ne répond pas pour le moment</string>
+    <string name="friends_tab">Amis</string>
+    <string name="library_podcasts_empty">Aucun podcast suivi pour l\'instant</string>
+    <string name="library_podcasts_error">Impossible de charger vos podcasts</string>
+    <string name="settings_player_volume_title">Barre de volume dans le lecteur</string>
+    <string name="settings_player_volume_detail">Le curseur de volume sous les commandes. Désactivée, les boutons de volume du téléphone le règlent toujours.</string>
+    <string name="settings_lyrics_keep_awake_title">Garder l\'écran allumé avec les paroles</string>
+    <string name="settings_lyrics_keep_awake_detail">Tant que les paroles sont ouvertes, l\'écran ne s\'éteint pas tout seul.</string>
+    <string name="spatial_title">Audio spatial</string>
+    <string name="spatial_enable">Élargir la stéréo</string>
+    <string name="spatial_detail">Traitement mid/side : ce qui est sur les côtés ressort, ce qui est au centre reste en place. Seulement les titres des extensions, les téléchargements et les fichiers locaux : les flux de Spotify lui-même ne sont pas traités. Les titres mono, et tout quand c\'est désactivé, passent sans être touchés.</string>
+    <string name="spatial_width">Largeur</string>
+    <string name="playlist_reorder_hint">Faites glisser un titre par sa poignée pour le déplacer</string>
+    <string name="lan_sonos_consent">Pour connecter %1$s, Spotify demande une fois l’autorisation qu’utilise son application de bureau. Autorisez-la ou fermez cette page. Myspoti ne lit que l’adresse sur laquelle la page se termine.</string>
+    <string name="lan_sonos_refused">%1$s demande une connexion Spotify que Myspoti n’a pas pu obtenir. Ouvrez-le une fois avec l’application Spotify, puis réessayez.</string>
+    <string name="lan_sonos_group">%1$s est groupé avec d’autres enceintes : choisissez l’enceinte principale du groupe, ou dégroupez-le dans l’application Sonos.</string>
 </resources>

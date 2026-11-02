@@ -658,4 +658,19 @@
     <string name="equalizer_skip_silence">跳过静音</string>
     <string name="equalizer_skip_silence_detail">会跳过静音片段（节目中的长时间停顿、隐藏曲目前的静音）。</string>
     <string name="download_source_not_answering">%1$s 暂时无响应</string>
+    <string name="friends_tab">好友</string>
+    <string name="library_podcasts_empty">你还没有关注任何播客</string>
+    <string name="library_podcasts_error">无法加载你的播客</string>
+    <string name="settings_player_volume_title">播放器中的音量条</string>
+    <string name="settings_player_volume_detail">控制按钮下方的音量滑块。关闭后，仍可用手机的音量键调节。</string>
+    <string name="settings_lyrics_keep_awake_title">显示歌词时保持屏幕常亮</string>
+    <string name="settings_lyrics_keep_awake_detail">歌词打开时，屏幕不会自动关闭。</string>
+    <string name="spatial_title">空间音频</string>
+    <string name="spatial_enable">扩展立体声</string>
+    <string name="spatial_detail">中/侧声道处理：两侧的声音更突出，中间的声音保持不动。仅适用于来自扩展、下载和本地文件的歌曲：Spotify 自己的音频流不会被处理。单声道歌曲，以及关闭时的所有声音，均原样通过。</string>
+    <string name="spatial_width">宽度</string>
+    <string name="playlist_reorder_hint">拖动歌曲右侧的手柄即可移动</string>
+    <string name="lan_sonos_consent">要登录 %1$s，Spotify 会询问一次其桌面应用所用的授权。请允许，或关闭此页面。Myspoti 只读取页面最终跳转到的地址。</string>
+    <string name="lan_sonos_refused">%1$s 需要 Myspoti 无法获取的 Spotify 登录。请先用 Spotify 应用打开它一次，然后重试。</string>
+    <string name="lan_sonos_group">%1$s 与其他音箱编组：请选择该组的主音箱，或在 Sonos 应用中取消编组。</string>
 </resources>

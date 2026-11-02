@@ -673,4 +673,19 @@
     <string name="equalizer_skip_silence">Пропускать тишину</string>
     <string name="equalizer_skip_silence_detail">Тихие участки пропускаются (долгие паузы в выпуске, тишина перед скрытым треком).</string>
     <string name="download_source_not_answering">Источник %1$s пока не отвечает</string>
+    <string name="friends_tab">Друзья</string>
+    <string name="library_podcasts_empty">Вы пока не подписаны ни на один подкаст</string>
+    <string name="library_podcasts_error">Не удалось загрузить подкасты</string>
+    <string name="settings_player_volume_title">Полоса громкости в плеере</string>
+    <string name="settings_player_volume_detail">Ползунок громкости под кнопками. Если выключено, громкость по-прежнему меняют кнопки телефона.</string>
+    <string name="settings_lyrics_keep_awake_title">Не гасить экран с текстом песни</string>
+    <string name="settings_lyrics_keep_awake_detail">Пока открыт текст песни, экран не гаснет сам.</string>
+    <string name="spatial_title">Пространственный звук</string>
+    <string name="spatial_enable">Расширить стерео</string>
+    <string name="spatial_detail">Обработка mid/side: то, что звучит по бокам, выходит вперёд, то, что в центре, остаётся на месте. Только песни из расширений, загрузки и локальные файлы: собственные потоки Spotify не обрабатываются. Моно-песни, а в выключенном состоянии и всё остальное, проходят нетронутыми.</string>
+    <string name="spatial_width">Ширина</string>
+    <string name="playlist_reorder_hint">Перетащите трек за маркер, чтобы переместить его</string>
+    <string name="lan_sonos_consent">Чтобы подключить %1$s, Spotify один раз запрашивает разрешение, которое использует его приложение для компьютера. Разрешите его или закройте эту страницу. Myspoti читает только адрес, на котором заканчивается страница.</string>
+    <string name="lan_sonos_refused">%1$s требует входа в Spotify, который Myspoti не удалось получить. Откройте его один раз в приложении Spotify и повторите попытку.</string>
+    <string name="lan_sonos_group">%1$s сгруппирован с другими колонками: выберите главную колонку группы или разгруппируйте его в приложении Sonos.</string>
 </resources>

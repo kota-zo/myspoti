@@ -658,4 +658,19 @@
     <string name="equalizer_skip_silence">Saltar silencios</string>
     <string name="equalizer_skip_silence_detail">Los tramos silenciosos se saltan (pausas largas en un episodio, un silencio antes de una pista oculta).</string>
     <string name="download_source_not_answering">%1$s no responde por ahora</string>
+    <string name="friends_tab">Amigos</string>
+    <string name="library_podcasts_empty">Aún no sigues ningún podcast</string>
+    <string name="library_podcasts_error">No se pudieron cargar tus podcasts</string>
+    <string name="settings_player_volume_title">Barra de volumen en el reproductor</string>
+    <string name="settings_player_volume_detail">El control de volumen bajo los botones. Desactivada, los botones de volumen del teléfono siguen ajustándolo.</string>
+    <string name="settings_lyrics_keep_awake_title">Mantener la pantalla encendida con la letra</string>
+    <string name="settings_lyrics_keep_awake_detail">Mientras la letra está abierta, la pantalla no se apaga sola.</string>
+    <string name="spatial_title">Audio espacial</string>
+    <string name="spatial_enable">Ampliar el estéreo</string>
+    <string name="spatial_detail">Procesado medio/lateral: lo que está a los lados se realza, lo que está en el centro se queda donde está. Solo canciones de extensiones, descargas y archivos locales: las transmisiones propias de Spotify no se procesan. Las canciones mono, y todo cuando está desactivado, pasan sin tocarse.</string>
+    <string name="spatial_width">Anchura</string>
+    <string name="playlist_reorder_hint">Arrastra una canción por su asa para moverla</string>
+    <string name="lan_sonos_consent">Para conectar %1$s, Spotify pide una vez el permiso que usa su app de escritorio. Permítelo o cierra esta página. Myspoti solo lee la dirección en la que termina la página.</string>
+    <string name="lan_sonos_refused">%1$s necesita un inicio de sesión de Spotify que Myspoti no pudo obtener. Ábrelo una vez con la app de Spotify y vuelve a intentarlo.</string>
+    <string name="lan_sonos_group">%1$s está agrupado con otros altavoces: elige el altavoz principal del grupo o desagrúpalo en la app de Sonos.</string>
 </resources>
