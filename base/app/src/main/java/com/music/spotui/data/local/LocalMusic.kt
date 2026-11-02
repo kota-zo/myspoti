@@ -21,6 +21,8 @@ data class LocalTrack(
     val artUri: Uri,
     /** The file's folder on the phone, e.g. "Music/Album/" (MediaStore relative path). */
     val folder: String = "",
+    /** MediaStore's track number (disc × 1000 + track), 0 unknown (streams and downloads have none). */
+    val trackNo: Int = 0,
 )
 
 /** The device's music files, read through MediaStore (no file access beyond audio). */
@@ -53,7 +55,7 @@ object LocalMusic {
         val projection = arrayOf(
             MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.RELATIVE_PATH,
+            MediaStore.Audio.Media.RELATIVE_PATH, MediaStore.Audio.Media.TRACK,
         )
         val out = ArrayList<LocalTrack>()
         // Android's index decides what is "music": a phone full of recorded or downloaded audio can
@@ -77,6 +79,7 @@ object LocalMusic {
             val iDur = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val iAlbumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val iPath = c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+            val iTrack = c.getColumnIndex(MediaStore.Audio.Media.TRACK)
             while (c.moveToNext()) {
                 val id = c.getLong(iId)
                 val artist = c.getString(iArtist)?.takeIf { it != MediaStore.UNKNOWN_STRING }.orEmpty()
@@ -89,6 +92,7 @@ object LocalMusic {
                     durationMs = c.getLong(iDur),
                     artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), c.getLong(iAlbumId)),
                     folder = if (iPath >= 0) c.getString(iPath).orEmpty() else "",
+                    trackNo = if (iTrack >= 0 && !c.isNull(iTrack)) c.getInt(iTrack).coerceAtLeast(0) else 0,
                 )
             }
         }

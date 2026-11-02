@@ -3,6 +3,22 @@
 Myspoti is free software under the GNU General Public License v3.0 (see `LICENSE`).
 It builds on the projects below; their licences are compatible with the GPL-3.0.
 
+## Beat This! — MIT
+https://github.com/CPJKU/beat_this
+
+By Francesco Foscarin, Jan Schlüter and Gerhard Widmer (CPJKU, Johannes Kepler University Linz),
+"Beat This! Accurate beat tracking without DBN postprocessing" (ISMIR 2024). AutoMix ships the
+`small0` checkpoint, exported to ONNX and quantized to int8 (`base/app/src/main/assets/automix/
+beat-this-small0-int8.onnx`); upstream publishes the code and the weights under the MIT licence.
+The log-mel front end in `base/automix/.../BeatThis.kt` follows its input contract. The training
+recordings are not bundled.
+
+## ONNX Runtime — MIT
+https://github.com/microsoft/onnxruntime
+
+Copyright Microsoft Corporation. `com.microsoft.onnxruntime:onnxruntime-android` 1.23.2 runs the
+Beat This model on the phone (the desktop bench uses the JVM build of the same version).
+
 ## Spotui — GPL-3.0
 https://github.com/Spotui/Spotui
 

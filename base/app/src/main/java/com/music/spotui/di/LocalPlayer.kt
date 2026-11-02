@@ -61,7 +61,7 @@ object LocalPlayer {
     }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private fun build(main: Boolean): ExoPlayer = ExoPlayer.Builder(Graph.app, Renderers)
+    private fun build(main: Boolean, deck: Boolean = false): ExoPlayer = ExoPlayer.Builder(Graph.app, if (deck) DeckRenderers else Renderers)
         // The fading-out copy of a crossfade owns neither the audio focus nor the noisy-audio pause:
         // the main player has them and the fade follows its play state.
         .setAudioAttributes(audioAttributes, main && !mirrorActive)
@@ -78,13 +78,24 @@ object LocalPlayer {
      * EqualizerProcessor), ahead of the silence skipping and the speed the sink adds after it.
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private object Renderers : androidx.media3.exoplayer.DefaultRenderersFactory(Graph.app) {
+    private open class AudioRenderers : androidx.media3.exoplayer.DefaultRenderersFactory(Graph.app) {
         override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
             androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .setAudioProcessors(arrayOf(EqualizerProcessor()))
                 .build()
+    }
+    private object Renderers : AudioRenderers()
+
+    /**
+     * An AutoMix deck's renderers: its speed is the AudioTrack's own (set while it plays, at once and
+     * without a break), not the sink's Sonic, which drains and starts over at each change (a click,
+     * heard on some phones) and is heard only after the whole buffer.
+     */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private object DeckRenderers : AudioRenderers() {
+        init { setEnableAudioTrackPlaybackParams(true) }
     }
 
     private fun tune(p: ExoPlayer) {
@@ -96,6 +107,8 @@ object LocalPlayer {
     /** The speed or the silence skipping changed in the settings: the song playing (and a fade) takes it now. */
     fun applyPlayback() {
         exo?.let(::tune); outgoing?.let(::tune)
+        // A deck in a mix takes its own speed again at the next step.
+        mix?.lastSpeed = 0f
         log("speed ${rate()}×, skip silences ${if (com.music.spotui.data.preferences.EqualizerPref.skipSilence) "on" else "off"}")
     }
 
@@ -104,99 +117,108 @@ object LocalPlayer {
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun player(): ExoPlayer = exo ?: build(true).also { p ->
-            p.addListener(object : Player.Listener {
-                override fun onEvents(player: Player, events: Player.Events) = publish()
-
-                // Each change of what the player does, one line each, so a song that never starts says why.
-                override fun onPlaybackStateChanged(state: Int) {
-                    log("state ${stateName(state)} at ${p.currentPosition} ms, item ${p.currentMediaItemIndex + 1}/${p.mediaItemCount}")
-                    // Casting: this player keeps the queue only, stopped; the song plays on the device.
-                    if (CastPlayback.active && state != Player.STATE_IDLE) { p.stop(); return }
-                    if (state == Player.STATE_READY) checkLength(p)
-                    if (state == Player.STATE_ENDED && !playAgain(p)) atEnd(p)
-                }
-                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                    log("playWhenReady $playWhenReady (${PLAY_WHEN_READY_REASONS.getOrElse(reason - 1) { "reason $reason" }})")
-                    // A song on repeat paused at its end (see LocalRepeat): it starts again at 0:00.
-                    if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && playAgain(p)) return
-                    // A pause (or a lost focus) during a fade stops the fading-out song too.
-                    outgoing?.playWhenReady = playWhenReady
-                    if (playWhenReady && CastPlayback.active) { p.pause(); CastPlayback.play() }
-                }
-                // Moves the player makes by itself (not a seek, not a song's end): logged, so a song
-                // jumping elsewhere shows where it went and why.
-                override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
-                    if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
-                    log("moved by the player from ${old.positionMs} to ${new.positionMs} ms (reason $reason), item ${new.mediaItemIndex + 1}")
-                }
-                // The queue grew or shrank: a queue of one song repeated loops it as repeat one does.
-                override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = applyRepeat(p)
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    log("isPlaying $isPlaying at ${p.currentPosition} ms")
-                    if (isPlaying) errors.played()
-                    if (isPlaying) tick.run()
-                }
-                override fun onPlaybackSuppressionReasonChanged(reason: Int) =
-                    log("suppressed: ${if (reason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) "no" else "reason $reason"}")
-
-                // The next song an extension streams is asked for as soon as this one starts: it then
-                // starts at once instead of waiting for the extension when this one ends.
-                // The last one starting asks what goes on after it (see continueIfLast).
-                override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-                    // Anything but the transition the fade itself makes (a skip, a tap in the queue) ends the fade.
-                    if (!startingFade) endFade()
-                    // The song kept from fading out is left behind: the next one fades as usual.
-                    if (p.currentMediaItemIndex != noFadeFor) noFadeFor = -1
-                    // A song to play again that the player went past by itself: put back, never followed.
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && wentPastRepeat(p, p.previousMediaItemIndex)) return
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) startsAtZero(p)
-                    if (skipHidden(p, reason)) return
-                    prefetchNext(p); continueIfLast(p)
-                }
-
-                // A song whose audio an extension did not give or that would not play (audio-source
-                // hook) is never skipped silently: asked again once if the stream itself failed,
-                // then Spotify plays it, where it was, and goes on; a queue that keeps failing stops.
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    log("error ${error.errorCodeName}: ${generic(error.cause?.toString() ?: error.message.orEmpty())}")
-                    val item = p.currentMediaItem?.localConfiguration?.uri ?: return
-                    if (item.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) com.music.spotui.extensions.Extensions.noteAttempt(item.lastPathSegment) { it.copy(error = "${error.errorCodeName}: ${error.cause ?: error.message.orEmpty()}") }
-                    // A file that is gone (a download deleted while the queue played): never left stopped on it.
-                    if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME && DeletedDownloads.isMissingFile(error.errorCode, error.cause)) return fileGone(p, item)
-                    if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME) return
-                    val t = current() ?: return
-                    val noAudio = com.music.spotui.extensions.AudioRoute.isNoAudio(error)
-                    // No extension had it (the data source already asked twice): Spotify, no new ask.
-                    val again = errors.alreadyRetried(item.toString())
-                    if (!noAudio && !again) {
-                        log("${t.title}: the stream failed, the extensions are asked again once")
-                        val at = p.currentPosition
-                        prefetch.launch {
-                            runCatching { com.music.spotui.extensions.ExtensionAudio.resolve(item, again = true) }
-                            handler.post { if (exo === p && p.currentMediaItem?.localConfiguration?.uri == item) { p.prepare(); p.seekTo(at); p.play() } }
-                        }
-                        return
-                    }
-                    if (SongPlayer.playUnavailableOnSpotify(t, p.currentPosition)) return
-                    when (errors.failed(item.toString(), p.hasNextMediaItem())) {
-                        StreamErrors.Step.SKIP -> {
-                            log("skipped ${t.title}: no extension had it and Spotify cannot play it now")
-                            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable_skipped, t.title), android.widget.Toast.LENGTH_SHORT).show()
-                            p.seekToNextMediaItem()
-                            p.prepare()
-                            p.play()
-                        }
-                        else -> {
-                            log("stopped on ${t.title}: it cannot be played, and the songs after it failed too or none follows")
-                            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, t.title), android.widget.Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            })
+            mainListener = listenerFor(p).also(p::addListener)
             exo = p
+            deckEq = if (com.music.spotui.automix.AutoMix.on) com.music.spotui.automix.DeckEq.attach(p.audioSessionId) else null
             // A new local session takes the repeat the player shows (it started off).
             setRepeatMode(SongPlayer.repeatMode.value)
         }
+
+    /** The main player's listener: it moves to the deck that takes over at an AutoMix (see [takeOver]). */
+    private var mainListener: Player.Listener? = null
+
+    private fun listenerFor(p: ExoPlayer): Player.Listener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) = publish()
+
+        // Each change of what the player does, one line each, so a song that never starts says why.
+        override fun onPlaybackStateChanged(state: Int) {
+            log("state ${stateName(state)} at ${p.currentPosition} ms, item ${p.currentMediaItemIndex + 1}/${p.mediaItemCount}")
+            // Casting: this player keeps the queue only, stopped; the song plays on the device.
+            if (CastPlayback.active && state != Player.STATE_IDLE) { p.stop(); return }
+            if (state == Player.STATE_READY) checkLength(p)
+            if (state == Player.STATE_ENDED && !playAgain(p)) atEnd(p)
+        }
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            log("playWhenReady $playWhenReady (${PLAY_WHEN_READY_REASONS.getOrElse(reason - 1) { "reason $reason" }})")
+            // A song on repeat paused at its end (see LocalRepeat): it starts again at 0:00.
+            if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && playAgain(p)) return
+            // A pause (or a lost focus) during a fade stops the fading-out song too.
+            outgoing?.playWhenReady = playWhenReady
+            if (!playWhenReady) mixPaused()
+            if (playWhenReady && CastPlayback.active) { p.pause(); CastPlayback.play() }
+        }
+        // Moves the player makes by itself (not a seek, not a song's end): logged, so a song
+        // jumping elsewhere shows where it went and why.
+        override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) { mixMoved(); return }
+            if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
+            log("moved by the player from ${old.positionMs} to ${new.positionMs} ms (reason $reason), item ${new.mediaItemIndex + 1}")
+        }
+        // The queue grew or shrank: a queue of one song repeated loops it as repeat one does.
+        override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = applyRepeat(p)
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            log("isPlaying $isPlaying at ${p.currentPosition} ms")
+            if (isPlaying) errors.played()
+            if (isPlaying) tick.run()
+        }
+        override fun onPlaybackSuppressionReasonChanged(reason: Int) =
+            log("suppressed: ${if (reason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) "no" else "reason $reason"}")
+
+        // The next song an extension streams is asked for as soon as this one starts: it then
+        // starts at once instead of waiting for the extension when this one ends.
+        // The last one starting asks what goes on after it (see continueIfLast).
+        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            // Anything but the transition the fade itself makes (a skip, a tap in the queue) ends the fade.
+            if (!startingFade) endFade()
+            planned = null; dropped = null
+            // The song kept from fading out is left behind: the next one fades as usual.
+            if (p.currentMediaItemIndex != noFadeFor) noFadeFor = -1
+            // A song to play again that the player went past by itself: put back, never followed.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && wentPastRepeat(p, p.previousMediaItemIndex)) return
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) startsAtZero(p)
+            if (skipHidden(p, reason)) return
+            prefetchNext(p); continueIfLast(p)
+        }
+
+        // A song whose audio an extension did not give or that would not play (audio-source
+        // hook) is never skipped silently: asked again once if the stream itself failed,
+        // then Spotify plays it, where it was, and goes on; a queue that keeps failing stops.
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            log("error ${error.errorCodeName}: ${generic(error.cause?.toString() ?: error.message.orEmpty())}")
+            val item = p.currentMediaItem?.localConfiguration?.uri ?: return
+            if (item.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) com.music.spotui.extensions.Extensions.noteAttempt(item.lastPathSegment) { it.copy(error = "${error.errorCodeName}: ${error.cause ?: error.message.orEmpty()}") }
+            // A file that is gone (a download deleted while the queue played): never left stopped on it.
+            if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME && DeletedDownloads.isMissingFile(error.errorCode, error.cause)) return fileGone(p, item)
+            if (item.scheme != com.music.spotui.extensions.ExtensionAudio.SCHEME) return
+            val t = current() ?: return
+            val noAudio = com.music.spotui.extensions.AudioRoute.isNoAudio(error)
+            // No extension had it (the data source already asked twice): Spotify, no new ask.
+            val again = errors.alreadyRetried(item.toString())
+            if (!noAudio && !again) {
+                log("${t.title}: the stream failed, the extensions are asked again once")
+                val at = p.currentPosition
+                prefetch.launch {
+                    runCatching { com.music.spotui.extensions.ExtensionAudio.resolve(item, again = true) }
+                    handler.post { if (exo === p && p.currentMediaItem?.localConfiguration?.uri == item) { p.prepare(); p.seekTo(at); p.play() } }
+                }
+                return
+            }
+            if (SongPlayer.playUnavailableOnSpotify(t, p.currentPosition)) return
+            when (errors.failed(item.toString(), p.hasNextMediaItem())) {
+                StreamErrors.Step.SKIP -> {
+                    log("skipped ${t.title}: no extension had it and Spotify cannot play it now")
+                    android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable_skipped, t.title), android.widget.Toast.LENGTH_SHORT).show()
+                    p.seekToNextMediaItem()
+                    p.prepare()
+                    p.play()
+                }
+                else -> {
+                    log("stopped on ${t.title}: it cannot be played, and the songs after it failed too or none follows")
+                    android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, t.title), android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     /**
      * The player's load errors: a song no extension gave usable audio for fails at once (each
@@ -421,6 +443,417 @@ object LocalPlayer {
     }
 
 
+    // ── AutoMix (see com.music.spotui.automix.AutoMix) ──
+    // Two decks, no song ever handed from one player to another: the next song is prepared on a
+    // second player (the deck) at its entry point, started muted a little before the mix and brought
+    // in step with the song playing by nudging its speed (a phase-locked loop on both positions).
+    // When the mix starts the deck becomes the main player (queue, listener, audio focus: see
+    // [takeOver]) and the old one plays out the mix as the crossfade's outgoing player, then stops.
+    // Gains are the players' volumes, the bass swap and filters the decks' DynamicsProcessing: both
+    // act on what is heard now. The deck's speed goes back to the song's own after the mix.
+
+    enum class MixState { PREPARING, READY, PREROLL, MIXING, RESTORING }
+
+    private class MixRun(
+        var plan: app.myspoti.automix.MixPlan,
+        val toIndex: Int,
+        val toId: String,
+        val deck: ExoPlayer,
+        val eq: com.music.spotui.automix.DeckEq?,
+        /** Where the deck starts (B's time, ms): the entry point less the muted run-up. */
+        val startMs: Long,
+        /** A mix for Next: started from A's next downbeat once the deck is ready (see [mixOnSkip]). */
+        val skip: Boolean = false,
+    ) {
+        val createdAt = android.os.SystemClock.uptimeMillis()
+        /** The run-up, in the outgoing song's ms: only as long as B has audio before its entry point. */
+        val runUpA get() = (plan.entryB * 1000 - startMs) / plan.speedB
+        var firstLocked = false
+        var moves = 0
+        var startedAt = 0L
+        var lastTickAt = 0L
+        /** The deck's position moved by the speed nudges since its start (ms of B). */
+        var corrected = 0.0
+        var state = MixState.PREPARING
+        var a: ExoPlayer? = null
+        var eqA: com.music.spotui.automix.DeckEq? = null
+        var lastSpeed = 0f
+        val errors = ArrayDeque<Double>()
+        var locked = false
+        var worstMs = 0.0
+        var loggedAt = 0L
+        /** Progress of the mix from the outgoing song's position. */
+        fun progress(): Double = a?.let { ((it.currentPosition / 1000.0) - plan.exitA) / plan.length } ?: 1.0
+    }
+
+    /** The plan for the song playing → the next one, once both are analysed. */
+    private class Planned(val fromIndex: Int, val toId: String, val plan: app.myspoti.automix.MixPlan)
+    @Volatile private var planned: Planned? = null
+    private var mix: MixRun? = null
+    /** The main player's EQ (a deck's once it took over). */
+    private var deckEq: com.music.spotui.automix.DeckEq? = null
+    private var asking: Pair<Int, String>? = null
+    /** The pair whose deck was dropped: no new deck for it. */
+    private var dropped: Pair<Int, String>? = null
+
+    private const val PREPARE_LEAD_MS = 15_000L
+    /**
+     * How long a deck takes from play to sound (ms), learned at each start (about a second in, once
+     * the AudioTrack's timestamps hold) and kept: the deck is started that much earlier.
+     */
+    private var startLead = Graph.app.getSharedPreferences("myspoti_prefs", 0).getFloat("automix_start_lead", 120f).toDouble()
+    private const val RUN_UP_MS = 2_500L
+
+    /** One AutoMix step (every 200 ms, every 20 ms around a mix). False: no more ticks. */
+    private fun mixTick(p: ExoPlayer): Boolean {
+        val m = mix
+        if (m != null && m.state >= MixState.MIXING) return mixing(m)
+        if (!p.isPlaying) return false
+        val next = p.nextMediaItemIndex
+        val canMix = next != C.INDEX_UNSET && !LocalRepeat.loopsSong(repeat, p.mediaItemCount) && p.playWhenReady
+        if (!canMix) { if (m != null) cancelMix("no next song"); return true }
+        val nextId = p.getMediaItemAt(next).mediaId
+        // The next song changed (queue edited): the deck prepared for another one goes.
+        if (m != null && (m.toIndex != next || m.toId != nextId)) cancelMix("the next song changed")
+        val pos = p.currentPosition
+        val run = mix
+        if (run == null) {
+            val plan = planFor(p, next, nextId) ?: return true
+            val exitMs = (plan.exitA * 1000).toLong()
+            if (pos >= exitMs - RUN_UP_MS - PREPARE_LEAD_MS && pos < exitMs - RUN_UP_MS / 2 && dropped != next to nextId) prepareDeck(p, next, nextId, plan)
+            return true
+        }
+        val exitMs = (run.plan.exitA * 1000).toLong()
+        val startAt = exitMs - run.runUpA - startLead
+        when (run.state) {
+            MixState.PREPARING -> {
+                // Too late for the deck: the song ends as usual (a skip that waited too long: the plain skip).
+                if (run.skip && android.os.SystemClock.uptimeMillis() - run.createdAt > SKIP_WAIT_MS) {
+                    cancelMix("not ready in time for the skip"); p.seekToNextMediaItem()
+                } else if (!run.skip && pos > startAt) cancelMix("the next song was not ready in time")
+            }
+            MixState.READY -> {
+                // A skip's deck ready later than its plan: the mix moves to A's next downbeat.
+                if (run.skip && pos > startAt + 20) {
+                    // Never more than twice: a Next always leaves the song within a few seconds.
+                    if (++run.moves > 2) { cancelMix("the skip could not start"); p.seekToNextMediaItem(); return true }
+                    run.plan = skipPlan(p, next, pos)
+                    com.music.spotui.automix.AutoMix.journal("skip moved: ${run.plan}")
+                } else if (pos >= startAt) startRunUp(run)
+            }
+            MixState.PREROLL -> {
+                lock(run, p, preroll = true)
+                if (pos >= exitMs) takeOver(run, p)
+            }
+            else -> Unit
+        }
+        return true
+    }
+
+    /** The plan for this pair: the analysed one, else (once the end is near) a fade on the songs' lengths. */
+    private fun planFor(p: ExoPlayer, next: Int, nextId: String): app.myspoti.automix.MixPlan? {
+        val cur = p.currentMediaItemIndex
+        planned?.takeIf { it.fromIndex == cur && it.toId == nextId }?.let { return it.plan }
+        val a = tracks.getOrNull(cur) ?: return null
+        val b = tracks.getOrNull(next) ?: return null
+        if (asking != cur to nextId) {
+            asking = cur to nextId
+            // The song after the next one too: a skip then finds both of its songs analysed.
+            com.music.spotui.automix.AutoMix.request(listOfNotNull(a.uri, b.uri, tracks.getOrNull(next + 1)?.uri)) {}
+            if (followsOnAlbum(a, b)) com.music.spotui.automix.AutoMix.journal("${a.title} → ${b.title}: next on the album, no mix")
+        }
+        // B right after A on their album: they run into each other as the album does (a skip still mixes).
+        if (followsOnAlbum(a, b)) return null
+        val ra = com.music.spotui.automix.AutoMix.analysis(a.uri); val rb = com.music.spotui.automix.AutoMix.analysis(b.uri)
+        if (ra != null && rb != null) {
+            val plan = com.music.spotui.automix.AutoMix.planFor(ra, rb)
+            planned = Planned(cur, nextId, plan)
+            com.music.spotui.automix.AutoMix.journal("plan ${a.title} → ${b.title}: $plan")
+            return plan
+        }
+        // Not analysed yet with the end near: an equal-power fade of 6 s on the lengths.
+        val dur = p.duration.takeIf { it > 0 } ?: return null
+        if (dur - p.currentPosition > PREPARE_LEAD_MS + RUN_UP_MS + 1000) return null
+        val len = minOf(6.0, dur / 4000.0)
+        val plan = app.myspoti.automix.MixPlan(app.myspoti.automix.MixPlan.Style.FADE, dur / 1000.0 - len, 0.0, len, 1.0, 0, 0.5, 0.1, 1.0, 0.0, "fade: not analysed in time")
+        planned = Planned(cur, nextId, plan)
+        com.music.spotui.automix.AutoMix.journal("plan ${a.title} → ${b.title}: $plan")
+        return plan
+    }
+
+    /**
+     * [b] is the song after [a] on their album: by the files' track numbers (the next track, or the
+     * first of the next disc); without numbers (streams, downloads), when the album itself is the
+     * list and [b] follows [a] in its own order (the shuffle aside). Two songs of one album that do
+     * not follow each other there are mixed as any others.
+     */
+    private fun followsOnAlbum(a: LocalTrack, b: LocalTrack): Boolean {
+        val x = a.album.trim(); val y = b.album.trim()
+        if (x.isEmpty() || x.equals("<unknown>", true) || !x.equals(y, ignoreCase = true)) return false
+        if (a.trackNo > 0 && b.trackNo > 0) {
+            val da = a.trackNo / 1000; val ta = a.trackNo % 1000; val db = b.trackNo / 1000; val tb = b.trackNo % 1000
+            return (db == da && tb == ta + 1) || (db == da + 1 && tb == 1)
+        }
+        if (!listUri.startsWith("spotify:album:")) return false
+        val order = unshuffled ?: tracks
+        val i = order.indexOfFirst { it === a }
+        return i >= 0 && order.getOrNull(i + 1) === b
+    }
+
+    private const val SKIP_WAIT_MS = 2500L
+    /** How long a skip waits from the deck's readiness to the mix (the run-up). */
+    private const val SKIP_RUN_UP_MS = 600L
+
+    /** The skip mix from A's time [posMs] (ms), on what is analysed of both songs. */
+    private fun skipPlan(p: ExoPlayer, next: Int, posMs: Long): app.myspoti.automix.MixPlan {
+        val a = tracks.getOrNull(p.currentMediaItemIndex)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
+        val b = tracks.getOrNull(next)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
+        // A skip may stretch more than a natural mix (12 %): it is short, and B is back to its tempo soon after.
+        return app.myspoti.automix.MixPlanner.planSkip(a, b, posMs / 1000.0, (SKIP_RUN_UP_MS + startLead) / 1000.0,
+            app.myspoti.automix.MixPlanner.Settings(maxStretch = 0.12))
+    }
+
+    /**
+     * Next with AutoMix on: the next song is prepared on the deck and mixed in from A's next
+     * downbeat (a short beat-matched blend, a cut on the beat, or a quick fade). False: a plain skip
+     * (nothing to mix into, casting, a mix already playing). A second Next skips at once.
+     */
+    private fun mixOnSkip(): Boolean {
+        val p = exo ?: return false
+        if (!com.music.spotui.automix.AutoMix.on || CastPlayback.active || !p.isPlaying || outgoing != null) return false
+        mix?.let { if (it.skip || it.state >= MixState.PREROLL) return false }
+        val next = p.nextMediaItemIndex
+        if (next == C.INDEX_UNSET || LocalRepeat.loopsSong(repeat, p.mediaItemCount)) return false
+        cancelMix("skip", again = true)
+        val plan = skipPlan(p, next, p.currentPosition)
+        com.music.spotui.automix.AutoMix.journal("skip: $plan")
+        prepareDeck(p, next, p.getMediaItemAt(next).mediaId, plan, skip = true)
+        handler.removeCallbacks(tick); handler.post(tick)
+        return true
+    }
+
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private fun prepareDeck(p: ExoPlayer, next: Int, nextId: String, plan: app.myspoti.automix.MixPlan, skip: Boolean = false) {
+        val t = tracks.getOrNull(next) ?: return
+        val deck = build(false, deck = true)
+        deck.volume = 0f
+        deck.skipSilenceEnabled = false
+        deck.playbackParameters = androidx.media3.common.PlaybackParameters((plan.speedB * rate()).toFloat())
+        val runUpB = minOf(plan.entryB * 1000, (if (skip) SKIP_RUN_UP_MS else RUN_UP_MS) * plan.speedB)
+        val start = (plan.entryB * 1000 - runUpB).toLong().coerceAtLeast(0L)
+        val run = MixRun(plan, next, nextId, deck, com.music.spotui.automix.DeckEq.attach(deck.audioSessionId), start, skip)
+        run.eq?.set(app.myspoti.automix.MixPlan.KILL, 0.0)
+        run.lastSpeed = deck.playbackParameters.speed
+        run.a = p; run.eqA = deckEq
+        mix = run
+        deck.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY && run.state == MixState.PREPARING) {
+                    run.state = MixState.READY
+                    com.music.spotui.automix.AutoMix.journal("deck ready on ${t.title} at $start ms")
+                }
+            }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (mix === run && run.state < MixState.MIXING) cancelMix("deck error ${error.errorCodeName}")
+            }
+        })
+        deck.setMediaItem(item(t), start)
+        deck.prepare()
+        com.music.spotui.automix.AutoMix.journal("deck preparing ${t.title} from $start ms")
+    }
+
+    private fun startRunUp(run: MixRun) {
+        run.state = MixState.PREROLL
+        run.errors.clear(); run.locked = false
+        run.deck.play()
+        run.startedAt = android.os.SystemClock.uptimeMillis()
+        com.music.spotui.automix.AutoMix.journal(String.format("run-up started (%.0f ms, start lead %.0f ms)", run.runUpA, startLead))
+    }
+
+    /**
+     * Keeps the deck on its place in the mix: its position against where the outgoing song's says it
+     * should be, corrected by a speed nudge (a seek when far off during the muted run-up).
+     */
+    private fun lock(run: MixRun, a: ExoPlayer, preroll: Boolean, quiet: Boolean = false) {
+        val plan = run.plan
+        if (!plan.synced && !preroll) return
+        // A cut between tempos too far apart: B's first downbeat on A's is all there is to hold; after
+        // it the two run apart anyway (A is gone within two beats), so B is left at its own pace.
+        if (!preroll && plan.style == app.myspoti.automix.MixPlan.Style.CUT && plan.restoreSec == 0.0) return
+        val d = run.deck
+        if (!d.isPlaying) return
+        val aPos = a.currentPosition; val bPos = d.currentPosition
+        val target = plan.entryB * 1000 + (aPos - plan.exitA * 1000) * plan.speedB
+        // Started well before its time (a pause and play moved the outgoing song back): wait for it again.
+        // (Started early by the start delay on purpose: up to that much before its start is expected.)
+        if (preroll && target < run.startMs - startLead * plan.speedB - 300) { d.pause(); d.seekTo(run.startMs); run.state = MixState.READY; run.errors.clear(); return }
+        val err = bPos - target
+        run.errors.addLast(err); while (run.errors.size > 3) run.errors.removeFirst()
+        val e = run.errors.sorted()[run.errors.size / 2]
+        val base = plan.speedB * rate()
+        // A second after the start, the deck's distance says how late it sounded: the next starts that much earlier.
+        val sinceStart = android.os.SystemClock.uptimeMillis() - run.startedAt
+        if (!run.firstLocked && run.startedAt > 0 && sinceStart in 900..1600 && run.errors.size == 3) {
+            run.firstLocked = true
+            // The correction already made by the speed since the start counts too.
+            startLead = (startLead - 0.6 * (e - run.corrected) / plan.speedB).coerceIn(0.0, 500.0)
+            Graph.app.getSharedPreferences("myspoti_prefs", 0).edit().putFloat("automix_start_lead", startLead.toFloat()).apply()
+        }
+        if (preroll && kotlin.math.abs(e) > 400 && run.errors.size == 3) {
+            d.seekTo((target + 120).toLong().coerceAtLeast(0L)); run.errors.clear(); return
+        }
+        run.locked = kotlin.math.abs(e) < 15
+        if (!preroll) run.worstMs = maxOf(run.worstMs, kotlin.math.abs(e))
+        // Muted, or still low in the mix: fast and strong; heard: gentle.
+        val fast = preroll || quiet
+        val dead = if (preroll) 2.0 else 6.0
+        val horizon = if (fast) 300.0 else 1500.0
+        val limit = if (preroll) 0.08 else if (quiet) 0.05 else 0.02
+        val nudge = if (kotlin.math.abs(e) <= dead) 0.0 else (-e / horizon).coerceIn(-limit, limit)
+        val speed = (base * (1 + nudge)).toFloat()
+        // What the nudges moved the deck by so far (ms of B), for the start delay learnt above.
+        if (run.lastTickAt > 0 && run.lastSpeed > 0) run.corrected += (run.lastSpeed / base - 1) * (android.os.SystemClock.uptimeMillis() - run.lastTickAt) * plan.speedB
+        run.lastTickAt = android.os.SystemClock.uptimeMillis()
+        if (kotlin.math.abs(speed - run.lastSpeed) > 0.0005f) {
+            d.playbackParameters = androidx.media3.common.PlaybackParameters(speed)
+            run.lastSpeed = speed
+        }
+        // Once a second in the journal: how far the deck is from its place.
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - run.loggedAt >= 1000) {
+            run.loggedAt = now
+            com.music.spotui.automix.AutoMix.journal(String.format("%s: deck %+.0f ms, speed %.4f", if (preroll) "run-up" else "mix", e, speed))
+        }
+    }
+
+    /**
+     * The mix starts: the deck becomes the main player (the queue around its song, the listener, the
+     * audio focus), the old main player plays the mix out as the outgoing one.
+     */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private fun takeOver(run: MixRun, a: ExoPlayer) {
+        val d = run.deck
+        if (a.getMediaItemAt(run.toIndex).mediaId != run.toId) return cancelMix("the queue moved")
+        val err = run.errors.lastOrNull() ?: 0.0
+        val items = (0 until a.mediaItemCount).map(a::getMediaItemAt)
+        if (run.toIndex > 0) d.addMediaItems(0, items.subList(0, run.toIndex))
+        if (run.toIndex + 1 < items.size) d.addMediaItems(items.subList(run.toIndex + 1, items.size))
+        d.repeatMode = a.repeatMode
+        d.shuffleModeEnabled = false
+        mainListener?.let(a::removeListener)
+        // The focus moves with the main role: given up by the old player first, so it does not pause.
+        a.setAudioAttributes(audioAttributes, false); a.setHandleAudioBecomingNoisy(false)
+        d.setAudioAttributes(audioAttributes, !mirrorActive); d.setHandleAudioBecomingNoisy(true)
+        mainListener = listenerFor(d).also(d::addListener)
+        exo = d
+        outgoing = a
+        run.eqA = deckEq
+        deckEq = run.eq
+        run.state = MixState.MIXING
+        SongPlayer.onLocalFade(true)
+        com.music.spotui.automix.AutoMix.journal(String.format("mix started (%s), deck %+.0f ms from its place%s", run.plan.style, err, if (run.locked) ", locked" else ""))
+        // What a transition of the main player does (not the move to 0:00: the deck starts where the plan says).
+        if (skipHidden(d, Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)) return
+        prefetchNext(d); continueIfLast(d)
+        publish()
+    }
+
+    /** During and after the mix: gains, EQ, the lock, then the deck's speed and gain back to its own. */
+    private fun mixing(run: MixRun): Boolean {
+        val d = run.deck
+        if (exo !== d) { endMix(); return false }
+        val plan = run.plan
+        val a = run.a
+        if (run.state == MixState.MIXING && a != null) {
+            val x = run.progress()
+            if (x >= 1.0) {
+                // A is gone.
+                com.music.spotui.automix.AutoMix.journal(String.format("mix done, largest gap %.0f ms", run.worstMs))
+                handler.removeCallbacks(tick)
+                outgoing?.let { it.stop(); it.release() }
+                outgoing = null
+                SongPlayer.onLocalFade(false)
+                run.eqA?.release(); run.eqA = null; run.a = null
+                run.state = MixState.RESTORING
+            } else {
+                val lv = plan.levels(x)
+                a.volume = lv.gainA.toFloat(); d.volume = lv.gainB.toFloat()
+                run.eqA?.set(lv.lowA, lv.highA); run.eq?.set(lv.lowB, lv.highB)
+                // B low in the mix, or a cut (B whole at once, A out within two beats): corrected fast.
+                if (a.isPlaying) lock(run, a, preroll = false, quiet = lv.gainB < 0.35 || plan.style == app.myspoti.automix.MixPlan.Style.CUT)
+                // Paused: the ticks start again with the play (onIsPlayingChanged).
+                return d.playWhenReady
+            }
+        }
+        // Restoring: the song's own speed and full gain.
+        val tB = d.currentPosition / 1000.0
+        run.eq?.set(0.0, 0.0)
+        d.volume = plan.gainAfter(tB).toFloat()
+        val speed = (plan.speedAfter(tB) * rate()).toFloat()
+        if (kotlin.math.abs(speed - run.lastSpeed) > 0.0005f) { d.playbackParameters = androidx.media3.common.PlaybackParameters(speed); run.lastSpeed = speed }
+        if (plan.speedAfter(tB) == 1.0 && plan.gainAfter(tB) >= 0.999) {
+            mix = null
+            d.volume = 1f
+            tune(d)
+            com.music.spotui.automix.AutoMix.journal("back to the song's own speed")
+            return d.isPlaying
+        }
+        return true
+    }
+
+    /** A pause before the mix: the run-up starts again when the song plays on. */
+    private fun mixPaused() {
+        val run = mix ?: return
+        if (run.state == MixState.PREROLL) {
+            run.deck.pause(); run.deck.seekTo(run.startMs); run.state = MixState.READY
+        }
+    }
+
+    /** The user moved in the song before the mix: the deck goes (prepared again if the end is still ahead). */
+    private fun mixMoved() {
+        val run = mix ?: return
+        if (run.state < MixState.MIXING) cancelMix("seek", again = true)
+    }
+
+    private fun cancelMix(why: String, again: Boolean = false) {
+        val run = mix ?: return
+        if (run.state >= MixState.MIXING) return
+        mix = null
+        // Not prepared again for this pair (a deck that failed would fail again), unless the user moved.
+        if (!again) dropped = run.toIndex to run.toId
+        run.eq?.release()
+        run.deck.release()
+        com.music.spotui.automix.AutoMix.journal("deck dropped: $why")
+    }
+
+    /** A user action (skip, seek, stop) during or after the mix: the deck plays on as the song, at its own speed. */
+    private fun endMix() {
+        val run = mix ?: return
+        if (run.state < MixState.MIXING) return cancelMix("stopped")
+        mix = null
+        run.eqA?.release()
+        run.eq?.neutral()
+        if (exo === run.deck) tune(run.deck)
+        com.music.spotui.automix.AutoMix.journal("mix ended early")
+    }
+
+    /** AutoMix turned on or off in the settings. */
+    fun autoMixChanged(on: Boolean) {
+        val p = exo ?: return
+        if (on && deckEq == null) deckEq = com.music.spotui.automix.DeckEq.attach(p.audioSessionId)
+        if (!on) { cancelMix("AutoMix off"); planned = null }
+        if (p.isPlaying) { handler.removeCallbacks(tick); handler.post(tick) }
+    }
+
+    /** For the command line: where the mix stands. */
+    fun autoMixState(): String {
+        val run = mix
+        val p = exo
+        return "AutoMix ${if (com.music.spotui.automix.AutoMix.on) "on" else "off"}, " +
+            (if (run == null) "no deck" else "deck ${run.state} ${run.plan.style}, progress ${"%.2f".format(run.progress())}") +
+            (planned?.let { ", plan ${it.plan}" } ?: "") + (p?.let { ", at ${it.currentPosition} ms of ${it.duration}" } ?: "")
+    }
+
     // ── Crossfade (real overlap: every song of this player is a local-player one) ──
     // Near the end of a song, a second player takes over its last seconds (fading out) while the
     // main player moves on to the next item at once (fading in). The main player thus sees an
@@ -437,11 +870,16 @@ object LocalPlayer {
         override fun run() {
             handler.removeCallbacks(this)
             val p = exo ?: return
-            if (outgoing != null) {
+            if (outgoing != null && mix == null) {
                 val t = CrossfadeRamp.progress(p.currentPosition, fadeMs)
                 p.volume = CrossfadeRamp.incomingGain(t)
                 outgoing?.volume = CrossfadeRamp.outgoingGain(t)
                 if (t >= 1f) endFade() else handler.postDelayed(this, 40)
+                return
+            }
+            if (mix != null || (com.music.spotui.automix.AutoMix.on && !CastPlayback.active)) {
+                // Every 20 ms from the deck's readiness: its start and the lock depend on it.
+                if (mixTick(p)) handler.postDelayed(this, if (mix?.let { it.state >= MixState.READY } == true) 20 else 200)
                 return
             }
             if (!p.isPlaying) return
@@ -515,6 +953,7 @@ object LocalPlayer {
         outgoing?.let { it.stop(); it.release() }
         if (outgoing != null) SongPlayer.onLocalFade(false)
         outgoing = null
+        endMix()
         exo?.let { it.volume = 1f; if (it.isPlaying) handler.postDelayed(tick, 200) }
     }
 
@@ -524,6 +963,7 @@ object LocalPlayer {
      */
     fun fadeProgress(): Float {
         val p = exo ?: return 1f
+        mix?.takeIf { it.state == MixState.MIXING }?.let { m -> return m.progress().toFloat().coerceIn(0f, 1f) }
         return if (outgoing == null) 1f else CrossfadeRamp.progress(p.currentPosition, fadeMs)
     }
     /** Where the song fading out is (0 with no fade). */
@@ -537,7 +977,7 @@ object LocalPlayer {
         p.play()
     }
     /** The sleep timer's fade: the player's volume (a crossfade owns it while it runs, the fade then goes on after it). */
-    fun setGain(gain: Float) { if (outgoing == null) exo?.volume = gain }
+    fun setGain(gain: Float) { if (outgoing == null && mix == null) exo?.volume = gain }
     fun pause() { if (CastPlayback.active) CastPlayback.pause() else exo?.pause() }
     fun next() {
         // In the first half of a crossfade the main player is on the next song already, while the
@@ -547,6 +987,11 @@ object LocalPlayer {
             com.music.spotui.extensions.Extensions.skipAsked("forward")
             log("skip during the crossfade: the song coming in plays")
             return endFade()
+        }
+        if (mixOnSkip()) {
+            cancelOnce("next")
+            com.music.spotui.extensions.Extensions.skipAsked("forward")
+            return
         }
         endFade()
         cancelOnce("next")

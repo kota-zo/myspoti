@@ -38,6 +38,12 @@ sealed interface CliCommand {
     data object Next : CliCommand
     data object Previous : CliCommand
     data class Nav(val route: String) : CliCommand
+    /** AutoMix on or off; null: as it is. */
+    data class AutoMixSet(val on: Boolean?) : CliCommand
+    data object AutoMixStatus : CliCommand
+    /** Phone songs (a piece of each one's MediaStore folder + title) played as the local queue. */
+    data class AutoMixFiles(val names: List<String>) : CliCommand
+    data class AutoMixSeek(val ms: Long) : CliCommand
 }
 
 class CliError(message: String) : Exception(message)
@@ -47,7 +53,7 @@ object CliParser {
         "status", "ext.list", "ext.install <zip path>", "ext.uninstall <id>", "ext.enable <id>", "ext.disable <id>",
         "ext.setting <id> <key> <value|null>", "ext.press <id> <key>", "ext.call <id> <hook> [json]",
         "ext.log <id> [lines]", "ext.storage <id>", "ext.why [n]", "play <spotify uri> [context uri]", "pause", "resume", "next", "previous",
-        "nav <route>",
+        "nav <route>", "automix [on|off]", "automix.status", "automix.files <folder+title piece> <folder+title piece>...", "automix.seek <ms>",
     )
 
     private val ID = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
@@ -95,6 +101,10 @@ object CliParser {
                 val uri = arg(0, "spotify uri").also { if (!URI.matches(it)) throw CliError("play: not a spotify: uri") }
                 CliCommand.Play(uri, args.getOrNull(1)?.takeIf { it.isNotBlank() }?.also { if (!URI.matches(it)) throw CliError("play: the context is not a spotify: uri") })
             }
+            "automix" -> CliCommand.AutoMixSet(when (args.getOrNull(0)) { null -> null; "on" -> true; "off" -> false; else -> throw CliError("automix: on or off") }).also { most(1) }
+            "automix.status" -> CliCommand.AutoMixStatus.also { most(0) }
+            "automix.files" -> CliCommand.AutoMixFiles(args.filter { it.isNotBlank() }.also { if (it.size < 2) throw CliError("automix.files: at least two files") })
+            "automix.seek" -> CliCommand.AutoMixSeek(arg(0, "ms").toLongOrNull()?.takeIf { it >= 0 } ?: throw CliError("automix.seek: <ms> is a number")).also { most(1) }
             "pause" -> CliCommand.Pause.also { most(0) }
             "resume" -> CliCommand.Resume.also { most(0) }
             "next" -> CliCommand.Next.also { most(0) }
