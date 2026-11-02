@@ -96,6 +96,8 @@ fun ImmersiveHomeScreen(navController: NavController) {
     val facet = homeViewModel.facet.value
     val context = LocalContext.current
     LaunchedEffect(Unit) { ProfileCache.ensure(context) }
+    // An old feed is read again when Home shows again (see HomeViewModel.refreshIfStale).
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { homeViewModel.refreshIfStale() }
 
     // Re-tapping the Home tab while on Home scrolls back to the top, as in the Classic screen.
     val listState = rememberLazyListState()
