@@ -38,9 +38,15 @@ object LogMask {
         // head is ever read: masking the tail costs milliseconds on the main thread for characters
         // that are thrown away.
         val head = text.take(max * 4)
-        val clean = redact(head)
-        if (head.length == text.length && clean.length <= max) return clean
-        val cut = if (head.length == text.length) clean.length else text.length
-        return clean.take(max) + "… (+${cut - max})"
+        var clean = redact(head)
+        var size = if (head.length == text.length) clean.length else text.length
+        // A value cut at the end of the head is no longer matched whole (a blob under 120 characters,
+        // an address without its domain) and stays as it is. When masking shrank the head so much that
+        // this tail could reach the kept characters, the whole text is masked instead.
+        if (head.length < text.length && clean.length < max * 3) {
+            clean = redact(text)
+            size = clean.length
+        }
+        return if (size <= max) clean else clean.take(max) + "… (+${size - max})"
     }
 }

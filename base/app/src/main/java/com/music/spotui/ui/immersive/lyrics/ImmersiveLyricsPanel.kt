@@ -1140,6 +1140,12 @@ private fun GapRow(
     ) {
         Box(
             modifier = Modifier
+                // Its own layer, outside the clip and the grow below: the dots blur at the full
+                // radius and the blur bleeds past the rounded rect, as a sung line's does.
+                .graphicsLayer {
+                    val radius = blur.value.toPx()
+                    renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
+                }
                 .clip(RoundedCornerShape(10.dp))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                     onSeek(row.timeMs)
@@ -1154,8 +1160,6 @@ private fun GapRow(
                     scaleY = grow
                     transformOrigin = TransformOrigin(0f, 0.5f)
                     alpha = lineAlpha.value * swell
-                    val radius = blur.value.toPx()
-                    if (radius > 0f) renderEffect = BlurEffect(radius, radius, TileMode.Decal)
                 }
                 .drawBehind {
                     val span = (until - row.timeMs).coerceAtLeast(1L)

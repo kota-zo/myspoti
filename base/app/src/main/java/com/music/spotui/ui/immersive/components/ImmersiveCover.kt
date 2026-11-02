@@ -27,11 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -157,14 +159,17 @@ fun ImmersivePlayingBars(modifier: Modifier = Modifier) {
                     Modifier
                         .width(3.dp)
                         .height(14.dp)
-                        // Scaled in the layer, from the bottom: the dance does not relayout
-                        // (and recompose) the bars sixty times a second.
-                        .graphicsLayer {
-                            scaleY = height()
-                            transformOrigin = TransformOrigin(0.5f, 1f)
-                        }
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White),
+                        // Drawn at its height from the bottom: the dance does not relayout (and
+                        // recompose) the bars sixty times a second, and the corners stay round.
+                        .drawBehind {
+                            val barHeight = size.height * height()
+                            drawRoundRect(
+                                color = Color.White,
+                                topLeft = Offset(0f, size.height - barHeight),
+                                size = Size(size.width, barHeight),
+                                cornerRadius = CornerRadius(2.dp.toPx()),
+                            )
+                        },
                 )
             }
         }
