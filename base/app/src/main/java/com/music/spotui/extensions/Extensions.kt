@@ -354,7 +354,8 @@ object Extensions {
                 rawGrants = (before?.rawGrants.orEmpty() +
                     if (app.myspoti.extensions.Action.SPOTIFY_RAW.key in granted) p.manifest.declaredWrites() else emptyList()).distinct(),
             )
-            update { it.put(e) }
+            // A fresh install is asked first wherever it acts; an update keeps the user's order.
+            update { r -> r.put(e).let { if (before == null) it.firstOnInstall(id, p.manifest) else it } }
             e to before
         }
         failures.reset(id)

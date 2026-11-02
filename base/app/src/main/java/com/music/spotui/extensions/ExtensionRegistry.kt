@@ -8,9 +8,11 @@ import app.myspoti.extensions.Clash
 import app.myspoti.extensions.Hook
 import app.myspoti.extensions.Level
 import app.myspoti.extensions.Manifest
+import app.myspoti.extensions.Mode
 import app.myspoti.extensions.Origin
 import app.myspoti.extensions.Snapshot
 import app.myspoti.extensions.Storage
+import app.myspoti.extensions.mode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -89,8 +91,9 @@ data class Registry(
     /**
      * Per [Area] key, the ids in the order the user set on the Installed tab: asked first, first
      * answer wins (lyrics: the best answer, ties to the higher one; blocks: shown first; playback
-     * commands: the higher wins a contradiction). An extension not listed (installed since) comes
-     * after, in installation order. Before areas, keys were hook keys: [migrated] maps them.
+     * commands: the higher wins a contradiction). A new install goes first ([firstOnInstall]); an
+     * extension not listed (an area it gained with an update) comes after, in installation order.
+     * Before areas, keys were hook keys: [migrated] maps them.
      */
     val priority: Map<String, List<String>> = emptyMap(),
     /** Per exclusive action key (audio.source, download.source), the extension the user made active. */
@@ -129,6 +132,17 @@ data class Registry(
         if (to == from) return this
         now.add(to, now.removeAt(from))
         return copy(priority = priority + (area to now))
+    }
+
+    /**
+     * [id], installed just now as [m], first in every order it stands in: its areas ([Areas.of])
+     * and the sources it gives (audio, downloads, Spotify included), so it is asked before the
+     * others. They keep their order behind it (never moved: installation order). Not for an
+     * update or a turn back on: the order the user left stays as it is.
+     */
+    fun firstOnInstall(id: String, m: Manifest): Registry {
+        val keys = Areas.of(m).map { it.key } + m.actionSet().filter { it.mode == Mode.ORDERED }.map { it.key }
+        return copy(priority = priority + keys.associateWith { k -> listOf(id) + (priority[k].orEmpty() - id) })
     }
 
     /**

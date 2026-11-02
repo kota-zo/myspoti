@@ -94,7 +94,8 @@ action it lists, or is not installed. The official repository is suggested, neve
 search, Menus & player, Library & Spotify, Pages & more. Each area opens with a **Built-in** row (a
 dropdown of what Myspoti does there by itself, e.g. Lyrics: Spotify, LRCLIB, NetEase, KuGou,
 Lyrics+, Genius; built-in sources are not extensions), then the extensions acting there with their
-switch and action icons, in the user's order (arrows; installation order until moved). That order
+switch and action icons, in the user's order (arrows). A newly installed extension is placed first in each area and in
+the audio and download source orders it gives; an update keeps the user's order. That order
 is the one the area asks them in (section 3) and the one the playback arbiter uses. The Built-in row says in
 one plain sentence what the app already does there; an area no extension acts in says "No
 extension — the app already does: …". Nothing is ever installed without the install prompt, and
