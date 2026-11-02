@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Прямой эфир радио</string>
+    <string name="live_radio_subtitle">Интернет-радиостанции из бесплатного каталога radio-browser.info</string>
+    <string name="live_radio_search_hint">Поиск станций</string>
+    <string name="live_radio_popular">Популярные станции</string>
+    <string name="live_radio_search_results">Результаты поиска</string>
+    <string name="live_radio_favorites">Избранное</string>
+    <string name="live_radio_favorite">Добавить в избранное</string>
+    <string name="live_radio_unfavorite">Удалить из избранного</string>
+    <string name="live_radio_no_results">Станции не найдены</string>
+    <string name="live_radio_error">Не удалось подключиться к каталогу радиостанций. Проверьте соединение и повторите попытку.</string>
+    <string name="live_radio_settings_title">Радио в эфире</string>
+    <string name="live_radio_settings_detail">Добавляет папку «Радио в эфире» в вашу медиатеку, рядом с Локальными файлами. Поиск идёт в каталог radio-browser.info; логотип и поток станции загружаются с её собственного сервера.</string>
+</resources>

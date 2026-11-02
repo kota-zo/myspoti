@@ -100,6 +100,11 @@ fun MyNavHost(
             if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveLocalFilesScreen(navHostController) else com.music.spotui.ui.screens.LocalFilesScreen(navHostController)
         }
 
+        // Live Radio (see com.music.spotui.radio): plays through LocalPlayer, as a Local Files song does.
+        page(Routes.LiveRadio.route){
+            if (isImmersive()) com.music.spotui.radio.ui.ImmersiveLiveRadioScreen(navHostController) else com.music.spotui.radio.ui.LiveRadioScreen(navHostController)
+        }
+
         page(Routes.Downloads.route){
             if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveDownloadsScreen(navHostController) else com.music.spotui.ui.screens.DownloadsScreen(navHostController)
         }

@@ -86,6 +86,7 @@ Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta
 
 **And also**
 - Your recap: your top songs, artists and albums, kept on your phone.
+- **Live Radio**, off until you turn it on (Settings, Playback): internet radio from the free [Radio Browser](https://www.radio-browser.info) directory, https streams only, favorites kept on your phone. Searches go to Radio Browser, and each station's logo and stream come from that station's own server.
 - 69 languages and regional variants, following the phone or picked by hand.
 - Data saver, battery saver, AMOLED black, accent colour.
 
@@ -130,7 +131,7 @@ Two looks, switched in Settings, Display.
 
 **Do downloads count in my Wrapped?** They always count in Myspoti's own recap. With **Sync downloaded songs with Spotify** (Settings → Playback, on by default), a downloaded song played online also plays muted on Spotify so your other devices see and control it; whether Spotify counts that play is up to Spotify and not guaranteed. Offline, or with the setting off, the file plays only from the phone and nothing is reported. Streamed songs and music videos count as usual.
 
-**What leaves my phone?** Your plays go to Spotify. Lyrics are looked up on lyrics sites, song meanings on Genius, translations on Google Translate, music videos on YouTube, and downloads on the hosts your download-source extension names (shown before you install it). Nothing is sent to the developer.
+**What leaves my phone?** Your plays go to Spotify. Lyrics are looked up on lyrics sites, song meanings on Genius, translations on Google Translate, music videos on YouTube, and downloads on the hosts your download-source extension names (shown before you install it). Live Radio, once turned on, searches [Radio Browser](https://www.radio-browser.info) and loads each station's logo and stream from that station's own server. Nothing is sent to the developer.
 
 ## Not included
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Radio na żywo</string>
+    <string name="live_radio_subtitle">Stacje radiowe z internetu, z darmowego katalogu radio-browser.info</string>
+    <string name="live_radio_search_hint">Szukaj stacji</string>
+    <string name="live_radio_popular">Popularne stacje</string>
+    <string name="live_radio_search_results">Wyniki wyszukiwania</string>
+    <string name="live_radio_favorites">Ulubione</string>
+    <string name="live_radio_favorite">Dodaj do ulubionych</string>
+    <string name="live_radio_unfavorite">Usuń z ulubionych</string>
+    <string name="live_radio_no_results">Nie znaleziono stacji</string>
+    <string name="live_radio_error">Nie można połączyć się z katalogiem radiowym. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="live_radio_settings_title">Radio na żywo</string>
+    <string name="live_radio_settings_detail">Dodaje folder Radio na żywo do Twojej biblioteki, pod Plikami lokalnymi. Wyszukiwania trafiają do katalogu radio-browser.info; logo i strumień stacji pochodzą z jej własnego serwera.</string>
+</resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">实时电台</string>
+    <string name="live_radio_subtitle">来自免费电台目录 radio-browser.info 的网络电台</string>
+    <string name="live_radio_search_hint">搜索电台</string>
+    <string name="live_radio_popular">热门电台</string>
+    <string name="live_radio_search_results">搜索结果</string>
+    <string name="live_radio_favorites">收藏</string>
+    <string name="live_radio_favorite">添加到收藏</string>
+    <string name="live_radio_unfavorite">从收藏中移除</string>
+    <string name="live_radio_no_results">未找到电台</string>
+    <string name="live_radio_error">无法连接电台目录，请检查网络连接后重试。</string>
+    <string name="live_radio_settings_title">实时电台</string>
+    <string name="live_radio_settings_detail">在“你的资料库”中本地文件下方添加一个实时电台文件夹。搜索会发送到 radio-browser.info 目录；每个电台的标志和音频流来自该电台自己的服务器。</string>
+</resources>

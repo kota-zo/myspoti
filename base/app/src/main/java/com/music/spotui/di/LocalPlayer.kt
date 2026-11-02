@@ -113,6 +113,9 @@ object LocalPlayer {
                     // Casting: this player keeps the queue only, stopped; the song plays on the device.
                     if (CastPlayback.active && state != Player.STATE_IDLE) { p.stop(); return }
                     if (state == Player.STATE_READY) checkLength(p)
+                    // A station's server that closes the stream: a drop like any other, never "the end".
+                    val station = current()?.takeIf { it.isRadio }
+                    if (state == Player.STATE_ENDED && station != null) { reconnectRadio(p, station); return }
                     if (state == Player.STATE_ENDED && !playAgain(p)) atEnd(p)
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -135,6 +138,9 @@ object LocalPlayer {
                     log("isPlaying $isPlaying at ${p.currentPosition} ms")
                     if (isPlaying) errors.played()
                     if (isPlaying) tick.run()
+                    // A station that plays on for a while has its reconnect tries back (see reconnectRadio).
+                    handler.removeCallbacks(radioSteady)
+                    if (isPlaying && current()?.isRadio == true) handler.postDelayed(radioSteady, RADIO_STEADY_MS)
                 }
                 override fun onPlaybackSuppressionReasonChanged(reason: Int) =
                     log("suppressed: ${if (reason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) "no" else "reason $reason"}")
@@ -159,6 +165,8 @@ object LocalPlayer {
                 // then Spotify plays it, where it was, and goes on; a queue that keeps failing stops.
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     log("error ${error.errorCodeName}: ${generic(error.cause?.toString() ?: error.message.orEmpty())}")
+                    val station = current()?.takeIf { it.isRadio }
+                    if (station != null) { radioError(p, station, error); return }
                     val item = p.currentMediaItem?.localConfiguration?.uri ?: return
                     if (item.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME) com.music.spotui.extensions.Extensions.noteAttempt(item.lastPathSegment) { it.copy(error = "${error.errorCodeName}: ${error.cause ?: error.message.orEmpty()}") }
                     // A file that is gone (a download deleted while the queue played): never left stopped on it.
@@ -379,8 +387,11 @@ object LocalPlayer {
         }
         SongPlayer.pauseEngineForLocal()
         forgetRadio(); this.continues = continues
+        // A station is a queue of its own: no Spotify songs after it, and its reconnect tries start afresh.
+        val isStation = list.singleOrNull()?.isRadio == true
+        radioRetries = 0; handler.removeCallbacks(radioSteady)
         // Spotify's queued songs (the account's: maybe queued on another device or install) play first.
-        val (all, fromSpotify) = QueueSync.withSpotifyQueue(list, index.coerceIn(0, list.lastIndex))
+        val (all, fromSpotify) = if (isStation) list to emptyList<LocalTrack>() else QueueSync.withSpotifyQueue(list, index.coerceIn(0, list.lastIndex))
         tracks.clear(); tracks.addAll(all); unshuffled = null
         // An index kept from fading belonged to the list before: this one fades from its first song.
         noFadeFor = -1
@@ -414,6 +425,7 @@ object LocalPlayer {
         // A page left muted by an extension's mirror must not stay silent once Spotify plays again.
         SongPlayer.unmuteMirror()
         forgetRadio(); continues = false; deletedDownloads.clear()
+        handler.removeCallbacks(radioSteady)
         exo?.let { it.stop(); it.clearMediaItems() }
         tracks.clear(); unshuffled = null
         queued.clear(); playingQueued = null; radioSongs.clear()
@@ -931,6 +943,51 @@ object LocalPlayer {
     fun spotifyIdOf(t: LocalTrack): String =
         com.music.spotui.data.offline.OfflineStore.byLocalId(t.id)?.trackId
             ?: t.uri.takeIf { it.scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME }?.lastPathSegment.orEmpty()
+
+    /**
+     * A live stream drops often (a weak connection, the server's own hiccup): reconnected instead
+     * of left stopped, a few times with a growing pause between tries. The tries come back only
+     * once a reconnect has played [RADIO_STEADY_MS] in a row ([radioSteady]): a stream that starts
+     * and drops at once gives up after [RADIO_TRIES] instead of retrying every second for good.
+     */
+    private var radioRetries = 0
+    private const val RADIO_TRIES = 5
+    private const val RADIO_STEADY_MS = 30_000L
+    private val radioSteady = Runnable { radioRetries = 0 }
+
+    /** Only a network failure is worth a reconnect: a stream the player cannot read stays as it is the next time. */
+    private fun radioError(p: ExoPlayer, t: LocalTrack, error: androidx.media3.common.PlaybackException) {
+        val status = (error.cause as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode
+        val network = when (error.errorCode) {
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+            androidx.media3.common.PlaybackException.ERROR_CODE_TIMEOUT -> true
+            // The station's server busy or restarting (5xx), not a stream that is gone (404).
+            androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> status != null && status >= 500
+            else -> false
+        }
+        if (network) return reconnectRadio(p, t)
+        radioRetries = 0
+        log("${t.title}: not reconnected, the stream itself failed (${error.errorCodeName})")
+        android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, t.title), android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    private fun reconnectRadio(p: ExoPlayer, t: LocalTrack) {
+        if (radioRetries >= RADIO_TRIES) {
+            radioRetries = 0
+            log("${t.title}: gave up reconnecting after repeated failures")
+            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, t.title), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        radioRetries++
+        val delayMs = (1000L shl (radioRetries - 1)).coerceAtMost(16_000L)
+        log("${t.title}: stream dropped, reconnecting in ${delayMs}ms (try $radioRetries/$RADIO_TRIES)")
+        handler.postDelayed({
+            // Paused meanwhile: it reconnects when the user plays it again, not by itself.
+            if (exo === p && current() === t && p.playWhenReady) { p.setMediaItem(item(t)); p.prepare(); p.play() }
+        }, delayMs)
+    }
 
     fun isPlaying() = if (CastPlayback.active) CastPlayback.isPlaying() else exo?.isPlaying == true
     /** Waiting for audio (a stream that does not keep up, a seek still loading). */

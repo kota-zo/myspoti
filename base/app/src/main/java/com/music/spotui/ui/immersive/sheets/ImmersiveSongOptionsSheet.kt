@@ -112,6 +112,9 @@ fun ImmersiveSongOptionsSheet(
     if (showSleep) { SleepTimerSheet(onDismiss = { showSleep = false; onDismiss() }); return }
 
     val hasId = song.spotifyTrackId.isNotBlank()
+    // A Live Radio station playing right now: no queue, album or artist page of its own, but
+    // (unlike a track with no Spotify id) a name and homepage worth sharing.
+    val isRadio = nowPlaying && com.music.spotui.radio.RadioPlayer.current() != null
     val episodeKey = com.music.spotui.data.offline.episodeKeyOf(song)
     val downloadKey = episodeKey ?: song.spotifyTrackId
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
@@ -152,7 +155,7 @@ fun ImmersiveSongOptionsSheet(
                 onDismiss()
             }
         } else if (onOpenQueue != null) {
-            ImmersiveSheetRow(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.context_menu_go_to_queue)) {
+            ImmersiveSheetRow(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.context_menu_go_to_queue), enabled = !isRadio) {
                 onDismiss()
                 onOpenQueue()
             }
@@ -200,11 +203,11 @@ fun ImmersiveSongOptionsSheet(
                 navigate = { route -> navController.navigate(route) },
                 onFailed = { toast(context.getString(R.string.song_radio_failed)) })
         }
-        ImmersiveSheetRow(Icons.Rounded.Album, stringResource(R.string.context_menu_browse_album), enabled = song.album.isNotBlank() || song.albumId.isNotBlank()) {
+        ImmersiveSheetRow(Icons.Rounded.Album, stringResource(R.string.context_menu_browse_album), enabled = !isRadio && (song.album.isNotBlank() || song.albumId.isNotBlank())) {
             onDismiss()
             navController.navigate(albumRoute(song.album, song.singer, song.albumId))
         }
-        ImmersiveSheetRow(Icons.Rounded.Person, stringResource(R.string.context_menu_browse_artist), enabled = song.singer.isNotBlank()) {
+        ImmersiveSheetRow(Icons.Rounded.Person, stringResource(R.string.context_menu_browse_artist), enabled = !isRadio && song.singer.isNotBlank()) {
             onDismiss()
             playerViewModel.goToArtist(song.spotifyTrackId, song.singer) { route -> navController.navigate(route) }
         }
@@ -316,8 +319,10 @@ fun ImmersiveSongOptionsSheet(
                 navController.navigate(com.music.spotui.ui.navigation.Routes.Equalizer.route)
             }
         }
-        ImmersiveSheetRow(Icons.Rounded.Share, stringResource(R.string.context_menu_share), enabled = hasId) {
-            SpotifyCode.show(ShareTarget("spotify:track:${song.spotifyTrackId}", song.title, song.singer, song.coverUri))
+        ImmersiveSheetRow(Icons.Rounded.Share, stringResource(R.string.context_menu_share), enabled = hasId || isRadio) {
+            // A station has no Spotify uri: shared as plain text, never through a Spotify Code.
+            if (isRadio) com.music.spotui.radio.RadioPlayer.share(context)
+            else SpotifyCode.show(ShareTarget("spotify:track:${song.spotifyTrackId}", song.title, song.singer, song.coverUri))
             onDismiss()
         }
         if (nowPlaying) {

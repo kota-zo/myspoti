@@ -169,6 +169,13 @@ fun SettingsScreen(navController: NavController) {
                     checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
                     onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
                 )
+            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
+            OptionRow(
+                label = stringResource(R.string.live_radio_settings_title),
+                detail = stringResource(R.string.live_radio_settings_detail),
+                checked = com.music.spotui.radio.RadioFeaturePref.on,
+                onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+            )
             // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
             OptionRow(
                 label = stringResource(R.string.settings_download_sync_title),

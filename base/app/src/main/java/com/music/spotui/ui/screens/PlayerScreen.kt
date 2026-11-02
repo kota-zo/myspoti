@@ -505,6 +505,10 @@ fun PlayerScreen(navController: NavController) {
                 // Immersive: the artwork fills the screen instead of sitting in a square.
                 modifier = if (immersive) Modifier.fillMaxSize()
                     else Modifier.fillMaxWidth().aspectRatio(1f),
+                // A Live Radio station is a "queue" of one with nothing to swipe to: without this the
+                // artwork could be dragged onto a page falling back to the very same cover.
+                // (Read again each time np changes, which a station starting does.)
+                userScrollEnabled = com.music.spotui.radio.RadioPlayer.current() == null,
             ) { page ->
                 val cover = when (page) {
                     0 -> np.prev?.coverUri

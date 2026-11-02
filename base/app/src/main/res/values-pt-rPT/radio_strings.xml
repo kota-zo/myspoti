@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Rádio ao vivo</string>
+    <string name="live_radio_subtitle">Estações de rádio pela internet, do diretório gratuito radio-browser.info</string>
+    <string name="live_radio_search_hint">Pesquisar estações</string>
+    <string name="live_radio_popular">Estações populares</string>
+    <string name="live_radio_search_results">Resultados da pesquisa</string>
+    <string name="live_radio_favorites">Favoritas</string>
+    <string name="live_radio_favorite">Adicionar aos favoritos</string>
+    <string name="live_radio_unfavorite">Remover dos favoritos</string>
+    <string name="live_radio_no_results">Nenhuma estação encontrada</string>
+    <string name="live_radio_error">Não foi possível contactar o diretório de rádio. Verifica a tua ligação e tenta novamente.</string>
+    <string name="live_radio_settings_title">Rádio ao vivo</string>
+    <string name="live_radio_settings_detail">Adiciona uma pasta Rádio ao vivo à tua Biblioteca, em Ficheiros locais. As pesquisas vão para o diretório radio-browser.info; o logótipo e a emissão de cada estação vêm do servidor dela.</string>
+</resources>

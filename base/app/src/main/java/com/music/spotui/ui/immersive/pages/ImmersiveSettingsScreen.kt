@@ -276,6 +276,15 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     detail = stringResource(R.string.settings_connect_mirror_detail),
                 )
             }
+            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.live_radio_settings_title),
+                    checked = com.music.spotui.radio.RadioFeaturePref.on,
+                    onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+                    detail = stringResource(R.string.live_radio_settings_detail),
+                )
+            }
             // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
             row {
                 ImmersiveSwitchRow(
