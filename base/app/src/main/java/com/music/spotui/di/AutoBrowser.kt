@@ -314,9 +314,12 @@ object AutoBrowser {
         }
         if (page != null) {
             Graph.currentSongState.updateQueue(page.tracks)
+            SongPlayer.registerContextName(page.uri, page.name)
             if (page.type == "liked") SongPlayer.registerLikedSongs(page.tracks.map { it.url })
         }
-        SongPlayer.playSong(key, contextUri = contextUri)
+        // The list's songs: an audio-source extension then plays the list on from the song, as on
+        // the phone, instead of the song alone and its radio. Spotify plays the context anyway.
+        SongPlayer.playSong(key, contextUri = contextUri, songs = page?.tracks)
         song?.let { Graph.currentSongState.updateSongState(it.coverUri, it.title, it.singer, true, it.id, 0, it.album) }
     }
 
