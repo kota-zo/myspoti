@@ -89,10 +89,10 @@ class HookDispatchTest {
         assertEquals("P", l.provider)
         assertEquals(listOf(1500L, 2500L), l.lines.map { it.timeMs })
         assertEquals(1700L, l.lines[0].words!![0].endMs)
-        assertEquals(3, LyricsMerge.rank(l))
+        assertEquals(3, LyricsMerge.level(l))
         val plain = LyricsMerge.toLyrics(LyricsResult.parse("""{"plain":"one\ntwo"}""", "Ext")!!)
         assertEquals("Ext", plain.provider)
-        assertEquals(1, LyricsMerge.rank(plain))
+        assertEquals(1, LyricsMerge.level(plain))
         assertEquals(listOf("one", "two"), plain.lines.map { it.text })
     }
 
@@ -114,5 +114,18 @@ class HookDispatchTest {
         assertEquals("LyricsPlus", chosen.provider)
         assertEquals("ligne", chosen.lines[0].translation)
         assertEquals("fr", chosen.translationLanguage)
+    }
+
+    @Test fun atTheSameLevelBackingVocalsOrADuetWinTheTie() {
+        fun lines(vararg t: String) = t.mapIndexed { i, s -> LyricLine(i * 1000L, s) }
+        val own = Lyrics(lines("a", "b", "c"), synced = true, provider = "LRCLIB")
+        val backs = Lyrics(lines("x", "y", "z").mapIndexed { i, l -> if (i == 0) l.copy(background = "ooh") else l }, synced = true, provider = "Ext")
+        assertEquals("Ext", LyricsMerge.choose(own, backs)?.provider)
+        // Spotify's complete lyrics stay first, unless the other one has what they lack.
+        val spotify = own.copy(provider = "Spotify", colors = LyricsColors(0, 0, 0))
+        assertEquals("Ext", LyricsMerge.choose(spotify, backs)?.provider)
+        assertEquals("Spotify", LyricsMerge.choose(spotify, backs.copy(lines = lines("x", "y", "z")))?.provider)
+        val duet = own.copy(lines = own.lines.mapIndexed { i, l -> l.copy(voice = i % 2 + 1) })
+        assertEquals("LRCLIB", LyricsMerge.choose(duet, backs.copy(lines = lines("x", "y", "z")))?.provider)
     }
 }

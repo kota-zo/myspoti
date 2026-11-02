@@ -172,6 +172,12 @@ private fun rememberPosition(running: Boolean): () -> Long {
     }
 }
 
+/**
+ * How early a line turns current and a word lights, the same for both: words lit only when sung,
+ * after their line had turned current early, looked late next to line-timed lyrics (reported).
+ */
+private const val LINE_LEAD_MS = 150L
+
 private fun activeIndexFor(lyrics: Lyrics, positionMs: Long): Int {
     if (!lyrics.synced) return -1
     // Binary search: last line starting at or before the position.
@@ -180,7 +186,7 @@ private fun activeIndexFor(lyrics: Lyrics, positionMs: Long): Int {
     var found = -1
     while (lo <= hi) {
         val mid = (lo + hi) ushr 1
-        if (lyrics.lines[mid].timeMs <= positionMs + 150) { found = mid; lo = mid + 1 } else hi = mid - 1
+        if (lyrics.lines[mid].timeMs <= positionMs + LINE_LEAD_MS) { found = mid; lo = mid + 1 } else hi = mid - 1
     }
     return found
 }
@@ -230,6 +236,20 @@ internal fun rememberLyricsState(vm: LyricsViewModel, title: String, artist: Str
         SongPlayer.currentLyricsTrack()?.let { vm.load(it, force = again) }
     }
     return vm.state.collectAsState().value
+}
+
+/**
+ * The screen stays on while [active] (the lyrics shown and the song playing), unless turned off in
+ * the settings ([com.music.spotui.data.preferences.LyricsKeepAwakePref]). Both looks.
+ */
+@Composable
+internal fun KeepScreenOnForLyrics(active: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val on = active && com.music.spotui.data.preferences.LyricsKeepAwakePref.on
+    DisposableEffect(view, on) {
+        if (on) view.keepScreenOn = true
+        onDispose { if (on) view.keepScreenOn = false }
+    }
 }
 
 /**
@@ -353,7 +373,7 @@ private fun LyricLineText(
                     onTextLayout = { fill = it },
                     modifier = Modifier.fillMaxWidth().drawWithContent {
                         val l = fill ?: return@drawWithContent
-                        val off = sungChars(words, starts, position()).coerceAtMost(shown.length.toFloat())
+                        val off = sungChars(words, starts, position() + LINE_LEAD_MS).coerceAtMost(shown.length.toFloat())
                         if (off <= 0f) return@drawWithContent
                         if (off >= shown.length) { drawContent(); return@drawWithContent }
                         val whole = off.toInt()
@@ -463,6 +483,7 @@ fun LyricsScreen(
     val bg by animateColorAsState(palette.background, tween(300), label = "lyricsBg")
     val playing = com.music.spotui.di.Graph.currentSongState.playingState.value
     val position = rememberPosition(playing)
+    KeepScreenOnForLyrics(playing && lyrics != null)
     val targetLanguage = getLyricTranslateLang(context).ifBlank { Locale.getDefault().language.ifBlank { "en" } }
     var menu by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
@@ -736,6 +757,8 @@ private fun LyricsMenu(
                 extra = !extra
                 setLyricsExtraSources(context, extra)
                 LyricsApi.extraSources = extra
+                // Turned off by hand: Genius is no longer asked even when nothing else has the song.
+                LyricsApi.extraSourcesOff = !extra
                 onDismiss()
                 onReload()
             },

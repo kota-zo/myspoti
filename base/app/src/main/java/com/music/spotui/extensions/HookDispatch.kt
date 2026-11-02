@@ -53,30 +53,39 @@ object HookDispatch {
 
 /**
  * Lyrics from extensions next to the app's own: the extensions' answer is used when it is at
- * least as good (word by word > line by line > plain text), except against Spotify's own complete
- * lyrics, which stay first at the same level (they are what the official app shows, with colours).
+ * least as good (word by word > line by line > plain text; at the same level, with backing vocals
+ * or a duet the other lacks), except against Spotify's own complete lyrics, which stay first at
+ * the same level otherwise (they are what the official app shows, with colours).
  */
 object LyricsMerge {
-    fun rank(l: Lyrics): Int = when {
+    /** Word by word 3, line by line 2, plain text 1. */
+    fun level(l: Lyrics): Int = when {
         l.synced && l.wordSynced -> 3
         l.synced -> 2
         else -> 1
     }
 
+    /** [level] first; at the same level, backing vocals of their own, then two singers, win the tie. */
+    fun rank(l: Lyrics): Int = level(l) * 4 + (if (LyricsExtras.hasBacks(l)) 2 else 0) + (if (l.hasDuet) 1 else 0)
+
     /** Whether [own] is Spotify's own, complete lyrics. */
     fun isSpotifyComplete(own: Lyrics?): Boolean = own != null && own.colors != null && own.uncapped
 
-    /** The better of the two; translations and romanizations the other one carries are kept when the chosen has none. */
+    /** The better of the two; the translations, backing vocals and singers the other one carries are kept when the chosen has none. */
     fun choose(own: Lyrics?, fromExtension: Lyrics?): Lyrics? {
         if (fromExtension == null || fromExtension.isEmpty) return own
         if (own == null || own.isEmpty) return fromExtension
-        val mine = rank(own)
-        val theirs = rank(fromExtension)
+        val keptOwn = LyricsExtras.carry(own, fromExtension)
+        val tookTheirs = fromExtension.copy(colors = own.colors).let { LyricsExtras.carry(it, own) }
+        val mine = level(own)
+        val theirs = level(fromExtension)
         return when {
-            theirs > mine -> fromExtension.copy(colors = own.colors).let { LyricsExtras.carry(it, own) }
-            theirs < mine -> LyricsExtras.carry(own, fromExtension)
-            isSpotifyComplete(own) -> LyricsExtras.carry(own, fromExtension)
-            else -> fromExtension.copy(colors = own.colors).let { LyricsExtras.carry(it, own) }
+            theirs > mine -> tookTheirs
+            theirs < mine -> keptOwn
+            // The same level: the one with backing vocals or a duet, once each has what it could take from the other.
+            rank(tookTheirs) != rank(keptOwn) -> if (rank(tookTheirs) > rank(keptOwn)) tookTheirs else keptOwn
+            isSpotifyComplete(own) -> keptOwn
+            else -> tookTheirs
         }
     }
 

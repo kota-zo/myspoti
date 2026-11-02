@@ -257,14 +257,22 @@ data class SweptLine(
 }
 
 /**
+ * The longest a word whose end is unknown is taken to be sung. Spotify's own word timings (and
+ * an extension's words without `end`) give only starts: run up to the next word, a word before a
+ * pause filled slowly across all of it and finished late next to line-timed lyrics (reported).
+ */
+private const val UNKNOWN_WORD_MAX_MS = 700L
+
+/**
  * Myspoti's lyric line as the sweep draws it. A word whose end is unknown (0) runs until
- * the next word starts, or [nextLineMs] for the last one.
+ * the next word starts, or [nextLineMs] for the last one, for [UNKNOWN_WORD_MAX_MS] at most.
  */
 fun com.music.spotui.data.entity.LyricLine.toSwept(nextLineMs: Long? = null): SweptLine {
     val source = words.orEmpty()
     val swept = source.mapIndexed { index, word ->
         val next = source.getOrNull(index + 1)?.startMs ?: nextLineMs ?: (word.startMs + 500L)
-        SweptWord(word.startMs, if (word.endMs > word.startMs) word.endMs else next, word.text.trim())
+        val end = if (word.endMs > word.startMs) word.endMs else minOf(next, word.startMs + UNKNOWN_WORD_MAX_MS)
+        SweptWord(word.startMs, end, word.text.trim())
     }.filter { it.text.isNotEmpty() }
     return SweptLine(timeMs, text, swept)
 }

@@ -121,14 +121,27 @@ class LyricsViewModel constructor() : ViewModel() {
         stopSelecting()
         _triedNothing.value = null
         if (force) LyricsApi.forget(track)
-        // Already resolved (prefetched while the track started): no loading flash.
-        LyricsApi.cached(track)?.let { _state.value = loadedState(it); return }
-        // Read again (the setting changed): the lyrics shown stay until the new ones replace them.
-        if (!(force && _state.value is State.Loaded)) _state.value = State.Loading
-        // Spotify's own lines shown as soon as they are there; the word-timed ones replace them.
+        // Already resolved (prefetched while the track started): no loading flash. Found while an
+        // extension had not answered: shown, and asked again (its answer replaces them).
+        val cached = LyricsApi.cached(track)
+        if (cached != null) {
+            _state.value = loadedState(cached)
+            if (LyricsApi.settled(track)) return
+        } else if (!(force && _state.value is State.Loaded)) {
+            // Read again (the setting changed): the lyrics shown stay until the new ones replace them.
+            _state.value = State.Loading
+        }
+        // The app's own lines shown as soon as they are there (another, better early answer replaces
+        // them too); the final ones replace them. Read by song: the next song's prefetch publishes in between.
         val earlyJob = viewModelScope.launch {
-            LyricsApi.early.collect { e ->
-                if (e != null && e.first == key && loadedKey == key && _state.value is State.Loading) _state.value = loadedState(e.second)
+            var shownEarly: Lyrics? = null
+            LyricsApi.early.collect {
+                val e = LyricsApi.earlyFor(track) ?: return@collect
+                val shown = (_state.value as? State.Loaded)?.lyrics
+                if (loadedKey == key && e != shown && (_state.value is State.Loading || (shown != null && shown === shownEarly))) {
+                    shownEarly = e
+                    _state.value = loadedState(e)
+                }
             }
         }
         viewModelScope.launch(Dispatchers.IO) {

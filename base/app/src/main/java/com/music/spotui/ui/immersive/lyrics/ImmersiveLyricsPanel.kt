@@ -162,10 +162,10 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
     // currentTrackId is plain data, not Compose state: a skip whose title and artist are the same
     // (or that reports its id after them) would never re-run this. The playing item's uri is state.
     val playingUri = SongPlayer.nowPlaying.value.uri
-    LaunchedEffect(title, artist, playingUri, SongPlayer.currentTrackId) {
-        SongPlayer.currentLyricsTrack()?.let(vm::load)
-    }
-    val state by vm.state.collectAsState()
+    // Loaded as the Classic look does: read again when the lyrics extensions changed (they finish
+    // starting after the app: the song not found by then stayed so until the panel was reopened).
+    val state = com.music.spotui.ui.screens.rememberLyricsState(vm, title, artist)
+    com.music.spotui.ui.screens.KeepScreenOnForLyrics(Graph.currentSongState.playingState.value && state is LyricsViewModel.State.Loaded)
     val trackKey = "$playingUri|${SongPlayer.currentTrackId}|$title|$artist"
     val selecting by vm.selecting.collectAsState()
     val picked by vm.picked.collectAsState()

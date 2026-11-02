@@ -246,6 +246,8 @@ object SongPlayer {
         boundState = state
         com.music.spotui.data.api.LyricsApi.extraSources =
             com.music.spotui.data.preferences.isLyricsExtraSources(Graph.app)
+        com.music.spotui.data.api.LyricsApi.extraSourcesOff =
+            com.music.spotui.data.preferences.isLyricsExtraSourcesOff(Graph.app)
         com.music.spotui.data.api.LyricsApi.wordSync =
             com.music.spotui.data.preferences.isLyricsWordSync(Graph.app)
         restoreLastTrack(state)
@@ -756,8 +758,8 @@ object SongPlayer {
         val lookups = app.myspoti.power.EnergySettings.state.value.policy.allowBackgroundLookups
         // Lyrics are warmed in the background too (the next song's are there when it starts), but not on a metered network.
         if (!isBuffering && playing && lookups && (mv.inForeground || !com.music.spotui.data.DataSaver.metered)) {
-            com.music.spotui.data.api.LyricsApi.prefetch(lyricsTrack(song))
-            _nowPlaying.value.next?.let { com.music.spotui.data.api.LyricsApi.prefetch(lyricsTrack(it)) }
+            // The next song's once the playing one's are found: an extension answers one call at a time.
+            com.music.spotui.data.api.LyricsApi.prefetch(lyricsTrack(song), then = _nowPlaying.value.next?.let { lyricsTrack(it) })
         }
         if (!isBuffering && playing && mv.inForeground && lookups) {
             // The next song's clip is looked up now, so its button is there when it starts. The

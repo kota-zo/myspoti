@@ -16,6 +16,8 @@ private const val KEY_CROSSFADE = "crossfade_seconds"
 /** Extra lyrics sources (NetEase, Genius) when Spotify and LRCLIB have none. Off by default. */
 fun isLyricsExtraSources(c: Context): Boolean = prefs(c).getBoolean(KEY_LYRICS_EXTRA, false)
 fun setLyricsExtraSources(c: Context, v: Boolean) = prefs(c).edit().putBoolean(KEY_LYRICS_EXTRA, v).apply()
+/** The extra sources were turned off by hand (never touched: Genius is still the last resort). */
+fun isLyricsExtraSourcesOff(c: Context): Boolean = prefs(c).let { it.contains(KEY_LYRICS_EXTRA) && !it.getBoolean(KEY_LYRICS_EXTRA, false) }
 
 /** Lyrics timed word by word first (karaoke); off: line by line, Spotify's first. */
 fun isLyricsWordSync(c: Context): Boolean = prefs(c).getBoolean("lyrics_word_sync", true)

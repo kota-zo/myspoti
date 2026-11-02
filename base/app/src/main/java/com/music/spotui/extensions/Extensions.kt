@@ -1569,10 +1569,18 @@ object Extensions {
             api.raw.request(method, url, body, headers).let { app.myspoti.extensions.RawRequest.response(it.status, it.headers, it.body) }
     }
 
-    /** Lyrics asked with a time limit of their own, for the app's lyrics resolver. */
-    suspend fun lyricsFor(trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? =
-        if (!hasLyrics()) null
-        else withTimeoutOrNull(LYRICS_MS + 1_000) { lyrics(trackInfo(trackId, title, artist, album, durationMs, cover)) }
+    /**
+     * Lyrics asked for the app's lyrics resolver. Each extension's time counts from when its call
+     * runs, which may wait up to 30 s behind its earlier calls (ExtensionRuntime's queue: a song's
+     * audio looked up, the next song's lyrics); counted from the request, its answer was cut short.
+     * The limit here only ends a call past both, by an exception: the resolver then knows the
+     * extensions did not answer in time, where null is that none had lyrics.
+     */
+    suspend fun lyricsFor(trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? {
+        if (!hasLyrics()) return null
+        val queueMs = 30_000L
+        return kotlinx.coroutines.withTimeout(queueMs + 2 * LYRICS_MS + 1_000) { lyrics(trackInfo(trackId, title, artist, album, durationMs, cover)) }
+    }
 
     /** The running extensions giving lyrics, in their order: (id, name). For the "Try another source" list. */
     fun lyricsSources(): List<Pair<String, String>> =

@@ -326,6 +326,7 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                         lyricsExtra = it
                         com.music.spotui.data.preferences.setLyricsExtraSources(ctx, it)
                         com.music.spotui.data.api.LyricsApi.extraSources = it
+                        com.music.spotui.data.api.LyricsApi.extraSourcesOff = !it
                         com.music.spotui.data.api.LyricsApi.forgetAll()
                     },
                     detail = stringResource(R.string.lyrics_extra_summary),
