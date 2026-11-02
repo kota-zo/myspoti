@@ -675,4 +675,21 @@
     <string name="lan_sonos_group">%1$s está agrupado con otros altavoces: elige el altavoz principal del grupo o desagrúpalo en la app de Sonos.</string>
     <string name="voice_search">Buscar por voz</string>
     <string name="voice_search_unavailable">La búsqueda por voz necesita la app de Google</string>
+    <string name="settings_transitions_title">Transiciones</string>
+    <string name="settings_transitions_detail">Cómo se suceden las canciones de extensiones, descargas y archivos del teléfono. Las transmisiones de Spotify siempre cambian con un fundido corto.</string>
+    <string name="settings_transition_off_detail">Cada canción termina y luego empieza la siguiente.</string>
+    <string name="settings_transition_crossfade_detail">El final de una canción se funde con la siguiente.</string>
+    <string name="settings_transition_automix_detail">Mezcla como un DJ: a tiempo, al final de una frase, con el tempo igualado. La mezcla se ve en la barra de reproducción y la portada late con ella.</string>
+    <string name="settings_transition_crossfade_value">Fundido %1$d s</string>
+    <string name="settings_crossfade_length">Duración</string>
+    <string name="settings_automix_on_next">Mezclar con Siguiente</string>
+    <string name="settings_automix_on_next_detail">Siguiente hace entrar la próxima canción a tiempo en lugar de cortar.</string>
+    <string name="settings_automix_album_order">Mantener los álbumes enteros</string>
+    <string name="settings_automix_album_order_detail">Sin mezcla entre canciones que se siguen en su álbum: se encadenan como en el disco.</string>
+    <string name="settings_automix_show">Mostrar la mezcla en el reproductor</string>
+    <string name="settings_automix_show_detail">El tramo de la mezcla se colorea en la barra de reproducción, y la portada brilla y late al ritmo mientras suena.</string>
+    <string name="automix_hint_next">Mezcla hacia %1$s</string>
+    <string name="automix_hint_mixing">Mezclando hacia %1$s</string>
+    <string name="settings_automix_title">AutoMix</string>
+    <string name="settings_automix_detail">Transiciones al estilo DJ entre canciones de extensiones, descargas y archivos locales: cada canción se analiza una vez (pulsos, compases, frases, tonalidad) y la siguiente entra a tiempo, con el tempo igualado y un intercambio de graves. Las que no se pueden sincronizar tienen un corte a tiempo o un fundido. Las transmisiones solo se analizan en redes sin límite de datos.</string>
 </resources>

@@ -682,4 +682,19 @@
     <string name="lan_sonos_group">%1$s est groupé avec d’autres enceintes : choisissez l’enceinte principale du groupe, ou dégroupez-le dans l’application Sonos.</string>
     <string name="voice_search">Rechercher par la voix</string>
     <string name="voice_search_unavailable">La recherche vocale nécessite l\'application Google</string>
+    <string name="settings_transitions_title">Transitions</string>
+    <string name="settings_transitions_detail">Comment s\'enchaînent les morceaux des extensions, des téléchargements et du téléphone. Les flux Spotify changent toujours avec un court fondu.</string>
+    <string name="settings_transition_off_detail">Chaque morceau se termine, puis le suivant commence.</string>
+    <string name="settings_transition_crossfade_detail">La fin d\'un morceau se fond dans le suivant.</string>
+    <string name="settings_transition_automix_detail">Mixe comme un DJ : sur le temps, en fin de phrase, au même tempo. Le mix s\'affiche sur la barre de lecture et la pochette pulse avec.</string>
+    <string name="settings_transition_crossfade_value">Fondu %1$d s</string>
+    <string name="settings_crossfade_length">Durée</string>
+    <string name="settings_automix_on_next">Mixer sur Suivant</string>
+    <string name="settings_automix_on_next_detail">Suivant fait entrer le morceau suivant sur le temps au lieu de couper.</string>
+    <string name="settings_automix_album_order">Garder les albums intacts</string>
+    <string name="settings_automix_album_order_detail">Pas de mix entre deux morceaux qui se suivent sur leur album : ils s\'enchaînent comme sur le disque.</string>
+    <string name="settings_automix_show">Afficher le mix dans le lecteur</string>
+    <string name="settings_automix_show_detail">La portion du mix est colorée sur la barre de lecture, et la pochette s\'illumine et pulse au rythme pendant le mix.</string>
+    <string name="automix_hint_next">Mix vers %1$s</string>
+    <string name="automix_hint_mixing">Mix en cours vers %1$s</string>
 </resources>

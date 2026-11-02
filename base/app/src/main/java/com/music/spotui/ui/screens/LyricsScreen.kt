@@ -619,7 +619,7 @@ fun LyricsScreen(
                             Text(
                                 stringResource(R.string.lyrics_meaning_hint),
                                 color = palette.highlight.copy(alpha = 0.8f), fontSize = 13.sp,
-                                modifier = Modifier.padding(bottom = 8.dp),
+                                modifier = Modifier.padding(bottom = 8.dp).revealIn(reveal, 0.35f, 22f),
                             )
                         }
                         if (!l.synced) item {
@@ -627,7 +627,7 @@ fun LyricsScreen(
                                 stringResource(R.string.lyrics_fullscreen_unsynced),
                                 color = palette.highlight.copy(alpha = 0.8f),
                                 fontSize = 13.sp,
-                                modifier = Modifier.padding(bottom = 8.dp),
+                                modifier = Modifier.padding(bottom = 8.dp).revealIn(reveal, 0.35f, 22f),
                             )
                         }
                         itemsIndexed(l.lines, key = { i, _ -> i }) { i, line ->
@@ -664,7 +664,8 @@ fun LyricsScreen(
                                     stringResource(R.string.lyrics_credential_note, p),
                                     color = palette.highlight.copy(alpha = 0.8f),
                                     fontSize = 12.sp,
-                                    modifier = Modifier.padding(top = 24.dp),
+                                    // With the lines, in and out: alone it stayed up through the close, then vanished.
+                                    modifier = Modifier.padding(top = 24.dp).revealIn(reveal, 0.71f, 22f),
                                 )
                             }
                         }

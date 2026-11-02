@@ -37,6 +37,21 @@ object AutoMix {
         journal("AutoMix ${if (value) "on" else "off"}")
     }
 
+    /** Next mixes the next song in on the beat (see LocalPlayer.mixOnSkip); off, Next cuts. On by default. */
+    var mixOnNext by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_on_next", true))
+        private set
+    fun changeMixOnNext(value: Boolean) { mixOnNext = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_on_next", value).apply() }
+
+    /** No mix between two songs that follow each other on their album. On by default. */
+    var albumOrder by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_album_order", true))
+        private set
+    fun changeAlbumOrder(value: Boolean) { albumOrder = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_album_order", value).apply() }
+
+    /** The mix shown in the player: its stretch on the seek bar, the cover and its glow pulsing with it. On by default. */
+    var showInPlayer by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_show", true))
+        private set
+    fun changeShowInPlayer(value: Boolean) { showInPlayer = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_show", value).apply() }
+
     // ── Journal (last lines, for the command line and the stats sheet) ──
 
     private val lines = ArrayDeque<String>()

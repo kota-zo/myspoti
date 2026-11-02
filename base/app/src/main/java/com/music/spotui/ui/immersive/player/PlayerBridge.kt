@@ -79,6 +79,9 @@ data class ImmersivePlayerState(
      * blend; until half way [title], [artist] and the times are still the outgoing song's.
      */
     val blend: com.music.spotui.ui.components.SongBlend? = null,
+    /** An AutoMix mix planned or playing (see [com.music.spotui.ui.components.rememberMixCue]), and its beat. */
+    val mixCue: com.music.spotui.di.LocalPlayer.MixCue? = null,
+    val mixPulse: com.music.spotui.ui.components.MixPulse? = null,
 )
 
 /** What the player does; nothing here touches the UI, the screen owns its sheets and panels. */
@@ -144,6 +147,8 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
     // The words follow what is heard: the song going out until half way through a crossfade.
     val blend = com.music.spotui.ui.components.rememberSongBlend()
     val outgoing = blend?.takeIf { it.outgoingWords }
+    val mixCue = com.music.spotui.ui.components.rememberMixCue()
+    val mixPulse = com.music.spotui.ui.components.rememberMixPulse(mixCue)
     val state = ImmersivePlayerState(
         title = outgoing?.song?.title ?: title,
         artist = outgoing?.song?.artist ?: singer,
@@ -165,6 +170,8 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
         deviceName = device,
         song = if (title.isBlank()) null else nowPlayingSong(vm),
         blend = blend,
+        mixCue = mixCue,
+        mixPulse = mixPulse,
     )
 
     // Read at the moment of the tap, not captured: the lambdas below live as long as the screen.

@@ -675,4 +675,21 @@
     <string name="lan_sonos_group">%1$s ist mit anderen Lautsprechern gruppiert: Wähle den Hauptlautsprecher der Gruppe oder hebe die Gruppierung in der Sonos-App auf.</string>
     <string name="voice_search">Sprachsuche</string>
     <string name="voice_search_unavailable">Für die Sprachsuche wird die Google-App benötigt</string>
+    <string name="settings_transitions_title">Übergänge</string>
+    <string name="settings_transitions_detail">Wie Songs aus Erweiterungen, Downloads und Dateien auf dem Telefon ineinander übergehen. Spotify-Streams wechseln immer mit einer kurzen Blende.</string>
+    <string name="settings_transition_off_detail">Jeder Song endet, dann beginnt der nächste.</string>
+    <string name="settings_transition_crossfade_detail">Das Ende eines Songs geht in den nächsten über.</string>
+    <string name="settings_transition_automix_detail">Mischt wie ein DJ: im Takt, am Ende einer Phrase, im gleichen Tempo. Der Mix erscheint auf der Fortschrittsleiste und das Cover pulsiert mit.</string>
+    <string name="settings_transition_crossfade_value">Überblendung %1$d s</string>
+    <string name="settings_crossfade_length">Dauer</string>
+    <string name="settings_automix_on_next">Bei Weiter mischen</string>
+    <string name="settings_automix_on_next_detail">Weiter holt den nächsten Song im Takt herein, statt hart zu schneiden.</string>
+    <string name="settings_automix_album_order">Alben am Stück lassen</string>
+    <string name="settings_automix_album_order_detail">Kein Mix zwischen Songs, die auf ihrem Album aufeinander folgen: Sie gehen ineinander über wie auf der Platte.</string>
+    <string name="settings_automix_show">Mix im Player zeigen</string>
+    <string name="settings_automix_show_detail">Der Abschnitt des Mixes ist auf der Fortschrittsleiste farbig, und das Cover leuchtet und pulsiert im Takt, solange er läuft.</string>
+    <string name="automix_hint_next">Mix zu %1$s</string>
+    <string name="automix_hint_mixing">Mischt zu %1$s</string>
+    <string name="settings_automix_title">AutoMix</string>
+    <string name="settings_automix_detail">DJ-artige Übergänge zwischen Songs aus Erweiterungen, Downloads und lokalen Dateien: Jeder Song wird einmal analysiert (Beats, Takte, Phrasen, Tonart) und der nächste setzt im Takt und im gleichen Tempo ein, mit einem Bass-Tausch. Songs, die sich nicht angleichen lassen, bekommen einen Schnitt im Takt oder eine Blende. Streams werden nur in unbegrenzten Netzen analysiert.</string>
 </resources>

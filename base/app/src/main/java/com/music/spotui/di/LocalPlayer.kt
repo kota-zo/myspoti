@@ -524,7 +524,9 @@ object LocalPlayer {
     private const val RUN_UP_MS = 2_500L
 
     /** One AutoMix step (every 200 ms, every 20 ms around a mix). False: no more ticks. */
-    private fun mixTick(p: ExoPlayer): Boolean {
+    private fun mixTick(p: ExoPlayer): Boolean = mixStep(p).also { updateCue() }
+
+    private fun mixStep(p: ExoPlayer): Boolean {
         val m = mix
         if (m != null && m.state >= MixState.MIXING) return mixing(m)
         if (!p.isPlaying) return false
@@ -609,6 +611,8 @@ object LocalPlayer {
      * not follow each other there are mixed as any others.
      */
     private fun followsOnAlbum(a: LocalTrack, b: LocalTrack): Boolean {
+        // Turned off in the settings: every pair is mixed.
+        if (!com.music.spotui.automix.AutoMix.albumOrder) return false
         val x = a.album.trim(); val y = b.album.trim()
         if (x.isEmpty() || x.equals("<unknown>", true) || !x.equals(y, ignoreCase = true)) return false
         if (a.trackNo > 0 && b.trackNo > 0) {
@@ -641,7 +645,7 @@ object LocalPlayer {
      */
     private fun mixOnSkip(): Boolean {
         val p = exo ?: return false
-        if (!com.music.spotui.automix.AutoMix.on || CastPlayback.active || !p.isPlaying || outgoing != null) return false
+        if (!com.music.spotui.automix.AutoMix.on || !com.music.spotui.automix.AutoMix.mixOnNext || CastPlayback.active || !p.isPlaying || outgoing != null) return false
         mix?.let { if (it.skip || it.state >= MixState.PREROLL) return false }
         val next = p.nextMediaItemIndex
         if (next == C.INDEX_UNSET || LocalRepeat.loopsSong(repeat, p.mediaItemCount)) return false
@@ -868,7 +872,7 @@ object LocalPlayer {
     fun autoMixChanged(on: Boolean) {
         val p = exo ?: return
         if (on && deckEq == null) deckEq = com.music.spotui.automix.DeckEq.attach(p.audioSessionId)
-        if (!on) { cancelMix("AutoMix off"); planned = null }
+        if (!on) { cancelMix("AutoMix off"); planned = null; updateCue() }
         if (p.isPlaying) { handler.removeCallbacks(tick); handler.post(tick) }
     }
 
@@ -879,6 +883,113 @@ object LocalPlayer {
         return "AutoMix ${if (com.music.spotui.automix.AutoMix.on) "on" else "off"}, " +
             (if (run == null) "no deck" else "deck ${run.state} ${run.plan.style}, progress ${"%.2f".format(run.progress())}") +
             (planned?.let { ", plan ${it.plan}" } ?: "") + (p?.let { ", at ${it.currentPosition} ms of ${it.duration}" } ?: "")
+    }
+
+    // ── AutoMix on the screens ──
+    // The players mark where the mix sits on the seek bar from the moment it is planned, and pulse
+    // with the music around it: on each beat the analysis found, as strong as the bar is loud and
+    // heavy in bass (a downbeat more), weighed by what each song's gain lets through of it.
+
+    /**
+     * A planned or running mix as the screens show it. Times in ms: the mix on the song going out
+     * ([exitMs] to [endMs]) and on the one coming in ([entryMs] to [resumeMs]).
+     */
+    @androidx.compose.runtime.Immutable
+    data class MixCue(
+        val exitMs: Long,
+        val endMs: Long,
+        val entryMs: Long,
+        val resumeMs: Long,
+        val style: app.myspoti.automix.MixPlan.Style,
+        val nextTitle: String,
+        /** The mix is heard (the deck took over); before it, only planned or being prepared. */
+        val mixing: Boolean,
+        /** A mix for Next rather than at the song's end. */
+        val skip: Boolean,
+    )
+
+    private val cueState = mutableStateOf<MixCue?>(null)
+    /** The mix ahead of the song playing, or running; null with none (AutoMix off, Spotify songs, no next song). */
+    val mixCue: androidx.compose.runtime.State<MixCue?> get() = cueState
+    /** Both songs' analyses for the pulse, kept with the cue (looked up when the pair changes only). */
+    private var cueSongs: Pair<app.myspoti.automix.TrackAnalysis?, app.myspoti.automix.TrackAnalysis?> = null to null
+    private var cuePair = ""
+
+    private fun updateCue() {
+        val p = exo
+        val run = mix?.takeIf { it.state <= MixState.MIXING }
+        val plan: app.myspoti.automix.MixPlan?
+        val from: Int; val to: Int
+        if (p == null || !active.value || !com.music.spotui.automix.AutoMix.on && run == null) { cueState.value = null; return }
+        if (run != null) {
+            plan = run.plan; to = run.toIndex
+            from = if (run.state == MixState.MIXING) (to - 1).coerceAtLeast(0) else p.currentMediaItemIndex
+        } else {
+            val pl = planned?.takeIf { it.fromIndex == p.currentMediaItemIndex && p.nextMediaItemIndex != C.INDEX_UNSET && it.toId == p.getMediaItemAt(p.nextMediaItemIndex).mediaId }
+            plan = pl?.plan; from = p.currentMediaItemIndex; to = p.nextMediaItemIndex
+        }
+        if (plan == null) { cueState.value = null; return }
+        val a = tracks.getOrNull(from); val b = tracks.getOrNull(to)
+        val pair = "${a?.uri}|${b?.uri}"
+        if (pair != cuePair) {
+            cuePair = pair
+            cueSongs = a?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) } to b?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
+        }
+        val cue = MixCue(
+            (plan.exitA * 1000).toLong(), (plan.endA * 1000).toLong(), (plan.entryB * 1000).toLong(), (plan.resumeB * 1000).toLong(),
+            plan.style, b?.title.orEmpty(), run?.state == MixState.MIXING, run?.skip == true,
+        )
+        if (cueState.value != cue) cueState.value = cue
+    }
+
+    /**
+     * The mix's pulse now, 0 (still) to 1 (a loud downbeat): read every frame by the players while
+     * a [mixCue] shows. It grows in over the 8 s before the mix and follows both songs during it.
+     */
+    fun mixPulse(): Float {
+        val cue = cueState.value ?: return 0f
+        val p = exo ?: return 0f
+        val (ra, rb) = cueSongs
+        if (!cue.mixing) {
+            val t = p.currentPosition
+            val ahead = ((t - (cue.exitMs - PULSE_LEAD_MS)) / PULSE_LEAD_MS.toFloat()).coerceIn(0f, 1f)
+            if (ahead <= 0f) return 0f
+            return ahead * ahead * beatPulse(ra, t / 1000.0)
+        }
+        val run = mix ?: return 0f
+        val lv = run.plan.levels(run.progress())
+        val pa = run.a?.let { beatPulse(ra, it.currentPosition / 1000.0) } ?: 0f
+        val pb = beatPulse(rb, p.currentPosition / 1000.0)
+        return (lv.gainA.toFloat() * pa + lv.gainB.toFloat() * pb).coerceIn(0f, 1f)
+    }
+
+    private const val PULSE_LEAD_MS = 8_000L
+    private val pulseNorms = java.util.WeakHashMap<app.myspoti.automix.TrackAnalysis, FloatArray>()
+
+    /** One song's beat at its time [t] (s): a 25-ms attack, then a decay over a third of the beat. */
+    private fun beatPulse(an: app.myspoti.automix.TrackAnalysis?, t: Double): Float {
+        // Not analysed (a fade on the lengths): a slow breath, at the pace of a slow song.
+        if (an == null || an.beats.isEmpty()) return 0.35f + 0.25f * kotlin.math.sin(t * Math.PI * 2 / 1.6).toFloat()
+        val beats = an.beats
+        var lo = 0; var hi = beats.size - 1; var i = -1
+        while (lo <= hi) { val m = (lo + hi) ushr 1; if (beats[m] <= t) { i = m; lo = m + 1 } else hi = m - 1 }
+        if (i < 0) return 0f
+        val period = if (i + 1 < beats.size) beats[i + 1] - beats[i] else 60.0 / an.bpm.coerceAtLeast(40.0)
+        val dt = t - beats[i]
+        if (dt > period * 1.5) return 0f
+        val env = if (dt < 0.025) dt / 0.025 else kotlin.math.exp(-(dt - 0.025) / (period / 3))
+        val bar = an.barAt(beats[i])
+        if (bar < 0) return (0.5 * env).toFloat()
+        // The bar's level and bass between the song's quiet and loud bars (10th and 95th percentiles).
+        val n = pulseNorms.getOrPut(an) {
+            fun range(v: FloatArray): Pair<Float, Float> = v.sorted().let { s -> if (s.isEmpty()) 0f to 1f else s[s.size / 10] to s[(s.size * 95 / 100).coerceAtMost(s.size - 1)] }
+            val (l0, l1) = range(an.barDb); val (b0, b1) = range(an.barLowDb)
+            floatArrayOf(l0, l1, b0, b1)
+        }
+        fun norm(v: Float, a: Float, b: Float) = if (b - a < 0.5f) 0.6f else ((v - a) / (b - a)).coerceIn(0f, 1f)
+        val loud = 0.5f * norm(an.barDb[bar], n[0], n[1]) + 0.5f * norm(an.barLowDb[bar], n[2], n[3])
+        val down = kotlin.math.abs(an.barStarts[bar] - beats[i]) < period / 4
+        return ((0.3f + 0.7f * loud) * (if (down) 1f else 0.7f) * env).toFloat()
     }
 
     // ── Crossfade (real overlap: every song of this player is a local-player one) ──
@@ -1586,5 +1697,6 @@ object LocalPlayer {
         SongPlayer.onLocalState(t, playWhenReady(), position(), duration())
         SongPlayer.onLocalQueue(t, upcoming(), queuedCount())
         QueueSync.localChanged(queuedUris())
+        updateCue()
     }
 }

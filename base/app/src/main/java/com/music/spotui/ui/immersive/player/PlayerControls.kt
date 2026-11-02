@@ -12,6 +12,7 @@
  */
 package com.music.spotui.ui.immersive.player
 
+import com.music.spotui.ui.components.zoneOn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
@@ -137,8 +138,16 @@ internal fun PlayerScrubber(
             onValueChange = scrub::drag,
             onValueChangeFinished = { scrub.release { onSeek((it * state.durationMs).toLong()) } },
             loading = state.buffering && !scrub.scrubbing,
+            // AutoMix: the mix's stretch in the accent from the moment it is planned, beating while it plays.
+            mixZone = { state.mixCue?.zoneOn(state.durationMs, incomingShown = state.blend?.outgoingWords == false) },
+            mixColor = com.music.spotui.ui.immersive.Immersive.Accent,
+            mixPulse = { state.mixPulse?.level() ?: 0f },
         )
         ScrubTimes(frame, scrub, state)
+        com.music.spotui.ui.components.MixHint(
+            state.mixCue, state.positionMs, LocalPlayerTint.current.copy(alpha = 0.8f), com.music.spotui.ui.immersive.Immersive.Accent, state.mixPulse,
+            Modifier.align(Alignment.CenterHorizontally).offset(y = (-4).dp),
+        )
     }
 }
 

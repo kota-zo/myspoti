@@ -117,6 +117,7 @@ import com.music.spotui.ui.look.MeshPalette
 import com.music.spotui.ui.look.lerp
 import com.music.spotui.ui.components.SongBlend
 import com.music.spotui.ui.components.SongBlendCover
+import com.music.spotui.ui.components.mixHalo
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
 import kotlin.math.abs
@@ -143,6 +144,8 @@ internal val PLAYER_MAX_WIDTH = 560.dp
 private const val PANEL_TRAVEL_MS = com.music.spotui.ui.immersive.motion.ImmersiveMotion.LONG_MS
 
 private val ArtCorner = RoundedCornerShape(8.dp)
+/** How much bigger the cover is on an AutoMix beat. */
+private const val MIX_BEAT_GROW = 0.035f
 
 /** What the middle of the player shows. */
 private object Panel {
@@ -406,12 +409,15 @@ fun ImmersivePlayer(
                                 val placeable = measurable.measure(Constraints.fixed(side, side))
                                 layout(side, side) { placeable.place(0, 0) }
                             }
+                            // An AutoMix mix: the sleeve glows and rings with the beat (not as the header's thumbnail).
+                            .mixHalo(state.mixPulse, com.music.spotui.ui.immersive.Immersive.Accent, 8.dp) { 1f - p() }
                             .graphicsLayer {
                                 // The pause step back, let go of as the cover collapses into the header.
                                 // With a Canvas, the sleeve opens into the clip: it grows and fades as the
                                 // clip comes in, and is the thumbnail again in the header.
                                 val opened = canvasOpen.value * (1f - p())
-                                val scale = (pauseScale.value + (1f - pauseScale.value) * p()) * (1f + CANVAS_COVER_GROW * opened)
+                                val beat = 1f + MIX_BEAT_GROW * (state.mixPulse?.level() ?: 0f) * (1f - p())
+                                val scale = (pauseScale.value + (1f - pauseScale.value) * p()) * (1f + CANVAS_COVER_GROW * opened) * beat
                                 scaleX = scale
                                 scaleY = scale
                                 alpha = 1f - opened
@@ -771,10 +777,12 @@ private fun LandscapePlayer(
                             Box(
                                 Modifier
                                     .size(side)
+                                    .mixHalo(state.mixPulse, com.music.spotui.ui.immersive.Immersive.Accent, 8.dp)
                                     .graphicsLayer {
-                                        // The pause step back, as in the portrait layout.
-                                        scaleX = pauseScale.value
-                                        scaleY = pauseScale.value
+                                        // The pause step back, as in the portrait layout, and the mix's beat.
+                                        val beat = 1f + MIX_BEAT_GROW * (state.mixPulse?.level() ?: 0f)
+                                        scaleX = pauseScale.value * beat
+                                        scaleY = pauseScale.value * beat
                                         shadowElevation = 10.dp.toPx()
                                         shape = ArtCorner
                                         clip = true

@@ -683,4 +683,19 @@
     <string name="lan_sonos_group">%1$s is grouped with other speakers: pick the group’s main speaker, or ungroup it in the Sonos app.</string>
     <string name="voice_search">Search by voice</string>
     <string name="voice_search_unavailable">Voice search needs the Google app installed</string>
+    <string name="settings_transitions_title">Transitions</string>
+    <string name="settings_transitions_detail">How songs from extensions, downloads and phone files follow each other. Spotify streams always change with a short fade.</string>
+    <string name="settings_transition_off_detail">Each song ends, then the next one starts.</string>
+    <string name="settings_transition_crossfade_detail">The end of a song fades into the next one.</string>
+    <string name="settings_transition_automix_detail">Mixes like a DJ: on the beat, at the end of a phrase, tempos matched. The mix shows on the seek bar and the cover pulses with it.</string>
+    <string name="settings_transition_crossfade_value">Crossfade %1$d s</string>
+    <string name="settings_crossfade_length">Length</string>
+    <string name="settings_automix_on_next">Mix on Next</string>
+    <string name="settings_automix_on_next_detail">Next brings the next song in on the beat instead of cutting.</string>
+    <string name="settings_automix_album_order">Keep albums whole</string>
+    <string name="settings_automix_album_order_detail">No mix between songs that follow each other on their album: they run into each other as on the record.</string>
+    <string name="settings_automix_show">Show the mix in the player</string>
+    <string name="settings_automix_show_detail">The mix\'s stretch is coloured on the seek bar, and the cover glows and pulses with the beat while it plays.</string>
+    <string name="automix_hint_next">Mix into %1$s</string>
+    <string name="automix_hint_mixing">Mixing into %1$s</string>
 </resources>

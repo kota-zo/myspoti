@@ -675,4 +675,21 @@
     <string name="lan_sonos_group">%1$s è raggruppato con altri altoparlanti: scegli l’altoparlante principale del gruppo o separalo nell’app Sonos.</string>
     <string name="voice_search">Cerca con la voce</string>
     <string name="voice_search_unavailable">La ricerca vocale richiede l\'app Google</string>
+    <string name="settings_transitions_title">Transizioni</string>
+    <string name="settings_transitions_detail">Come si susseguono i brani da estensioni, download e file del telefono. Gli stream di Spotify cambiano sempre con una breve dissolvenza.</string>
+    <string name="settings_transition_off_detail">Ogni brano finisce, poi inizia il successivo.</string>
+    <string name="settings_transition_crossfade_detail">La fine di un brano sfuma nel successivo.</string>
+    <string name="settings_transition_automix_detail">Mixa come un DJ: a tempo, alla fine di una frase, con il tempo allineato. Il mix appare sulla barra di avanzamento e la copertina pulsa con esso.</string>
+    <string name="settings_transition_crossfade_value">Dissolvenza %1$d s</string>
+    <string name="settings_crossfade_length">Durata</string>
+    <string name="settings_automix_on_next">Mixa con Avanti</string>
+    <string name="settings_automix_on_next_detail">Avanti fa entrare il brano successivo a tempo invece di tagliare.</string>
+    <string name="settings_automix_album_order">Album interi</string>
+    <string name="settings_automix_album_order_detail">Nessun mix tra brani che si susseguono nel loro album: si legano come sul disco.</string>
+    <string name="settings_automix_show">Mostra il mix nel player</string>
+    <string name="settings_automix_show_detail">Il tratto del mix è colorato sulla barra di avanzamento e la copertina si illumina e pulsa a tempo mentre suona.</string>
+    <string name="automix_hint_next">Mix verso %1$s</string>
+    <string name="automix_hint_mixing">Mix in corso verso %1$s</string>
+    <string name="settings_automix_title">AutoMix</string>
+    <string name="settings_automix_detail">Transizioni in stile DJ tra brani da estensioni, download e file locali: ogni brano viene analizzato una volta (battiti, battute, frasi, tonalità) e il successivo entra a tempo, con il tempo allineato e uno scambio dei bassi. I brani non sincronizzabili hanno un taglio a tempo o una dissolvenza. Gli stream vengono analizzati solo su reti senza limiti.</string>
 </resources>

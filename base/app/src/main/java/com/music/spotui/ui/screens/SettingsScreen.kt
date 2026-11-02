@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.data.preferences.TransitionPref.Mode as TransitionMode
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
@@ -125,13 +126,7 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.AppShufflePref.on,
                 onChecked = { com.music.spotui.data.preferences.AppShufflePref.set(ctx, it) },
             )
-            CrossfadeRow()
-            OptionRow(
-                label = stringResource(R.string.settings_automix_title),
-                detail = stringResource(R.string.settings_automix_detail),
-                checked = com.music.spotui.automix.AutoMix.on,
-                onChecked = { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) },
-            )
+            TransitionsRow()
             // The local player's equalizer, speed and silence skipping (never Spotify's own songs).
             Column(
                 Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.Equalizer.route) }
@@ -490,14 +485,30 @@ private fun AccentRow(look: com.music.spotui.data.preferences.Look) {
  * songs never overlap (the page plays one media element), so this is a fade, not a true
  * crossfade. The default is 0: off, as before.
  */
+/**
+ * Transitions: off, a crossfade (its length under it) or AutoMix (its options under it), with
+ * what the choice does in one line.
+ */
 @Composable
-private fun CrossfadeRow() {
+private fun TransitionsRow() {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val pref = com.music.spotui.data.preferences.CrossfadePref
+    val transition = com.music.spotui.data.preferences.TransitionPref
+    val automix = com.music.spotui.automix.AutoMix
+    val mode = transition.mode
+    @Composable
+    fun Chip(label: String, selected: Boolean, onClick: () -> Unit) = Text(
+        label,
+        color = if (selected) Color.Black else AppText, fontSize = 14.sp,
+        modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+            .background(if (selected) com.music.spotui.ui.theme.AppAccent else tone(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    )
     androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
-        Text(stringResource(R.string.settings_crossfade_title), color = AppText, fontSize = 16.sp)
+        Text(stringResource(R.string.settings_transitions_title), color = AppText, fontSize = 16.sp)
         Text(
-            stringResource(R.string.settings_crossfade_detail),
+            stringResource(R.string.settings_transitions_detail),
             color = AppMuted, fontSize = 12.sp,
             modifier = Modifier.padding(top = 2.dp),
         )
@@ -505,19 +516,33 @@ private fun CrossfadeRow() {
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(top = 10.dp),
         ) {
-            for (v in listOf(0, 3, 6, 9, 12)) {
-                val selected = pref.seconds == v
-                Text(
-                    if (v == 0) stringResource(R.string.settings_crossfade_off)
-                    else stringResource(R.string.settings_crossfade_seconds, v),
-                    color = if (selected) Color.Black else AppText, fontSize = 14.sp,
-                    modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
-                        .background(if (selected) com.music.spotui.ui.theme.AppAccent else tone(0xFF2A2A2A))
-                        .clickable { pref.set(ctx, v) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                )
-            }
+            Chip(stringResource(R.string.settings_crossfade_off), mode == TransitionMode.OFF) { transition.set(ctx, TransitionMode.OFF) }
+            Chip(stringResource(R.string.settings_crossfade_title), mode == TransitionMode.CROSSFADE) { transition.set(ctx, TransitionMode.CROSSFADE) }
+            Chip(stringResource(R.string.settings_automix_title), mode == TransitionMode.AUTOMIX) { transition.set(ctx, TransitionMode.AUTOMIX) }
         }
+        Text(
+            stringResource(when (mode) {
+                TransitionMode.OFF -> R.string.settings_transition_off_detail
+                TransitionMode.CROSSFADE -> R.string.settings_transition_crossfade_detail
+                TransitionMode.AUTOMIX -> R.string.settings_transition_automix_detail
+            }),
+            color = AppMuted, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        if (mode == TransitionMode.CROSSFADE) Row(
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 10.dp),
+        ) {
+            for (v in listOf(3, 6, 9, 12)) Chip(stringResource(R.string.settings_crossfade_seconds, v), pref.seconds == v) { pref.set(ctx, v) }
+        }
+    }
+    if (mode == TransitionMode.AUTOMIX) {
+        OptionRow(stringResource(R.string.settings_automix_on_next), stringResource(R.string.settings_automix_on_next_detail),
+            checked = automix.mixOnNext, onChecked = automix::changeMixOnNext)
+        OptionRow(stringResource(R.string.settings_automix_album_order), stringResource(R.string.settings_automix_album_order_detail),
+            checked = automix.albumOrder, onChecked = automix::changeAlbumOrder)
+        OptionRow(stringResource(R.string.settings_automix_show), stringResource(R.string.settings_automix_show_detail),
+            checked = automix.showInPlayer, onChecked = automix::changeShowInPlayer)
     }
 }
 

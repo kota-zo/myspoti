@@ -1,5 +1,6 @@
 package com.music.spotui.ui.immersive.pages
 
+import com.music.spotui.data.preferences.TransitionPref.Mode as TransitionMode
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
@@ -241,9 +242,12 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             }
             row {
                 ImmersiveGroupRow(
-                    stringResource(R.string.settings_crossfade_title), detail = stringResource(R.string.settings_crossfade_detail),
-                    value = if (com.music.spotui.automix.AutoMix.on) stringResource(R.string.settings_automix_title)
-                        else if (crossfade == 0) stringResource(R.string.settings_crossfade_off) else stringResource(R.string.settings_crossfade_seconds, crossfade),
+                    stringResource(R.string.settings_transitions_title), detail = stringResource(R.string.settings_transitions_detail),
+                    value = when (com.music.spotui.data.preferences.TransitionPref.mode) {
+                        com.music.spotui.data.preferences.TransitionPref.Mode.AUTOMIX -> stringResource(R.string.settings_automix_title)
+                        com.music.spotui.data.preferences.TransitionPref.Mode.CROSSFADE -> stringResource(R.string.settings_transition_crossfade_value, crossfade)
+                        com.music.spotui.data.preferences.TransitionPref.Mode.OFF -> stringResource(R.string.settings_crossfade_off)
+                    },
                     chevron = true, onClick = { open(SettingsPage.Crossfade) },
                 )
             }
@@ -364,25 +368,46 @@ private fun StreamingPage(cellular: Boolean, back: () -> Unit) {
     }
 }
 
+/** Transitions: off, a crossfade of a chosen length, or AutoMix with its options. */
 @Composable
 private fun CrossfadePage(back: () -> Unit) {
     val ctx = LocalContext.current
     val pref = com.music.spotui.data.preferences.CrossfadePref
-    ImmersivePage(title = stringResource(R.string.settings_crossfade_title), onBack = back) {
-        immersiveGroup("automix", footerRes = R.string.settings_automix_detail) {
-            row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_title), checked = com.music.spotui.automix.AutoMix.on,
-                    onChecked = { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) })
+    val transition = com.music.spotui.data.preferences.TransitionPref
+    val automix = com.music.spotui.automix.AutoMix
+    val mode = transition.mode
+    ImmersivePage(title = stringResource(R.string.settings_transitions_title), onBack = back) {
+        immersiveGroup("mode", footerRes = R.string.settings_transitions_detail) {
+            for ((m, title, detail) in listOf(
+                Triple(TransitionMode.OFF, R.string.settings_crossfade_off, R.string.settings_transition_off_detail),
+                Triple(TransitionMode.CROSSFADE, R.string.settings_crossfade_title, R.string.settings_transition_crossfade_detail),
+                Triple(TransitionMode.AUTOMIX, R.string.settings_automix_title, R.string.settings_transition_automix_detail),
+            )) {
+                row {
+                    ImmersiveChoiceRow(stringResource(title), selected = mode == m, detail = stringResource(detail),
+                        onClick = { transition.set(ctx, m) })
+                }
             }
         }
-        immersiveGroup("choices", footerRes = R.string.settings_crossfade_detail) {
-            for (v in listOf(0, 3, 6, 9, 12)) {
+        if (mode == TransitionMode.CROSSFADE) immersiveGroup("length", headerRes = R.string.settings_crossfade_length, footerRes = R.string.settings_crossfade_detail) {
+            for (v in listOf(3, 6, 9, 12)) {
                 row {
-                    ImmersiveChoiceRow(
-                        if (v == 0) stringResource(R.string.settings_crossfade_off) else stringResource(R.string.settings_crossfade_seconds, v),
-                        selected = pref.seconds == v, onClick = { pref.set(ctx, v) },
-                    )
+                    ImmersiveChoiceRow(stringResource(R.string.settings_crossfade_seconds, v), selected = pref.seconds == v, onClick = { pref.set(ctx, v) })
                 }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_title, footerRes = R.string.settings_automix_detail) {
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_on_next), checked = automix.mixOnNext,
+                    onChecked = automix::changeMixOnNext, detail = stringResource(R.string.settings_automix_on_next_detail))
+            }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_album_order), checked = automix.albumOrder,
+                    onChecked = automix::changeAlbumOrder, detail = stringResource(R.string.settings_automix_album_order_detail))
+            }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_show), checked = automix.showInPlayer,
+                    onChecked = automix::changeShowInPlayer, detail = stringResource(R.string.settings_automix_show_detail))
             }
         }
     }

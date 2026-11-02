@@ -690,4 +690,21 @@
     <string name="lan_sonos_group">%1$s сгруппирован с другими колонками: выберите главную колонку группы или разгруппируйте его в приложении Sonos.</string>
     <string name="voice_search">Голосовой поиск</string>
     <string name="voice_search_unavailable">Для голосового поиска нужно приложение Google</string>
+    <string name="settings_transitions_title">Переходы</string>
+    <string name="settings_transitions_detail">Как сменяют друг друга треки из расширений, загрузок и файлов телефона. Потоки Spotify всегда сменяются коротким затуханием.</string>
+    <string name="settings_transition_off_detail">Каждый трек заканчивается, затем начинается следующий.</string>
+    <string name="settings_transition_crossfade_detail">Конец трека плавно переходит в следующий.</string>
+    <string name="settings_transition_automix_detail">Сводит как диджей: в такт, в конце фразы, с выровненным темпом. Сведение видно на полосе воспроизведения, а обложка пульсирует вместе с ним.</string>
+    <string name="settings_transition_crossfade_value">Кроссфейд %1$d с</string>
+    <string name="settings_crossfade_length">Длительность</string>
+    <string name="settings_automix_on_next">Сводить по «Далее»</string>
+    <string name="settings_automix_on_next_detail">«Далее» вводит следующий трек в такт, а не обрывает.</string>
+    <string name="settings_automix_album_order">Альбомы целиком</string>
+    <string name="settings_automix_album_order_detail">Без сведения между треками, идущими подряд на своём альбоме: они переходят друг в друга, как на пластинке.</string>
+    <string name="settings_automix_show">Показывать сведение в плеере</string>
+    <string name="settings_automix_show_detail">Участок сведения выделен цветом на полосе воспроизведения, а обложка светится и пульсирует в такт, пока оно идёт.</string>
+    <string name="automix_hint_next">Сведение в %1$s</string>
+    <string name="automix_hint_mixing">Сведение в %1$s</string>
+    <string name="settings_automix_title">AutoMix</string>
+    <string name="settings_automix_detail">Переходы в стиле диджея между треками из расширений, загрузок и локальных файлов: каждый трек анализируется один раз (доли, такты, фразы, тональность), и следующий вступает в такт, с выровненным темпом и сменой баса. Треки, которые нельзя свести, получают склейку в такт или затухание. Потоки анализируются только в безлимитных сетях.</string>
 </resources>

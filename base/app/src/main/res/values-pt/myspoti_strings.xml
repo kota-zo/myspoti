@@ -675,4 +675,21 @@
     <string name="lan_sonos_group">%1$s está agrupado com outros alto-falantes: escolha o alto-falante principal do grupo ou desagrupe-o no app da Sonos.</string>
     <string name="voice_search">Pesquisar por voz</string>
     <string name="voice_search_unavailable">A pesquisa por voz precisa da app Google</string>
+    <string name="settings_transitions_title">Transições</string>
+    <string name="settings_transitions_detail">Como se sucedem as músicas de extensões, transferências e ficheiros do telemóvel. As transmissões do Spotify mudam sempre com um fade curto.</string>
+    <string name="settings_transition_off_detail">Cada música termina e depois começa a seguinte.</string>
+    <string name="settings_transition_crossfade_detail">O fim de uma música funde-se com a seguinte.</string>
+    <string name="settings_transition_automix_detail">Mistura como um DJ: no tempo, no fim de uma frase, com o andamento igualado. A mistura aparece na barra de reprodução e a capa pulsa com ela.</string>
+    <string name="settings_transition_crossfade_value">Crossfade %1$d s</string>
+    <string name="settings_crossfade_length">Duração</string>
+    <string name="settings_automix_on_next">Misturar em Seguinte</string>
+    <string name="settings_automix_on_next_detail">Seguinte traz a próxima música no tempo em vez de cortar.</string>
+    <string name="settings_automix_album_order">Álbuns inteiros</string>
+    <string name="settings_automix_album_order_detail">Sem mistura entre músicas que se seguem no seu álbum: encadeiam-se como no disco.</string>
+    <string name="settings_automix_show">Mostrar a mistura no leitor</string>
+    <string name="settings_automix_show_detail">O trecho da mistura é colorido na barra de reprodução, e a capa brilha e pulsa ao ritmo enquanto toca.</string>
+    <string name="automix_hint_next">Mistura para %1$s</string>
+    <string name="automix_hint_mixing">A misturar para %1$s</string>
+    <string name="settings_automix_title">AutoMix</string>
+    <string name="settings_automix_detail">Transições ao estilo DJ entre músicas de extensões, transferências e ficheiros locais: cada música é analisada uma vez (batidas, compassos, frases, tonalidade) e a seguinte entra no tempo, com o andamento igualado e uma troca de graves. As que não podem ser sincronizadas têm um corte no tempo ou um fade. As transmissões só são analisadas em redes sem limite de dados.</string>
 </resources>

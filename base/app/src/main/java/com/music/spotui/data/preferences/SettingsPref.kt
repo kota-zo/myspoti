@@ -182,6 +182,34 @@ object CrossfadePref {
 }
 
 /**
+ * How the local player's songs follow each other: one choice over [CrossfadePref] and AutoMix,
+ * which never run together (AutoMix on, the crossfade's length is kept for later but unused).
+ */
+object TransitionPref {
+    enum class Mode { OFF, CROSSFADE, AUTOMIX }
+
+    val mode: Mode get() = when {
+        com.music.spotui.automix.AutoMix.on -> Mode.AUTOMIX
+        CrossfadePref.seconds > 0 -> Mode.CROSSFADE
+        else -> Mode.OFF
+    }
+
+    fun set(c: Context, mode: Mode) {
+        val automix = mode == Mode.AUTOMIX
+        if (automix != com.music.spotui.automix.AutoMix.on) {
+            com.music.spotui.automix.AutoMix.set(automix)
+            com.music.spotui.di.LocalPlayer.autoMixChanged(automix)
+        }
+        when (mode) {
+            Mode.OFF -> CrossfadePref.set(c, 0)
+            // Back to the crossfade: its last length, 6 s the first time.
+            Mode.CROSSFADE -> if (CrossfadePref.seconds == 0) CrossfadePref.set(c, 6)
+            Mode.AUTOMIX -> Unit
+        }
+    }
+}
+
+/**
  * "Music videos": the video button in the player, the lookup behind it and a clip that starts
  * by itself on the next song. On by default; off, the player is audio (and Canvas) only.
  */
