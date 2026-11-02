@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import com.music.spotui.di.EqBands
 import com.music.spotui.di.EqTuning
 import com.music.spotui.di.Equalizer
+import com.music.spotui.di.Spatial
 
 /** The equalizer's ready-made curves: ten band gains and the preamp that keeps them under full scale, in dB. */
 enum class EqPreset(val gains: FloatArray, val preamp: Float) {
@@ -36,6 +37,9 @@ enum class EqPreset(val gains: FloatArray, val preamp: Float) {
  * Speed: 0.5× to 2× for everything the local player plays, 1× by default (podcasts streamed by
  * Spotify keep their own speed, the podcast player's). Off 1×, Spotify does not follow the song
  * (see ConnectMirror): its page plays at 1× only.
+ *
+ * Spatial audio: the stereo widened by mid/side processing (see SpatialProcessor), off by default,
+ * on its own switch (the equalizer may be off).
  */
 object EqualizerPref {
     private const val PREF = "equalizer_prefs"
@@ -53,6 +57,10 @@ object EqualizerPref {
     var speed by mutableStateOf(p.getFloat("speed", 1f).coerceIn(0.5f, 2f))
         private set
     var skipSilence by mutableStateOf(p.getBoolean("skip_silence", false))
+        private set
+    var spatial by mutableStateOf(p.getBoolean("spatial", false))
+        private set
+    var spatialWidth by mutableStateOf(p.getFloat("spatial_width", Spatial.DEFAULT_WIDTH).coerceIn(Spatial.MIN_WIDTH, Spatial.MAX_WIDTH))
         private set
 
     /** The gains shown and heard: the preset's, or the user's own. */
@@ -115,8 +123,22 @@ object EqualizerPref {
         com.music.spotui.di.LocalPlayer.applyPlayback()
     }
 
-    /** Hands the curve to the players' equalizers (read on their audio threads). */
+    fun setSpatial(c: Context, on: Boolean) {
+        spatial = on
+        prefs(c).edit().putBoolean("spatial", on).apply()
+        push()
+    }
+
+    /** Heard at once, gliding; kept when [save] (a slider saves once, at the end of its drag). */
+    fun setSpatialWidth(c: Context, value: Float, save: Boolean = true) {
+        spatialWidth = value.coerceIn(Spatial.MIN_WIDTH, Spatial.MAX_WIDTH)
+        push()
+        if (save) prefs(c).edit().putFloat("spatial_width", spatialWidth).apply()
+    }
+
+    /** Hands the curve and the width to the players' audio stages (read on their audio threads). */
     private fun push() {
         Equalizer.current = if (enabled) EqTuning(gains, preamp) else null
+        Spatial.current = if (spatial) spatialWidth else null
     }
 }

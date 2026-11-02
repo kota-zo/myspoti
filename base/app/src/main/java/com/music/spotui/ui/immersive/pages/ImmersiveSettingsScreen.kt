@@ -207,6 +207,7 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
     var headsetSkip by remember { mutableStateOf(app.myspoti.host.android.PlaybackService.skipsOnEpisodes(ctx)) }
     var keepPlaying by remember { mutableStateOf(app.myspoti.host.android.PlaybackService.keepsPlayingOnClose(ctx)) }
     var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
+    var lyricsExtra by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsExtraSources(ctx)) }
     val crossfade = com.music.spotui.data.preferences.CrossfadePref.seconds
     // The first source of the audio order, when it is an extension announcing settings here:
     // they show, and Spotify's quality (kept, still used for what Spotify plays) leaves the screen.
@@ -315,6 +316,27 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                         com.music.spotui.data.api.LyricsApi.forgetAll()
                     },
                     detail = stringResource(if (wordSync) R.string.lyrics_word_sync_on else R.string.lyrics_word_sync_off),
+                )
+            }
+            // NetEase and Genius after Spotify and LRCLIB (also in the lyrics' own menu).
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.lyrics_extra_title), checked = lyricsExtra,
+                    onChecked = {
+                        lyricsExtra = it
+                        com.music.spotui.data.preferences.setLyricsExtraSources(ctx, it)
+                        com.music.spotui.data.api.LyricsApi.extraSources = it
+                        com.music.spotui.data.api.LyricsApi.forgetAll()
+                    },
+                    detail = stringResource(R.string.lyrics_extra_summary),
+                )
+            }
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.settings_lyrics_keep_awake_title),
+                    checked = com.music.spotui.data.preferences.LyricsKeepAwakePref.on,
+                    onChecked = { com.music.spotui.data.preferences.LyricsKeepAwakePref.set(ctx, it) },
+                    detail = stringResource(R.string.settings_lyrics_keep_awake_detail),
                 )
             }
         }
@@ -546,6 +568,10 @@ private fun DisplayPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
                 row {
                     ImmersiveSwitchRow(stringResource(R.string.settings_player_modes_title), checked = com.music.spotui.data.preferences.PlayerModesPref.on,
                         onChecked = { com.music.spotui.data.preferences.PlayerModesPref.set(ctx, it) }, detail = stringResource(R.string.settings_player_modes_detail))
+                }
+                row {
+                    ImmersiveSwitchRow(stringResource(R.string.settings_player_volume_title), checked = com.music.spotui.data.preferences.PlayerVolumePref.on,
+                        onChecked = { com.music.spotui.data.preferences.PlayerVolumePref.set(ctx, it) }, detail = stringResource(R.string.settings_player_volume_detail))
                 }
             }
         }

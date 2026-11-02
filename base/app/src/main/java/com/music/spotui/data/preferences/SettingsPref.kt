@@ -305,3 +305,34 @@ object PlayerModesPref {
         prefs(c).edit().putBoolean(KEY, value).apply()
     }
 }
+
+/**
+ * "Volume bar in the player" (Settings > Display, Immersive look): the volume slider under the
+ * transport. On by default; off, the phone's volume keys still do it, and the controls sit lower.
+ */
+object PlayerVolumePref {
+    private const val KEY = "immersive_player_volume"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Keep the screen on with lyrics" (Settings > Playback, both looks): while the lyrics are open
+ * the screen does not go dark, so the lines can be followed. On by default. Read as state by the
+ * lyrics of both looks.
+ */
+object LyricsKeepAwakePref {
+    private const val KEY = "lyrics_keep_screen_on"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}

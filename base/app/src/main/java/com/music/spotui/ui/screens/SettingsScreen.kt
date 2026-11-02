@@ -161,6 +161,25 @@ fun SettingsScreen(navController: NavController) {
                     com.music.spotui.data.api.LyricsApi.forgetAll()
                 },
             )
+            // NetEase and Genius after Spotify and LRCLIB (also in the lyrics' own menu).
+            var lyricsExtra by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsExtraSources(ctx)) }
+            OptionRow(
+                label = stringResource(R.string.lyrics_extra_title),
+                detail = stringResource(R.string.lyrics_extra_summary),
+                checked = lyricsExtra,
+                onChecked = {
+                    lyricsExtra = it
+                    com.music.spotui.data.preferences.setLyricsExtraSources(ctx, it)
+                    com.music.spotui.data.api.LyricsApi.extraSources = it
+                    com.music.spotui.data.api.LyricsApi.forgetAll()
+                },
+            )
+            OptionRow(
+                label = stringResource(R.string.settings_lyrics_keep_awake_title),
+                detail = stringResource(R.string.settings_lyrics_keep_awake_detail),
+                checked = com.music.spotui.data.preferences.LyricsKeepAwakePref.on,
+                onChecked = { com.music.spotui.data.preferences.LyricsKeepAwakePref.set(ctx, it) },
+            )
             // Songs an extension streams, played by Spotify too (unheard): counted there, seen by Connect.
             if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty())
                 OptionRow(

@@ -6,9 +6,10 @@
  * Changes: only the portrait layout is taken: the artwork with its step back on pause, the move
  * of the artwork to a small header (title beside it) when the lyrics or the queue open, the
  * title row with its round glyphs, the scrubber, transport, volume and bottom rows, and the
- * sheet's drag to close. The full-bleed banner, Canvas clips, track-swipe on the cover, version
- * switching, the lyric strip and the dock are left out. The landscape layout (cover beside the
- * controls) and the Canvas behind the player (with the cover opening into it) are Myspoti's own.
+ * sheet's drag to close. The full-bleed banner, Canvas clips, BitChord's track-swipe on the cover,
+ * version switching, the lyric strip and the dock are left out. The landscape layout (cover beside
+ * the controls), the Canvas behind the player (with the cover opening into it) and the swipe
+ * along the cover that changes track (the mini player's) are Myspoti's own.
  */
 package com.music.spotui.ui.immersive.player
 
@@ -29,6 +30,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -116,6 +119,7 @@ import com.music.spotui.ui.components.SongBlend
 import com.music.spotui.ui.components.SongBlendCover
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
+import kotlin.math.abs
 
 // Sizes and gaps of the portrait layout, as the player this follows has them.
 private val THUMB_SIZE = 54.dp
@@ -187,6 +191,42 @@ internal fun Modifier.dragToClose(): Modifier {
                 change.consume()
             }
             current.release(if (finished) velocity.calculateVelocity().y else 0f)
+        }
+    }
+}
+
+/** How far the cover is swiped along to change track (the mini player's distance). */
+private val TRACK_SWIPE_THRESHOLD = 72.dp
+
+/**
+ * A swipe along the cover changes track, as on the mini player: to the left the next song, to the
+ * right the previous one, past [TRACK_SWIPE_THRESHOLD]. Only a mostly sideways move is taken (and
+ * consumed); a vertical one is left untouched for [dragToClose] and a tap for the cover's click.
+ * Off while [enabled] is false (the cover is the header's thumbnail under an open panel).
+ */
+@Composable
+private fun Modifier.swipeToChangeTrack(enabled: Boolean, actions: ImmersivePlayerActions): Modifier {
+    val on by rememberUpdatedState(enabled)
+    val current by rememberUpdatedState(actions)
+    return pointerInput(Unit) {
+        val threshold = TRACK_SWIPE_THRESHOLD.toPx()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            if (!on) return@awaitEachGesture
+            val slopped = awaitTouchSlopOrCancellation(down.id) { change, _ ->
+                val moved = change.position - down.position
+                if (abs(moved.x) > abs(moved.y)) change.consume()
+            } ?: return@awaitEachGesture
+            var dragged = (slopped.position - down.position).x
+            val finished = drag(slopped.id) { change ->
+                dragged += change.positionChange().x
+                change.consume()
+            }
+            if (!finished) return@awaitEachGesture
+            when {
+                dragged <= -threshold -> current.next()
+                dragged >= threshold -> current.previous()
+            }
         }
     }
 }
@@ -381,6 +421,7 @@ fun ImmersivePlayer(
                             }
                             .background(Color.Black.copy(alpha = 0.18f))
                             .dragToClose()
+                            .swipeToChangeTrack(enabled = panel == Panel.NONE, actions = actions)
                             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                 if (panel != Panel.NONE) panel = Panel.NONE
                             },
@@ -444,7 +485,8 @@ fun ImmersivePlayer(
                         .align(Alignment.CenterHorizontally),
                 ) {
                     PlayerControlsBlock(
-                        state = state, actions = actions, volume = volume, lyricsOpen = lyricsOpen, queueOpen = queueOpen, showVolume = true,
+                        state = state, actions = actions, volume = volume, lyricsOpen = lyricsOpen, queueOpen = queueOpen,
+                        showVolume = com.music.spotui.data.preferences.PlayerVolumePref.on,
                         // Lyrics and the queue are two things to show in one place: opening one closes the other.
                         onToggleLyrics = { panel = if (lyricsOpen) Panel.NONE else Panel.LYRICS },
                         onToggleQueue = { panel = if (queueOpen) Panel.NONE else Panel.QUEUE },
@@ -738,7 +780,8 @@ private fun LandscapePlayer(
                                         clip = true
                                     }
                                     .background(Color.Black.copy(alpha = 0.18f))
-                                    .dragToClose(),
+                                    .dragToClose()
+                                    .swipeToChangeTrack(enabled = true, actions = actions),
                             ) {
                                 GlideImage(
                                     model = state.coverUrl.takeIf { it.isNotBlank() },
@@ -758,7 +801,7 @@ private fun LandscapePlayer(
             }
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 // The volume bar is the first thing to go when the window is low: the hardware keys do it too.
-                val showVolume = maxHeight >= LANDSCAPE_VOLUME_MIN_HEIGHT
+                val showVolume = com.music.spotui.data.preferences.PlayerVolumePref.on && maxHeight >= LANDSCAPE_VOLUME_MIN_HEIGHT
                 Column(Modifier.widthIn(max = PLAYER_MAX_WIDTH).verticalScroll(rememberScrollState())) {
                     Row(Modifier.fillMaxWidth().height(HEADER_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
                         PlayerCredits(state, actions, tint, scrolls = true, collapse = { 0f }, onMore = onMore, onSource = onSource, onSourceLong = onSourceLong)

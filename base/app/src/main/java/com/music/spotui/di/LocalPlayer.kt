@@ -74,8 +74,10 @@ object LocalPlayer {
         .also(::tune)
 
     /**
-     * The default renderers, with the equalizer in the audio chain (each player its own, see
-     * EqualizerProcessor), ahead of the silence skipping and the speed the sink adds after it.
+     * The default renderers, with the equalizer and the spatial stage after it in the audio chain
+     * (each player its own, see EqualizerProcessor and SpatialProcessor), ahead of the silence
+     * skipping and the speed the sink adds after them. The spatial stage is last of the two: its
+     * limiter is what keeps a widened peak under full scale.
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private object Renderers : androidx.media3.exoplayer.DefaultRenderersFactory(Graph.app) {
@@ -83,7 +85,7 @@ object LocalPlayer {
             androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                .setAudioProcessors(arrayOf(EqualizerProcessor()))
+                .setAudioProcessors(arrayOf(EqualizerProcessor(), SpatialProcessor()))
                 .build()
     }
 
