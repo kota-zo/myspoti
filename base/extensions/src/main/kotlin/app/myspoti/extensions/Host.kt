@@ -31,6 +31,12 @@ interface Host {
     fun nowPlaying(): String? = null
 
     /**
+     * `myspoti.locale`: the language the app shows, as a BCP 47 tag ("fr", "pt-BR"), read again at
+     * each use. The phone's when the app follows it; never empty. This one is the JVM's.
+     */
+    fun locale(): String = java.util.Locale.getDefault().toLanguageTag()
+
+    /**
      * play, pause, next, previous, seek (argument: milliseconds), asked by [extensionId]. False when
      * it could not be done, or the app's [PlaybackArbiter] dropped it.
      */

@@ -791,6 +791,7 @@ A script that throws while loading fails to load, with `file:line` in the messag
 | Call | Notes |
 |---|---|
 | `myspoti.apiVersion` | `1`. |
+| `myspoti.locale` | The language Myspoti shows, as a BCP 47 tag: `"fr"`, `"pt-BR"`, `"zh-TW"`. Below. |
 | `myspoti.extension` | `{ id, name, version }` from the manifest. |
 | `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
 | `myspoti.provide(hook, fn)` | Section 3. |
@@ -818,6 +819,15 @@ A script that throws while loading fails to load, with `file:line` in the messag
 | `myspoti.util.base64Encode(s)` / `base64Decode(s)` | UTF-8 text. Decode throws on bad input. |
 | `myspoti.util.md5(s)`, `sha1(s)`, `sha256(s)` | Lower-case hex. |
 | `myspoti.util.hmacSha256(key, text)` | Lower-case hex. |
+
+`myspoti.locale` needs no action. It is the language picked in Myspoti's settings, or the
+phone's when the app follows the phone, so it is never empty. It is read again each time you
+read it: after the user changes the language, the next read gives the new one, without a reload.
+Read it where you build text (a block, a setting's answer, your page's first message) rather
+than once at load. It is the app's language, not the lyrics translation target, which the
+reader picks apart (section 3, `translationLanguage`). An older Myspoti has no `locale` (`undefined`), so fall
+back: `var lang = myspoti.locale || 'en';`. Compare its first part to pick your strings:
+`lang.split('-')[0]`.
 
 `myspoti.player` (needs `playback.events` / `playback.control`) is Myspoti's own player. The
 Spotify account's player (what the Web Player is playing) is `myspoti.spotify.player`, with the

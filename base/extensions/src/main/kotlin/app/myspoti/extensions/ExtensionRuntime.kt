@@ -304,6 +304,8 @@ class ExtensionRuntime(
         fun str(args: Array<Any?>, i: Int): String = args.getOrNull(i)?.takeUnless { it is Undefined }?.let { Context.toString(it) }.orEmpty()
 
         def("info", 0) { ExtJson.encodeToString(Info.serializer(), Info(manifest.id, manifest.name, manifest.version, has(Action.PLAYBACK_MIRROR), has(Action.ATTEST))) }
+        // No action needed; a host that fails or answers nothing gives the JVM's, never "".
+        def("locale", 0) { runCatching { host.locale() }.getOrNull()?.takeIf { it.isNotBlank() } ?: java.util.Locale.getDefault().toLanguageTag() }
         def("mayProvide", 1) { a ->
             val key = str(a, 0)
             val hook = Hook.of(key) ?: throw error("unknown hook \"$key\" (known: ${Hook.entries.joinToString { it.key }})")

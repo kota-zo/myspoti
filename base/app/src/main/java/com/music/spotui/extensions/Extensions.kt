@@ -1465,6 +1465,11 @@ object Extensions {
 
         override fun nowPlaying(): String? = currentTrack()?.toJson()
 
+        // The language picked in the settings, else the app's configuration: the phone's, or on
+        // Android 13+ the per-app one when no screen is open to answer for AppCompat.
+        override fun locale(): String = com.music.spotui.data.AppLanguage.current(ctx)
+            .ifEmpty { ctx.resources.configuration.locales[0].toLanguageTag() }
+
         override fun control(extensionId: String, action: String, argument: Long?): Boolean {
             if (!arbitrate(extensionId, action)) return false
             main.post {

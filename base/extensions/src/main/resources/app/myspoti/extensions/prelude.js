@@ -54,6 +54,8 @@
 
   var myspoti = {
     apiVersion: 1,
+    /** The language the app shows, as a BCP 47 tag ('fr', 'pt-BR'): asked at each read, so it follows a change of language. */
+    get locale() { return String(host.locale()); },
     extension: Object.freeze(parse(host.info())),
 
     /**
