@@ -627,13 +627,20 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         var silentSince = 0L
         /** Since when the sound stands still, for [stalled]. */
         var stillSince = 0L
+        /** When a stall already seen is due its repair: the next look is then, not a whole tick later. */
+        var dueAt = 0L
         fun notStalled() { stillSince = 0L; _stalled.value = false }
         while (true) {
             // A song plays (or an ad is on): the watcher looks every [WATCH_TICK_MS] to hear a
             // stall in seconds. Nothing plays: there is less to see, so it looks less often.
             val quiet = !_adPlaying.value && _state.value.let { it == null || it.isPaused }
             // An ad starting wakes it at once: its recovery starts AD_PLAYING_SKIP_MS after it.
-            if (withTimeoutOrNull(if (quiet) WATCH_IDLE_TICK_MS else WATCH_TICK_MS) { wake.receive() } != null)
+            // A stall seen and due sooner is looked at when due: on the plain ticks a song stuck past
+            // its end stayed silent 3.5 to 5.5 s for a wait of one, and one paused at its end 8 to 12 s.
+            val tickMs = if (quiet) WATCH_IDLE_TICK_MS else WATCH_TICK_MS
+            val lookIn = if (dueAt > 0) (dueAt - System.currentTimeMillis()).coerceIn(DUE_TICK_MIN_MS, tickMs) else tickMs
+            dueAt = 0L
+            if (withTimeoutOrNull(lookIn) { wake.receive() } != null)
                 delay(AD_PLAYING_SKIP_MS + 50)
             tick++
             // Repairs held (a sign-in page open, playback limited): nothing is judged, not even a
@@ -833,9 +840,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             if (repairsHeld()) { key = null; attempts = 0; continue }
             if (s == null || reason == null) { key = null; attempts = 0; continue }
             val k = "${s.item?.uri}|$reason"
-            if (k != key) { key = k; since = now; attempts = 0; if (reason != SILENT) continue }
             val wait = when (reason) { "past the end" -> END_STUCK_MS; SILENT -> 0L; else -> STUCK_MS }
-            if (now - since < wait) continue
+            if (k != key) { key = k; since = now; attempts = 0; if (reason != SILENT) { dueAt = now + wait; continue } }
+            if (now - since < wait) { dueAt = since + wait; continue }
             since = now
             attempts++
             silentSince = 0L
@@ -2473,6 +2480,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val MIRROR_QUALITY = "low"
         /** Nothing plays: the watcher looks less often (see [watchStalls]). */
         private const val WATCH_IDLE_TICK_MS = 4_000L
+        /** The shortest look when a stall is due: the media element still moves visibly in it (over 0.25 s). */
+        private const val DUE_TICK_MIN_MS = 500L
         /** Buffering longer than this on one song is a stall, not a slow network. */
         const val BUFFERING_STALL_MS = 25_000L
         /** An ad still there after a reload: tries at playing on before the next reload. */
