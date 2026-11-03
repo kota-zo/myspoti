@@ -116,6 +116,21 @@ class SandboxTest {
         rt.close()
     }
 
+    @Test fun aCallItsCallerGaveUpOnFreesTheThreadForTheNext() {
+        // The first call never ends by itself; its caller is interrupted (a skip) long before its time.
+        val rt = runtime("let n = 0; myspoti.provide('lyrics', function () { if (n++ === 0) { while (true) {} } return { v: n }; });")
+        val caller = Thread { runCatching { rt.call(Hook.LYRICS, track.toJson(), 20_000) } }
+        caller.start()
+        Thread.sleep(300)
+        caller.interrupt()
+        caller.join(2_000)
+        val started = System.currentTimeMillis()
+        val answer = rt.call(Hook.LYRICS, track.toJson(), 5_000)
+        assertTrue("the next call waited behind the abandoned one", System.currentTimeMillis() - started < 2_000)
+        assertTrue(answer!!.contains("2"))
+        rt.close()
+    }
+
     @Test fun aCallCutShortByCloseIsNotTheScriptsFailure() {
         val rt = runtime("myspoti.provide('lyrics', function () { while (true) {} });")
         Thread { Thread.sleep(200); rt.close() }.start()

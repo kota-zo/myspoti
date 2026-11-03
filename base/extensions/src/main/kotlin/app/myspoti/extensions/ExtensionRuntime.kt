@@ -261,6 +261,13 @@ class ExtensionRuntime(
                 try { return task.get(10, TimeUnit.MILLISECONDS) } catch (_: TimeoutException) { /* not its turn yet */ }
             }
             await(task, timeoutMs, began.get(), pause)
+        } catch (e: InterruptedException) {
+            // The caller gave up (a skip, a newer song): the call is stopped as well, or it kept the
+            // extension's only thread and the next song's lookup waited behind it. Running, it ends
+            // at the instruction observer's next look (it sees the interrupt) or at its next wait.
+            task.cancel(true)
+            Thread.currentThread().interrupt()
+            throw e
         } catch (e: TimeoutException) {
             task.cancel(true)
             fail("took longer than $timeoutMs ms", e, timeout = true)
@@ -727,7 +734,8 @@ class ExtensionRuntime(
 
             override fun observeInstructionCount(cx: Context, instructionCount: Int) {
                 val runtime = RUNNING.get() ?: return
-                if (System.nanoTime() > runtime.deadline) throw TimeLimit()
+                // Interrupted: its caller gave up and cancelled it (see run).
+                if (System.nanoTime() > runtime.deadline || Thread.currentThread().isInterrupted) throw TimeLimit()
             }
         }
 
