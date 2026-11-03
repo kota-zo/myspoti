@@ -2367,6 +2367,14 @@ object SongPlayer {
         _activeDevice.value = active?.takeIf { !it.local }?.let { ConnectDevice(it.id, it.name, it.type, false, true) }
         val remote = _activeDevice.value ?: return
         if (remote.id == chosenRemote) return
+        // A Jam joined here: the music plays on the host's device and the commands go to it (Connect,
+        // to the session's device): pulling it back took the host's playback away and broke the Jam.
+        // (The Jam is read again first when none is known: after a restart the app has not read it yet.)
+        if (api.jam.session.value == null) kotlinx.coroutines.withTimeoutOrNull(1_500) { runCatching { api.jam.refresh() } }
+        if (remote.id.startsWith("social-connect") || api.jam.session.value?.isHost == false) {
+            Log.i(TAG, "playback on ${remote.name} in a Jam: left there")
+            return
+        }
         Log.i(TAG, "playback taken by ${remote.name}: pulled back here")
         // A pull-back can land on this phone at 0:00 (reported: "sometimes on Connect the sound
         // starts over"). The position is remembered across the pull and restored only when the same
