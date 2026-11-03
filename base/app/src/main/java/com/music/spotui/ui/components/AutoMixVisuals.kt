@@ -30,6 +30,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -68,89 +70,132 @@ fun LocalPlayer.MixCue.zoneOn(durationMs: Long, incomingShown: Boolean): ClosedF
 }
 
 /**
- * The mix's pulse, read every frame while [cue] shows and the music plays: [level] follows the
- * beats (see [LocalPlayer.mixPulse]); each strong beat sends a ring out of the cover ([rings]).
- * Still (0) with reduce motion.
+ * How the player moves with an AutoMix mix: it draws in (the content compresses a little) from the
+ * 8 s before the mix to its end, the cover beating on the music's beats meanwhile; when the mix is
+ * over it lets go: the content springs back past its size and settles, and a soft wave leaves the
+ * cover and crosses the screen. Read every frame while a mix is near or the release plays, else
+ * still (no frames). Nothing moves with reduce motion or the animation off.
  */
 @Stable
 class MixPulse internal constructor() {
-    internal val value = mutableFloatStateOf(0f)
     internal val clock = mutableLongStateOf(0L)
-    /** Rings out: start time (ns) and strength, oldest first. */
-    internal val rings = ArrayDeque<Pair<Long, Float>>()
-    private var last = 0f
-    private var lastRing = 0L
+    private var beat = 0f
+    private var squeeze = 0f
+    private var held = false
+    /** When the release started (ns), 0 = none, and how drawn in the content was then. */
+    private var releaseAt = 0L
+    private var releaseFrom = 0f
 
     /** 0 (still) to 1 (a loud downbeat): read it in a draw or layer block. */
-    fun level(): Float = value.floatValue
+    fun level(): Float { clock.longValue; return beat }
 
-    internal fun step(now: Long, v: Float) {
-        // A beat starting (the level jumps from its decay): a ring, at most one per 180 ms.
-        if (v > 0.45f && v > last + 0.2f && now - lastRing > 180_000_000L) {
-            rings.addLast(now to v); lastRing = now
-            while (rings.size > 4) rings.removeFirst()
+    /** How drawn in the content is, 0 to 1 (below 0 while it springs back past its size). */
+    fun squeeze(): Float {
+        val now = clock.longValue
+        if (releaseAt == 0L) return squeeze
+        val t = (now - releaseAt) / 1e9f
+        // A damped spring from where it was: past its size once, settled within a second.
+        return releaseFrom * kotlin.math.exp(-t / 0.22f) * kotlin.math.cos(t * 2f * Math.PI.toFloat() / 0.62f)
+    }
+
+    /** The release wave, 0 (leaving the cover) to 1 (gone past the screen's edges); null when none. */
+    fun wave(): Float? {
+        val now = clock.longValue
+        if (releaseAt == 0L) return null
+        return ((now - releaseAt) / WAVE_NS.toFloat()).takeIf { it < 1f }
+    }
+
+    internal val releasing: Boolean get() = releaseAt != 0L && clock.longValue - releaseAt < RELEASE_NS
+
+    internal fun step(now: Long, beat: Float, target: Float?) {
+        this.beat = beat
+        if (target != null) {
+            // Eased towards the mix's own progress, never jumping on a skip or a seek.
+            squeeze += (target - squeeze) * 0.12f
+            held = true; releaseAt = 0L
+        } else if (held) {
+            // The mix is over (or was left): let go from where it is.
+            held = false
+            if (squeeze > 0.15f) { releaseAt = now; releaseFrom = squeeze }
+            squeeze = 0f
         }
-        while (rings.isNotEmpty() && now - rings.first().first > RING_NS) rings.removeFirst()
-        last = v
-        value.floatValue = v
+        if (releaseAt != 0L && now - releaseAt >= RELEASE_NS) releaseAt = 0L
         clock.longValue = now
     }
 }
 
-private const val RING_NS = 900_000_000L
+private const val WAVE_NS = 1_300_000_000L
+private const val RELEASE_NS = 1_400_000_000L
 
 @Composable
 fun rememberMixPulse(cue: LocalPlayer.MixCue?): MixPulse? {
     val reduceMotion = rememberReduceMotion()
-    val on = cue != null && !reduceMotion && com.music.spotui.automix.AutoMix.pulseLevel > 0
+    // Kept across mixes (not only while one is near): the release plays after its cue is gone.
+    val on = !reduceMotion && com.music.spotui.automix.AutoMix.on && com.music.spotui.automix.AutoMix.showInPlayer &&
+        com.music.spotui.automix.AutoMix.pulseLevel > 0
     val pulse = remember(on) { if (on) MixPulse() else null }
     LaunchedEffect(pulse) {
         val p = pulse ?: return@LaunchedEffect
         while (true) {
-            if (!LocalPlayer.isPlaying()) { p.step(System.nanoTime(), 0f); kotlinx.coroutines.delay(250); continue }
-            // Still until the 8 s before the mix (see LocalPlayer.mixPulse): a check a second, no frames.
             val c = LocalPlayer.mixCue.value
-            if (c != null && !c.mixing && LocalPlayer.position() < c.exitMs - 9_000) { p.step(System.nanoTime(), 0f); kotlinx.coroutines.delay(1_000); continue }
+            val near = c != null && (c.mixing || LocalPlayer.position() >= c.exitMs - 9_000)
+            // Nothing near and nothing letting go: a check a second, no frames.
+            if (!near && !p.releasing) { p.step(System.nanoTime(), 0f, null); kotlinx.coroutines.delay(if (c == null) 400 else 1_000); continue }
+            if (!LocalPlayer.isPlaying() && !p.releasing) { kotlinx.coroutines.delay(250); continue }
             val k = if (com.music.spotui.automix.AutoMix.pulseLevel == 1) 0.55f else 1f
-            withFrameNanos { p.step(it, LocalPlayer.mixPulse() * k) }
+            withFrameNanos { now ->
+                val cue = LocalPlayer.mixCue.value
+                // Drawn in a quarter over the 8 s before the mix, the rest along it.
+                val target = cue?.let {
+                    if (it.mixing) 0.25f + 0.75f * smooth(LocalPlayer.fadeProgress())
+                    else 0.25f * smooth(((LocalPlayer.position() - (it.exitMs - 8_000)) / 8_000f).coerceIn(0f, 1f))
+                }
+                p.step(now, LocalPlayer.mixPulse() * k, target?.times(k))
+            }
         }
     }
     return pulse
 }
 
+private fun smooth(t: Float) = t * t * (3 - 2 * t)
+
 /**
- * Around a cover: a glow in [color] that swells with the beat and rings that leave the cover's
- * edge on the strong ones, drawn behind it. [corner] is the cover's corner radius; [strength]
- * (read in the draw) dims it all, e.g. while the cover collapses into a header.
+ * The player's content drawing in with the mix and springing back after it ([amount]: the scale
+ * lost when fully drawn in). Put it on the content above the backdrop, which stays full screen.
  */
-fun Modifier.mixHalo(pulse: MixPulse?, color: Color, corner: Dp, strength: () -> Float = { 1f }): Modifier =
-    if (pulse == null) this else drawBehind {
-        val now = pulse.clock.longValue
-        val k0 = strength().coerceIn(0f, 1f)
-        if (k0 <= 0f) return@drawBehind
-        val r = corner.toPx()
-        val v = pulse.level() * k0
-        // The glow: three soft layers, wider and fainter outwards.
-        for (k in 1..3) {
-            val grow = (6 + 10 * k).dp.toPx() * (0.4f + v)
-            glowRect(color.copy(alpha = 0.16f * v / k), grow, r + grow)
-        }
-        // The rings: out to 28 dp past the edge, fading as they go.
-        for ((start, strength) in pulse.rings) {
-            val t = ((now - start) / RING_NS.toFloat()).coerceIn(0f, 1f)
-            val out = 28.dp.toPx() * easeOut(t)
-            val w = 2.dp.toPx() * (1f - t) + 0.5f
-            drawRoundRect(
-                color.copy(alpha = 0.7f * strength * k0 * (1f - t)),
-                topLeft = Offset(-out, -out), size = Size(size.width + 2 * out, size.height + 2 * out),
-                cornerRadius = CornerRadius(r + out), style = Stroke(w),
-            )
-        }
+fun Modifier.mixSqueeze(pulse: MixPulse?, amount: Float = 0.05f): Modifier =
+    if (pulse == null) this else graphicsLayer {
+        val s = 1f - amount * pulse.squeeze()
+        scaleX = s; scaleY = s
     }
 
-private fun DrawScope.glowRect(color: Color, grow: Float, radius: Float) = drawRoundRect(
-    color, topLeft = Offset(-grow, -grow), size = Size(size.width + 2 * grow, size.height + 2 * grow), cornerRadius = CornerRadius(radius),
-)
+/**
+ * The release wave over the content: a wide soft band of [color] leaving [center] (fractions of
+ * the box, where the cover is) and fading as it crosses the screen.
+ */
+fun Modifier.mixWave(pulse: MixPulse?, color: Color, center: Offset = Offset(0.5f, 0.32f)): Modifier =
+    if (pulse == null) this else drawWithContent {
+        drawContent()
+        val t = pulse.wave() ?: return@drawWithContent
+        val c = Offset(size.width * center.x, size.height * center.y)
+        val reach = kotlin.math.hypot(size.width.toDouble(), size.height.toDouble()).toFloat()
+        val r = reach * easeOut(t)
+        val band = 140.dp.toPx() * (0.6f + 0.4f * t)
+        val alpha = 0.22f * (1f - t) * (1f - t)
+        if (r <= 1f || alpha <= 0.005f) return@drawWithContent
+        val outer = r + band / 2
+        val stop = { d: Float -> (d / outer).coerceIn(0f, 1f) }
+        drawCircle(
+            Brush.radialGradient(
+                0f to Color.Transparent,
+                stop(r - band / 2) to Color.Transparent,
+                stop(r) to color.copy(alpha = alpha),
+                1f to Color.Transparent,
+                center = c, radius = outer,
+            ),
+            radius = outer, center = c,
+        )
+    }
 
 private fun easeOut(t: Float) = 1f - (1f - t) * (1f - t) * (1f - t)
 

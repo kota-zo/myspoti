@@ -2,7 +2,8 @@ package com.music.spotui.ui.screens
 
 import com.music.spotui.ui.components.drawMixZone
 import com.music.spotui.ui.components.mixBeat
-import com.music.spotui.ui.components.mixHalo
+import com.music.spotui.ui.components.mixSqueeze
+import com.music.spotui.ui.components.mixWave
 import com.music.spotui.ui.components.zoneOn
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
@@ -402,6 +403,9 @@ fun PlayerScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { val r = reveal(); alpha = r; translationY = (1f - r) * revealShift }
+                // An AutoMix mix: the player draws in with it, springs back after it, and a wave leaves the cover.
+                .mixSqueeze(mixPulse)
+                .mixWave(mixPulse, Color.White, androidx.compose.ui.geometry.Offset(0.5f, 0.3f))
                 .nestedScroll(pullToClose.connection)
                 .statusBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -526,14 +530,12 @@ fun PlayerScreen(navController: NavController) {
                     GlideImage(
                         transition = CrossFade,
                         modifier = (if (immersive) Modifier.fillMaxSize()
-                            // Normal layout keeps the inset, rounded cover (glowing and ringing with an AutoMix mix).
-                            else Modifier.padding(horizontal = coverInset).aspectRatio(1f)
-                                .then(if (page == 1) Modifier.mixHalo(mixPulse, com.music.spotui.ui.theme.AppAccent, 8.dp) else Modifier)
-                                .clip(RoundedCornerShape(8.dp)))
+                            // Normal layout keeps the inset, rounded cover.
+                            else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
                             .graphicsLayer {
                                 val shown = 1f - canvasProgress.value
                                 alpha = shown
-                                val beat = if (page == 1) 1f + 0.035f * (mixPulse?.level() ?: 0f) else 1f
+                                val beat = if (page == 1) 1f + 0.025f * (mixPulse?.level() ?: 0f) else 1f
                                 val grow = (1f + (1f - shown) * 0.06f) * beat
                                 scaleX = grow; scaleY = grow
                             },

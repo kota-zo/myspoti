@@ -116,7 +116,8 @@ import com.music.spotui.ui.look.MeshPalette
 import com.music.spotui.ui.look.lerp
 import com.music.spotui.ui.components.SongBlend
 import com.music.spotui.ui.components.SongBlendCover
-import com.music.spotui.ui.components.mixHalo
+import com.music.spotui.ui.components.mixSqueeze
+import com.music.spotui.ui.components.mixWave
 import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
@@ -144,8 +145,8 @@ internal val PLAYER_MAX_WIDTH = 560.dp
 private const val PANEL_TRAVEL_MS = com.music.spotui.ui.immersive.motion.ImmersiveMotion.LONG_MS
 
 private val ArtCorner = RoundedCornerShape(8.dp)
-/** How much bigger the cover is on an AutoMix beat. */
-private const val MIX_BEAT_GROW = 0.035f
+/** How much bigger the cover is on an AutoMix beat (the player draws in around it meanwhile). */
+private const val MIX_BEAT_GROW = 0.025f
 
 /** What the middle of the player shows. */
 private object Panel {
@@ -303,7 +304,8 @@ fun ImmersivePlayer(
     // Back leaves the panel first; the sheet (outside) closes on the next one.
     BackHandler(enabled = panel != Panel.NONE) { panel = Panel.NONE }
 
-    BoxWithConstraints(modifier.fillMaxSize().background(Color.Black)) {
+    // The wave that leaves the cover when a mix is over, over everything.
+    BoxWithConstraints(modifier.fillMaxSize().background(Color.Black).mixWave(state.mixPulse, Color.White)) {
         // Wider than tall (a phone on its side, a tablet), or a large portrait tablet: the cover
         // beside the controls. Very wide windows (DeX, large tablets): the lyrics and the queue
         // open in a third pane instead of over the cover.
@@ -332,6 +334,8 @@ fun ImmersivePlayer(
                     .background(CanvasShade),
             )
         }
+        // An AutoMix mix: the content draws in with it and springs back after it, the backdrop stays.
+        Box(Modifier.fillMaxSize().mixSqueeze(state.mixPulse)) {
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) LandscapePlayer(
                 state = state,
@@ -409,8 +413,6 @@ fun ImmersivePlayer(
                                 val placeable = measurable.measure(Constraints.fixed(side, side))
                                 layout(side, side) { placeable.place(0, 0) }
                             }
-                            // An AutoMix mix: the sleeve glows and rings with the beat (not as the header's thumbnail).
-                            .mixHalo(state.mixPulse, com.music.spotui.ui.immersive.Immersive.Accent, 8.dp) { 1f - p() }
                             .graphicsLayer {
                                 // The pause step back, let go of as the cover collapses into the header.
                                 // With a Canvas, the sleeve opens into the clip: it grows and fades as the
@@ -500,6 +502,7 @@ fun ImmersivePlayer(
                     )
                 }
             }
+        }
         }
     }
 
@@ -778,7 +781,6 @@ private fun LandscapePlayer(
                             Box(
                                 Modifier
                                     .size(side)
-                                    .mixHalo(state.mixPulse, com.music.spotui.ui.immersive.Immersive.Accent, 8.dp)
                                     .graphicsLayer {
                                         // The pause step back, as in the portrait layout, and the mix's beat.
                                         val beat = 1f + MIX_BEAT_GROW * (state.mixPulse?.level() ?: 0f)
