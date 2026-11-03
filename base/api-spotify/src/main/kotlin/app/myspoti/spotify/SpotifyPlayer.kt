@@ -507,7 +507,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 } else {
                     // A state without a list would play the song alone, and Spotify then goes on
                     // with its own autoplay: the list of the song before it is the next best.
-                    val ctx = lost.contextUri ?: lastSong?.contextUri ?: uri
+                    // A song autoplay brought is not in that list: played in it, the list would start over (#135).
+                    val ctx = if (item.provider == "autoplay") uri else lost.contextUri ?: lastSong?.contextUri ?: uri
                     val station = nextUp?.takeIf { ctx == lost.contextUri }?.let { RepeatRules.stationOrder(uri, it) }
                     playNow(ctx, trackUri = uri.takeIf { ctx != it }, positionMs = at, order = station ?: lastOrder?.takeIf { it.first == ctx }?.second,
                         keepsOrder = station == null, origin = "restore")
@@ -1205,14 +1206,19 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             return
         }
         val ctx = s.contextUri
-        val target = onwardTarget(s, nextUp ?: _queue.value?.nextUp.orEmpty())
+        val onward = onwardItem(s, nextUp ?: _queue.value?.nextUp.orEmpty())
+        val target = onward?.uri
+        // A song autoplay brought is not in the list the page names: a new play of the list would start it over (#135).
+        val fromAutoplay = onward?.provider == "autoplay"
         // A new play reshuffles a shuffled list (measured 21/10) and does not find a song the user
         // queued in the list: both go on within the queue the page has, as a skip would.
         val inQueue = target?.let { t -> upcoming().firstOrNull { it.uri == t } }
-        if (inQueue != null && (s.shuffle || inQueue.provider == "queue") &&
+        if (inQueue != null && (s.shuffle || inQueue.provider == "queue" || inQueue.provider == "autoplay") &&
             runCatching { command("queue.skipTo", ref(inQueue), timeoutMs = PLAY_TIMEOUT_MS) }.isSuccess) return
         val station = nextUp?.let { target?.let { t -> RepeatRules.stationOrder(t, it) } }
         when {
+            // Not in the queue the page has (a page our reload took away): the song plays alone, Spotify goes on with its autoplay.
+            target != null && fromAutoplay -> playNow(target, origin = "play on")
             ctx != null && target != null -> playNow(ctx, trackUri = target, order = station ?: lastOrder?.takeIf { it.first == ctx }?.second,
                 keepsOrder = station == null, origin = "play on")
             target != null -> next()
@@ -2494,10 +2500,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             item != null && (item.kind == ItemKind.TRACK || item.kind == ItemKind.EPISODE) &&
                 !((due.songUid != null && item.uid == due.songUid) || item.uri == due.songUri)
 
-        fun onwardTarget(s: PlayerState, nextUp: List<NowPlaying>): String? {
+        fun onwardItem(s: PlayerState, nextUp: List<NowPlaying>): NowPlaying? {
             val playable = { k: ItemKind -> k == ItemKind.TRACK || k == ItemKind.EPISODE }
-            return s.next?.takeIf { playable(it.kind) }?.uri ?: nextUp.firstOrNull { playable(it.kind) }?.uri
+            return s.next?.takeIf { playable(it.kind) } ?: nextUp.firstOrNull { playable(it.kind) }
         }
+
+        fun onwardTarget(s: PlayerState, nextUp: List<NowPlaying>): String? = onwardItem(s, nextUp)?.uri
 
         fun stallOf(s: PlayerState, now: Long, userPaused: Boolean): String? {
             val item = s.item ?: return null
