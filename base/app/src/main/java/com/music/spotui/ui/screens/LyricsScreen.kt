@@ -224,13 +224,15 @@ private fun shareLyrics(context: Context, title: String, artist: String, line: S
 }
 
 @Composable
-internal fun rememberLyricsState(vm: LyricsViewModel, title: String, artist: String): LyricsViewModel.State {
+internal fun rememberLyricsState(vm: LyricsViewModel, title: String, artist: String, hold: Boolean = false): LyricsViewModel.State {
     // currentTrackId is plain data, not Compose state: the playing item's uri re-runs the load on a skip.
     val playingUri = SongPlayer.nowPlaying.value.uri
     // The lyrics extensions changed (one installed, removed…): the song is read again from the new set.
     val sources by com.music.spotui.data.api.LyricsApi.sourcesTick.collectAsState()
     var seen by remember { mutableStateOf(sources) }
-    LaunchedEffect(title, artist, playingUri, SongPlayer.currentTrackId, sources) {
+    LaunchedEffect(title, artist, playingUri, SongPlayer.currentTrackId, sources, hold) {
+        // The first half of a mix: the words of the song going out stay, the new song's load after it.
+        if (hold) return@LaunchedEffect
         val again = seen != sources
         seen = sources
         SongPlayer.currentLyricsTrack()?.let { vm.load(it, force = again) }

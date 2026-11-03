@@ -157,6 +157,11 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
     val context = androidx.compose.ui.platform.LocalContext.current
     val vm: LyricsViewModel = viewModel()
     val song = Graph.currentSongState
+    // An AutoMix mix or a crossfade: the words of the song going out until half way, at its own
+    // position, as the title and the cover (SongBlend). Switched at the start, the new song's words
+    // ran over the old song still heard for the whole mix (reported, worst with long mixes).
+    val blend = com.music.spotui.ui.components.rememberSongBlend()
+    val hold = blend?.outgoingWords == true
     val title = song.title.value
     val artist = song.singer.value
     // currentTrackId is plain data, not Compose state: a skip whose title and artist are the same
@@ -164,9 +169,17 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
     val playingUri = SongPlayer.nowPlaying.value.uri
     // Loaded as the Classic look does: read again when the lyrics extensions changed (they finish
     // starting after the app: the song not found by then stayed so until the panel was reopened).
-    val state = com.music.spotui.ui.screens.rememberLyricsState(vm, title, artist)
+    val state = com.music.spotui.ui.screens.rememberLyricsState(vm, title, artist, hold)
     com.music.spotui.ui.screens.KeepScreenOnForLyrics(Graph.currentSongState.playingState.value && state is LyricsViewModel.State.Loaded)
-    val trackKey = "$playingUri|${SongPlayer.currentTrackId}|$title|$artist"
+    val liveKey = "$playingUri|${SongPlayer.currentTrackId}|$title|$artist"
+    // A plain holder (not state): the key of the words shown before the mix began.
+    val heldKey = androidx.compose.runtime.remember { arrayOf(liveKey) }
+    if (!hold) heldKey[0] = liveKey
+    val trackKey = if (hold) heldKey[0] else liveKey
+    DisposableEffect(hold, blend) {
+        lyricsPosition = if (hold && blend != null) ({ blend.positionMs().coerceAtLeast(0L) }) else ({ SongPlayer.getCurrentPosition().coerceAtLeast(0L) })
+        onDispose { lyricsPosition = { SongPlayer.getCurrentPosition().coerceAtLeast(0L) } }
+    }
     val selecting by vm.selecting.collectAsState()
     val picked by vm.picked.collectAsState()
     // Back and closing the panel end the picking before anything else.

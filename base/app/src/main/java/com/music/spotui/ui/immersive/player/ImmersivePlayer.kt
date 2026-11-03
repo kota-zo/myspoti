@@ -305,7 +305,10 @@ fun ImmersivePlayer(
     BackHandler(enabled = panel != Panel.NONE) { panel = Panel.NONE }
 
     // The wave that leaves the cover when a mix is over, over everything.
-    BoxWithConstraints(modifier.fillMaxSize().background(Color.Black).mixWave(state.mixPulse, Color.White)) {
+    // Not over an open panel: the lyrics or the queue drawing in and springing back with the mix
+    // moved the lines being read (reported as particularly bad on the lyrics).
+    val mixMotion = state.mixPulse.takeIf { panel == Panel.NONE }
+    BoxWithConstraints(modifier.fillMaxSize().background(Color.Black).mixWave(mixMotion, Color.White)) {
         // Wider than tall (a phone on its side, a tablet), or a large portrait tablet: the cover
         // beside the controls. Very wide windows (DeX, large tablets): the lyrics and the queue
         // open in a third pane instead of over the cover.
@@ -335,7 +338,7 @@ fun ImmersivePlayer(
             )
         }
         // An AutoMix mix: the content draws in with it and springs back after it, the backdrop stays.
-        Box(Modifier.fillMaxSize().mixSqueeze(state.mixPulse)) {
+        Box(Modifier.fillMaxSize().mixSqueeze(mixMotion)) {
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) LandscapePlayer(
                 state = state,
