@@ -45,6 +45,7 @@ import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import com.music.spotui.data.entity.Lyrics
 import com.music.spotui.di.SongPlayer
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -892,7 +893,14 @@ object Extensions {
             Logbook.log("audio: extensions not loaded yet, waited ${System.currentTimeMillis() - t0} ms${if (loaded) "" else " (still loading)"}")
         }
         // The same song as a download asks with: its ISRC, which an extension matches recordings by.
-        val input = AudioQuery.toJson(withIsrc(track), ahead)
+        val withIsrc = withIsrc(track)
+        // Without it the sources would say "not found" (they match by it): not a miss of the song,
+        // nothing recorded, the caller falls back for now and the song is asked again later.
+        if (withIsrc.isrc.isNullOrBlank() && !app.myspoti.host.android.MyspotiRuntime.api.ready.value) {
+            attempts.update(attempt) { it.copy(fallback = "Spotify: no ISRC yet (Spotify not ready)") }
+            return null
+        }
+        val input = AudioQuery.toJson(withIsrc, ahead)
         probeStale(Hook.AUDIO_SOURCE)
         val skipped = mutableListOf<PlayAttempt.Ask>()
         _registry.value.extensions.filter { it.enabled && health.inactive(it.id) && runtimes[it.id]?.provides(Hook.AUDIO_SOURCE) == true }
@@ -982,11 +990,32 @@ object Extensions {
     /** [track] with its ISRC from Spotify's catalogue when it lacks one (kept; at most 3 s to ask). */
     private suspend fun withIsrc(track: TrackInfo): TrackInfo {
         if (!track.isrc.isNullOrBlank() || track.id.isBlank()) return track
-        val known = isrcs[track.id] ?: runCatching {
-            kotlinx.coroutines.withTimeout(3_000) { app.myspoti.host.android.MyspotiRuntime.api.catalog.isrc("spotify:track:${track.id}") }
-        }.getOrNull()?.let(com.music.spotui.data.offline.OfflineDownloader::normalizeIsrc)?.also { isrcs[track.id] = it }
+        // Kept on disk: right after a relaunch Spotify's page is not ready for a second or two, the
+        // ISRC lookup failed, and an extension that matches by ISRC (the Tidal pool) said "not found"
+        // at once: the resume went to Spotify (reported, again and again). A song never seen waits
+        // for Spotify to be ready instead.
+        val known = isrcs[track.id] ?: savedIsrc(track.id)?.also { isrcs[track.id] = it } ?: runCatching {
+            kotlinx.coroutines.withTimeout(ISRC_WAIT_MS) {
+                val api = app.myspoti.host.android.MyspotiRuntime.api
+                api.ready.first { it }
+                api.catalog.isrc("spotify:track:${track.id}")
+            }
+        }.getOrNull()?.let(com.music.spotui.data.offline.OfflineDownloader::normalizeIsrc)?.also { isrcs[track.id] = it; saveIsrc(track.id, it) }
+        if (known == null) Logbook.log("audio: no ISRC for ${track.title} (Spotify not ready)")
         return if (known == null) track else track.copy(isrc = known)
     }
+
+    private val isrcPrefs get() = com.music.spotui.di.Graph.app.getSharedPreferences("extension_isrcs", 0)
+    private fun savedIsrc(id: String): String? = runCatching { isrcPrefs.getString(id, null) }.getOrNull()
+    private fun saveIsrc(id: String, isrc: String) {
+        runCatching {
+            val p = isrcPrefs
+            // A few thousand songs at most: forgotten all at once past that (each is a short string).
+            if (p.all.size > 3_000) p.edit().clear().apply()
+            p.edit().putString(id, isrc).apply()
+        }
+    }
+    private const val ISRC_WAIT_MS = 10_000L
 
     /** For the player's loading thread (never the main one). */
     fun audioBlocking(track: TrackInfo, ahead: Boolean = false): AudioStream? = runBlocking(Dispatchers.IO) { audio(track, ahead = ahead) }
