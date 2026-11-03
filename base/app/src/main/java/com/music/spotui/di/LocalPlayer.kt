@@ -423,6 +423,14 @@ object LocalPlayer {
         noFadeFor = -1
         queued.clear(); playingQueued = null; radioSongs.clear()
         queued += fromSpotify
+        // Shuffle on: the picked song, then every other song of the list shuffled, those above it
+        // too, as Spotify's shuffle does. Shuffling only the songs after the pick left the rest of
+        // the list out (B6: 5 to 10 songs of a 40-song playlist queued, the shuffle button picks
+        // a random song first). The list's order is kept for shuffle off.
+        val start = index.coerceIn(0, list.lastIndex)
+        val whole = shuffle && !isStation && all.size > 1
+        val order = if (whole) LocalQueueOrder.shuffledWhole(all, start, isQueued) { it.shuffled() } else all
+        if (whole) { tracks.clear(); tracks.addAll(order); unshuffled = all.filterNot(isQueued) }
         listName = context ?: Graph.app.getString(app.myspoti.engine.R.string.local_files_title)
         listUri = contextUri
         active.value = true
@@ -435,9 +443,9 @@ object LocalPlayer {
         applyRepeat(p)
         // Paused before it loads: a player left playing by a song before never starts this one.
         if (paused) p.pause()
-        p.setMediaItems(all.map(::item), index.coerceIn(0, list.lastIndex), startMs.coerceAtLeast(0L))
+        p.setMediaItems(order.map(::item), if (whole) 0 else start, startMs.coerceAtLeast(0L))
         p.prepare()
-        if (shuffle) setShuffle(true)
+        if (shuffle && !whole) setShuffle(true)
         if (!paused) p.play()
         continueIfLast(p)
     }
@@ -1065,6 +1073,10 @@ object LocalPlayer {
         CrossfadePref.seconds > 0 && !LocalRepeat.loopsSong(repeat, p.mediaItemCount) && p.nextMediaItemIndex != C.INDEX_UNSET &&
             p.currentMediaItem != null && p.playWhenReady && !CastPlayback.active
 
+    /** How long a crossfade's copy of the song may take to be ready, on Wi-Fi and on a metered network. */
+    private const val FADE_READY_MS = 1_500L
+    private const val FADE_READY_METERED_MS = 4_000L
+
     private fun beginFade(p: ExoPlayer) {
         val item = p.currentMediaItem ?: return
         val index = p.currentMediaItemIndex
@@ -1113,10 +1125,17 @@ object LocalPlayer {
             }
         })
         out.prepare()
-        // Not ready in time: no fade for this song.
+        // Not ready in time: no fade for this song. The copy is a second connection to the song's
+        // stream, seeked: on mobile data it can take longer than 1.5 s, and the fade was then never
+        // heard there ("crossfade only works on Wi-Fi", B12). Longer on a metered network (the fade
+        // starts later and is shorter, see its length above), and said in the log.
+        val ready = if (com.music.spotui.data.DataSaver.metered) FADE_READY_METERED_MS else FADE_READY_MS
         handler.postDelayed({
-            if (preparingFade && outgoing == null) { preparingFade = false; noFadeFor = index; out.release() }
-        }, 1500)
+            if (preparingFade && outgoing == null) {
+                log("crossfade: the song's second stream not ready in $ready ms, no fade")
+                preparingFade = false; noFadeFor = index; out.release()
+            }
+        }, ready)
     }
 
     /** Ends a fade (done, or interrupted by a skip/seek/stop): the copy goes, the main player is at full volume. */

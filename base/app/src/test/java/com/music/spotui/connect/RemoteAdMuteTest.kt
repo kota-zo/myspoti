@@ -39,6 +39,8 @@ class RemoteAdMuteTest {
         assertEquals(0.4, Rules.levelOf(0.4, 80)!!, 1e-9)
         assertEquals(0.8, Rules.levelOf(null, 80)!!, 1e-9)
         assertNull(Rules.levelOf(null, 0))
+        // #159: the bar's level is not this device's (its first 100 %): no guess is restored.
+        assertNull(Rules.levelOf(null, null))
         // A fixed volume (negative) or a device already at 0: nothing to mute or restore.
         assertNull(Rules.levelOf(-1.0, 80))
         assertNull(Rules.levelOf(0.0, 80))

@@ -2337,7 +2337,7 @@ object SongPlayer {
             _activeDevice.value = active?.takeIf { !it.local }?.let { ConnectDevice(it.id, it.name, it.type, false, true) }
             // A negative volume is a device with a fixed one (Web Player: disable_volume): not 0 %.
             // Nor the 0 of a device muted for an ad (RemoteAdMute): the bar keeps the user's level.
-            active?.volume?.takeIf { it >= 0 }?.let { if (SystemClock.elapsedRealtime() > volumeHoldUntil && !com.music.spotui.connect.RemoteAdMute.muting) _remoteVolume.intValue = (it * 100).toInt().coerceIn(0, 100) }
+            active?.volume?.takeIf { it >= 0 }?.let { if (SystemClock.elapsedRealtime() > volumeHoldUntil && !com.music.spotui.connect.RemoteAdMute.muting) { _remoteVolume.intValue = (it * 100).toInt().coerceIn(0, 100); remoteVolumeOf = active.id } }
             PlaybackService.setPlaybackDevice(_activeDevice.value != null, remoteVolume)
         }
     }
@@ -2356,8 +2356,32 @@ object SongPlayer {
         return list
     }
 
-    /** The other device picked in Myspoti to play on; null: this phone. */
-    @Volatile private var chosenRemote: String? = null
+    /**
+     * The other device picked in Myspoti to play on; null: this phone. Kept over a restart of the
+     * app (a day at most): forgotten, the first skip after the app came back took the device for one
+     * that took playback by itself and pulled the music back to the phone (B12, reported: "I skip a
+     * song and the audio starts playing through the phone").
+     */
+    private var chosenRemote: String?
+        get() {
+            if (!chosenLoaded) {
+                chosenLoaded = true
+                chosen = runCatching {
+                    val p = chosenPrefs()
+                    p.getString("device", null)?.takeIf { System.currentTimeMillis() - p.getLong("at", 0L) < CHOSEN_KEEP_MS }
+                }.getOrNull()
+            }
+            return chosen
+        }
+        set(value) {
+            chosenLoaded = true
+            chosen = value
+            runCatching { chosenPrefs().edit().putString("device", value).putLong("at", System.currentTimeMillis()).apply() }
+        }
+    @Volatile private var chosen: String? = null
+    @Volatile private var chosenLoaded = false
+    private fun chosenPrefs() = Graph.app.getSharedPreferences("myspoti_connect_choice", Context.MODE_PRIVATE)
+    private const val CHOSEN_KEEP_MS = 24 * 3600_000L
     /** [chosenRemote], read by RemoteAdMute (only that device's ads are muted). */
     val chosenRemoteId: String? get() = chosenRemote
 
@@ -2476,6 +2500,14 @@ object SongPlayer {
     private val _remoteVolume = androidx.compose.runtime.mutableIntStateOf(100)
     val remoteVolume: Int get() = _remoteVolume.intValue
     @Volatile private var volumeHoldUntil = 0L
+    /**
+     * The device [remoteVolume] is the level of (reported by it, or set by the user while it played);
+     * null: the first 100 %, never any device's.
+     */
+    @Volatile private var remoteVolumeOf: String? = null
+
+    /** [remoteVolume] when it is [deviceId]'s own level, else null (RemoteAdMute never restores a guess). */
+    fun knownRemoteVolume(deviceId: String): Int? = remoteVolume.takeIf { remoteVolumeOf == deviceId }
 
     /**
      * The newest volume asked for, sent one at a time by [volumeSender]. A drag on the player's
@@ -2494,6 +2526,7 @@ object SongPlayer {
     /** Set the volume of the device that plays (volume keys, system slider, the player's volume bar). */
     fun setRemoteVolume(volume: Int) {
         _remoteVolume.intValue = volume.coerceIn(0, 100)
+        remoteVolumeOf = _activeDevice.value?.id
         volumeHoldUntil = SystemClock.elapsedRealtime() + 1500
         volumeSender
         // A device muted for an ad is at 0 whatever the bar says: the same level as the last one sent

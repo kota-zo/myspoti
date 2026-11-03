@@ -33,6 +33,17 @@ class LocalQueueOrderTest {
         assertEquals(listOf("A", "P", "C", "Q1", "Q2", "B", "D", "X"), LocalQueueOrder.unshuffled(now, 1, before, queued))
     }
 
+    @Test fun aListPlayedShuffledFromASongKeepsEverySongOfIt() {
+        // B6: picked low in the list, the songs above it play too, after it and the queued ones.
+        val list = listOf("A", "B", "C", "Q1", "D")
+        val on = LocalQueueOrder.shuffledWhole(list, 2, queued) { it.reversed() }
+        assertEquals(listOf("C", "Q1", "D", "B", "A"), on)
+        assertEquals(list.toSet(), on.toSet())
+        // Back in the list's order: the picked song at its place, the queued one next.
+        assertEquals(listOf("A", "B", "C", "Q1", "D"), LocalQueueOrder.unshuffled(on, 0, list.filterNot(queued), queued))
+        assertEquals(emptyList<String>(), LocalQueueOrder.shuffledWhole(emptyList<String>(), 0, queued) { it })
+    }
+
     @Test fun aSongDraggedAmongTheQueuedOnesIsMovedUp() {
         assertEquals(listOf("P", "C", "Q1", "Q2", "Q3", "A", "B"), LocalQueueOrder.settle(listOf("P", "C", "Q1", "A", "Q2", "B", "Q3"), 1, queued))
     }

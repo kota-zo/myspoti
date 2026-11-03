@@ -54,9 +54,13 @@ object RemoteAdMute {
             ad && elsewhere && activeId != null && activeId == chosenId && !activeId.startsWith("social-connect") &&
                 !jamMember && level != null && level > 0.0 && activeId !in setAside
 
-        /** The level a device is reported at (0..1), else the one the player's volume bar shows (0..100). */
-        fun levelOf(reported: Double?, shown: Int): Double? = when {
-            reported == null -> shown.takeIf { it > 0 }?.let { it / 100.0 }
+        /**
+         * The level a device is reported at (0..1), else the one the player's volume bar shows
+         * (0..100) when that is this device's ([shown] null: the bar still has its first 100 % or
+         * another device's level, and restoring it would set the device to that, #159).
+         */
+        fun levelOf(reported: Double?, shown: Int?): Double? = when {
+            reported == null -> shown?.takeIf { it > 0 }?.let { it / 100.0 }
             reported <= 0.0 -> null
             else -> reported.coerceAtMost(1.0)
         }
@@ -134,7 +138,7 @@ object RemoteAdMute {
         if (!ad || !elsewhere) return
         runCatching { api.devices.refresh() }
         val active = api.devices.devices.value.firstOrNull { it.active && !it.local } ?: return
-        val level = Rules.levelOf(active.volume, SongPlayer.remoteVolume)
+        val level = Rules.levelOf(active.volume, SongPlayer.knownRemoteVolume(active.id))
         val jamMember = api.jam.session.value?.isHost == false
         if (!Rules.mutes(ad, elsewhere, active.id, SongPlayer.chosenRemoteId, level, jamMember, setAside)) return
         val m = Muted(active.id, level!!, System.currentTimeMillis())

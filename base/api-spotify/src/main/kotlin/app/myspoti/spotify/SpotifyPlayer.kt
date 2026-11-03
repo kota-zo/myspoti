@@ -350,7 +350,10 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 repeatRestoreUntil = System.currentTimeMillis() + REPEAT_RESTORE_MS
                 if (streamingLevel != "auto") applyAudioQuality()
                 // The page keeps its volume: an app closed during a muted ad must not stay silent.
-                runCatching { if (volume() == 0.0) setVolume(wantedVolume?.takeIf { v -> v > 0.0 } ?: 1.0) }
+                // Only when this page is Connect's active device: the volume is that device's
+                // otherwise, and a speaker at 0 (muted for its ad, not reported yet) went to 100 %
+                // (#159). A page not active yet is looked after by the guard once it plays here.
+                runCatching { if (volume() == 0.0 && ownsConnectVolume(readMedia())) setVolume(wantedVolume?.takeIf { v -> v > 0.0 } ?: 1.0) }
                 // A reloaded page during an ad break plays the ad again: muted again at once. So is a
                 // page reloaded to get past an ad, until a real song plays (an ad can come first).
                 if (_adPlaying.value || muteUntilSong) muteForAd()
@@ -653,6 +656,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * every few seconds and lags a transfer to this phone (whose element then moves).
      */
     internal val remoteActive: Boolean get() = lastMedia?.let { it.active == false && it.paused } == true
+
+    /**
+     * Whether a volume set on the page now is this page's own: the page player's volume is the
+     * Connect volume of the active device, so it may be set by us (not by the user) only when
+     * [media] says this page is that device. Unknown (no element, the device list not read) is no.
+     */
+    private fun ownsConnectVolume(media: Media?): Boolean = media?.active == true
 
     private val _playsElsewhere = MutableStateFlow(false)
     /**
@@ -1048,7 +1058,10 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         if (wanted <= 0.0) return
         // The page's own volume is read with the media element (one call, no second round trip).
         val v = media?.playerVolume ?: runCatching { volume() }.getOrNull() ?: return
-        if (v <= 0.0) {
+        // Set through Connect: only when this page is known to be the active device. Right after a
+        // transfer the element has not stopped yet (so [remoteActive] is still false) while the
+        // volume read is the speaker's, and a speaker reporting 0 was set to 100 % (#159).
+        if (v <= 0.0 && ownsConnectVolume(media)) {
             bridge.logger?.invoke("page silent during a song: volume back to $wanted")
             runCatching { setVolume(wanted) }
         }
