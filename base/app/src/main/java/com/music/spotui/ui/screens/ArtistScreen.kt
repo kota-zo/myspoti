@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.components.secondaryClick
 import com.music.spotui.ui.components.widePressable
 import com.music.spotui.ui.components.wideClickable
@@ -565,7 +566,7 @@ private fun ArtistOverviewContent(
                 displayName, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.weight(1f).padding(end = 26.dp),
+                modifier = Modifier.weight(1f).padding(end = 26.dp).titleMarquee(iterations = 3),
             )
         }
     }

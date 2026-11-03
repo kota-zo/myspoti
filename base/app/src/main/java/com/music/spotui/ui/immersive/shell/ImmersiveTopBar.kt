@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.music.spotui.ui.immersive.motion.ImmersiveMotion
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.components.wideClickable
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
@@ -155,6 +157,7 @@ fun ImmersiveTopBar(
 ) {
     val page = LocalImmersiveBackdrop.current
     val controlSize = rememberBarControlSize()
+    val titleShown by remember(collapse) { derivedStateOf { collapse() >= 0.99f } }
     Box(modifier = modifier.fillMaxWidth().holdsTouches()) {
         // The glass panel hanging from the top (rounded bottom corners), fading in with the collapse.
         ImmersiveTopGlass(collapse, Modifier.matchParentSize(), hazeState)
@@ -166,7 +169,8 @@ fun ImmersiveTopBar(
                         style = Immersive.Headline.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.graphicsLayer { alpha = collapse() },
+                        // Scrolls once the title has faded in (it is invisible, and still, before).
+                        modifier = Modifier.graphicsLayer { alpha = collapse() }.titleMarquee(enabled = titleShown, iterations = 3),
                     )
                 },
                 {

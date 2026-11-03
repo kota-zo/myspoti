@@ -35,7 +35,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -198,7 +197,7 @@ internal fun InstallPrompt() {
     val askRisk = plan !is InstallPlan.NotNewer && (!silentUpdate || m.id !in registry.noticeAccepted)
     val dismiss = { pending.value = null }
 
-    AlertDialog(
+    com.music.spotui.ui.components.LookAlertDialog(
         onDismissRequest = dismiss,
         containerColor = tone(0xFF282828),
         icon = { ExtIcon(m.id, m.name, null, p.pkg.icon, 48.dp) },
@@ -301,7 +300,7 @@ internal fun ClashChoices(newName: String, clashes: List<Clash>, keepNew: Mutabl
 @Composable
 internal fun ClashDialog(m: Manifest, clashes: List<Clash>, onDismiss: () -> Unit, onDone: (Map<Clash, Boolean>) -> Unit) {
     val keepNew = remember(clashes) { mutableStateMapOf<Clash, Boolean>().apply { clashes.forEach { put(it, true) } } }
-    AlertDialog(
+    com.music.spotui.ui.components.LookAlertDialog(
         onDismissRequest = onDismiss,
         containerColor = tone(0xFF282828),
         title = { Text(m.name, color = AppText, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -552,7 +551,7 @@ internal fun SwitchRow(label: String, detail: String, checked: Boolean, detailCo
 internal fun UrlDialog(title: Int, hint: Int, warning: Int? = null, onDismiss: () -> Unit, onOk: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     val ok = text.trim().startsWith("https://") && text.trim().length > 10
-    AlertDialog(
+    com.music.spotui.ui.components.LookAlertDialog(
         onDismissRequest = onDismiss,
         containerColor = tone(0xFF282828),
         title = { Text(stringResource(title), color = AppText) },

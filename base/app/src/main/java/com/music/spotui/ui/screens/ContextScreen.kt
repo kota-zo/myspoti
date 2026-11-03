@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.components.wideClickable
 import com.music.spotui.ui.theme.AppDestructive
 import com.music.spotui.ui.theme.tone
@@ -1112,7 +1113,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
         }
         // Centred, as on the artist page.
         Text(p.name, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f).padding(end = 56.dp))
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f).padding(end = 56.dp).titleMarquee(iterations = 3))
     }
     // Opened from a collaborative-playlist invitation (…?pt=): the playlist is joined from here.
     val invite by com.music.spotui.data.api.InviteLinks.pending.collectAsState()

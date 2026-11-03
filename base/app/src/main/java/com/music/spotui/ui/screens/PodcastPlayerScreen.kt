@@ -64,6 +64,7 @@ import com.music.spotui.ui.components.episodeClock
 import com.music.spotui.ui.components.pressable
 import com.music.spotui.ui.components.pullToDismiss
 import com.music.spotui.ui.components.speedLabel
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppBackground
 import kotlinx.coroutines.launch
@@ -239,6 +240,7 @@ fun PodcastPlayerScreen(navController: NavController) {
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.titleMarquee(iterations = 3),
                     )
                 }
                 Icon(
@@ -289,7 +291,7 @@ fun PodcastPlayerScreen(navController: NavController) {
                         ) {
                             val showId = episodeShowId(np.contextUri)
                             if (showId.isNotBlank()) navController.navigate(com.music.spotui.ui.navigation.showRoute(showId, showName))
-                        },
+                        }.titleMarquee(iterations = 3),
                     )
                 }
                 LikeButton(liked = saved, size = 28.dp) { SongPlayer.setSaved(uri, !saved) }

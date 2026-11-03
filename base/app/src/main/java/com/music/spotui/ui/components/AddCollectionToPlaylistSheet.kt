@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -121,7 +120,7 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
 
     asking?.let { (target, plan) ->
         val some = plan.someDuplicate
-        AlertDialog(
+        LookAlertDialog(
             // Outside the dialog: nothing is added (the Web Player's onOutside).
             onDismissRequest = { asking = null; onDismiss() },
             containerColor = tone(0xFF282828),

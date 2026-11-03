@@ -164,7 +164,7 @@ fun DownloadAskHost() {
         Option(DownloadQuality.CD, R.string.quality_download_cd, R.string.quality_download_cd_detail),
         Option(DownloadQuality.HI_RES, R.string.quality_download_hires, R.string.quality_download_hires_detail),
     )
-    androidx.compose.material3.AlertDialog(
+    LookAlertDialog(
         onDismissRequest = { DownloadAsk.pending = null },
         containerColor = tone(0xFF282828),
         title = { Text(stringResource(R.string.quality_download_title), color = AppText) },
@@ -201,10 +201,9 @@ private fun NeedSourceDialog() {
     val close = { DownloadAsk.needSource = false }
     val ink = if (immersive) Immersive.Text else AppText
     val accent = if (immersive) Immersive.Accent else AppAccent
-    androidx.compose.material3.AlertDialog(
+    LookAlertDialog(
         onDismissRequest = close,
-        containerColor = if (immersive) Color(0xFF2C2C2E) else tone(0xFF282828),
-        shape = if (immersive) androidx.compose.foundation.shape.RoundedCornerShape(20.dp) else androidx.compose.material3.AlertDialogDefaults.shape,
+        containerColor = tone(0xFF282828),
         title = { Text(stringResource(R.string.downloads_need_source_title), color = ink) },
         text = { Text(stringResource(R.string.downloads_need_source_detail), color = if (immersive) Immersive.TextSecondary else AppMuted, fontSize = 14.sp) },
         confirmButton = {

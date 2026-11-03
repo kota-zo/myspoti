@@ -4,6 +4,8 @@
  */
 package com.music.spotui.ui.immersive.screens
 
+import com.music.spotui.ui.immersive.shell.immersiveGlassSurface
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -48,7 +50,6 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -277,9 +278,8 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
         },
         onLeave = { showMembers = false; leaveAsk = true },
     ) { showMembers = false }
-    if (leaveAsk) androidx.compose.material3.AlertDialog(
+    if (leaveAsk) ImmersiveAlertDialog(
         onDismissRequest = { leaveAsk = false },
-        containerColor = Immersive.Raised,
         title = { Text(stringResource(R.string.playlist_leave), color = Immersive.Text) },
         text = { Text(stringResource(R.string.playlist_leave_confirm, p.name), color = Immersive.TextSecondary) },
         confirmButton = {
@@ -337,9 +337,8 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
         onDeleted = { navController.navigateUp() },
         onProfile = { navController.navigate(profileRoute(it, p.ownerName)) },
     )
-    if (askRemoveDownloads) AlertDialog(
+    if (askRemoveDownloads) ImmersiveAlertDialog(
         onDismissRequest = { askRemoveDownloads = false },
-        containerColor = Immersive.Raised,
         title = { Text(stringResource(R.string.playlist_entity_remove_download_dialog_title), style = Immersive.Headline) },
         text = { Text(stringResource(R.string.playlist_entity_remove_download_dialog_description), style = Immersive.Subhead) },
         confirmButton = {
@@ -1031,8 +1030,8 @@ private fun InviteJoinBar(vm: ContextViewModel, p: ContextPageModel, modifier: M
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Immersive.Raised)
+            // Floats over the list: glass, not an opaque card.
+            .immersiveGlassSurface(RoundedCornerShape(16.dp))
             .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
     ) {
         Text(stringResource(R.string.playlist_invite_banner), style = Immersive.Body, modifier = Modifier.weight(1f).padding(end = 12.dp))

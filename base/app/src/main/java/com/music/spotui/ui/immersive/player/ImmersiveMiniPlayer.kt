@@ -59,6 +59,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.di.Haptics
 import com.music.spotui.di.SongPlayer
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.shell.immersiveGlassSurface
 import com.music.spotui.ui.navigation.PlayerSheet
@@ -130,9 +131,14 @@ fun ImmersiveMiniPlayer(modifier: Modifier = Modifier) {
                 style = Immersive.BodyStrong.copy(fontSize = 15.sp, lineHeight = 19.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                // Once per song then rests: the mini player is always on screen.
+                modifier = Modifier.titleMarquee(iterations = 1),
             )
             if (!adPlaying) {
-                Text(text = singer, style = Immersive.Subhead.copy(lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = singer, style = Immersive.Subhead.copy(lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.titleMarquee(iterations = 1),
+                )
             }
         }
         if (buffering) {

@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import com.music.spotui.ui.navigation.isImmersive
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -94,6 +95,13 @@ import com.music.spotui.ui.screens.ExplicitBadge
 
 private val Green: Color get() = com.music.spotui.ui.theme.AppAccent
 private val SheetColor: androidx.compose.ui.graphics.Color get() = tone(0xFF282828)
+
+/**
+ * The ground of a queue row at rest: the sheet's own colour, nothing on the Immersive glass
+ * sheet (an opaque row there is a dark stripe across the glass).
+ */
+private val RowGround: androidx.compose.ui.graphics.Color
+    @Composable get() = if (isImmersive()) androidx.compose.ui.graphics.Color.Transparent else SheetColor
 
 /**
  * Name of the output playing now: the Connect device, else the headphones this phone
@@ -848,7 +856,7 @@ private fun QueueList(
                         modifier = Modifier
                             .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
                             .zIndex(if (isDragged) 1f else 0f)
-                            .background(if (isDragged) tone(0xFF3A3A3A) else SheetColor)
+                            .background(if (isDragged) tone(0xFF3A3A3A) else RowGround)
                     ) {
                         SwipeLeftToRemove(enabled = !editing && dragging == null, onRemove = {
                             if (e.queued) queued = queued - item else nextUp = nextUp - item
@@ -926,7 +934,8 @@ private fun SwipeLeftToRemove(enabled: Boolean, onRemove: () -> Unit, content: @
         Box(
             modifier = Modifier
                 .graphicsLayer { translationX = offset.value }
-                .background(SheetColor)
+                // Opaque once it slides, to cover the red strip it uncovers.
+                .background(if (offset.value == 0f) RowGround else SheetColor)
                 .pointerInput(enabled) {
                     if (!enabled) return@pointerInput
                     detectHorizontalDragGestures(

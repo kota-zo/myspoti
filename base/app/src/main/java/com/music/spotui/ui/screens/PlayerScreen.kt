@@ -17,7 +17,6 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.AddCircleOutline
@@ -56,6 +55,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.music.spotui.ui.components.pressable
+import com.music.spotui.ui.components.titleMarquee
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -793,6 +793,7 @@ private fun ImmersiveStrip(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.titleMarquee(iterations = 1),
                 )
                 if (artists.isNotBlank()) Text(
                     text = artists,
@@ -800,6 +801,7 @@ private fun ImmersiveStrip(
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.titleMarquee(iterations = 1),
                 )
             }
             LikeButton(liked = liked, size = 26.dp, onClick = onLike)
@@ -963,6 +965,7 @@ fun PlayerTopBar(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.titleMarquee(iterations = 3),
             )
         }
         Icon(
@@ -1087,13 +1090,14 @@ fun PlayerInfo(
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp).graphicsLayer { alpha = textAlpha.value * wordsAlpha() }) {
             Text(
                 modifier = Modifier
-                    // A few passes, after the sheet has settled (not an endless 120 Hz animation).
-                    .basicMarquee(iterations = 3, initialDelayMillis = 1_500, repeatDelayMillis = 2_500)
                     // Nothing to open during an ad: the title would lead to the previous song.
                     .then(if (onTitleClick != null && !adPlaying) Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { onTitleClick() } else Modifier),
+                    ) { onTitleClick() } else Modifier)
+                    // A few passes, after the sheet has settled (not an endless 120 Hz animation);
+                    // inside the tap target, which scrolling leaves as it was.
+                    .titleMarquee(iterations = 3),
                 text = if (adPlaying) stringResource(R.string.ad_playing) else songTitle,
                 color = Color.White,
                 fontSize = 22.sp,
@@ -1115,10 +1119,10 @@ fun PlayerInfo(
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = if (onArtistClick != null) Modifier.clickable(
+                    modifier = (if (onArtistClick != null) Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { onArtistClick() } else Modifier,
+                    ) { onArtistClick() } else Modifier).titleMarquee(iterations = 3),
                 )
             }
         }
