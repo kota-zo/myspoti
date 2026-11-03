@@ -33,6 +33,16 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private fun uris(list: List<Uri>) = json(mapOf("uris" to list))
 
+/**
+ * The id of the shows filter among the [offered] ids of the library (`availableFilters`: the ids are
+ * fixed words, the names are localised). "Podcasts" when none offered looks like one: that is the
+ * id the app sent before, and an id the server does not know fails the whole list (#136).
+ */
+internal fun podcastFilterId(offered: List<String>): String =
+    offered.firstOrNull { it.equals("Podcasts", ignoreCase = true) }
+        ?: offered.firstOrNull { id -> listOf("podcast", "show").any { id.contains(it, ignoreCase = true) } }
+        ?: "Podcasts"
+
 class SpotifyLibrary(private val bridge: Bridge, private val gql: Gql) : Library {
     private val _changes = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     override val changes: SharedFlow<Unit> = _changes
@@ -75,9 +85,12 @@ class SpotifyLibrary(private val bridge: Bridge, private val gql: Gql) : Library
         bridge.call("library.remove", uris(uris) as kotlinx.serialization.json.JsonObject); changed()
     }
 
-    override suspend fun items(filter: LibraryFilter, sort: LibrarySort, folderUri: Uri?, offset: Int, limit: Int): Page<LibraryItem> {
+    /** The filter ids the account's library offers, from its last list answer (`availableFilters`). */
+    @Volatile private var offeredFilters: List<String>? = null
+
+    private suspend fun libraryV3(filters: List<String>, sort: LibrarySort, folderUri: Uri?, offset: Int, limit: Int): JsonElement {
         val lib = gql.query("libraryV3", vars(
-            "filters" to listOfNotNull(filter.id),
+            "filters" to filters,
             "order" to sort.id,
             "textFilter" to "",
             "features" to listOf("LIKED_SONGS", "YOUR_EPISODES_V2", "PRERELEASES", "PRERELEASES_V2", "CLIPS", "EVENTS"),
@@ -85,6 +98,21 @@ class SpotifyLibrary(private val bridge: Bridge, private val gql: Gql) : Library
             "flatten" to false, "expandedFolders" to emptyList<String>(),
             "folderUri" to folderUri, "includeFoldersWhenFlattening" to true,
         )).entity("data.me.libraryV3", "libraryV3")
+        offeredFilters = lib.list("availableFilters").mapNotNull { it.str("id") }
+        return lib
+    }
+
+    /** The offered filter ids; one short unfiltered read when no list answer was seen yet. */
+    private suspend fun offeredFilterIds(): List<String> {
+        offeredFilters?.let { return it }
+        libraryV3(emptyList(), LibrarySort.RECENTS, null, 0, 1)
+        return offeredFilters.orEmpty()
+    }
+
+    override suspend fun items(filter: LibraryFilter, sort: LibrarySort, folderUri: Uri?, offset: Int, limit: Int): Page<LibraryItem> {
+        // The shows filter's id is not fixed: the account is offered the one Spotify knows (#136).
+        val filterId = if (filter == LibraryFilter.PODCASTS) podcastFilterId(offeredFilterIds()) else filter.id
+        val lib = libraryV3(listOfNotNull(filterId), sort, folderUri, offset, limit)
         val rows = lib.list("items")
         val items = rows.mapNotNull { row ->
             val c = card(row.at("item")) ?: return@mapNotNull null

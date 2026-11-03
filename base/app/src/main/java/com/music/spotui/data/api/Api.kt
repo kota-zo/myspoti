@@ -350,20 +350,27 @@ class Api constructor(
         return Result.success(listOf(news) + out)
     }
 
-    /** The shows of the library list read with [filter], page after page; failing on a first page that fails. */
-    private suspend fun readShows(filter: LibraryFilter): Result<List<app.myspoti.api.LibraryItem>> {
+    /**
+     * The shows of the library list read with [filter], page after page, and of the folders in it
+     * (a show filed in a folder is only listed inside it), three levels down at most; failing on
+     * a first page that fails.
+     */
+    private suspend fun readShows(filter: LibraryFilter, folderUri: String? = null, depth: Int = 0): Result<List<app.myspoti.api.LibraryItem>> {
         val out = ArrayList<app.myspoti.api.LibraryItem>()
+        val folders = ArrayList<String>()
         var offset = 0
         while (true) {
-            val page = runCatching { api.library.items(filter = filter, offset = offset, limit = 50) }.getOrElse {
+            val page = runCatching { api.library.items(filter = filter, folderUri = folderUri, offset = offset, limit = 50) }.getOrElse {
                 if (it is CancellationException) throw it
-                Log.e("Api", "getFollowedShows ($filter) failed at $offset", it)
+                Log.e("Api", "getFollowedShows ($filter${folderUri?.let { f -> " in $f" }.orEmpty()}) failed at $offset", it)
                 if (offset == 0) return Result.failure(it)
                 null
             } ?: break
             out += page.items.filter { it.kind == MediaKind.SHOW }
+            folders += page.items.filter { it.kind == MediaKind.FOLDER }.map { it.uri }
             offset = page.nextOffset ?: break
         }
+        if (depth < 3) folders.distinct().forEach { f -> readShows(filter, f, depth + 1).getOrNull()?.let { out += it } }
         return Result.success(out.distinctBy { it.uri })
     }
 
