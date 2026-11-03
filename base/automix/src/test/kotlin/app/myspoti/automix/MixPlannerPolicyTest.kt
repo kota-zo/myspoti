@@ -95,16 +95,25 @@ class MixPlannerPolicyTest {
         assertTrue("$plan", plan.endA <= tail.last + tail.period + 0.01)
     }
 
-    @Test fun djModeCanUseAnEarlierStructuralBreakWithoutChangingTempo() {
+    @Test fun djModeLeavesALongQuietOutroEarlyWithoutChangingTempo() {
         fun outgoing(): TrackAnalysis = track().also { a ->
-            for (i in 80 until 88) a.barDb[i] = -22f
-            a.barNovelty[80] = 3f
+            // Loud until bar 88 (176 s), then 32 bars of quiet outro.
+            for (i in 88 until 120) a.barDb[i] = -24f
+            a.barNovelty[88] = 3f
         }
-        val preserve = MixPlanner.plan(outgoing(), track())
         val dj = MixPlanner.plan(outgoing(), track(), MixPlanner.Settings(djMode = true))
         assertEquals(MixPlan.Style.BLEND, dj.style)
-        assertTrue("preserve=$preserve, DJ=$dj", dj.exitA < preserve.exitA - 10)
+        // Out well before the end of the outro, but not before the loud part is (nearly) over.
+        assertTrue("$dj", dj.endA < 215 && dj.exitA + dj.length * 0.75 >= 176.0 - 16)
+        assertEquals(176.0, MixPlanner.lastLoudEnd(outgoing()), 1e-9)
         assertEquals(1.0, dj.speedB, 1e-9)
+    }
+
+    @Test fun djModeDoesNotSkipTheLastLoudSectionForAnEarlierBreak() {
+        val a = track().also { for (i in 80 until 88) it.barDb[i] = -22f; it.barNovelty[80] = 3f }
+        val dj = MixPlanner.plan(a, track(), MixPlanner.Settings(djMode = true, maxSec = 64.0, lengthBias = 1, minBars = 12, maxBars = 32))
+        // The break at 160 s is followed by 32 loud bars: A is still clearly heard until at most 8 bars before 240 s.
+        assertTrue("$dj", dj.exitA + dj.length * 0.75 >= 240.0 - 8 * 2.0 - 1e-9)
     }
 
     @Test fun bassHandoverFollowsAStrongArrivalWithinTheMix() {
@@ -140,8 +149,60 @@ class MixPlannerPolicyTest {
         val slower = TrackAnalysis(b.duration, b.contentStart, b.contentEnd, b.loudnessDb, b.key, b.keyStrength,
             100.0, true, g, g, b.beats, b.barStarts, b.barDb, b.barLowDb, b.barHighDb, b.barCentre, b.barNovelty,
             0, false, 0.0, 0.0)
-        val plan = MixPlanner.plan(track(), slower, MixPlanner.Settings(lengthBias = 1, smoothSec = 14.0))
-        assertEquals(MixPlan.Style.CUT, plan.style)
-        assertEquals(1.0, plan.length, 1e-9)
+        val plan = MixPlanner.plan(track(), slower, MixPlanner.Settings(lengthBias = 1, smoothSec = 14.0, filterSec = 12.0))
+        // 120 → 100 BPM (20 %): no stretch, no one-second cut, but a filtered fade with the bass handed over.
+        assertEquals(MixPlan.Style.FADE, plan.style)
+        assertTrue("$plan", plan.filtered)
+        assertEquals(12.0, plan.length, 1e-9)
+        assertEquals(1.0, plan.speedB, 1e-9)
+        // B's bass comes in on one of its own downbeats (every 2.4 s from its entry).
+        val swapB = plan.entryB + plan.swapAt * plan.length
+        assertEquals(0.0, Math.floorMod(Math.round((swapB - plan.entryB) * 1000), 2400L).toDouble(), 1.0)
+        val before = plan.levels(plan.swapAt - 0.05); val after = plan.levels(plan.swapAt + 0.2)
+        assertEquals(MixPlan.KILL, before.lowB, 1e-9); assertEquals(0.0, before.lowA, 1e-9)
+        assertEquals(0.0, after.lowB, 1e-9); assertEquals(MixPlan.KILL, after.lowA, 1e-9)
+        for (i in 0..100) plan.levels(i / 100.0).let { assertTrue(it.gainA * it.gainA + it.gainB * it.gainB <= 1.0 + 1e-9) }
+    }
+
+    @Test fun filteredFadeAvoidsTwoVoicesAndCutOnlyWhenAskedFor() {
+        val g = Grid(0.0, 0.6, 400, 1.0, 0.0, 1.0)
+        val base = track(risk = { if (it < 6) 0f else 1f })
+        val slower = TrackAnalysis(base.duration, base.contentStart, base.contentEnd, base.loudnessDb, base.key, base.keyStrength,
+            100.0, true, g, g, base.beats, base.barStarts, base.barDb, base.barLowDb, base.barHighDb, base.barCentre, base.barNovelty,
+            0, false, 0.0, 0.0, barVocalRisk = base.barVocalRisk)
+        val fade = MixPlanner.plan(track(risk = { 1f }), slower, MixPlanner.Settings(filterSec = 10.0))
+        assertTrue("$fade", fade.filtered)
+        val co = MixPlanner.coVocal(track(risk = { 1f }), fade.exitA, fade.endA, slower, fade.entryB, fade.entryB + fade.length)
+        assertTrue("$fade co=${co.run}", co.run <= fade.length * 0.5)
+        assertEquals(MixPlan.Style.CUT, MixPlanner.plan(track(), slower, MixPlanner.Settings(style = MixPlan.Style.CUT)).style)
+    }
+
+    @Test fun coVocalMeasuresOnlyVoicesHeardTogether() {
+        val a = track(risk = { if (it < 4) 1f else 0f })
+        val b = track(risk = { if (it in 4..7) 1f else 0f })
+        assertEquals(0.0, MixPlanner.coVocal(a, 0.0, 16.0, b, 0.0, 16.0).total, 1e-9)
+        val both = track(risk = { 1f })
+        // Over 16 s, the audible middle (15–85 %) is 11.2 s, all of it two voices.
+        assertEquals(11.2, MixPlanner.coVocal(both, 0.0, 16.0, both, 0.0, 16.0).run, 1e-6)
+    }
+
+    @Test fun twoVoicesForAFewBarsDoNotRuleOutALongMix() {
+        // B raps from its bar 12 on: a 32-bar mix from B's start has its voice under A's for the last part only.
+        val a = track(risk = { if (it >= 104) 0f else 1f })
+        val b = track(risk = { if (it < 12) 0f else 1f })
+        val plan = MixPlanner.plan(a, b, long())
+        assertEquals(MixPlan.Style.BLEND, plan.style)
+        assertTrue("$plan", plan.beats >= 48)
+    }
+
+    @Test fun wideStretchKeepsBlendsTo16Bars() {
+        val b = track()
+        val g = Grid(0.0, 60.0 / 109.0, 430, 1.0, 0.0, 1.0)
+        val slower = TrackAnalysis(b.duration, b.contentStart, b.contentEnd, b.loudnessDb, b.key, b.keyStrength,
+            109.0, true, g, g, b.beats, b.barStarts, b.barDb, b.barLowDb, b.barHighDb, b.barCentre, b.barNovelty,
+            0, false, 0.0, 0.0)
+        val plan = MixPlanner.plan(track(), slower, MixPlanner.Settings(maxStretch = 0.12, maxSec = 90.0, lengthBias = 1, minBars = 12, maxBars = 32))
+        assertEquals(MixPlan.Style.BLEND, plan.style)
+        assertTrue("$plan", plan.beats <= 64 && plan.speedB > 1.08)
     }
 }

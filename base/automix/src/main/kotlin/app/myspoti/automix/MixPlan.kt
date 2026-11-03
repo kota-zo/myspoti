@@ -33,6 +33,8 @@ class MixPlan(
     val note: String,
     /** A's gain at the middle of the mix and on: A louder than B comes down towards B's level (1: untouched). */
     val matchA: Double = 1.0,
+    /** A FADE between tempos too far apart: B without its bass until a hand-over at [swapAt], A's top end closing. */
+    val filtered: Boolean = false,
 ) {
     enum class Style {
         /** Beat-matched blend over several bars with a bass swap. */
@@ -93,7 +95,16 @@ class MixPlan(
                 // A few tens of ms of ramp on B: no click if the downbeat lands between two steps.
                 Levels(gA, matchB * (x / 0.04).coerceAtMost(1.0), KILL, 0.0, -10.0 * x, 0.0)
             }
-            Style.FADE -> {
+            Style.FADE -> if (filtered) {
+                val s = swapAt
+                val ramp = beatShare.coerceAtLeast(0.0001)
+                // B rises under A without its bass (its drums' kick would fight A's), A holds until the swap.
+                val gB = if (x < s) 0.6 * sin(PI / 2 * (x / s)) else 0.6 + 0.4 * ((x - s) / (1 - s)).coerceIn(0.0, 1.0)
+                val gA = if (x < s) 1.0 else cos(PI / 2 * ((x - s) / (1 - s)).coerceIn(0.0, 1.0))
+                val swap = smooth(((x - s) / ramp).coerceIn(0.0, 1.0))
+                Levels(gA, gB * matchB, KILL * swap, KILL * (1 - swap), if (x > s) -18.0 * ((x - s) / (1 - s)) else 0.0,
+                    if (x < s) -9.0 * (1 - x / s) else 0.0)
+            } else {
                 val gA = cos(PI / 2 * x); val gB = sin(PI / 2 * x)
                 Levels(gA, gB * matchB, KILL * smooth(((x - 0.4) / 0.3).coerceIn(0.0, 1.0)), KILL * (1 - smooth((x / 0.6).coerceIn(0.0, 1.0))), -12.0 * x, 0.0)
             }
@@ -111,8 +122,8 @@ class MixPlan(
     /** B's gain after the mix: [matchB] back to 1 over 8 s of B. */
     fun gainAfter(tB: Double): Double = matchB + (1 - matchB) * smooth(((tB - resumeB) / 8.0).coerceIn(0.0, 1.0))
 
-    override fun toString() = String.format("%s A %.2f→%.2f (%.1f s, %d beats) B from %.2f ×%.4f swap %.2f gainB %.2f | %s",
-        style, exitA, endA, length, beats, entryB, speedB, swapAt, matchB, note)
+    override fun toString() = String.format("%s%s A %.2f→%.2f (%.1f s, %d beats) B from %.2f ×%.4f swap %.2f gainB %.2f | %s",
+        style, if (filtered) "(filtered)" else "", exitA, endA, length, beats, entryB, speedB, swapAt, matchB, note)
 
     companion object {
         /** A band "off", in dB. */

@@ -712,10 +712,10 @@
     <string name="settings_automix_length_auto">Ισορροπημένη</string>
     <string name="settings_automix_length_long">Μεγάλη</string>
     <string name="settings_automix_tempo">Ταίριασμα τέμπο</string>
-    <string name="settings_automix_tempo_detail">Πόσο μπορεί να αλλάξει το τέμπο του επόμενου τραγουδιού για να πέσει στον ρυθμό. Πέρα από αυτό, τα τραγούδια αλλάζουν με κόψιμο στον ρυθμό.</string>
+    <string name="settings_automix_tempo_detail">Πόσο μπορεί να αλλάξει το τέμπο του επόμενου τραγουδιού για να πέσει στον ρυθμό. Πέρα από αυτό, τα τραγούδια αλλάζουν με φιλτραρισμένο σβήσιμο: το επόμενο μπαίνει χωρίς μπάσα, που αναλαμβάνουν στον πρώτο του χρόνο.</string>
     <string name="settings_automix_tempo_strict">Αυστηρό (4 %)</string>
-    <string name="settings_automix_tempo_normal">Κανονικό (8 %)</string>
-    <string name="settings_automix_tempo_wide">Ευρύ (12 %)</string>
+    <string name="settings_automix_tempo_normal">Κανονικό (12 %)</string>
+    <string name="settings_automix_tempo_wide">Ευρύ (16 %)</string>
     <string name="settings_automix_eq">DJ EQ</string>
     <string name="settings_automix_eq_detail">Εναλλαγή μπάσων και φίλτρα κατά τη μίξη. Απενεργοποιημένο, κινούνται μόνο οι εντάσεις.</string>
     <string name="settings_automix_pulse">Κίνηση προγράμματος αναπαραγωγής</string>

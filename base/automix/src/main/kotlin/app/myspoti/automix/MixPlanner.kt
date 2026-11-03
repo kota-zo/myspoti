@@ -30,8 +30,10 @@ object MixPlanner {
         /** 0 ignores keys, 2 strongly discourages known harmonic clashes. Unknown is not a clash. */
         val keyWeight: Double = 1.0,
         val smoothSec: Double = 8.0,
-        /** Allow a structural exit earlier in the second half, rather than preserving every late bar. */
+        /** Allow a structural exit earlier in the second half, never before A's last loud section. */
         val djMode: Boolean = false,
+        /** Filtered fade between tempos too far apart to match, seconds. */
+        val filterSec: Double = 10.0,
     )
 
     fun plan(a: TrackAnalysis, b: TrackAnalysis, s: Settings = Settings()): MixPlan =
@@ -58,6 +60,12 @@ object MixPlanner {
             val soft = fade(a, b, sa, "soft passages, tempos untouched", seconds, earliestExit)
             if (soft != null && sa.softTexture(a, soft.exitA, soft.endA) &&
                 sb.softTexture(b, soft.entryB, soft.entryB + soft.length)) return soft
+        }
+        // Tempos too far apart to match: a filtered fade (B in without its bass, the bass handed over on
+        // one of B's downbeats, A's top end closing) rather than a one-second cut at the very end.
+        val inRange = match != null && abs(match.speed - 1) <= s.maxStretch
+        if (s.style == MixPlan.Style.BLEND && !inRange && ga != null && !a.tailDown.isNaN()) {
+            filterFade(a, b, sa, sb, ga, gb?.takeIf { !b.headDown.isNaN() }, s, earliestExit)?.let { return it }
         }
         if (ga != null && !a.tailDown.isNaN()) cut(a, b, sa, sb, ga, gb, match, s, earliestExit)?.let { return it }
         return fade(a, b, sa, if (match == null) "no checked beat pair" else "no safe blend ahead", s.fadeSec, earliestExit)
@@ -106,6 +114,10 @@ object MixPlanner {
     private class Entry(val cue: Cue, val end: Double, val score: Double, val relativeLevel: Double)
     private class Choice(val exit: Cue, val entry: Cue, val bars: Int, val score: Double)
     private const val MIN_BLEND_SCORE = 0.5
+    /** Beyond this stretch a blend is kept to 16 bars, and B's tempo comes back a little faster. */
+    private const val WIDE_STRETCH = 0.08
+    /** Per-bar voice-like risk from which a bar counts as sung or rapped (see [VocalRisk]). */
+    private const val VOICE = 0.6f
     private val BARS = intArrayOf(32, 24, 16, 12, 8, 6, 4, 2)
 
     private fun blend(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, sb: Summary, ga: Grid, gb: Grid,
@@ -120,6 +132,8 @@ object MixPlanner {
         var preferred: Choice? = null
         for (bars in BARS) {
             if (bars > max(2, s.maxBars)) continue
+            // A large stretch is heard on B for the second half and its way back: kept to 16 bars.
+            if (abs(m.speed - 1) > WIDE_STRETCH && bars > 16) continue
             val len = bars * barA
             if (len > s.maxSec + 0.01 && bars > 2) continue
             val spanB = len * m.speed
@@ -139,6 +153,7 @@ object MixPlanner {
             for (e in exits) {
                 val endA = e.time + len
                 if (endA > sa.musicEnd + barA || endA > a.contentEnd + 0.01 || endA > ga.last + ga.period + 0.01) continue
+                if (!keepsLastLoud(sa, s, e.time, len, 0.75, barA)) continue
                 val lost = sa.loudCut(a, endA) * if (s.djMode) 0.08 else 0.6
                 val endBar = a.barAt(endA + 0.05)
                 val structure = if (s.djMode) a.sectionStrength(endBar) * 2.0 else 0.0
@@ -146,16 +161,18 @@ object MixPlanner {
                     max(0.0, endA - sa.musicEnd) / barA * 0.5
                 val relativeA = sa.levelAt(a, e.time, endA)
                 for (n in prepared) {
-                    val voices = if (sa.maxVoice == 0f || sb.maxVoice == 0f) 0.0 else vocalOverlap(a, e.time, endA, b, n.cue.time, n.end)
-                    // Disallow a long overlap dominated by two voices, even when Long was requested.
-                    if (bars >= 8 && voices > 0.65) continue
-                    val score = scoreA + n.score - voices * bars / 4.0 -
+                    val co = if (sa.maxVoice == 0f || sb.maxVoice == 0f) CoVocal.NONE else coVocal(a, e.time, endA, b, n.cue.time, n.end)
+                    val runBars = co.run / barA
+                    // Two voices really on top of each other for more than 4 bars: not a long mix.
+                    // Voices in different parts of the overlap (B's beat under A's verse) are fine.
+                    if (bars >= 8 && runBars > 4.0) continue
+                    val score = scoreA + n.score - co.total / barA * 0.35 -
                         max(0.0, relativeA + n.relativeLevel) * 0.08 * bars / 8.0
                     if (score < MIN_BLEND_SCORE) continue
                     if (best == null || score > best.score) best = Choice(e, n.cue, bars, score)
                     // Length is a real preference among safe candidates, not a penalty that a drop
                     // can accidentally outweigh. Known clashes/high vocal risk may still shorten it.
-                    val safeLong = (s.keyWeight == 0.0 || keyPenalty < 1.5) && voices < 0.4 &&
+                    val safeLong = (s.keyWeight == 0.0 || keyPenalty < 1.5) && runBars <= 2.0 &&
                         abs(m.speed - 1) <= max(0.01, s.maxStretch * 0.85)
                     if (bars >= s.minBars && safeLong && (preferred == null || score > preferred.score)) {
                         preferred = Choice(e, n.cue, bars, score)
@@ -192,6 +209,7 @@ object MixPlanner {
     private fun cut(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, sb: Summary, ga: Grid, gb: Grid?, m: TempoMatch?,
                     s: Settings, earliest: Double): MixPlan? {
         val exits = exitCues(a, sa, ga, s, earliest).filter { it.time + 2 * ga.period <= a.contentEnd + 0.01 }
+            .let { all -> all.filter { keepsLastLoud(sa, s, it.time, 0.0, 0.0, 4 * ga.period, 2) }.ifEmpty { all } }
         if (exits.isEmpty()) return null
         val entry = if (gb != null && !b.headDown.isNaN()) entryCues(b, sb, gb).maxBy { it.score }.time else b.contentStart
         val e = exits.maxBy { it.score - sa.loudCut(a, it.time + 2 * ga.period) * if (s.djMode) 0.08 else 0.6 }
@@ -199,6 +217,47 @@ object MixPlanner {
         val speed = if (synced) m!!.speed else 1.0
         return MixPlan(MixPlan.Style.CUT, e.time, entry, 2 * ga.period, speed, 2, 0.0, 0.5, matchGain(a, b),
             if (synced) restore(speed, gb!!.period) else 0.0, "cut on ${e.why}" + if (synced) "" else ", no common tempo")
+    }
+
+    /**
+     * Between tempos too far apart to match: B comes in without its bass and with its top end held
+     * back, unsynced, the bass changes hands on a downbeat of B about 60 % of the way, A's top end
+     * closes as it goes. Exits and entries are the blend's (A's phrases, sections and outro; B's first
+     * downbeat or an intro phrase), chosen so that two voices do not run together.
+     */
+    private fun filterFade(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, sb: Summary, ga: Grid, gb: Grid?,
+                           s: Settings, earliest: Double): MixPlan? {
+        val barA = 4 * ga.period
+        val exits = exitCues(a, sa, ga, s, earliest)
+        val entries = if (gb != null) entryCues(b, sb, gb) else listOf(Cue(b.contentStart, 1.0, "B start"))
+        if (exits.isEmpty()) return null
+        val wanted = s.filterSec.coerceAtLeast(2.0)
+        var best: Pair<Double, MixPlan>? = null
+        for (len in doubleArrayOf(wanted, max(4.0, wanted * 0.6))) {
+            for (e in exits) {
+                val endA = e.time + len
+                if (endA > a.contentEnd + 0.01 || endA > sa.musicEnd + barA) continue
+                if (!keepsLastLoud(sa, s, e.time, len, 0.8, barA)) continue
+                val scoreA = e.score - sa.loudCut(a, endA) * (if (s.djMode) 0.08 else 0.6) -
+                    (if (len < wanted) 0.6 else 0.0)
+                for (n in entries) {
+                    val endB = n.time + len
+                    if (endB > b.contentEnd - 10) continue
+                    val co = if (sa.maxVoice == 0f || sb.maxVoice == 0f) CoVocal.NONE else coVocal(a, e.time, endA, b, n.time, endB)
+                    if (co.run > len * 0.5) continue
+                    val score = scoreA + n.score - co.total / len * 3.0
+                    if (best != null && score <= best.first) continue
+                    // B's bass on its own downbeat near 60 %, as a share of the fade.
+                    val swapT = if (gb != null) firstDown(gb, b.headDown, n.time + len * 0.6 - 2 * gb.period) else n.time + len * 0.6
+                    val swap = ((swapT - n.time) / len).coerceIn(0.4, 0.8)
+                    best = score to MixPlan(MixPlan.Style.FADE, e.time, n.time, len, 1.0, 0, swap, (0.4 / len).coerceAtMost(0.1),
+                        matchGain(a, b), 0.0, String.format("filtered fade: %s, %s, %.1f→%.1f BPM, score %.1f", e.why, n.why,
+                            ga.bpm, gb?.bpm ?: b.bpm, score), matchA = matchGainA(a, b), filtered = true)
+                }
+            }
+            if (best != null) break
+        }
+        return best?.second
     }
 
     private fun fade(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, why: String, seconds: Double, earliest: Double): MixPlan? {
@@ -216,7 +275,10 @@ object MixPlanner {
 
     private fun exitCues(a: TrackAnalysis, sa: Summary, g: Grid, s: Settings, earliest: Double): List<Cue> {
         val end = sa.musicEnd
-        val from = maxOf(a.contentStart + (end - a.contentStart) * 0.5, end - if (s.djMode) 180 else 90, g.first, earliest)
+        // Session DJ: B may come in under A's last loud section, but A is not let go before its end.
+        val longest = min(s.maxSec, max(2, s.maxBars) * 4 * g.period)
+        val from = maxOf(a.contentStart + (end - a.contentStart) * 0.5, end - if (s.djMode) 180 else 90, g.first, earliest,
+            if (s.djMode) sa.lastLoudEnd - longest * 0.75 - 8 * 4 * g.period else 0.0)
         val to = min(end, g.last) - 2 * g.period
         val out = ArrayList<Cue>()
         var t = firstDown(g, a.tailDown, from)
@@ -276,6 +338,14 @@ object MixPlanner {
     }
 
     fun musicEnd(a: TrackAnalysis): Double = summary(a).musicEnd
+    /** Where Session DJ may start leaving A at the earliest: its last loud section kept. */
+    fun lastLoudEnd(a: TrackAnalysis): Double = summary(a).lastLoudEnd
+    /**
+     * Session DJ leaves A early only after its last loud section: A is still clearly heard ([release],
+     * share of the mix where its fade is well under way) until at most [bars] bars before that section ends.
+     */
+    private fun keepsLastLoud(sa: Summary, s: Settings, exit: Double, len: Double, release: Double, bar: Double, bars: Int = 8) =
+        !s.djMode || exit + len * release >= sa.lastLoudEnd - bars * bar
 
     fun firstDown(g: Grid, down: Double, from: Double): Double {
         val bar = 4 * g.period
@@ -296,6 +366,8 @@ object MixPlanner {
         val maxVoice = a.barVocalRisk.maxOrNull() ?: 0f
         val noveltyMean = a.barNovelty.average().takeIf { it > 0 } ?: 0.0
         val musicEnd: Double
+        /** End of A's final loud section (at least 4 loud bars: its last chorus, or its last verse). */
+        val lastLoudEnd: Double
         init {
             var last = -1
             for (i in a.bars - 1 downTo 0) {
@@ -303,6 +375,11 @@ object MixPlanner {
                 if (last < 0 && a.barDb[i] > loud - 15) last = i
             }
             musicEnd = if (last < 0) a.contentEnd else min(a.contentEnd, a.barEnd(last))
+            val hot = BooleanArray(a.bars) { a.barDb[it] >= loud - 3 }
+            fun hot(i: Int) = i in 0 until a.bars && (hot[i] || (i > 0 && i + 1 < a.bars && hot[i - 1] && hot[i + 1]))
+            var keep = a.contentStart
+            for (i in a.bars - 1 downTo 3) if ((i - 3..i).all(::hot)) { keep = a.barEnd(i); break }
+            lastLoudEnd = keep
             for (i in 2 until a.bars) {
                 val db = levelBars(i, i + 4) - levelBars(i - 4, i)
                 val bass = mean(low, i, i + 4) - mean(low, i - 4, i)
@@ -382,6 +459,31 @@ object MixPlanner {
         return if (weight > 0) overlap / weight else 0.0
     }
 
+    internal class CoVocal(val run: Double, val total: Double) { companion object { val NONE = CoVocal(0.0, 0.0) } }
+
+    /**
+     * Where two voices are really heard together: bars of A and of B (after B's entry and stretch)
+     * both over [VOICE], in the audible middle of the mix (15–85 %). [CoVocal.run] is the longest
+     * such stretch and [CoVocal.total] their sum, in A's seconds.
+     */
+    internal fun coVocal(a: TrackAnalysis, a0: Double, a1: Double, b: TrackAnalysis, b0: Double, b1: Double): CoVocal {
+        if (a1 <= a0 || b1 <= b0 || a.bars == 0 || b.bars == 0) return CoVocal.NONE
+        val speed = (b1 - b0) / (a1 - a0)
+        val lo = a0 + (a1 - a0) * 0.15; val hi = a0 + (a1 - a0) * 0.85
+        var t = lo; var run = 0.0; var top = 0.0; var total = 0.0
+        while (t < hi - 1e-6) {
+            val ia = a.barAt(t + 1e-6); val ib = b.barAt(b0 + (t - a0) * speed + 1e-6)
+            if (ia < 0 || ib < 0) break
+            val to = minOf(hi, a.barEnd(ia), a0 + (b.barEnd(ib) - b0) / speed)
+            if (to <= t + 1e-7) break
+            if (a.barVocalRisk.getOrElse(ia) { 0f } >= VOICE && b.barVocalRisk.getOrElse(ib) { 0f } >= VOICE) {
+                run += to - t; total += to - t; top = max(top, run)
+            } else run = 0.0
+            t = to
+        }
+        return CoVocal(top, total)
+    }
+
     private fun knownKey(a: TrackAnalysis): Boolean = a.key >= 0 && a.keyStrength >= 0.5
 
     /** Same/neighbouring Camelot keys: 0; two steps: 1; further: 2. Unknown carries no clash evidence. */
@@ -411,7 +513,7 @@ object MixPlanner {
     }
 
     private fun restore(speed: Double, period: Double): Double {
-        val beats = max(8.0, abs(speed - 1) / 0.003)
+        val beats = max(8.0, abs(speed - 1) / if (abs(speed - 1) > WIDE_STRETCH) 0.004 else 0.003)
         return if (abs(speed - 1) < 1e-4) 0.0 else (beats * period).let { (it * 10).roundToInt() / 10.0 }
     }
 }

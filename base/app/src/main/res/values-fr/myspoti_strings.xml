@@ -717,10 +717,10 @@
     <string name="settings_automix_length_auto">Équilibrée</string>
     <string name="settings_automix_length_long">Longue</string>
     <string name="settings_automix_tempo">Calage du tempo</string>
-    <string name="settings_automix_tempo_detail">Jusqu\'où le tempo du morceau suivant peut être modifié pour tomber sur le temps. Au-delà, les morceaux changent par une coupe sur le temps.</string>
+    <string name="settings_automix_tempo_detail">Jusqu\'où le tempo du morceau suivant peut être modifié pour tomber sur le temps. Au-delà, les morceaux changent par un fondu filtré : le suivant arrive sans ses basses, qui prennent le relais sur son premier temps.</string>
     <string name="settings_automix_tempo_strict">Strict (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Large (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Large (16 %)</string>
     <string name="settings_automix_eq">EQ DJ</string>
     <string name="settings_automix_eq_detail">Échange des basses et filtres pendant le mix. Désactivé, seuls les volumes bougent.</string>
     <string name="settings_automix_pulse">Animation du lecteur</string>

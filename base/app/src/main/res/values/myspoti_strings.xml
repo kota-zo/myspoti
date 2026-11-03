@@ -719,10 +719,10 @@
     <string name="settings_automix_length_auto">Balanced</string>
     <string name="settings_automix_length_long">Long</string>
     <string name="settings_automix_tempo">Tempo matching</string>
-    <string name="settings_automix_tempo_detail">How far the next song\'s tempo may be bent to land on the beat. Beyond it, the songs change with a cut on the beat.</string>
+    <string name="settings_automix_tempo_detail">How far the next song\'s tempo may be bent to land on the beat. Beyond it, the songs change with a filtered fade: the next one comes in without its bass, which takes over on its downbeat.</string>
     <string name="settings_automix_tempo_strict">Strict (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Wide (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Wide (16 %)</string>
     <string name="settings_automix_eq">DJ EQ</string>
     <string name="settings_automix_eq_detail">Bass swap and filters during the mix. Off, only the volumes move.</string>
     <string name="settings_automix_pulse">Player animation</string>

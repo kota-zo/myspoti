@@ -23,5 +23,6 @@ tasks.register<JavaExec>("bench") {
     args = (findProperty("args") as String?)?.split(" ")?.filter { it.isNotBlank() } ?: emptyList()
     jvmArgs("-Xmx4g")
     environment("AUTOMIX_THREADS", (findProperty("threads") as String?) ?: "2")
+    environment("AUTOMIX_STRETCH", (findProperty("stretch") as String?) ?: "0.12")
     environment("AUTOMIX_MODEL", rootProject.file("app/src/main/assets/automix/beat-this-small0-int8.onnx").path)
 }

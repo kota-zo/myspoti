@@ -727,10 +727,10 @@
     <string name="settings_automix_length_auto">Zrównoważona</string>
     <string name="settings_automix_length_long">Długa</string>
     <string name="settings_automix_tempo">Dopasowanie tempa</string>
-    <string name="settings_automix_tempo_detail">Jak bardzo można zmienić tempo następnego utworu, żeby trafić w rytm. Powyżej utwory zmieniają się cięciem w rytm.</string>
+    <string name="settings_automix_tempo_detail">Jak bardzo można zmienić tempo następnego utworu, żeby trafić w rytm. Powyżej utwory zmieniają się filtrowanym przejściem: następny wchodzi bez basu, który przejmuje na jego pierwszą miarę.</string>
     <string name="settings_automix_tempo_strict">Ścisłe (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normalne (8 %)</string>
-    <string name="settings_automix_tempo_wide">Szerokie (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normalne (12 %)</string>
+    <string name="settings_automix_tempo_wide">Szerokie (16 %)</string>
     <string name="settings_automix_eq">EQ DJ</string>
     <string name="settings_automix_eq_detail">Zamiana basu i filtry podczas miksu. Wyłączone: zmieniają się tylko głośności.</string>
     <string name="settings_automix_pulse">Animacja odtwarzacza</string>

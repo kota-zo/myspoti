@@ -712,10 +712,10 @@
     <string name="settings_automix_length_auto">Bilanciata</string>
     <string name="settings_automix_length_long">Lunga</string>
     <string name="settings_automix_tempo">Allineamento del tempo</string>
-    <string name="settings_automix_tempo_detail">Quanto può cambiare il tempo del brano successivo per cadere a tempo. Oltre, i brani cambiano con un taglio a tempo.</string>
+    <string name="settings_automix_tempo_detail">Quanto può cambiare il tempo del brano successivo per cadere a tempo. Oltre, i brani cambiano con una dissolvenza filtrata: il successivo entra senza bassi, che subentrano sul suo primo tempo.</string>
     <string name="settings_automix_tempo_strict">Rigido (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normale (8 %)</string>
-    <string name="settings_automix_tempo_wide">Ampio (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normale (12 %)</string>
+    <string name="settings_automix_tempo_wide">Ampio (16 %)</string>
     <string name="settings_automix_eq">EQ da DJ</string>
     <string name="settings_automix_eq_detail">Scambio dei bassi e filtri durante il mix. Disattivato, si muovono solo i volumi.</string>
     <string name="settings_automix_pulse">Animazione del player</string>

@@ -113,7 +113,7 @@ object AutoMix {
      * when no longer one fits the songs), the upper one a limit. A plain fade lasts 4, 8 or 14 s.
      */
     fun settings() = MixPlanner.Settings(
-        maxStretch = doubleArrayOf(0.04, 0.08, 0.12)[tempoRange],
+        maxStretch = doubleArrayOf(0.04, 0.12, 0.16)[tempoRange],
         maxSec = if (mixLength == 2) 90.0 else 48.0,
         lengthBias = mixLength - 1,
         style = arrayOf(MixPlan.Style.BLEND, MixPlan.Style.CUT, MixPlan.Style.FADE)[style],
@@ -121,6 +121,7 @@ object AutoMix {
         maxBars = intArrayOf(8, 16, 32)[mixLength],
         keyWeight = if (harmonic) 2.0 else 0.0,
         smoothSec = doubleArrayOf(4.0, 8.0, 14.0)[mixLength],
+        filterSec = doubleArrayOf(6.0, 10.0, 14.0)[mixLength],
         djMode = sessionDj,
     )
 

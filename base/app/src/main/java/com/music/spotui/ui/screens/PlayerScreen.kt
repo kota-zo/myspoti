@@ -633,7 +633,6 @@ fun PlayerScreen(navController: NavController) {
                         .padding(horizontal = 24.dp)
                         .padding(top = 11.dp),
                     mixZone = { mixCue?.zoneOn(duration, incomingShown = blend != null && outgoing == null) },
-                    mixPulse = { mixPulse?.level() ?: 0f },
                 )
                 Row(
                     modifier = Modifier
@@ -1166,7 +1165,6 @@ fun SpotifySeekBar(
     /** An AutoMix mix's stretch of the bar (fractions), read in the draw; null with none. */
     mixZone: () -> ClosedFloatingPointRange<Float>? = { null },
     /** The mix's beat, 0..1, read in the draw. */
-    mixPulse: () -> Float = { 0f },
 ) {
     var widthPx by remember { mutableStateOf(1f) }
     val seekDescription = stringResource(R.string.playback_seek_description)
@@ -1216,7 +1214,7 @@ fun SpotifySeekBar(
         val f = fraction().coerceIn(0f, 1f)
         drawLine(Color.White.copy(alpha = 0.3f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
         drawLine(Color.White, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width * f, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
-        mixZone()?.let { drawMixZone(it, f, y, track * 1.5f, com.music.spotui.ui.theme.AppAccent, mixPulse()) }
+        mixZone()?.let { drawMixZone(it, f, y, track * 1.5f, com.music.spotui.ui.theme.AppAccent) }
         drawCircle(Color.White, radius = 5.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * f, y))
     }
 }

@@ -208,16 +208,13 @@ fun Modifier.mixBeat(pulse: MixPulse?, amount: Float = 0.035f): Modifier =
 
 /**
  * Draws the mix's stretch on a seek bar's track (the canvas holding the bar, [y] its middle): the
- * part still ahead in [color] at half strength, the part played in full, thicker on the beat.
+ * part still ahead in [color] at half strength, the part played in full. Still: the bar does not
+ * beat with the music (the cover and the player's animation do).
  */
-fun DrawScope.drawMixZone(zone: ClosedFloatingPointRange<Float>, played: Float, y: Float, thickness: Float, color: Color, pulse: Float) {
+fun DrawScope.drawMixZone(zone: ClosedFloatingPointRange<Float>, played: Float, y: Float, thickness: Float, color: Color) {
     val x0 = size.width * zone.start; val x1 = size.width * zone.endInclusive
-    val h = thickness * (1f + 0.8f * pulse)
+    val h = thickness
     val radius = CornerRadius(h / 2)
-    if (pulse > 0f) {
-        val g = h * 2.6f
-        drawRoundRect(color.copy(alpha = 0.22f * pulse), Offset(x0 - g / 4, y - g / 2), Size(x1 - x0 + g / 2, g), CornerRadius(g / 2))
-    }
     drawRoundRect(color.copy(alpha = 0.45f), Offset(x0, y - h / 2), Size(x1 - x0, h), radius)
     val px = (size.width * played).coerceIn(x0, x1)
     if (px > x0) drawRoundRect(color, Offset(x0, y - h / 2), Size(px - x0, h), radius)

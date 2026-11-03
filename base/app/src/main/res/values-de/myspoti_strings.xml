@@ -712,10 +712,10 @@
     <string name="settings_automix_length_auto">Ausgewogen</string>
     <string name="settings_automix_length_long">Lang</string>
     <string name="settings_automix_tempo">Tempoangleichung</string>
-    <string name="settings_automix_tempo_detail">Wie stark das Tempo des nächsten Songs angepasst werden darf, um im Takt zu landen. Darüber hinaus wechseln die Songs mit einem Schnitt im Takt.</string>
+    <string name="settings_automix_tempo_detail">Wie stark das Tempo des nächsten Songs angepasst werden darf, um im Takt zu landen. Darüber hinaus wechseln die Songs mit einer gefilterten Überblendung: Der nächste kommt ohne Bass, der auf seiner Eins übernimmt.</string>
     <string name="settings_automix_tempo_strict">Streng (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Weit (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Weit (16 %)</string>
     <string name="settings_automix_eq">DJ-EQ</string>
     <string name="settings_automix_eq_detail">Bass-Tausch und Filter während des Mixes. Aus, bewegen sich nur die Lautstärken.</string>
     <string name="settings_automix_pulse">Player-Animation</string>

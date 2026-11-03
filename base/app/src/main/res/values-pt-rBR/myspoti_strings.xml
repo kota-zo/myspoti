@@ -691,10 +691,10 @@
     <string name="settings_automix_length_auto">Equilibrada</string>
     <string name="settings_automix_length_long">Longa</string>
     <string name="settings_automix_tempo">Ajuste do andamento</string>
-    <string name="settings_automix_tempo_detail">Quanto o andamento da próxima música pode mudar para cair no tempo. Além disso, as músicas trocam com um corte no tempo.</string>
+    <string name="settings_automix_tempo_detail">Quanto o andamento da próxima música pode mudar para cair no tempo. Além disso, as músicas trocam com um fade filtrado: a próxima entra sem graves, que assumem no seu primeiro tempo.</string>
     <string name="settings_automix_tempo_strict">Estrito (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Amplo (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Amplo (16 %)</string>
     <string name="settings_automix_eq">EQ de DJ</string>
     <string name="settings_automix_eq_detail">Troca de graves e filtros durante a mixagem. Desligado, só os volumes mudam.</string>
     <string name="settings_automix_pulse">Animação do player</string>
