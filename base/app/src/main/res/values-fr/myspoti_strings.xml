@@ -187,12 +187,12 @@
     <string name="playback_speed">Vitesse de lecture</string>
     <string name="recommended_songs">Titres recommandés</string>
     <string name="jam_title">Jam</string>
-    <string name="jam_leave">Quitter la Jam</string>
+    <string name="jam_leave">Quitter le Jam</string>
     <string name="jam_members">%1$d personnes écoutent</string>
-    <string name="jam_start">Lancer une Jam</string>
+    <string name="jam_start">Lancer un Jam</string>
     <string name="jam_invite">Partager le lien d\'invitation</string>
-    <string name="jam_failed">Spotify a refusé cette Jam</string>
-    <string name="jam_scan">Scanner le QR code d\'une Jam</string>
+    <string name="jam_failed">Spotify a refusé ce Jam</string>
+    <string name="jam_scan">Scanner le QR code d\'un Jam</string>
     <string name="beta_logs_title">Logs des %1$d dernières minutes</string>
     <string name="beta_logs_copy">Copier</string>
     <string name="beta_logs_copied">Logs copiés</string>
