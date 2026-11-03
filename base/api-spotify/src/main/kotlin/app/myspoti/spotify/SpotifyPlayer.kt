@@ -1580,9 +1580,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         }
         adsOffSent = false
         adMuteTries = 0
-        // A real song is playing: the fallback after a refusal (play the list without picking the
-        // song) is armed again for the next command, not held once per five seconds for all of them.
-        refusalStep = 0
+        // The song asked is playing (or the ask is long gone): the fallback after a refusal (play the
+        // list without picking the song) is armed again for the next command. Another song (the one
+        // left playing, the Jam host's) does not count: seen with a play refused in a Jam, steps 1
+        // and 2 went on in turns for minutes, each state of the old song resetting them.
+        val asked = lastPlay
+        if (asked == null || System.currentTimeMillis() - asked.third > LATE_REFUSED_WINDOW_MS ||
+            (if (asked.second != null) s?.item?.uri == asked.second else s?.contextUri == asked.first)) refusalStep = 0
         if (s?.item != null) lastSong = s
         else if (lastTrackState?.item != null) lastSongUntil = System.currentTimeMillis()
         // Another song: the stall was the last one's (the watcher judges this one on its next tick).
