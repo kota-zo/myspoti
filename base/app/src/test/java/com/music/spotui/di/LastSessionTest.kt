@@ -21,6 +21,15 @@ class LastSessionTest {
         assertTrue(LastSession.decodeQueue(null).isEmpty())
     }
 
+    @Test fun theSavedQueueStartsAtItsSongAndHoldsOnlyItsOwn() {
+        val page = listOf(song(1), song(2), song(3), song(2))
+        // The page's queue still lists the song before; once each, from the song on.
+        assertEquals(listOf(song(2), song(3)), LastSession.queueFor("id2", page))
+        // A queue read just after a skip belongs to the song left: not saved with the new one.
+        assertTrue(LastSession.queueFor("id9", page).isEmpty())
+        assertTrue(LastSession.queueFor("", page).isEmpty())
+    }
+
     @Test fun olderPausedEngineStateDoesNotReplaceLocalSession() {
         assertTrue(LastSession.engineStateIsStale(LastSession.SOURCE_LOCAL, 2000, 1000, true))
         assertFalse(LastSession.engineStateIsStale(LastSession.SOURCE_LOCAL, 2000, 3000, true))
