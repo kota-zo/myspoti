@@ -203,7 +203,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * [onRenderProcessGone] returns false (see [rebuild]).
      */
     @SuppressLint("SetJavaScriptEnabled")
-    private fun createView(): WebView = AwakeWebView(context.applicationContext).apply {
+    private fun createView(): WebView = AwakeWebView(android.content.MutableContextWrapper(context.applicationContext)).apply {
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -726,6 +726,11 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     fun attach(container: ViewGroup, visible: Boolean) = main.post {
         this.container = container
         lastVisible = visible
+        // A <select> (the birth month on Spotify's sign-up page) opens its list as a dialog, which
+        // needs an Activity: shown, the page works on the activity's context; hidden, on the
+        // application's again, so no activity is kept by a page that outlives them. Same page, no reload.
+        (view.context as? android.content.MutableContextWrapper)?.baseContext =
+            if (visible) container.context else context.applicationContext
         // Re-added each time: addView converts the params to the container's own type
         // (assigning plain ViewGroup.LayoutParams to a FrameLayout child crashes on measure).
         (view.parent as? ViewGroup)?.removeView(view)
@@ -774,7 +779,10 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         else (v.layoutParams as? ViewGroup.MarginLayoutParams)?.let { it.setMargins(0, 0, 0, 0); v.layoutParams = it }
     }
 
-    fun detach() = main.post { (view.parent as? ViewGroup)?.removeView(view) }
+    fun detach() = main.post {
+        (view.parent as? ViewGroup)?.removeView(view)
+        (view.context as? android.content.MutableContextWrapper)?.baseContext = context.applicationContext
+    }
 
     /** Frees the page (data saver, low memory). [load] brings it back. */
     fun unload() = main.post { loadAsked = false; view.loadUrl("about:blank") }
