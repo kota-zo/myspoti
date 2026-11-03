@@ -172,4 +172,31 @@ class HookDispatchTest {
         val duet = own.copy(lines = own.lines.mapIndexed { i, l -> l.copy(voice = i % 2 + 1) })
         assertEquals("LRCLIB", LyricsMerge.choose(duet, backs.copy(lines = lines("x", "y", "z")))?.provider)
     }
+
+    @Test fun withinTakesTheLowerAnswerWhenTheOneAboveIsSlow() = runBlocking {
+        val t0 = System.currentTimeMillis()
+        val r = HookDispatch.firstInOrderWithin(listOf("slow", "quick"), graceMs = 100) { c ->
+            if (c == "slow") { delay(5_000); "a" } else { delay(10); "b" }
+        }
+        assertEquals("quick" to "b", r)
+        assert(System.currentTimeMillis() - t0 < 2_000)
+    }
+
+    @Test fun withinKeepsTheOrderWhenTheOneAboveAnswersInTime() = runBlocking {
+        val r = HookDispatch.firstInOrderWithin(listOf("first", "second"), graceMs = 1_000) { c ->
+            if (c == "first") { delay(80); "a" } else "b"
+        }
+        assertEquals("first" to "a", r)
+    }
+
+    @Test fun withinSkipsAFailureAboveAtOnce() = runBlocking {
+        val r = HookDispatch.firstInOrderWithin(listOf("none", "fails", "ok"), graceMs = 5_000) { c ->
+            when (c) { "none" -> null; "fails" -> error("boom"); else -> "c" }
+        }
+        assertEquals("ok" to "c", r)
+    }
+
+    @Test fun withinGivesNullWhenNobodyAnswers() = runBlocking {
+        assertNull(HookDispatch.firstInOrderWithin(listOf(1, 2), graceMs = 10) { null })
+    }
 }

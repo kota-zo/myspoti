@@ -33,6 +33,34 @@ object HookDispatch {
         null
     }
 
+    /**
+     * The first non-null answer in [candidates]' order, but a slow candidate does not hold back one
+     * below it that already answered for longer than [graceMs]: once any answer is in, the ones
+     * above it still asking get that long, then the highest answer in hand wins (the rest are
+     * cancelled). With every candidate above it done, the answer is taken at once.
+     */
+    suspend fun <C, R : Any> firstInOrderWithin(candidates: List<C>, graceMs: Long, ask: suspend (C) -> R?): Pair<C, R>? = coroutineScope {
+        val asked = candidates.map { c -> async { answer { ask(c) } } }
+        val done = BooleanArray(asked.size)
+        val results = arrayOfNulls<Any>(asked.size)
+        suspend fun awaitOne() = select<Unit> {
+            asked.forEachIndexed { i, d -> if (!done[i]) d.onAwait { done[i] = true; results[i] = it } }
+        }
+        fun best() = results.indices.firstOrNull { results[it] != null }
+        // The best answer is final when every candidate above it is done.
+        fun settled() = best()?.let { b -> (0 until b).all { done[it] } } == true
+        try {
+            while (best() == null && done.any { !it }) awaitOne()
+            if (best() == null) return@coroutineScope null
+            if (!settled()) withTimeoutOrNull(graceMs) { while (!settled()) awaitOne() }
+            val b = best()!!
+            @Suppress("UNCHECKED_CAST")
+            candidates[b] to results[b] as R
+        } finally {
+            asked.forEach { it.cancel() }
+        }
+    }
+
     /** The best answer by [rank] (higher is better), ties to the earlier candidate. Waits for all. */
     suspend fun <C, R : Any> bestInOrder(candidates: List<C>, rank: (R) -> Int, ask: suspend (C) -> R?): Pair<C, R>? = coroutineScope {
         val asked = candidates.map { c -> c to async { answer { ask(c) } } }

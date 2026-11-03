@@ -121,7 +121,7 @@ object LocalPlayer {
     private fun player(): ExoPlayer = exo ?: build(true).also { p ->
             mainListener = listenerFor(p).also(p::addListener)
             exo = p
-            deckEq = if (com.music.spotui.automix.AutoMix.on) com.music.spotui.automix.DeckEq.attach(p.audioSessionId) else null
+            deckEq = if (com.music.spotui.automix.AutoMix.on && com.music.spotui.automix.AutoMix.djEq) com.music.spotui.automix.DeckEq.attach(p.audioSessionId) else null
             // A new local session takes the repeat the player shows (it started off).
             setRepeatMode(SongPlayer.repeatMode.value)
         }
@@ -571,6 +571,18 @@ object LocalPlayer {
         return true
     }
 
+    /**
+     * The next AutoMix step: every 20 ms from the deck's readiness (its start and the lock depend on
+     * it), 200 ms around the mix, once a second while it is far (the deck is prepared 15 s ahead,
+     * and a queue edit is still seen within a second): no 5 wakes a second through a whole song.
+     */
+    private fun mixTickDelay(p: ExoPlayer): Long {
+        mix?.let { return if (it.state >= MixState.READY) 20 else 200 }
+        val exit = planned?.takeIf { it.fromIndex == p.currentMediaItemIndex }?.let { (it.plan.exitA * 1000).toLong() }
+            ?: p.duration.takeIf { it > 0 } ?: return 200
+        return if (exit - p.currentPosition > PREPARE_LEAD_MS + RUN_UP_MS + 3_000) 1_000 else 200
+    }
+
     /** The plan for this pair: the analysed one, else (once the end is near) a fade on the songs' lengths. */
     private fun planFor(p: ExoPlayer, next: Int, nextId: String): app.myspoti.automix.MixPlan? {
         val cur = p.currentMediaItemIndex
@@ -635,7 +647,7 @@ object LocalPlayer {
         val b = tracks.getOrNull(next)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
         // A skip may stretch more than a natural mix (12 %): it is short, and B is back to its tempo soon after.
         return app.myspoti.automix.MixPlanner.planSkip(a, b, posMs / 1000.0, (SKIP_RUN_UP_MS + startLead) / 1000.0,
-            app.myspoti.automix.MixPlanner.Settings(maxStretch = 0.12))
+            com.music.spotui.automix.AutoMix.settings().let { app.myspoti.automix.MixPlanner.Settings(maxStretch = maxOf(it.maxStretch, 0.12), lengthBias = it.lengthBias) })
     }
 
     /**
@@ -666,7 +678,7 @@ object LocalPlayer {
         deck.playbackParameters = androidx.media3.common.PlaybackParameters((plan.speedB * rate()).toFloat())
         val runUpB = minOf(plan.entryB * 1000, (if (skip) SKIP_RUN_UP_MS else RUN_UP_MS) * plan.speedB)
         val start = (plan.entryB * 1000 - runUpB).toLong().coerceAtLeast(0L)
-        val run = MixRun(plan, next, nextId, deck, com.music.spotui.automix.DeckEq.attach(deck.audioSessionId), start, skip)
+        val run = MixRun(plan, next, nextId, deck, (if (com.music.spotui.automix.AutoMix.djEq) com.music.spotui.automix.DeckEq.attach(deck.audioSessionId) else null), start, skip)
         run.eq?.set(app.myspoti.automix.MixPlan.KILL, 0.0)
         run.lastSpeed = deck.playbackParameters.speed
         run.a = p; run.eqA = deckEq
@@ -871,9 +883,14 @@ object LocalPlayer {
     /** AutoMix turned on or off in the settings. */
     fun autoMixChanged(on: Boolean) {
         val p = exo ?: return
-        if (on && deckEq == null) deckEq = com.music.spotui.automix.DeckEq.attach(p.audioSessionId)
+        if (on && deckEq == null && com.music.spotui.automix.AutoMix.djEq) deckEq = com.music.spotui.automix.DeckEq.attach(p.audioSessionId)
         if (!on) { cancelMix("AutoMix off"); planned = null; updateCue() }
         if (p.isPlaying) { handler.removeCallbacks(tick); handler.post(tick) }
+    }
+
+    /** A planner setting changed (length, tempo range): the next mix is planned again unless it already started. */
+    fun autoMixSettingsChanged() {
+        if (mix == null) { planned = null; updateCue() }
     }
 
     /** For the command line: where the mix stands. */
@@ -1016,8 +1033,7 @@ object LocalPlayer {
                 return
             }
             if (mix != null || (com.music.spotui.automix.AutoMix.on && !CastPlayback.active)) {
-                // Every 20 ms from the deck's readiness: its start and the lock depend on it.
-                if (mixTick(p)) handler.postDelayed(this, if (mix?.let { it.state >= MixState.READY } == true) 20 else 200)
+                if (mixTick(p)) handler.postDelayed(this, mixTickDelay(p))
                 return
             }
             if (!p.isPlaying) return

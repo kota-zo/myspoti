@@ -881,14 +881,15 @@ object Extensions {
         Logbook.log("audio: asked ${asked.joinToString { it.first }} for $label")
         val t0 = System.currentTimeMillis()
         val answers = ConcurrentHashMap<String, PlayAttempt.Ask>()
-        val found = HookDispatch.firstInOrder(asked) { (id, rt) ->
+        // All asked at once; a slow source above one that answered is waited for briefly, not to its limit.
+        val found = HookDispatch.firstInOrderWithin(asked, AUDIO_GRACE_MS) { (id, rt) ->
             val a = ask(id, rt, Hook.AUDIO_SOURCE, input, timeoutMs, AudioStream::parse)
             answers[id] = PlayAttempt.Ask(id, a.outcome.key, a.ms, detail = a.outcome.detail)
             a.value
         }
         val ms = System.currentTimeMillis() - t0
         // A source cut short because one above it answered was not needed.
-        val all = skipped + asked.map { (id, _) -> answers[id] ?: PlayAttempt.Ask(id, Outcome.Skipped().key, ms, "not needed: a source above answered") }
+        val all = skipped + asked.map { (id, _) -> answers[id] ?: PlayAttempt.Ask(id, Outcome.Skipped().key, ms, "not needed: another source answered first") }
         if (found == null) {
             Logbook.log("audio: no extension had $label ($ms ms)"); misses.record(track.id, ahead)
             attempts.update(attempt) { it.copy(asked = all, fallback = "Spotify: no extension had it") }
@@ -1069,6 +1070,8 @@ object Extensions {
     private const val START_WAIT_MS = 20_000L
     /** How long a song picked right after launch waits for them (then plays from Spotify). */
     private const val START_AUDIO_MS = 5_000L
+    /** How long a source above one that answered is still waited for (see [HookDispatch.firstInOrderWithin]). */
+    private const val AUDIO_GRACE_MS = 1_500L
     /** How old a probe may be: asked again after it while the app is in sight or plays, and before a source is asked. */
     private const val STATUS_EVERY_MS = 5 * 60_000L
     private val SOURCE_HOOKS = setOf(Hook.AUDIO_SOURCE, Hook.DOWNLOAD_SOURCE)
@@ -1198,7 +1201,8 @@ object Extensions {
             var idle = 0
             var listening = false
             while (true) {
-                kotlinx.coroutines.delay(1_000)
+                // Once a second while something plays; nothing playing (stopped for 3 s), every 3 s.
+                kotlinx.coroutines.delay(if (idle >= 3) 3_000 else 1_000)
                 if (runtimes.values.none { it.listens(ExtensionRuntime.EVENT_PLAYBACK) }) {
                     if (listening) { playback.observe(null, System.currentTimeMillis()); listening = false }
                     continue

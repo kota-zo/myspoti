@@ -36,7 +36,9 @@ object SpeakerKeepAlive {
 
     private fun start() {
         if (track != null) return
-        val size = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        // A second of buffer, written half at a time: two wakes a second instead of 25 to 50 with the
+        // minimum buffer (silence needs no low latency).
+        val size = maxOf(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), RATE * 2)
         val t = runCatching {
             AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder()
@@ -49,13 +51,14 @@ object SpeakerKeepAlive {
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .build())
                 .setBufferSizeInBytes(size)
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_POWER_SAVING)
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
         }.getOrNull() ?: return
         track = t
         runCatching { t.play() }
         feeder = Thread({
-            val zeros = ByteArray(size)
+            val zeros = ByteArray(size / 2)
             // Blocking writes pace themselves on the output: no busy loop.
             while (track === t) if (t.write(zeros, 0, zeros.size) < 0) break
         }, "speaker-keepalive").apply { isDaemon = true; start() }
