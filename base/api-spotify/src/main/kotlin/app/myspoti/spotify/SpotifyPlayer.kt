@@ -212,6 +212,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val s = _state.value
         if (pageLicences++ < PAGE_LICENCES_LOGGED)
             bridge.logger?.invoke("page licence #$pageLicences: $status ${url.substringAfter("widevine-license", url).take(60)} on ${s?.item?.uri ?: "nothing"}, ${if (pageReadyAt > 0) "${now - pageReadyAt} ms after ready" else "page not ready"}")
+        // The page's token is stale: not a refusal of the account's licences (see PageAuth).
+        if (status == 401) app.myspoti.spotify.bridge.PageAuth.unauthorized("page licence", licence = true)
         if (status != 403 || !LicenceRefusals.isAudio(url)) return
         // The page only mirrors a song of an extension, heard from the phone's own player: its
         // licences are not what the user hears. Nor are another device's.
@@ -229,6 +231,38 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         bridge.logger?.invoke("Spotify refuses this account's audio licences ($why): paused, no reload nor replay until the next play")
         _licencesRefused.tryEmit(Unit)
         scope.launch { runCatching { pause() } }
+    }
+
+    /** Reloads for a stale token in a row (see [onAuthStale]), and when the last one began. */
+    @Volatile private var authReloads = 0
+    @Volatile private var authReloadAt = 0L
+    /** The token went stale while nothing played here: the next resume loads the page again first. */
+    @Volatile private var authStalePending = false
+
+    /**
+     * The page's token is stale ([app.myspoti.spotify.bridge.PageAuth]): every request it makes
+     * is answered 401, and the next song's licence too. The page is loaded again (a new page gets
+     * a new token) and the song goes on where it was. Nothing plays here: the next resume does it.
+     * While the 401s go on (a network that stays broken), the reloads are spaced by [authReloadGap].
+     */
+    private suspend fun onAuthStale(why: String) {
+        if (ownReload || reloadUnderWay || reloadHost == null) return
+        val now = System.currentTimeMillis()
+        if (authReloads > 0 && now - authReloadAt < authReloadGap(authReloads)) {
+            bridge.logger?.invoke("page token stale ($why): reloaded ${(now - authReloadAt) / 1000} s ago, the next reload waits")
+            return
+        }
+        val playing = lastTrackState?.takeIf { !pausedByUser && !it.isPaused && it.item != null }
+        // Another device plays (its own device joined, this one idle), an ad or a mirror is on: their own repairs run.
+        if (playing == null || (remoteActive && pageDeviceJoined()) || mirroring || _adPlaying.value) {
+            if (!authStalePending) bridge.logger?.invoke("page token stale ($why): the page is loaded again at the next play here")
+            authStalePending = true
+            return
+        }
+        authReloads++
+        authReloadAt = now
+        bridge.logger?.invoke("page token stale ($why): reloading the player (reload $authReloads)")
+        reloadAndPlayOn(playing.copy(positionMs = playing.positionAt(now), timestampMs = now), next = false)
     }
 
     /** The user plays (a pick, a skip, play): repairs may run again. */
@@ -264,6 +298,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             }
         }
         scope.launch { watchStalls() }
+        scope.launch { app.myspoti.spotify.bridge.PageAuth.stale.collect { onAuthStale(it) } }
         // One collector, so a mute and the unmute after it never run out of order.
         scope.launch { _adPlaying.collect { if (it) muteForAd() else unmuteAfterAd() } }
         // An ad on both ways on from the song now playing: the next song is played just before
@@ -289,6 +324,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 }
                 pageReadyAt = System.currentTimeMillis()
                 pageLicences = 0
+                // A new page has a new token.
+                authStalePending = false
                 licenceRefusedUri = null
                 val lost = playingAtLoss
                 playingAtLoss = null
@@ -366,7 +403,14 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     bridge.logger?.invoke("page back after a reload: played or picked meanwhile, ${s.item?.name} not played on")
                     return@runCatching
                 }
-                if (next) playOnNewPage { playOn(s, nextUp) } else { awaitDeviceJoined(); resumeAfterReload(s, nextUp) }
+                if (next) playOnNewPage { playOn(s, nextUp) } else {
+                    val sent = System.currentTimeMillis()
+                    val movedAt = userMoveAt
+                    val joined = awaitDeviceJoined()
+                    resumeAfterReload(s, nextUp)
+                    // Its restore went to a page whose device had not joined: followed as a play on a new page is.
+                    if (!joined) lastPlay?.takeIf { it.third >= sent }?.let { p -> scope.launch { playWhenJoined(p, movedAt) } }
+                }
             }
             if (queued.isNotEmpty() && AdRecoveryRules.playsAfterOwnReload(mirroring)) runCatching { requeue(queued) }
                 .onFailure { bridge.logger?.invoke("page back after a reload: the queue was not added again (${it.message})") }
@@ -392,13 +436,18 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * DEVICE_NOT_FOUND, the device joining 0.9 s later, and nothing played. Waited for, at most
      * [JOIN_WAIT_MS], when the host reports the joins.
      */
-    private suspend fun awaitDeviceJoined() {
+    private suspend fun awaitDeviceJoined(): Boolean {
         val device = app.myspoti.spotify.bridge.PageDevice
-        if (!device.reported || device.joined.value) return
+        if (!device.reported || device.joined.value) return true
         val started = System.currentTimeMillis()
         val joined = withTimeoutOrNull(JOIN_WAIT_MS) { device.joined.first { it } } != null
         bridge.logger?.invoke(if (joined) "page device joined after ${System.currentTimeMillis() - started} ms: playing" else "page device not joined after ${JOIN_WAIT_MS / 1000} s: playing anyway")
+        return joined
     }
+
+    /** The page's own device has joined Spotify Connect, or the host does not report joins. */
+    private fun pageDeviceJoined(): Boolean =
+        app.myspoti.spotify.bridge.PageDevice.let { !it.reported || it.joined.value }
 
     /**
      * A page just back settles before we play on it: its device has joined Spotify Connect and it
@@ -424,11 +473,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * unless something else was played or skipped meanwhile.
      */
     private suspend fun playOnNewPage(play: suspend () -> Unit) {
-        awaitDeviceJoined()
+        val joined = awaitDeviceJoined()
         val sent = System.currentTimeMillis()
         val movedAt = userMoveAt
         play()
         val p = lastPlay?.takeIf { it.third >= sent } ?: return
+        if (!joined) scope.launch { playWhenJoined(p, movedAt) }
+        else unjoinedReloads = 0
         scope.launch {
             val device = app.myspoti.spotify.bridge.PageDevice
             withTimeoutOrNull(DEVICE_LOST_WAIT_MS) { while (device.commandLostAt < sent) delay(100) } ?: return@launch
@@ -440,6 +491,48 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 playNow(p.first, trackUri = p.second, index = lastIndex, order = lastOrder?.takeIf { it.first == p.first }?.second,
                     refusable = lastPlayRefusable, origin = "sent again after DEVICE_NOT_FOUND")
             }
+        }
+    }
+
+    /** Pages loaded again in a row because their device never joined (see [playWhenJoined]). */
+    @Volatile private var unjoinedReloads = 0
+
+    /**
+     * Our play [p] went to a new page whose device had not joined Spotify Connect: the page took it
+     * ("ok") and nothing went out. Reported (2.3.0, log seen): a page reloaded to repair a stall
+     * never registered its device, and the phone, which was the one playing, stayed silent for
+     * 1 h 40 until a network change. The play is sent again once the device joins; if it has not
+     * within [UNJOINED_WAIT_MS], the page is loaded again ([UNJOINED_RELOADS] times at most).
+     * Never once the user played, picked or paused something else.
+     */
+    private suspend fun playWhenJoined(p: Triple<Uri, Uri?, Long>, movedAt: Long) {
+        val device = app.myspoti.spotify.bridge.PageDevice
+        fun ours() = userMoveAt == movedAt && lastPlay?.third == p.third && !pausedByUser
+        fun heard() = _state.value?.let { it.item != null && !it.isPaused } == true && lastMedia?.paused == false
+        var joined = withTimeoutOrNull(UNJOINED_WAIT_MS) { device.joined.first { it } } != null
+        if (!ours() || heard()) return
+        if (!joined && unjoinedReloads < UNJOINED_RELOADS) {
+            unjoinedReloads++
+            bridge.logger?.invoke("page device still not joined ${UNJOINED_WAIT_MS / 1000} s after our play: loading the page again (attempt $unjoinedReloads)")
+            if (!reloadPage() || !ours()) return
+            playOnNewPage { replay(p, "sent again on a page loaded again") }
+            return
+        }
+        if (!joined) {
+            bridge.logger?.invoke("page device never joined after $unjoinedReloads loads: the play is sent again if it joins")
+            joined = withTimeoutOrNull(UNJOINED_REPLAY_MS) { device.joined.first { it } } != null
+            if (!joined || !ours() || heard()) return
+        }
+        unjoinedReloads = 0
+        bridge.logger?.invoke("page device joined after our play: sent again")
+        replay(p, "sent again once the device joined")
+    }
+
+    /** [p] (a play of ours) sent again as it was. */
+    private suspend fun replay(p: Triple<Uri, Uri?, Long>, origin: String) {
+        runCatching {
+            playNow(p.first, trackUri = p.second, index = lastIndex, order = lastOrder?.takeIf { it.first == p.first }?.second,
+                refusable = lastPlayRefusable, origin = origin)
         }
     }
 
@@ -852,7 +945,10 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             // its, followed and never repaired. A stall judged on its clock — "past the end" on a
             // state that came a moment late, "buffering" on its report — was answered with a seek or
             // a play of the next song, i.e. a command that skipped a track on that other device.
-            if (remoteActive) {
+            // Not a page whose own device has not joined Connect yet (reported, 2.3.0: a page reloaded
+            // to repair a stall, its device never registered, its element idle, taken for another
+            // device's and left silent for 1 h 40 while the phone was the one playing).
+            if (remoteActive && pageDeviceJoined()) {
                 if (key != null || attempts != 0) bridge.logger?.invoke("another device plays: nothing repaired from here")
                 key = null; attempts = 0; silentSince = 0L
                 notStalled()
@@ -877,7 +973,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             val silent = silentSince != 0L && now - silentSince >= SILENT_MS
             val reason = s?.let { stallOf(it, now, pausedByUser) } ?: (if (silent) SILENT else null)
             if (repairsHeld()) { key = null; attempts = 0; continue }
-            if (s == null || reason == null) { key = null; attempts = 0; continue }
+            // A song heard again: a reload for a stale token may be tried again from the first gap.
+            if (playingHere && moved) authReloads = 0
+            // A silent song repaired once is not silent for [SILENT_MS] after the repair, which
+            // reset its count: its attempt is kept while its element still stands, so the next
+            // look reloads (reported, 2.3.0: "attempt 1" every 8 s for 4.5 minutes, a seek refused
+            // each time, never a reload).
+            if (s == null || reason == null) { if (!silentKept(key, s?.item?.uri, heardHere && !moved)) { key = null; attempts = 0 }; continue }
             val k = "${s.item?.uri}|$reason"
             val wait = when (reason) { "past the end" -> END_STUCK_MS; SILENT -> 0L; else -> STUCK_MS }
             if (k != key) { key = k; since = now; attempts = 0; if (reason != SILENT) { dueAt = now + wait; continue } }
@@ -899,6 +1001,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             val onward = reason == "past the end" || reason == "paused at the end"
             // A frozen page answers nothing: straight to the reload.
             if (attempts == 1 && !bridge.ping()) attempts = 2
+            // A licence answered 401 a moment ago: the page's token is stale, a seek only asks the
+            // same token again (and is refused while the element waits for its key): the reload.
+            if (attempts == 1 && staleTokenStall(now - app.myspoti.spotify.bridge.PageAuth.licenceUnauthorizedAt, media?.keyWaits ?: 0)) {
+                bridge.logger?.invoke("a licence was answered 401: the page's token is stale, reloading")
+                attempts = 2
+            }
             if (attempts == 1) runCatching { if (onward) playOn(s) else seek(s.positionAt(now)) }
             else {
                 attempts = 0
@@ -2013,6 +2121,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             return
         }
         pageSuspect = false
+        val stale = lastTrackState?.takeIf { authStalePending && reloadHost != null }
+        if (stale != null) {
+            authStalePending = false
+            bridge.logger?.invoke("resume: the page's token went stale meanwhile: loading it again")
+            reloadAndPlayOn(stale.copy(isPaused = false, timestampMs = System.currentTimeMillis()), next = false)
+            return
+        }
         val quiet = _adPlaying.value || adMuted || localMuted || clipHushed || crossfadeArmed || _state.value?.isPaused == false || lastMedia?.active == false
         if (quiet) { command("player.resume"); return }
         fadeBackTo = lastMedia?.own?.takeIf { it > 0.01 } ?: 1.0
@@ -2397,6 +2512,17 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val LEVEL_TIMEOUT_MS = 3_000L
         /** A song the page says it plays here while its media element stands still that long. */
         const val SILENT_MS = 6_000L
+        /** A licence answered 401 this recently makes a silent stall a stale token's (see [staleTokenStall]). */
+        const val STALE_LICENCE_MS = 120_000L
+        /** The first gap between two reloads for a stale token (see [authReloadGap]). */
+        const val AUTH_RELOAD_GAP_MS = 60_000L
+        const val AUTH_RELOAD_MAX_GAP_MS = 10 * 60_000L
+        /** How long a play on a new page whose device has not joined waits for it before the page is loaded again. */
+        const val UNJOINED_WAIT_MS = 20_000L
+        /** Loads again for a page whose device never joined, before it is left to the next play. */
+        const val UNJOINED_RELOADS = 2
+        /** A play sent to a page whose device joined later than this is not sent again. */
+        const val UNJOINED_REPLAY_MS = 10 * 60_000L
         const val SILENT = "silent"
         /** HTMLMediaElement.HAVE_FUTURE_DATA: below it, the element cannot play on. */
         const val HAVE_FUTURE_DATA = 3
@@ -2586,5 +2712,21 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             val clock = s.positionMs + ((now - s.timestampMs) * s.speed).toLong()
             return if (clock > item.durationMs + 1_500) "past the end" else null
         }
+
+        /**
+         * No stall reason this look, yet the silent stall of [key] keeps its attempt: the same song
+         * ([uri]) is there and its element still stands ([still]). Its silence was counted again
+         * from the repair, which hid it for [SILENT_MS].
+         */
+        fun silentKept(key: String?, uri: String?, still: Boolean): Boolean =
+            still && uri != null && key == "$uri|$SILENT"
+
+        /** A licence answered 401 [licence401Ago] ms ago, and the element waits for its key ([keyWaits]): the token is stale. */
+        fun staleTokenStall(licence401Ago: Long, keyWaits: Int): Boolean =
+            keyWaits > 0 && licence401Ago in 0..STALE_LICENCE_MS
+
+        /** The gap before reload number [n] for a stale token: 1 min, doubled each time, at most [AUTH_RELOAD_MAX_GAP_MS]. */
+        fun authReloadGap(n: Int): Long =
+            (AUTH_RELOAD_GAP_MS shl (n - 1).coerceIn(0, 10)).coerceAtMost(AUTH_RELOAD_MAX_GAP_MS)
     }
 }

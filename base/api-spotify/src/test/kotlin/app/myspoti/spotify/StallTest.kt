@@ -26,6 +26,29 @@ class StallTest {
     @Test fun `buffering for long`() = assertEquals("buffering", SpotifyPlayer.stallOf(state(0, 0, buffering = true), 20_000, false))
     @Test fun `buffering a moment`() = assertNull(SpotifyPlayer.stallOf(state(0, 0, buffering = true), 5_000, false))
 
+    // Reported (2.3.0): a silent song got "attempt 1" every 8 s for minutes, its count reset in between.
+    @Test fun `a silent song repaired once keeps its attempt while its element stands`() {
+        assertEquals(true, SpotifyPlayer.silentKept("spotify:track:a|silent", "spotify:track:a", still = true))
+        assertEquals(false, SpotifyPlayer.silentKept("spotify:track:a|silent", "spotify:track:a", still = false))
+        assertEquals(false, SpotifyPlayer.silentKept("spotify:track:a|silent", "spotify:track:b", still = true))
+        assertEquals(false, SpotifyPlayer.silentKept("spotify:track:a|buffering", "spotify:track:a", still = true))
+        assertEquals(false, SpotifyPlayer.silentKept(null, "spotify:track:a", still = true))
+    }
+
+    @Test fun `a key waited for after a licence answered 401 is a stale token`() {
+        assertEquals(true, SpotifyPlayer.staleTokenStall(18_000, keyWaits = 1))
+        assertEquals(false, SpotifyPlayer.staleTokenStall(18_000, keyWaits = 0))
+        assertEquals(false, SpotifyPlayer.staleTokenStall(SpotifyPlayer.STALE_LICENCE_MS + 1, keyWaits = 1))
+        // Never answered 401: the time since is the whole clock.
+        assertEquals(false, SpotifyPlayer.staleTokenStall(System.currentTimeMillis(), keyWaits = 1))
+    }
+
+    @Test fun `reloads for a stale token are spaced out`() {
+        assertEquals(60_000L, SpotifyPlayer.authReloadGap(1))
+        assertEquals(120_000L, SpotifyPlayer.authReloadGap(2))
+        assertEquals(SpotifyPlayer.AUTH_RELOAD_MAX_GAP_MS, SpotifyPlayer.authReloadGap(9))
+    }
+
     private val episode = song.copy(kind = ItemKind.EPISODE, uri = "spotify:episode:e", name = "E")
     private val nextEpisode = episode.copy(uri = "spotify:episode:f", name = "F")
     private val ad = song.copy(kind = ItemKind.AD, uri = "spotify:ad:x")
