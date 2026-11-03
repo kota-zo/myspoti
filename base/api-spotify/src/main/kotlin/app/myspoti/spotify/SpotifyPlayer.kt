@@ -50,6 +50,8 @@ import kotlinx.serialization.json.putJsonArray
 class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScope) : Player {
     /** True while this account is a member of a Jam: playback stays on the host's device (no transfer here). */
     var inJam: () -> Boolean = { false }
+    /** Whether this account is in a Jam at all (host or member): a Jam's list is only played then. */
+    var inJamSession: () -> Boolean = { false }
 
     private val _state = MutableStateFlow<PlayerState?>(null)
     override val state: StateFlow<PlayerState?> = _state
@@ -1980,6 +1982,13 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * [keepsOrder] false: [order] is for this play only, later plays of the list go without it.
      */
     private suspend fun playNow(contextUri: Uri, trackUri: Uri? = null, index: Int? = null, positionMs: Long? = null, order: List<Uri>? = null, refusable: Boolean = false, keepsOrder: Boolean = true, origin: String) {
+        // A Jam's own list (spotify:list:jam-list:<session>) kept from a Jam this account has left:
+        // Spotify refuses every play of it (403 command_not_allowed), and a fallback, a mirror or a
+        // resume then stood still on it (reported). The song plays alone instead.
+        if (contextUri.startsWith(JAM_LIST_PREFIX) && trackUri != null && !inJamSession()) {
+            bridge.logger?.invoke("play: the Jam's list $contextUri is over (no Jam now): the song plays alone")
+            return playNow(trackUri, positionMs = positionMs, refusable = refusable, origin = origin)
+        }
         // A new song picked (or the intent itself played): any earlier skip is over.
         if (trackUri == null || trackUri != liveIntent()?.item?.uri) intent = null
         lastOrder = order?.takeIf { keepsOrder }?.let { contextUri to it }
@@ -2622,6 +2631,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val PLAY_TIMEOUT_MS = 10_000L
         /** A refusal that long after a play belongs to it. */
         const val REFUSED_WINDOW_MS = 5_000L
+        const val JAM_LIST_PREFIX = "spotify:list:jam-list:"
         /** A play that leaves the page's repeat mode other than the user's: set again if it shows within this long. */
         const val REPEAT_RESTORE_MS = 20_000L
         /** An acknowledged command that never played is told 10 s after it was sent. */
