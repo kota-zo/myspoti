@@ -276,7 +276,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     // A page that unloads reports "nothing plays" first: the song before that counts.
                     val now = System.currentTimeMillis()
                     val last = lastTrackState ?: lastSong?.takeIf { now - lastSongUntil < UNLOAD_NULL_MS }
-                    if (playingAtLoss == null) playingAtLoss = last?.takeIf { s -> !s.isPaused && !pausedByUser && s.item != null }
+                    // Another device of the account plays (the PC): that state is its, and the phone never resumes it (#82).
+                    if (playingAtLoss == null && !remoteActive) playingAtLoss = last?.takeIf { s -> !s.isPaused && !pausedByUser && s.item != null }
                         ?.let { s -> s.copy(positionMs = s.positionAt(now), timestampMs = now) }
                     return@collect
                 }
@@ -662,7 +663,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     frozenReloadAt = now
                     frozenMisses = 0
                     bridge.logger?.invoke("page not answering ($FROZEN_MISSES misses in a row): reloading the player")
-                    val playing = lastTrackState?.takeIf { !pausedByUser && !it.isPaused }
+                    val playing = lastTrackState?.takeIf { !pausedByUser && !it.isPaused && !remoteActive }
                     reloadAndPlayOn(playing?.copy(positionMs = playing.positionAt(now), timestampMs = now), next = false)
                     key = null; attempts = 0; silentSince = 0L
                 }
