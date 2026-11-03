@@ -85,6 +85,9 @@ object ExtensionAudio {
 
     private val warming = ConcurrentHashMap.newKeySet<String>()
 
+    /** Taps being answered ([playList]): asking ahead waits, the extension's one thread is theirs. */
+    private val picking = java.util.concurrent.atomic.AtomicInteger()
+
     /**
      * A page just opened: the first of its [songs] are asked ahead, and a DASH answer's index and
      * first segment fetched, so a tap starts at once. 3 songs on Wi-Fi, 1 on mobile data; none
@@ -99,10 +102,13 @@ object ExtensionAudio {
             .filter { known[it.spotifyTrackId]?.fresh != true }
             .take(count).toList()
             .forEach { s ->
+                // A tap came meanwhile: its song is asked, not these (a slow source held the tap
+                // behind three asks ahead of up to 15 s each, seen with a large Liked Songs).
+                if (picking.get() > 0) return
                 if (!warming.add(s.spotifyTrackId)) return@forEach
                 try {
                     val a = withContext(Dispatchers.IO) {
-                        Extensions.audio(Extensions.trackInfo(s.spotifyTrackId, s.title, s.singer, s.album, s.durationMs.toLong(), s.coverUri))
+                        Extensions.audio(Extensions.trackInfo(s.spotifyTrackId, s.title, s.singer, s.album, s.durationMs.toLong(), s.coverUri), timeoutMs = Extensions.PICK_AUDIO_MS)
                     } ?: return@forEach
                     keep(s.spotifyTrackId, a)
                     a.manifest?.let { m ->
@@ -188,18 +194,27 @@ object ExtensionAudio {
         if (!OfflineStore.isDownloaded(picked.spotifyTrackId)) {
             // A tap waits [Extensions.PICK_AUDIO_MS] for the extensions, then Spotify plays the song.
             // The outer bound also covers a wait in the extension's queue or for extensions still loading.
-            val first = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withTimeoutOrNull(Extensions.PICK_AUDIO_MS + 1_000) {
-                withContext(Dispatchers.IO) {
-                    Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri), timeoutMs = Extensions.PICK_AUDIO_MS)
+            picking.incrementAndGet()
+            val first = try {
+                known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withTimeoutOrNull(Extensions.PICK_AUDIO_MS + 1_000) {
+                    withContext(Dispatchers.IO) {
+                        Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri), timeoutMs = Extensions.PICK_AUDIO_MS)
+                    }
                 }
-            } ?: run {
+            } finally { picking.decrementAndGet() } ?: run {
                 app.myspoti.host.android.Logbook.log("audio: no extension audio for ${picked.title} within ${Extensions.PICK_AUDIO_MS / 1000} s: Spotify plays it")
                 return false
             }
             keep(picked.spotifyTrackId, first)
         }
-        val (list, at) = AudioRoute.queue(songs, picked)
-        val tracks = list.map(::localTrack)
+        // A newer tap answered meanwhile: nothing to build. The queue of a list of thousands (Liked
+        // Songs) is built off the main thread: built on it, it held the screen until an ANR (#.money0).
+        if (!withContext(Dispatchers.Main) { isLatest() }) {
+            app.myspoti.host.android.Logbook.log("audio: ${picked.title} answered after a newer pick, not played")
+            return true
+        }
+        val (list, at) = withContext(Dispatchers.Default) { AudioRoute.queue(songs, picked) }
+        val tracks = withContext(Dispatchers.Default) { list.map(::localTrack) }
         return withContext(Dispatchers.Main) {
             isLatest().also {
                 if (it) LocalPlayer.play(tracks, at, shuffle = shuffle, context = context, contextUri = contextUri, startMs = startMs, continues = true)
