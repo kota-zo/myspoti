@@ -91,7 +91,7 @@ object AutoMix {
     fun changeMixPodcasts(value: Boolean) { mixPodcasts = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_podcasts", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
 
     /** Extension streams analysed on mobile data too (each is read a second time: about the song's size again). Off by default. */
-    var analyzeOnMobileData by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_mobile_data", false))
+    var analyzeOnMobileData by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_mobile_data", true))
         private set
     fun changeAnalyzeOnMobileData(value: Boolean) {
         analyzeOnMobileData = value
