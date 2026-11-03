@@ -2,7 +2,7 @@
 
 An extension is a small JavaScript file plus a `manifest.json`. Myspoti runs it in a sandbox. What
 it may do is a list of **actions** from a closed catalogue the app defines (section 4): provide
-lyrics or song details, add Home sections, search results, menu entries or player buttons (as
+lyrics, their romanization or song details, add Home sections, search results, menu entries or player buttons (as
 native blocks the app draws itself, section 3), give a song's audio or download files, show its own
 web page, sign in on a website, react to the song playing, and, if the user allows it, read or change the signed-in
 Spotify account. Each action has a fixed icon, a short label, a level (normal or critical) and the
@@ -122,7 +122,7 @@ extensions did there ("Lyrics of X from Y", "Skipped by Z") with a one-tap Turn 
 | `replaces` | string[] | `[]` | Extension ids this one takes the place of (10 at most): installing it offers to turn them off. |
 | `conflictsWith` | string[] | `[]` | Extension ids that must not run with this one (10 at most): the user picks which to keep. Either side declaring it is enough. |
 | `icon` | string | none | A `.png` at the root of the package (square, 256 px or less). Without it, `icon.png` is used if the package has one, else a tile with the name's first letter. |
-| `category` | string | `other` | Where the store files it, one of a fixed list: `lyrics` (needs `lyrics.provide` or `trackinfo.provide`), `playback` (Playback & audio: a `playback.*`, `audio.source` or `player.buttons` action), `library` (`library.read`, `library.write` or `playlists.write`), `discovery` (`home.sections`, `search.provide` or `spotify.catalog`), `stats` (`playback.events` or `library.read`), `look` (Look & feel: a blocks action or `webview.page`), `social` (`network`, `library.read` or `spotify.catalog`), `tools`, `other`. A category the actions do not fit, or an unknown one, is filed under `other` (`myspoti-ext check` says so); an extension with `download.source` is always under `tools`. `tags` are shown and found by the search, not filtered on. |
+| `category` | string | `other` | Where the store files it, one of a fixed list: `lyrics` (needs `lyrics.provide`, `lyrics.romanize` or `trackinfo.provide`), `playback` (Playback & audio: a `playback.*`, `audio.source` or `player.buttons` action), `library` (`library.read`, `library.write` or `playlists.write`), `discovery` (`home.sections`, `search.provide` or `spotify.catalog`), `stats` (`playback.events` or `library.read`), `look` (Look & feel: a blocks action or `webview.page`), `social` (`network`, `library.read` or `spotify.catalog`), `tools`, `other`. A category the actions do not fit, or an unknown one, is filed under `other` (`myspoti-ext check` says so); an extension with `download.source` is always under `tools`. `tags` are shown and found by the search, not filtered on. |
 | `tags` | string[] | `[]` | 8 at most, each 1 to 24 characters: lower case letters, digits, spaces, `-`. The store's search finds them. |
 | `minAppVersion` | string | none | The oldest Myspoti it works on (`"2.0.2"`, `"2.0.2-beta.4"`), compared like semantic versions (a release is newer than its betas). An older Myspoti shows "Requires Myspoti 2.0.2 or newer" and does not install it. |
 | `changelog` | string | `""` | What changed in this version, 2000 characters at most: shown on the store page and before an update. |
@@ -240,6 +240,7 @@ player.buttons action in the manifest`):
 | Hook | Action | Input | Answer |
 |---|---|---|---|
 | `lyrics` | `lyrics.provide` | track | lyrics (below) |
+| `lyrics-romanize` | `lyrics.romanize` | `{ track, language?, lines }` | romanizations, by line (below) |
 | `audio-source` | `audio.source` | track | `{ url, … }` |
 | `download-source` | `download.source` | track + quality | files |
 | `trackinfo` | `trackinfo.provide` | track | blocks, under the song's credits |
@@ -252,8 +253,9 @@ player.buttons action in the manifest`):
 | `tap` | any blocks action | `{ action, surface, context }` | nothing (the app asks the blocks again) |
 | `status` | none | `{}` | `{ live, detail? }` (below) |
 
-The lyrics, song details, Home, search, menu and player hooks are **additive**: every extension is
-asked, the answers merged in the area's order (lyrics: the best, ties to the higher one). Audio and
+The lyrics, romanization, song details, Home, search, menu and player hooks are **additive**: every extension is
+asked, the answers merged in the area's order (lyrics: the best, ties to the higher one;
+romanizations: each extension is sent the lines the ones before it left without one). Audio and
 downloads are **ordered**: asked one after the other in the user's order until one answers (section 4.2). Registering twice replaces. Returning
 `null`/`undefined` means "no answer": the app goes on without this extension. A throw is a
 failure (recorded as the extension's last error, shown on its page; 3 in a row turn it off). A
@@ -307,6 +309,40 @@ is for scripts that are not Latin (Japanese, Korean, Chinese, Cyrillic...). An o
 simply does not read these fields.
 
 Action: `lyrics.provide` (normal). Usually you also need `network`.
+
+### `lyrics-romanize`
+
+Asked once a song's lyrics are found, whatever their source, for the lines written in another
+script than Latin (Japanese, Korean, Chinese, Cyrillic, Greek...) that the source left without a
+`romanization`. The lyrics show at once; the romanizations join them when they come and are kept
+with them. A romanization the source gave (Apple Music, NetEase, a lyrics extension) is never asked
+for nor replaced.
+
+```js
+// input
+{ track: { id, uri, title, … },                  // the track every hook receives
+  language: 'ja',                                // optional: the lyrics' language, when their source says it
+  lines: [ { index: 3, text: '夢ならば' }, … ] }  // only the lines to romanize, by index in the song
+
+// answer
+{ lines: [ { index: 3, romanization: 'yume naraba' }, … ] }
+```
+
+Answer the lines you can, by `index`, and leave the others out; return `null` when you have none.
+An index that was not asked, a line that is not an object, an `index` that is not a whole number,
+a `romanization` that is not a text or is blank, and an index already answered are ignored, never
+an error; an answer that is not an object with `lines` is a failure. A romanization is trimmed, 500
+characters at most, and dropped when it only repeats its line. A line with no letter outside Latin
+(`♪`, `(ooh)`, English) is never sent, and a song without one is not asked at all. Several
+romanizers are asked in the lyrics area's order, each one sent only the lines the ones before it
+left without one: one for Japanese and one for Korean complete each other. The time limit (section
+7) covers every line of the song in one call.
+
+Feature `lyrics.romanize`. Like any action it does not know, an older Myspoti refuses a package
+that asks this one (section 2).
+
+Action: `lyrics.romanize` (normal). It needs no other action: ask `network` only if your
+romanizer calls a server.
 
 ### `audio-source`
 
@@ -704,6 +740,7 @@ until the user accepts them all with the same tick.
 | `playback.queue` | QueueMusic | Edit the queue | normal | shared | `spotify.player` addToQueue, playNext, moveInQueue, removeFromQueue, clearQueue |
 | `playback.events` | GraphicEq | Know what you play | normal | shared | `myspoti.player.current()`, `myspoti.on('track' \| 'playback')`, `spotify.player` state, queue, volume, media (`myspoti.spotify.media`) |
 | `lyrics.provide` | Lyrics | Provide lyrics | normal | additive, takeover | `lyrics` hook |
+| `lyrics.romanize` | Abc | Romanize lyrics | normal | additive, takeover | `lyrics-romanize` hook |
 | `trackinfo.provide` | Info | Add song details | normal | additive, takeover | `trackinfo` hook |
 | `audio.source` | Headphones | Play audio from elsewhere | **critical** | ordered, takeover | `audio-source` hook |
 | `download.source` | Download | Provide downloads | **critical** | ordered, takeover | `download-source` hook |
@@ -739,7 +776,7 @@ migrated the same way when the app starts.
 
 ### 4.2 Living together
 
-- **Additive** actions (lyrics, song details, Home, search, menus, player): every extension adds;
+- **Additive** actions (lyrics, romanizations, song details, Home, search, menus, player): every extension adds;
   answers are merged in the area's order, duplicates dropped, quotas per extension (section 3).
 - **Ordered** actions (`audio.source`, `download.source`): every source is asked in the order the
   user sets in Settings (Playback, Downloads), each action its own order, until one answers. A new
@@ -792,7 +829,7 @@ A script that throws while loading fails to load, with `file:line` in the messag
 |---|---|
 | `myspoti.apiVersion` | `1`. |
 | `myspoti.extension` | `{ id, name, version }` from the manifest. |
-| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
+| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `lyrics.romanize` (section 3, `lyrics-romanize`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
 | `myspoti.provide(hook, fn)` | Section 3. |
 | `myspoti.on('track' \| 'playback', fn)` | Section 3. Needs `playback.events`. |
 | `myspoti.on('auth', fn)` | Section 3, sign in. Needs `webview.auth`. |
@@ -1242,7 +1279,7 @@ is. `playlists.setCover` takes a JPEG as base64.
 | What | Limit |
 |---|---|
 | Loading the script (its top level; compiling it is not counted) | 3 s |
-| A hook call | One table for the app and the desktop runner (`HookBudgets`): 8 s for `lyrics`, 15 s for `audio-source`, 30 s for `download-source`, 3 s for blocks hooks, `tap` and `message`, 5 s for `page` and `status` |
+| A hook call | One table for the app and the desktop runner (`HookBudgets`): 8 s for `lyrics` and `lyrics-romanize`, 15 s for `audio-source`, 30 s for `download-source`, 3 s for blocks hooks, `tap` and `message`, 5 s for `page` and `status` |
 | A `track` or `playback` event | 3 s |
 | A `setting` or `online` event | 30 s |
 | An `auth` event | 10 s |
@@ -1278,6 +1315,7 @@ to the confirmation prompt below. Give absolute paths.)
 | `check <folder\|zip>` | Package validity only: prints the manifest's problems (`✗ ...`, e.g. a missing or too long `why`), says when it is an old manifest, loads the script, prints the hooks it provides and each action as the user sees it (icon name, label, level, why). It never calls a hook. Exit 1 on a problem. |
 | `test <folder\|zip> --scenario file.json [--state file.json]` | Runs a scenario (below): hook calls, events and page messages in order with the app's time limits, requests answered or broken by rules, storage kept across steps. Prints each step (`✓`/`✗`, outcome, time); exit 1 when a step failed. |
 | `run <folder\|zip> lyrics --title T --artist A [options]` | Calls the hook and prints what it answered, parsed the way the app parses it (lines, `synced`, `word by word`, or the audio URL and headers). |
+| `run <folder\|zip> lyrics-romanize --title T --artist A --lines FILE [--language L]` | Sends the lines of FILE (the song, one line per row) the app would send, the ones in another script than Latin by their index, and prints each next to the romanization the app keeps. |
 | `run <folder\|zip> audio-source ...` | Same for the audio hook. |
 | `run <folder\|zip> download-source ... [--quality hi-res\|cd\|small]` | Same for the download hook: prints the files, best first, as the app reads them (default quality `cd`). |
 | `run <folder\|zip> audio-source ... [--ahead true]` | Asks for a song's audio (with `ahead: true` when given) and prints the answer as the app reads it: address or manifest, `expiresInMs`, quality. |
@@ -1367,8 +1405,9 @@ A scenario is a JSON file:
   default; 429 when only `retryAfter` is given, in seconds, sent as `Retry-After`), `headers` and
   `body` (text, or JSON written as text). `times: n` applies a rule to n requests only. Requests no
   rule matches go to the network, or fail as a DNS error with `"offline": true`.
-- **Steps**: `{ hook, input?, track?, quality?, ahead?, data?, action?, query?, cancelAtMs? }` calls
-  a hook (the input is built as the app builds it unless `input` is given); `cancelAtMs` ends the
+- **Steps**: `{ hook, input?, track?, quality?, ahead?, data?, action?, query?, lines?, language?, cancelAtMs? }` calls
+  a hook (the input is built as the app builds it unless `input` is given; `lines`, the song's lines,
+  and `language` for `lyrics-romanize`); `cancelAtMs` ends the
   call at that time (outcome `cancelled`). `{ event, input? }` delivers an event. `{ message }` is
   your page posting to you; what you answer or post back is the page's. `{ wait: ms }` waits.
   `{ storage: { key: value \| null } }` checks your storage.

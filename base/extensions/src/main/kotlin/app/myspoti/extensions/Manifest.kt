@@ -386,6 +386,8 @@ data class Ask(val key: String, val level: Level, val why: String = "", val host
 enum class Hook(val key: String, val action: Action?) {
     /** Lyrics for a song, asked along the app's own sources. */
     LYRICS("lyrics", Action.LYRICS_PROVIDE),
+    /** Romanizations of the lines of a song's lyrics written in another script than Latin ([Romanize]). */
+    LYRICS_ROMANIZE("lyrics-romanize", Action.LYRICS_ROMANIZE),
     /** Where a song's audio comes from; it then plays in Myspoti's own player, like a download. */
     AUDIO_SOURCE("audio-source", Action.AUDIO_SOURCE),
     /** The files a song can be downloaded from: the app downloads, checks, encrypts and keeps them. */

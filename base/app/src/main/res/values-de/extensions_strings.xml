@@ -96,6 +96,7 @@
     <string name="action_playback_queue">Die Warteschlange bearbeiten</string>
     <string name="action_playback_events">Wissen, was du hörst</string>
     <string name="action_lyrics_provide">Songtexte liefern</string>
+    <string name="action_lyrics_romanize">Songtexte romanisieren</string>
     <string name="action_trackinfo_provide">Song-Details ergänzen</string>
     <string name="action_audio_source">Audio von anderswo abspielen</string>
     <string name="action_download_source">Downloads liefern</string>

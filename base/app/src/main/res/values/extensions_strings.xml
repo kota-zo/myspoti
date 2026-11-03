@@ -97,6 +97,7 @@
     <string name="action_playback_queue">Edit the queue</string>
     <string name="action_playback_events">Know what you play</string>
     <string name="action_lyrics_provide">Provide lyrics</string>
+    <string name="action_lyrics_romanize">Romanize lyrics</string>
     <string name="action_trackinfo_provide">Add song details</string>
     <string name="action_audio_source">Play audio from elsewhere</string>
     <string name="action_download_source">Provide downloads</string>

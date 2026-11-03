@@ -34,6 +34,7 @@ import app.myspoti.extensions.Host
 import app.myspoti.extensions.HttpRequest
 import app.myspoti.extensions.HttpResponse
 import app.myspoti.extensions.LyricsResult
+import app.myspoti.extensions.Romanize
 import app.myspoti.extensions.Manifest
 import app.myspoti.extensions.Snapshot
 import app.myspoti.extensions.SpotifyCall
@@ -92,6 +93,8 @@ object Extensions {
     // Every hook's time is in [HookBudgets], shared with the desktop runner (`myspoti-ext`).
     /** A lyrics hook call. */
     const val LYRICS_MS = HookBudgets.LYRICS
+    /** A lyrics-romanize hook call. */
+    const val ROMANIZE_MS = HookBudgets.ROMANIZE
     /** An audio-source hook call. */
     const val AUDIO_MS = HookBudgets.AUDIO
     /** A download-source hook call (an extension may try several places). */
@@ -126,8 +129,8 @@ object Extensions {
     val logTick = MutableStateFlow(0L)
 
     /**
-     * The running extensions giving songs' audio, download files and lyrics, in the order they are
-     * asked; [ready]: the ones on at launch have all been started. [refreshProvided] keeps it in step
+     * The running extensions giving songs' audio, download files, lyrics and lyrics' romanizations,
+     * in the order they are asked; [ready]: the ones on at launch have all been started. [refreshProvided] keeps it in step
      * when one loads or stops (installed, updated, turned on or off, removed), its status changes or
      * the user's order changes; what depends on it (the player's routing, downloads, lyrics) reacts
      * at once, without a restart ([providersChanged]).
@@ -135,6 +138,7 @@ object Extensions {
     data class Provided(
         val audio: List<String> = emptyList(), val download: List<String> = emptyList(),
         val lyrics: List<String> = emptyList(), val ready: Boolean = false,
+        val romanize: List<String> = emptyList(),
     )
     private val _provided = MutableStateFlow(Provided())
     val provided: StateFlow<Provided> = _provided.asStateFlow()
@@ -191,6 +195,7 @@ object Extensions {
             val now = Provided(
                 providing(Hook.AUDIO_SOURCE).map { it.first }, providing(Hook.DOWNLOAD_SOURCE).map { it.first },
                 providing(Hook.LYRICS).map { it.first }, started.isCompleted,
+                romanize = providing(Hook.LYRICS_ROMANIZE).map { it.first },
             )
             if (now == _provided.value) return
             if (now.audio != _provided.value.audio || now.download != _provided.value.download) misses.clear()
@@ -210,13 +215,14 @@ object Extensions {
      * launch (the extensions on before load then, nothing was asked of them yet) but for the misses.
      */
     private fun providersChanged(before: Provided, now: Provided) {
-        Logbook.log("ext: sources now: audio ${now.audio.ifEmpty { "none" }}, downloads ${now.download.ifEmpty { "none" }}, lyrics ${now.lyrics.ifEmpty { "none" }}")
+        Logbook.log("ext: sources now: audio ${now.audio.ifEmpty { "none" }}, downloads ${now.download.ifEmpty { "none" }}, lyrics ${now.lyrics.ifEmpty { "none" }}, romanize ${now.romanize.ifEmpty { "none" }}")
         if (now.audio != before.audio && before.ready) {
             val added = now.audio.filter { it !in before.audio }
             main.post { runCatching { com.music.spotui.di.SongPlayer.audioSourcesChanged(added, now.audio.isNotEmpty()) }
                 .onFailure { Logbook.log("audio: sources changed, player not updated: $it") } }
         }
-        if (now.lyrics != before.lyrics) com.music.spotui.data.api.LyricsApi.sourcesChanged(keepFound = !before.ready)
+        // A romanizer added or gone changes the lyrics as much as a source: they are read again with it.
+        if (now.lyrics != before.lyrics || now.romanize != before.romanize) com.music.spotui.data.api.LyricsApi.sourcesChanged(keepFound = !before.ready)
         // Lists kept downloaded skipped their songs for want of a source: synced now.
         if (before.ready && before.download.isEmpty() && now.download.isNotEmpty())
             com.music.spotui.data.offline.OfflineCollections.refreshAll(ctx, force = true)
@@ -715,6 +721,8 @@ object Extensions {
 
     fun hasLyrics(): Boolean { providedState.value; return isReady && providing(Hook.LYRICS).isNotEmpty() }
 
+    fun hasRomanizer(): Boolean { providedState.value; return isReady && providing(Hook.LYRICS_ROMANIZE).isNotEmpty() }
+
     /**
      * An audio-source extension is asked for songs: one runs and is not inactive, or one that is on
      * is still being started at launch (the song then waits for it, see [audio]).
@@ -793,6 +801,30 @@ object Extensions {
         return HookDispatch.bestInOrder(available(Hook.LYRICS), LyricsMerge::rank) { (id, rt) ->
             ask(id, rt, Hook.LYRICS, input, LYRICS_MS) { LyricsResult.parse(it, rt.manifest.name) }.value?.let(LyricsMerge::toLyrics)
         }?.let { (c, l) -> log(c.first, "lyrics for ${track.title}: ${l.lines.size} lines"); did(Area.LYRICS, c.first, "Lyrics of ${track.title} from ${c.second.manifest.name}"); l }
+    }
+
+    /**
+     * Romanizations of [lines] (index → text) from the extensions romanizing lyrics, in the lyrics
+     * area's order: each one is sent only the lines the ones before it left without one, so
+     * romanizers of different scripts complete each other. Index → romanization, empty when none
+     * answers. Each call has its own time limit, so a slow one keeps what the others gave.
+     */
+    suspend fun romanize(track: TrackInfo, language: String?, lines: Map<Int, String>): Map<Int, String> {
+        if (!isReady || lines.isEmpty()) return emptyMap()
+        val found = LinkedHashMap<Int, String>()
+        for ((id, rt) in available(Hook.LYRICS_ROMANIZE)) {
+            val missing = lines.filterKeys { it !in found }
+            if (missing.isEmpty()) break
+            val got = withTimeoutOrNull(ROMANIZE_MS + 1_000) {
+                ask(id, rt, Hook.LYRICS_ROMANIZE, Romanize.request(track, language, missing), ROMANIZE_MS) { raw ->
+                    Romanize.parse(raw).filterKeys { it in missing }.ifEmpty { null }
+                }.value
+            } ?: continue
+            found.putAll(got)
+            log(id, "romanized ${got.size} of ${missing.size} lines of ${track.title}")
+            did(Area.LYRICS, id, "Romanized ${got.size} lines of ${track.title}")
+        }
+        return found
     }
 
     /**
@@ -1543,6 +1575,13 @@ object Extensions {
     suspend fun lyricsFor(trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? =
         if (!hasLyrics()) null
         else withTimeoutOrNull(LYRICS_MS + 1_000) { lyrics(trackInfo(trackId, title, artist, album, durationMs, cover)) }
+
+    /** [romanize] for the app's lyrics resolver: [lines] of the song's lyrics, in [language] when their source said it. */
+    suspend fun romanizeFor(
+        trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?,
+        language: String?, lines: Map<Int, String>,
+    ): Map<Int, String> =
+        if (!hasRomanizer()) emptyMap() else romanize(trackInfo(trackId, title, artist, album, durationMs, cover), language, lines)
 
     /** The running extensions giving lyrics, in their order: (id, name). For the "Try another source" list. */
     fun lyricsSources(): List<Pair<String, String>> =

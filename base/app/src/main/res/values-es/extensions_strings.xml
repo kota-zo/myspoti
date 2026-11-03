@@ -96,6 +96,7 @@
     <string name="action_playback_queue">Editar la cola</string>
     <string name="action_playback_events">Saber lo que reproduces</string>
     <string name="action_lyrics_provide">Proporcionar letras</string>
+    <string name="action_lyrics_romanize">Romanizar letras</string>
     <string name="action_trackinfo_provide">Añadir detalles de canciones</string>
     <string name="action_audio_source">Reproducir audio de otro origen</string>
     <string name="action_download_source">Proporcionar descargas</string>

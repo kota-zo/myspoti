@@ -76,6 +76,12 @@ object LyricsApi {
     /** Lyrics to show while better ones are looked for (track key → Spotify's line-timed lyrics). */
     val early = kotlinx.coroutines.flow.MutableStateFlow<Pair<String, Lyrics>?>(null)
 
+    /** Lyrics of song [key] that got romanizations from an extension after they were shown: [before] became [after]. */
+    data class Romanized(val key: String, val before: Lyrics, val after: Lyrics)
+
+    /** The last [Romanized]: an open lyrics view still showing [Romanized.before] swaps it for [Romanized.after]. */
+    val romanized = kotlinx.coroutines.flow.MutableStateFlow<Romanized?>(null)
+
 
     fun cached(track: Track): Lyrics? = cache[track.key] as? Lyrics
 
@@ -118,7 +124,7 @@ object LyricsApi {
         val job = synchronized(inFlight) {
             inFlight[track.key] ?: scope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) {
                 // Read on an earlier run: from storage, not asked for again.
-                LyricsDisk.read(track.key)?.also { cache[track.key] = it } ?: resolve(track)
+                (LyricsDisk.read(track.key)?.also { cache[track.key] = it } ?: resolve(track))?.also { romanizeLater(track, it) }
             }.also { created ->
                 inFlight[track.key] = created
                 created.invokeOnCompletion { inFlight.remove(track.key, created) }
@@ -205,7 +211,31 @@ object LyricsApi {
         cache[track.key] = chosen
         LyricsDisk.write(track.key, chosen)
         Log.d("LyricsApi", "${track.title}: ${chosen.lines.size} lines from ${chosen.provider} (chosen: $sourceId)")
+        romanizeLater(track, chosen)
         chosen
+    }
+
+    /**
+     * Asks the romanizing extensions, off the caller's path, for the lines of [lyrics] (just found
+     * or read from storage) that their source left in another script than Latin without a
+     * romanization: the lyrics show at once and the romanizations follow ([romanized]). They are
+     * kept, in memory and storage, only while [lyrics] are still the song's.
+     */
+    private fun romanizeLater(track: Track, lyrics: Lyrics) {
+        val wanted = LyricsRomanize.wanted(lyrics)
+        if (wanted.isEmpty() || !runCatching { com.music.spotui.extensions.Extensions.hasRomanizer() }.getOrDefault(false)) return
+        scope.launch {
+            val found = runCatching {
+                com.music.spotui.extensions.Extensions.romanizeFor(
+                    track.trackId, track.title, track.artist, track.album, track.durationMs, track.coverUrl, lyrics.language, wanted)
+            }.getOrDefault(emptyMap())
+            val updated = LyricsRomanize.apply(lyrics, found)
+            if (updated === lyrics) return@launch
+            // Another source picked or the song forgotten meanwhile: these were for lyrics no longer shown.
+            if (!cache.replace(track.key, lyrics, updated)) return@launch
+            LyricsDisk.write(track.key, updated)
+            romanized.value = Romanized(track.key, lyrics, updated)
+        }
     }
 
     private suspend fun resolve(track: Track): Lyrics? = coroutineScope {

@@ -96,6 +96,7 @@
     <string name="action_playback_queue">Επεξεργασία της ουράς</string>
     <string name="action_playback_events">Γνώση του τι ακούς</string>
     <string name="action_lyrics_provide">Παροχή στίχων</string>
+    <string name="action_lyrics_romanize">Λατινοποίηση στίχων</string>
     <string name="action_trackinfo_provide">Προσθήκη λεπτομερειών τραγουδιών</string>
     <string name="action_audio_source">Αναπαραγωγή ήχου από αλλού</string>
     <string name="action_download_source">Παροχή λήψεων</string>

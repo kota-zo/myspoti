@@ -96,6 +96,7 @@
     <string name="action_playback_queue">Editar a fila</string>
     <string name="action_playback_events">Saber o que você ouve</string>
     <string name="action_lyrics_provide">Fornecer letras</string>
+    <string name="action_lyrics_romanize">Romanizar letras</string>
     <string name="action_trackinfo_provide">Acrescentar detalhes das músicas</string>
     <string name="action_audio_source">Tocar áudio de outro lado</string>
     <string name="action_download_source">Fornecer downloads</string>

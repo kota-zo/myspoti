@@ -45,6 +45,16 @@ class LyricsViewModel constructor() : ViewModel() {
 
     private var loadedKey: String? = null
 
+    init {
+        // Romanizations an extension gave after the lyrics showed join the lines still shown.
+        viewModelScope.launch {
+            LyricsApi.romanized.collect { r ->
+                val cur = _state.value as? State.Loaded ?: return@collect
+                if (r != null && r.key == loadedKey && cur.lyrics == r.before) _state.value = cur.copy(lyrics = r.after)
+            }
+        }
+    }
+
     // Lines picked to share (both looks): a run of consecutive lines, by index in the lyrics' lines.
     // Kept here so the song options sheet of the Immersive look can open the same mode as a long press.
     private val _selecting = MutableStateFlow(false)
@@ -108,7 +118,8 @@ class LyricsViewModel constructor() : ViewModel() {
             // A skip meanwhile: the answer is for the previous song.
             if (loadedKey == key) {
                 if (lyrics == null) _triedNothing.value = sourceId
-                else _state.value = loadedState(lyrics)
+                // The cache holds the latest: romanizations that came while this answer was on its way.
+                else _state.value = loadedState(LyricsApi.cached(track) ?: lyrics)
             }
             _trying.value = null
         }
@@ -132,7 +143,8 @@ class LyricsViewModel constructor() : ViewModel() {
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
-            val lyrics = LyricsApi.fetch(track)
+            // The cache holds the latest: romanizations that came while this answer was on its way.
+            val lyrics = LyricsApi.fetch(track)?.let { LyricsApi.cached(track) ?: it }
             earlyJob.cancel()
             withContext(Dispatchers.Main) {
                 // A skip during the fetch: don't show the previous song's lyrics.

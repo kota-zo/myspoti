@@ -96,6 +96,7 @@
     <string name="action_playback_queue">Modificare la coda</string>
     <string name="action_playback_events">Sapere cosa ascolti</string>
     <string name="action_lyrics_provide">Fornire testi</string>
+    <string name="action_lyrics_romanize">Romanizzare i testi</string>
     <string name="action_trackinfo_provide">Aggiungere dettagli sui brani</string>
     <string name="action_audio_source">Riprodurre audio da altrove</string>
     <string name="action_download_source">Fornire download</string>

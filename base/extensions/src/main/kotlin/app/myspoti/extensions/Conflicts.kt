@@ -15,7 +15,7 @@ enum class Mode { ADDITIVE, EXCLUSIVE, ORDERED, SHARED }
 val Action.mode: Mode
     get() = when (this) {
         Action.AUDIO_SOURCE, Action.DOWNLOAD_SOURCE -> Mode.ORDERED
-        Action.LYRICS_PROVIDE, Action.TRACKINFO_PROVIDE, Action.HOME_SECTIONS, Action.SEARCH_PROVIDE,
+        Action.LYRICS_PROVIDE, Action.LYRICS_ROMANIZE, Action.TRACKINFO_PROVIDE, Action.HOME_SECTIONS, Action.SEARCH_PROVIDE,
         Action.MENU_ITEMS, Action.PLAYER_BUTTONS -> Mode.ADDITIVE
         else -> Mode.SHARED
     }
