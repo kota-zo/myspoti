@@ -330,28 +330,41 @@ class Api constructor(
      * [getFollowedShows], failing when Spotify did not answer its first page (no session, an error):
      * the Podcasts chip said "nothing followed" for an error and logged nothing (#136). A later
      * page that fails ends the list with the shows already read.
+     *
+     * The "Podcasts" filter id was never captured (only Playlists, Artists and Albums were), and an
+     * id Spotify does not know answers an empty list, which the chip showed as "nothing followed"
+     * for accounts that follow shows (#136). So when the filter finds no show, the whole library
+     * is read and its shows kept: the unfiltered list carries them whatever the filters are called.
      */
     suspend fun followedShows(): Result<List<LibraryEntry>> {
         if (!ready()) return Result.failure(IllegalStateException(notSignedIn()))
-        val out = ArrayList<LibraryEntry>()
-        var offset = 0
-        while (true) {
-            val page = runCatching { api.library.items(filter = LibraryFilter.PODCASTS, offset = offset, limit = 50) }.getOrElse {
-                if (it is CancellationException) throw it
-                Log.e("Api", "getFollowedShows failed at $offset", it)
-                if (offset == 0) return Result.failure(it)
-                null
-            } ?: break
-            page.items.filter { it.kind == MediaKind.SHOW }.forEach {
-                out += LibraryEntry(SHOW_PREFIX + it.uri.substringAfterLast(':'), it.name,
-                    context.getString(R.string.album_type_podcast) + (it.subtitle?.let { s -> " • $s" } ?: ""), cover(it.images), isPlaylist = false)
-            }
-            offset = page.nextOffset ?: break
+        val filtered = readShows(LibraryFilter.PODCASTS)
+        val shows = if (filtered.getOrNull().isNullOrEmpty()) readShows(LibraryFilter.ALL).takeIf { it.isSuccess || filtered.isFailure } ?: filtered else filtered
+        val out = shows.getOrElse { return Result.failure(it) }.map {
+            LibraryEntry(SHOW_PREFIX + it.uri.substringAfterLast(':'), it.name,
+                context.getString(R.string.album_type_podcast) + (it.subtitle?.let { s -> " • $s" } ?: ""), cover(it.images), isPlaylist = false)
         }
         if (out.isEmpty()) return Result.success(out)
         val news = LibraryEntry(NEW_EPISODES_ID, context.getString(R.string.new_episodes_title), context.getString(R.string.new_episodes_subtitle),
             out.first().coverUri, isPlaylist = true)
         return Result.success(listOf(news) + out)
+    }
+
+    /** The shows of the library list read with [filter], page after page; failing on a first page that fails. */
+    private suspend fun readShows(filter: LibraryFilter): Result<List<app.myspoti.api.LibraryItem>> {
+        val out = ArrayList<app.myspoti.api.LibraryItem>()
+        var offset = 0
+        while (true) {
+            val page = runCatching { api.library.items(filter = filter, offset = offset, limit = 50) }.getOrElse {
+                if (it is CancellationException) throw it
+                Log.e("Api", "getFollowedShows ($filter) failed at $offset", it)
+                if (offset == 0) return Result.failure(it)
+                null
+            } ?: break
+            out += page.items.filter { it.kind == MediaKind.SHOW }
+            offset = page.nextOffset ?: break
+        }
+        return Result.success(out.distinctBy { it.uri })
     }
 
     /**
