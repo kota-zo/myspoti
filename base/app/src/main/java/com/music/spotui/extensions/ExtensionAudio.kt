@@ -167,7 +167,8 @@ object ExtensionAudio {
     /**
      * Plays [songs] from [picked] in the local player when an extension has the picked song's
      * audio (asked first, so a miss falls back to Spotify at once); the rest of [songs] is the
-     * queue (see [AudioRoute.queue]). Downloaded songs play from their file. False: no extension
+     * queue (see [AudioRoute.queue]). Downloaded songs play from their file, the picked one without
+     * the extensions being asked. False: no extension
      * had it, the caller plays through Spotify. [isLatest] false once the answer came: a newer
      * song was asked for meanwhile, nothing plays (see SongPlayer.playThroughExtensions).
      * [startMs]: where in the picked song it starts (a resume).
@@ -181,10 +182,14 @@ object ExtensionAudio {
         if (com.music.spotui.di.SongPlayer.activeDevice.value != null) return false
         // A song asked ahead (the next one of the queue) is not asked again: the extension would
         // take a second ask for a refused address and resolve it anew.
-        val first = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withContext(Dispatchers.IO) {
-            Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri))
-        } ?: return false
-        keep(picked.spotifyTrackId, first)
+        // A downloaded song plays from its file whatever the extensions have: asked first, a miss (after
+        // up to 13 s) sent a song marked downloaded to Spotify's stream.
+        if (!OfflineStore.isDownloaded(picked.spotifyTrackId)) {
+            val first = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withContext(Dispatchers.IO) {
+                Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri))
+            } ?: return false
+            keep(picked.spotifyTrackId, first)
+        }
         val (list, at) = AudioRoute.queue(songs, picked)
         val tracks = list.map(::localTrack)
         return withContext(Dispatchers.Main) {
