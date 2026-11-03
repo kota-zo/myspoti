@@ -635,8 +635,6 @@
     <string name="settings_automix_album_order_detail">Sem mistura entre músicas que se seguem no seu álbum: encadeiam-se como no disco.</string>
     <string name="settings_automix_show">Mostrar a mistura no leitor</string>
     <string name="settings_automix_show_detail">O trecho da mistura é colorido na barra de reprodução, e a capa brilha e pulsa ao ritmo enquanto toca.</string>
-    <string name="automix_hint_next">Mistura para %1$s</string>
-    <string name="automix_hint_mixing">A misturar para %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Transições ao estilo DJ entre músicas de extensões, transferências e ficheiros locais: cada música é analisada uma vez (batidas, compassos, frases, tonalidade) e a seguinte entra no tempo, com o andamento igualado e uma troca de graves. As que não podem ser sincronizadas têm um corte no tempo ou um fade. As transmissões só são analisadas em redes sem limite de dados.</string>
     <string name="settings_automix_length">Duração da mistura</string>

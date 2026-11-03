@@ -48,6 +48,9 @@ import kotlinx.serialization.json.putJsonArray
  * if that does not help either, [reloadHost] reloads the page and playback resumes there.
  */
 class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScope) : Player {
+    /** True while this account is a member of a Jam: playback stays on the host's device (no transfer here). */
+    var inJam: () -> Boolean = { false }
+
     private val _state = MutableStateFlow<PlayerState?>(null)
     override val state: StateFlow<PlayerState?> = _state
     private val _queue = MutableStateFlow<Queue?>(null)
@@ -964,6 +967,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         if (!lastPlayRefusable) { bridge.logger?.invoke("play refused by Spotify: not the user's, left alone"); return }
         // The step's own transfer refused: the step is judged by the play that follows it.
         if (refusalTransferring) return
+        // A Jam member: taking playback here (step 2) would take this account out of the Jam.
+        if (inJam()) { bridge.logger?.invoke("play refused by Spotify in a Jam: left to the host"); return }
         val ctx = last.first
         var step = ++refusalStep
         if (step == 1 && last.second == null) step = ++refusalStep

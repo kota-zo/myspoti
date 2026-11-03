@@ -696,8 +696,6 @@
     <string name="settings_automix_album_order_detail">No mix between songs that follow each other on their album: they run into each other as on the record.</string>
     <string name="settings_automix_show">Show the mix in the player</string>
     <string name="settings_automix_show_detail">The mix\'s stretch is coloured on the seek bar, and the cover glows and pulses with the beat while it plays.</string>
-    <string name="automix_hint_next">Mix into %1$s</string>
-    <string name="automix_hint_mixing">Mixing into %1$s</string>
     <string name="settings_automix_length">Mix length</string>
     <string name="settings_automix_length_short">Short</string>
     <string name="settings_automix_length_auto">Balanced</string>

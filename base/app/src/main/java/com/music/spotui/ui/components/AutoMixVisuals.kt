@@ -224,51 +224,6 @@ fun DrawScope.drawMixZone(zone: ClosedFloatingPointRange<Float>, played: Float, 
 }
 
 /**
- * The line under the seek bar that says a mix comes: "Mix into …" from 30 s before it,
- * "Mixing into …" while it plays. [positionMs] is the song playing's position.
- */
-@Composable
-fun MixHint(cue: LocalPlayer.MixCue?, positionMs: () -> Long, tint: Color, accent: Color, pulse: MixPulse?, modifier: Modifier = Modifier) {
-    // Checked twice a second rather than per frame: the line comes 30 s ahead, give or take.
-    var near by remember { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(cue) {
-        while (true) {
-            near = cue != null && (cue.mixing || cue.skip || cue.exitMs - positionMs() < 30_000)
-            if (cue == null) break
-            kotlinx.coroutines.delay(500)
-        }
-    }
-    AnimatedVisibility(
-        visible = near && cue!!.nextTitle.isNotBlank(),
-        enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-        exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
-        modifier = modifier,
-    ) {
-        val c = remember { mutableLastCue() }
-        cue?.let { c.value = it }
-        val shown = c.value ?: return@AnimatedVisibility
-        Row(
-            Modifier
-                .background(accent.copy(alpha = 0.16f), RoundedCornerShape(50))
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = accent,
-                modifier = Modifier.size(14.dp).mixBeat(pulse, amount = 0.25f))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                stringResource(if (shown.mixing) R.string.automix_hint_mixing else R.string.automix_hint_next, shown.nextTitle),
-                color = tint, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-private class LastCue { var value: LocalPlayer.MixCue? = null }
-private fun mutableLastCue() = LastCue()
-
-/**
  * The local player's speed when it is not 1× ("1.5×"), under the seek bar: a speed left at 2× in
  * the equalizer page made downloads sound broken with nothing on screen to say why (#137). A tap
  * puts it back to 1×.

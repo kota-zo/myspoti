@@ -729,7 +729,12 @@ object Extensions {
      * An audio-source extension is asked for songs: one runs and is not inactive, or one that is on
      * is still being started at launch (the song then waits for it, see [audio]).
      */
-    fun hasAudioSource(): Boolean { providedState.value; return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource()) }
+    fun hasAudioSource(): Boolean {
+        providedState.value
+        // A Jam member's songs play on the host's device, sent there by Spotify: none through an extension here.
+        if (app.myspoti.host.android.MyspotiRuntime.isStarted && app.myspoti.host.android.MyspotiRuntime.spotify.jam.member) return false
+        return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource())
+    }
 
     /** The app is still starting the extensions on at launch, an audio source among them. */
     private fun startingAudioSource(): Boolean =

@@ -62,6 +62,8 @@ class SpotifyApi(
     override val extras = SpotifyTrackExtras(gql, bridge, this.http)
     override val devices = SpotifyDevices(bridge)
     override val jam = SpotifyJam(bridge, this.http)
+
+    init { player.inJam = { jam.member } }
     override val blends = SpotifyBlends(this.http)
     override val recents = SpotifyRecents(gql)
 
@@ -91,6 +93,9 @@ class SpotifyApi(
                 } catch (e: Exception) {
                     // No state now: the page's next state event brings it anyway.
                 }
+                // A Jam this account is in (joined before a restart or a reload): known at once, so
+                // nothing takes the host's playback here before the Jam sheet is opened.
+                try { jam.refresh() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { }
             }
         }
     }

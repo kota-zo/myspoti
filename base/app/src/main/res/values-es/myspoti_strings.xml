@@ -688,8 +688,6 @@
     <string name="settings_automix_album_order_detail">Sin mezcla entre canciones que se siguen en su álbum: se encadenan como en el disco.</string>
     <string name="settings_automix_show">Mostrar la mezcla en el reproductor</string>
     <string name="settings_automix_show_detail">El tramo de la mezcla se colorea en la barra de reproducción, y la portada brilla y late al ritmo mientras suena.</string>
-    <string name="automix_hint_next">Mezcla hacia %1$s</string>
-    <string name="automix_hint_mixing">Mezclando hacia %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Transiciones al estilo DJ entre canciones de extensiones, descargas y archivos locales: cada canción se analiza una vez (pulsos, compases, frases, tonalidad) y la siguiente entra a tiempo, con el tempo igualado y un intercambio de graves. Las que no se pueden sincronizar tienen un corte a tiempo o un fundido. Las transmisiones solo se analizan en redes sin límite de datos.</string>
     <string name="settings_automix_length">Duración de la mezcla</string>

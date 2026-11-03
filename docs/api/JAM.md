@@ -16,5 +16,13 @@ what Myspoti goes through (`SpotifyJam`, `api-spotify/.../SpotifyMore.kt`). Host
 | Invite link | `POST url-dispenser/v1/generate-url` | `spotify_uri: spotify:socialsession:<token>`, `custom_data` (`ssp=1`, `app_destination=socialsession`), `link_preview` (title, `https://shareables.scdn.co/publish/socialsession/<token>`), `utm_*` (`utm_medium` `share-link` or `qr`). Answers `shareable_url` (`spotify.link/…`), `share_id`, `full_url` (`open.spotify.com/socialsession/<token>?si=…`). Service: `getShortInviteLink(token, joinSessionUri, qr?)`. |
 | Queued by | GraphQL `decorateQueuedByUsers` (`userUris`) | The host names who queued a song (seen when a member added one). |
 
+Checked from Myspoti's own code on a free account (`host-cdp` JamLiveTest, the desktop app as the
+host): `current_or_new` answers 403 `FREE_USER_NOT_ALLOWED` (a free account cannot start a Jam), the
+join answers 200 with `CONTROL`. With `local_device_id` set to the page's own Connect device, the
+member's commands (next, a list, pause, resume) go to `connect-state/v1/player/command/from/<device>/to/social-connect-<session>`
+(202) and the host follows, also after the member's page reloads; without it the page sometimes never
+learned of the Jam, sent its first command to itself (a transfer to itself) and so left the Jam.
+A list played by a member plays on the host as `spotify:list:jam-list:<session>`.
+
 Who is in the session and what they do reaches the host through the dealer (pushed to the native
 core on the desktop: not seen over CDP).

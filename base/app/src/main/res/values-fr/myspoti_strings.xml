@@ -695,8 +695,6 @@
     <string name="settings_automix_album_order_detail">Pas de mix entre deux morceaux qui se suivent sur leur album : ils s\'enchaînent comme sur le disque.</string>
     <string name="settings_automix_show">Afficher le mix dans le lecteur</string>
     <string name="settings_automix_show_detail">La portion du mix est colorée sur la barre de lecture, et la pochette s\'illumine et pulse au rythme pendant le mix.</string>
-    <string name="automix_hint_next">Mix vers %1$s</string>
-    <string name="automix_hint_mixing">Mix en cours vers %1$s</string>
     <string name="settings_automix_length">Durée des mix</string>
     <string name="settings_automix_length_short">Courte</string>
     <string name="settings_automix_length_auto">Équilibrée</string>

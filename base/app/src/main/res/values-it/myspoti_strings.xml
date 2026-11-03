@@ -688,8 +688,6 @@
     <string name="settings_automix_album_order_detail">Nessun mix tra brani che si susseguono nel loro album: si legano come sul disco.</string>
     <string name="settings_automix_show">Mostra il mix nel player</string>
     <string name="settings_automix_show_detail">Il tratto del mix è colorato sulla barra di avanzamento e la copertina si illumina e pulsa a tempo mentre suona.</string>
-    <string name="automix_hint_next">Mix verso %1$s</string>
-    <string name="automix_hint_mixing">Mix in corso verso %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Transizioni in stile DJ tra brani da estensioni, download e file locali: ogni brano viene analizzato una volta (battiti, battute, frasi, tonalità) e il successivo entra a tempo, con il tempo allineato e uno scambio dei bassi. I brani non sincronizzabili hanno un taglio a tempo o una dissolvenza. Gli stream vengono analizzati solo su reti senza limiti.</string>
     <string name="settings_automix_length">Durata del mix</string>

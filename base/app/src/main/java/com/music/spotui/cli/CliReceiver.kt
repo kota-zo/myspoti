@@ -216,6 +216,9 @@ class CliReceiver : BroadcastReceiver() {
             c.on?.let { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) }
             JsonPrimitive(com.music.spotui.di.LocalPlayer.autoMixState())
         }
+        is CliCommand.JamJoin -> jamJson(MyspotiRuntime.api.jam.join(c.token))
+        CliCommand.JamStatus -> { MyspotiRuntime.api.jam.refresh(); jamJson(MyspotiRuntime.api.jam.session.value) }
+        CliCommand.JamLeave -> { MyspotiRuntime.api.jam.leave(); JsonNull }
         CliCommand.AutoMixStatus -> onMain {
             buildJsonObject {
                 put("state", com.music.spotui.di.LocalPlayer.autoMixState())
@@ -271,6 +274,11 @@ class CliReceiver : BroadcastReceiver() {
         var read: ContextPageModel? = null
         runCatching { withTimeoutOrNull(READ_MS) { flow.first { it is Response.Error || (it as? Response.Success)?.data?.also { p -> read = p }?.complete == true } } }
         return read
+    }
+
+    private fun jamJson(s: app.myspoti.api.JamSession?): JsonElement = if (s == null) JsonNull else buildJsonObject {
+        put("id", s.id); put("token", s.joinToken ?: ""); put("host", s.isHost); put("queueOnly", s.queueOnly)
+        put("members", JsonArray(s.members.map { m -> JsonPrimitive(m.name + if (m.host) " (host)" else "") }))
     }
 
     private suspend fun <T> onMain(block: () -> T): T = withContext(Dispatchers.Main) { block() }

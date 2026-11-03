@@ -539,17 +539,48 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
         // service gives up at once on an account it marks RESTRICTED, while Spotify lets a free account
         // join as in the room. Listening here first (LISTEN_AND_CONTROL, Premium), else in the room
         // (CONTROL: this phone controls the host's playback), each try with its own attempt id.
+        // The page's own Connect device joins (local_device_id): without it the session took this
+        // account but not always the page's device, which then knew of no Jam, made itself the
+        // active device at the first command (a transfer to itself) and so left the Jam.
+        val device = localDevice()
         var last = 0 to ""
         for (control in listOf("LISTEN_AND_CONTROL", "CONTROL")) {
             val body = buildJsonObject {
                 put("join_token", joinToken); put("join_type", "deeplinking"); put("playback_control", control)
+                device?.let { put("local_device_id", it) }
                 put("join_attempt_id", java.util.UUID.randomUUID().toString()); put("permission_mode", "FULL")
             }
             last = http.send("POST", "$SOCIAL/v3/sessions/join", body.toString())
-            if (last.first in 200..299) parse(runCatching { Json.parseToJsonElement(last.second) }.getOrNull())?.let { _session.value = it; return it }
+            if (last.first in 200..299) parse(runCatching { Json.parseToJsonElement(last.second) }.getOrNull())?.let {
+                _session.value = it
+                awaitJamDevice()
+                return it
+            }
         }
         throw GqlException("jam", "join failed: HTTP ${last.first} ${last.second.take(200)}")
     }
+
+    /** The page's own Connect device id, or null when the page does not say. */
+    private suspend fun localDevice(): String? = runCatching {
+        (bridge.service("ConnectDevicesAPI", "getDevices") as? kotlinx.serialization.json.JsonArray)
+            ?.firstOrNull { it.bool("isLocal") == true }?.let { it.str("id") ?: it.str("connectStateId") }
+    }.getOrNull()
+
+    /**
+     * Until the page sees the Jam's device as the active one (its commands then go to the host),
+     * 6 s at most: a command sent before that went to the page itself and took it out of the Jam.
+     */
+    private suspend fun awaitJamDevice() {
+        val end = System.currentTimeMillis() + 6_000
+        while (System.currentTimeMillis() < end) {
+            val devices = runCatching { bridge.service("ConnectDevicesAPI", "getDevices") as? kotlinx.serialization.json.JsonArray }.getOrNull()
+            if (devices?.any { it.bool("isActive") == true && it.bool("isLocal") != true } == true) return
+            kotlinx.coroutines.delay(400)
+        }
+    }
+
+    /** In a Jam this account joined: the music plays on the host's device, never to be pulled here. */
+    val member: Boolean get() = _session.value?.isHost == false
 
     override suspend fun leave() {
         _session.value?.let { http.send("POST", "$SOCIAL/v3/sessions/${it.id}/leave") }

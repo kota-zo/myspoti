@@ -703,8 +703,6 @@
     <string name="settings_automix_album_order_detail">Bez miksu między utworami, które następują po sobie na albumie: łączą się jak na płycie.</string>
     <string name="settings_automix_show">Pokazuj miks w odtwarzaczu</string>
     <string name="settings_automix_show_detail">Fragment miksu jest pokolorowany na pasku odtwarzania, a okładka świeci i pulsuje w rytm, gdy trwa.</string>
-    <string name="automix_hint_next">Miks do %1$s</string>
-    <string name="automix_hint_mixing">Miksowanie do %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Przejścia w stylu DJ między utworami z rozszerzeń, pobrań i plików lokalnych: każdy utwór jest analizowany raz (bity, takty, frazy, tonacja), a następny wchodzi w rytm, z dopasowanym tempem i zamianą basu. Utwory, których nie da się zgrać, dostają cięcie w rytm albo wyciszenie. Strumienie są analizowane tylko w sieciach bez limitu.</string>
     <string name="settings_automix_length">Długość miksu</string>

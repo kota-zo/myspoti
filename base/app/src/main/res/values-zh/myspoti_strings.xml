@@ -688,8 +688,6 @@
     <string name="settings_automix_album_order_detail">专辑中相邻的歌曲之间不混音：像唱片上一样直接衔接。</string>
     <string name="settings_automix_show">在播放器中显示混音</string>
     <string name="settings_automix_show_detail">混音段在进度条上以颜色标出，混音时封面会随节拍发光和律动。</string>
-    <string name="automix_hint_next">即将混入 %1$s</string>
-    <string name="automix_hint_mixing">正在混入 %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">在扩展、下载和本地文件的歌曲之间进行 DJ 式过渡：每首歌只分析一次（节拍、小节、乐句、调性），下一首在节拍上进入，速度对齐并交换低音。无法对拍的歌曲会在节拍上切换或淡变。串流仅在不计流量的网络上分析。</string>
     <string name="settings_automix_length">混音时长</string>

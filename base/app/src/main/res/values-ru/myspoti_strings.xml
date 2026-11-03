@@ -703,8 +703,6 @@
     <string name="settings_automix_album_order_detail">Без сведения между треками, идущими подряд на своём альбоме: они переходят друг в друга, как на пластинке.</string>
     <string name="settings_automix_show">Показывать сведение в плеере</string>
     <string name="settings_automix_show_detail">Участок сведения выделен цветом на полосе воспроизведения, а обложка светится и пульсирует в такт, пока оно идёт.</string>
-    <string name="automix_hint_next">Сведение в %1$s</string>
-    <string name="automix_hint_mixing">Сведение в %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Переходы в стиле диджея между треками из расширений, загрузок и локальных файлов: каждый трек анализируется один раз (доли, такты, фразы, тональность), и следующий вступает в такт, с выровненным темпом и сменой баса. Треки, которые нельзя свести, получают склейку в такт или затухание. Потоки анализируются только в безлимитных сетях.</string>
     <string name="settings_automix_length">Длина сведения</string>
