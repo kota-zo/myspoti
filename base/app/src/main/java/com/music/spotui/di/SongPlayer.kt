@@ -294,6 +294,8 @@ object SongPlayer {
             }
         }
         scope.launch { MyspotiRuntime.spotify.player.stalled.collect { on -> onSoundStalled(on) } }
+        // Ads on a Connect device the music was sent to are muted there (#153).
+        com.music.spotui.connect.RemoteAdMute.start()
         // Smart shuffle plays a mixed order as the list and leaves Spotify's own shuffle off, so
         // turning it off sends no shuffle command at all (the button finds shuffle already off):
         // the list's own order comes back here.
@@ -365,8 +367,11 @@ object SongPlayer {
 
     /** System controls (notification, headset, car) land here. */
     private object Controls : app.myspoti.host.android.PlaybackControls {
-        override fun play() = SongPlayer.play(by = "media session")
-        override fun pause() = SongPlayer.pause(by = "media session")
+        // The session says the new state at once, not when the page answers: a Bluetooth headset or
+        // stereo reads it (AVRCP play status) to choose between play and pause, and kept sending
+        // "pause" to a paused player while the session still said playing (#108).
+        override fun play() { SongPlayer.play(by = "media session"); pushNotification(null, boundState?.likeState?.value ?: false) }
+        override fun pause() { SongPlayer.pause(by = "media session"); pushNotification(null, boundState?.likeState?.value ?: false) }
         override fun next() = SongPlayer.next(by = "media session")
         override fun previous() = SongPlayer.previous(by = "media session")
         override fun seekTo(ms: Long) = SongPlayer.seekTo(ms)
@@ -430,6 +435,14 @@ object SongPlayer {
             album = p.getString("album", "").orEmpty(),
         )
         state.likeState.value = p.getBoolean("liked", false)
+        // The media session has the last song, paused, before anything plays: a car or a Bluetooth
+        // stereo that binds first (after the app was killed too) shows it and can resume it (#142).
+        PlaybackService.update(Graph.app, NowPlayingInfo(
+            id = uri, title = title, artist = p.getString("singer", "").orEmpty(), album = p.getString("album", "").orEmpty(),
+            coverUrl = p.getString("cover", "").orEmpty().ifBlank { null }, durationMs = durationMs, positionMs = positionMs,
+            playing = false, liked = state.likeState.value, shuffle = state.shuffle.value == true,
+            episode = uri.startsWith("spotify:episode:"),
+        ))
         // Spotify's own queue too: the page's replaces it once it reports.
         val rest = com.music.spotui.data.preferences.LastSession.decodeQueue(p.getString("queue", null))
         if (rest.isNotEmpty()) {
@@ -2317,7 +2330,8 @@ object SongPlayer {
             val active = api.devices.devices.value.firstOrNull { it.active }
             _activeDevice.value = active?.takeIf { !it.local }?.let { ConnectDevice(it.id, it.name, it.type, false, true) }
             // A negative volume is a device with a fixed one (Web Player: disable_volume): not 0 %.
-            active?.volume?.takeIf { it >= 0 }?.let { if (SystemClock.elapsedRealtime() > volumeHoldUntil) _remoteVolume.intValue = (it * 100).toInt().coerceIn(0, 100) }
+            // Nor the 0 of a device muted for an ad (RemoteAdMute): the bar keeps the user's level.
+            active?.volume?.takeIf { it >= 0 }?.let { if (SystemClock.elapsedRealtime() > volumeHoldUntil && !com.music.spotui.connect.RemoteAdMute.muting) _remoteVolume.intValue = (it * 100).toInt().coerceIn(0, 100) }
             PlaybackService.setPlaybackDevice(_activeDevice.value != null, remoteVolume)
         }
     }
@@ -2338,6 +2352,8 @@ object SongPlayer {
 
     /** The other device picked in Myspoti to play on; null: this phone. */
     @Volatile private var chosenRemote: String? = null
+    /** [chosenRemote], read by RemoteAdMute (only that device's ads are muted). */
+    val chosenRemoteId: String? get() = chosenRemote
 
     /**
      * Another device took playback without being picked here (the Spotify app opened on the
@@ -2474,6 +2490,12 @@ object SongPlayer {
         _remoteVolume.intValue = volume.coerceIn(0, 100)
         volumeHoldUntil = SystemClock.elapsedRealtime() + 1500
         volumeSender
+        // A device muted for an ad is at 0 whatever the bar says: the same level as the last one sent
+        // would not go out through [volumeToSend], so it is sent here.
+        if (com.music.spotui.connect.RemoteAdMute.userSetVolume()) {
+            val v = remoteVolume
+            scope.launch { runCatching { api.player.setVolume(v / 100.0) } }
+        }
         volumeToSend.value = remoteVolume
         PlaybackService.setPlaybackDevice(_activeDevice.value != null, remoteVolume)
     }

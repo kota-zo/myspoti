@@ -53,10 +53,24 @@ data class NowPlayingInfo(
     /** A podcast episode: the notification offers 15 s skips, the headset next / previous skip 15 s. */
     val episode: Boolean = false,
 ) {
+    /**
+     * Audio goes on, or is about to: a song plays or loads, or an ad break runs. An ad is shown
+     * "paused" ([playing] false, for the screens) but the page plays it (muted) and the app is busy
+     * getting past it: the service keeps the foreground and its locks then, or a break over a
+     * minute let Android freeze the app (cached apps freezer, Android 14+) and, on Android 17,
+     * silence a player with no foreground service (background audio hardening).
+     */
+    val makesSound: Boolean get() = playing || buffering || id == AD_ID
+
     /** Everything but the position: a moving position alone is not a new state. */
     fun sameAs(other: NowPlayingInfo) = id == other.id && title == other.title && artist == other.artist &&
         album == other.album && coverUrl == other.coverUrl && durationMs == other.durationMs &&
         playing == other.playing && buffering == other.buffering && liked == other.liked && shuffle == other.shuffle && episode == other.episode
+
+    companion object {
+        /** The [id] the app gives an ad break (the screens then say "Advertisement"). */
+        const val AD_ID = "spotify:ad"
+    }
 }
 
 /**
@@ -144,6 +158,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         // The paused notification was swiped away: leave the foreground with it.
         if (info?.playing != true && isStop(intent)) {
             handler.removeCallbacks(leaveForeground)
+            holdLocks(false)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             foreground = false
         }
@@ -170,7 +185,8 @@ class PlaybackService : MediaBrowserServiceCompat() {
      * notification goes with the service.
      */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (current?.playing == true && !playingRemote && !keepsPlayingOnClose(this)) {
+        // An ad or a song loading counts as playing: closing the app then stopped the service under it.
+        if (current?.makesSound == true && !playingRemote && !keepsPlayingOnClose(this)) {
             controls?.pause()
             handler.postDelayed({
                 ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -179,7 +195,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             }, CLOSE_STOP_MS)
             return
         }
-        if (current?.playing != true) stopSelf()
+        if (current?.makesSound != true) stopSelf()
     }
 
     /** A Spotify Connect device plays (the session's volume is that device's). */
@@ -307,7 +323,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             .addCustomAction(ACTION_SHUFFLE, getString(if (info.shuffle) R.string.msp_shuffle_off else R.string.msp_shuffle_on),
                 if (info.shuffle) R.drawable.msp_ic_shuffle_on else R.drawable.msp_ic_shuffle)
             .setState(state, info.positionMs, if (info.playing && !info.buffering) 1f else 0f)
-            .setActiveQueueItemId(activeQueueId)
+            .setActiveQueueItemId(QueueSync.activeRow(queue, activeQueueId, info.title, info.artist))
             .build())
     }
 
@@ -322,9 +338,11 @@ class PlaybackService : MediaBrowserServiceCompat() {
                 .build(), e.id)
         }.takeIf { it.isNotEmpty() })
         // Only the marked row changes: the rest of the state (and its position clock) stays as it was.
+        // A row that is not the song shown is not marked (see QueueSync: Bluetooth holds its updates).
         val state = session.controller.playbackState ?: return
-        if (state.activeQueueItemId != activeQueueId) {
-            session.setPlaybackState(PlaybackStateCompat.Builder(state).setActiveQueueItemId(activeQueueId).build())
+        val active = QueueSync.activeRow(queue, activeQueueId, current?.title, current?.artist)
+        if (state.activeQueueItemId != active) {
+            session.setPlaybackState(PlaybackStateCompat.Builder(state).setActiveQueueItemId(active).build())
         }
     }
 
@@ -398,9 +416,14 @@ class PlaybackService : MediaBrowserServiceCompat() {
     }
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-    /** Leaves the foreground only after a real pause, never between two songs. */
+    /**
+     * Leaves the foreground only after a real pause, never between two songs; the locks go with it
+     * (see [show]).
+     */
     private val leaveForeground = Runnable {
-        if (current?.playing != true && foreground) {
+        if (current?.makesSound == true) return@Runnable
+        holdLocks(false)
+        if (foreground) {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
             foreground = false
         }
@@ -437,19 +460,25 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
     private fun show(info: NowPlayingInfo) {
         val notification = build(info)
-        holdLocks(info.playing || info.buffering)
-        if (info.playing || info.buffering) {
+        if (info.makesSound) {
+            holdLocks(true)
             handler.removeCallbacks(leaveForeground)
             startForegroundSafely(notification)
         } else {
             // The player is briefly "paused" while it loads the next song. Leaving the
             // foreground then let Android freeze the app with the screen off, and playback
-            // stopped after one song: the service stays a minute in the foreground.
+            // stopped after one song: the service stays a minute in the foreground. The locks
+            // stay for that minute too: in that gap the page has closed its audio stream, and a
+            // CPU lock dropped right then left a phone with the screen off free to sleep before
+            // the next song had loaded.
             if (foreground) {
                 runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
                 handler.removeCallbacks(leaveForeground)
                 handler.postDelayed(leaveForeground, PAUSE_GRACE_MS)
-            } else runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
+            } else {
+                holdLocks(false)
+                runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
+            }
         }
     }
 
@@ -709,7 +738,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             if (svc == null) {
                 // Loading counts: Android gives the audio only to a player in the foreground, and a
                 // song an extension is still resolving starts right after.
-                if (info.playing || info.buffering) runCatching {
+                if (info.makesSound) runCatching {
                     androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java))
                 }.onFailure { Logbook.logEvery("service-start", 10_000, "service not started for playback: ${it.javaClass.simpleName} ${it.message?.take(80)}") }
                 return
@@ -723,7 +752,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             svc.apply(info)
             svc.show(info)
             // Sound with no foreground service (bound by the car only, promotion refused): start it.
-            if ((info.playing || info.buffering) && !svc.foreground) svc.ensureStarted()
+            if (info.makesSound && !svc.foreground) svc.ensureStarted()
         }
 
         /**

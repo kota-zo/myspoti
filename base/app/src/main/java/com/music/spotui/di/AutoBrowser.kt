@@ -34,13 +34,14 @@ class AudioNotReady(what: String) : IllegalStateException("player not ready: $wh
  * Android Auto / media browser tree, built from the app's own data (not the web page).
  *
  * Root tabs (Auto allows four): Home (recently played, then the home feed's shelves, each a titled
- * group), Library (Liked Songs, playlists, albums, artists), Downloads (served from the files,
- * no network needed). Search answers songs, playlists, albums and artists as titled groups.
+ * group), Library (Liked Songs, playlists, albums, artists), Podcasts (New episodes, then the
+ * followed shows), Downloads (served from the files, no network needed). Search answers songs,
+ * playlists, albums, artists, podcasts and episodes as titled groups.
  * Tapping a song plays it in its context, the way the album / playlist screens do: a downloaded
  * song plays the local copy (see [playTrack]). "Start radio" items start Spotify's radio.
  *
- * Media ids: "home", "library", "downloads" (tabs); "liked", "playlists", "albums", "artists",
- * "dsongs" (lists); "pl:<id>", "al:<id>", "ar:<id>|<name>", "dl:<list uri>" (contexts);
+ * Media ids: "home", "library", "podcasts", "downloads" (tabs); "liked", "playlists", "albums", "artists",
+ * "dsongs", "newep" (lists); "pl:<id>", "al:<id>", "ar:<id>|<name>", "dl:<list uri>", "sh:<show id>" (contexts);
  * "t|<context uri>|<play key>" (a song), "d|<list uri or empty>|<track id>" (a downloaded song),
  * "radio|<seed uri>|<fallback song uri>" (start a radio).
  */
@@ -72,6 +73,8 @@ object AutoBrowser {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ContextPageModel>) = size > MAX_PAGES
         })
     private const val MAX_PAGES = 30
+    /** [ContextPageModel.type] of a show's episodes listed here. */
+    private const val SHOW = "show"
 
     /** The account signs out: nothing it listed stays for the next one. */
     fun clearSession() = pages.clear()
@@ -88,6 +91,7 @@ object AutoBrowser {
             parentId == ROOT -> return listOf(
                 tab(context, "home", R.string.aa_home, "aa_ic_home", STYLE_GRID),
                 tab(context, "library", R.string.aa_library, "aa_ic_library", STYLE_LIST),
+                tab(context, "podcasts", R.string.recents_filter_podcasts, "aa_ic_podcasts", STYLE_LIST),
                 tab(context, "downloads", R.string.aa_downloads, "aa_ic_downloads", STYLE_LIST),
             )
             parentId == "library" -> return libraryTab(context)
@@ -111,6 +115,9 @@ object AutoBrowser {
             parentId == "artists" -> Graph.api.getFollowedArtists().filter { it.id.isNotBlank() }.take(MAX_ITEMS).map { a ->
                 browsable("ar:${a.id}|${a.name}", a.name, art(a.coverUri))
             }
+            parentId == "podcasts" -> podcastsTab(context)
+            parentId == "newep" -> Graph.api.getNewEpisodes().take(MAX_ITEMS).map { playable("", it) }
+            parentId.startsWith("sh:") -> showEpisodes(parentId.removePrefix("sh:"))
             parentId == "liked" -> tracksOf(context, firstResult { Graph.api.getLikedPage() })
             parentId.startsWith("pl:") -> tracksOf(context, firstResult { Graph.api.getPlaylistPage(parentId.removePrefix("pl:")) })
             parentId.startsWith("al:") -> tracksOf(context, firstResult { Graph.api.getAlbumPage(parentId.removePrefix("al:")) })
@@ -143,6 +150,35 @@ object AutoBrowser {
         browsable("albums", context.getString(R.string.aa_albums), resource(context, "aa_ic_albums"), grid = false),
         browsable("artists", context.getString(R.string.aa_artists), resource(context, "aa_ic_artists"), grid = false),
     )
+
+    /**
+     * "New episodes" (the episodes not played yet of the followed shows), then the followed shows
+     * (the phone's Library > Podcasts). Spotify not answering is an error, not an empty tab.
+     */
+    private suspend fun podcastsTab(context: Context): List<MediaItem> {
+        val entries = Graph.api.followedShows().getOrElse { throw AudioNotReady("podcasts: ${it.message}") }
+        val shows = context.getString(R.string.recents_filter_podcasts)
+        return entries.take(MAX_ITEMS).mapNotNull { e ->
+            val showPrefix = com.music.spotui.data.api.Api.SHOW_PREFIX
+            when {
+                e.spotifyId == com.music.spotui.data.api.Api.NEW_EPISODES_ID ->
+                    browsable("newep", e.name, art(e.coverUri), subtitle = e.subtitle, grid = false)
+                e.spotifyId.startsWith(showPrefix) ->
+                    browsable("sh:" + e.spotifyId.removePrefix(showPrefix), e.name, art(e.coverUri), subtitle = e.subtitle, grid = false, group = shows)
+                else -> null
+            }
+        }
+    }
+
+    /** A show's latest episodes (the first page, newest first); a tap plays the episode in its show, as the show screen does. */
+    private suspend fun showEpisodes(showId: String): List<MediaItem> {
+        val episodes = firstResult { Graph.api.getShowEpisodes(showId) }.orEmpty()
+        if (episodes.isEmpty()) return emptyList()
+        val page = ContextPageModel(uri = "spotify:show:$showId", type = SHOW, name = episodes.first().album,
+            coverUri = episodes.first().coverUri, tracks = episodes.take(MAX_ITEMS))
+        pages[page.uri] = page
+        return page.tracks.map { playable(page.uri, it) }
+    }
 
     /** Recently played, then the home feed's shelves (mixes, jump back in, …), each a titled group. */
     private suspend fun homeTab(context: Context): List<MediaItem> = kotlinx.coroutines.coroutineScope {
@@ -238,7 +274,8 @@ object AutoBrowser {
 
     suspend fun search(query: String): List<MediaItem> {
         if (!awaitPlayer()) throw AudioNotReady("search")
-        val r = firstResult { Graph.api.searchEverything(query) } ?: return emptyList()
+        // The last answer: the music comes first, the podcasts and episodes in a second one.
+        val r = lastResult { Graph.api.searchEverything(query) } ?: return emptyList()
         val context = Graph.app
         val songs = r.songs.take(10)
         val out = ArrayList<MediaItem>()
@@ -257,6 +294,12 @@ object AutoBrowser {
         r.artists.filter { it.id.isNotBlank() }.take(8).forEach {
             out += browsable("ar:${it.id}|${it.name}", it.name, art(it.coverUri), group = artists)
         }
+        val podcasts = context.getString(R.string.recents_filter_podcasts)
+        r.shows.filter { it.id.isNotBlank() }.take(8).forEach {
+            out += browsable("sh:${it.id}", it.name, art(it.coverUri), subtitle = it.publisher, group = podcasts)
+        }
+        val episodes = context.getString(R.string.show_tab_episodes)
+        r.episodes.take(8).forEach { out += playable("", it, episodes) }
         return out
     }
 
@@ -319,7 +362,8 @@ object AutoBrowser {
         }
         // The list's songs: an audio-source extension then plays the list on from the song, as on
         // the phone, instead of the song alone and its radio. Spotify plays the context anyway.
-        SongPlayer.playSong(key, contextUri = contextUri, songs = page?.tracks)
+        // A show's episodes play in the show, as on its screen: Spotify's queue, never the extensions'.
+        SongPlayer.playSong(key, contextUri = contextUri, songs = page?.tracks?.takeIf { page.type != SHOW })
         song?.let { Graph.currentSongState.updateSongState(it.coverUri, it.title, it.singer, true, it.id, 0, it.album) }
     }
 
@@ -358,6 +402,13 @@ object AutoBrowser {
         val songs = context.getString(R.string.aa_songs)
         val radio = if (first == null) emptyList() else listOf(radioItem(context, page.uri.takeIf { page.type != "liked" } ?: first.url, first.url, page.name))
         return radio + page.tracks.take(MAX_ITEMS).map { playable(page.uri, it, songs) }
+    }
+
+    /** The last answer of [load] within [TIMEOUT_MS] (a flow that answers in steps); null when none came. */
+    private suspend fun <T> lastResult(load: suspend () -> kotlinx.coroutines.flow.Flow<Response<T>>): T? {
+        var last: T? = null
+        withTimeoutOrNull(TIMEOUT_MS) { load().collect { if (it is Response.Success) last = it.data } }
+        return last
     }
 
     private suspend fun <T> firstResult(load: suspend () -> kotlinx.coroutines.flow.Flow<Response<T>>): T? =
