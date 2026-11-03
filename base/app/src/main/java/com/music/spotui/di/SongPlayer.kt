@@ -1270,7 +1270,56 @@ object SongPlayer {
         fallbackRest = Triple(id, LocalPlayer.upcoming().map { (_, u) -> localSong(u).copy(spotifyTrackId = LocalPlayer.spotifyIdOf(u)) }, LocalPlayer.contextName)
         playSong(buildSpotifyPlayQuery(id, t.title, t.artist), contextUri = LocalPlayer.contextUri.ifBlank { null },
             positionMs = positionMs.takeIf { it > 0 }, askExtensions = false)
+        watchFallback(id, t.title)
         return true
+    }
+
+    /**
+     * A song of the local queue sent to Spotify for want of the extensions ([playLocalOnSpotify])
+     * must be playing there within [FALLBACK_START_MS]; else (Spotify refused it: a Jam, a free
+     * account's limits, no network to it) the queue goes on with its next song, as a song neither
+     * has is skipped, rather than standing still on a refused play.
+     */
+    private fun watchFallback(id: String, title: String) {
+        fallbackWatch?.cancel()
+        fallbackWatch = scope.launch {
+            kotlinx.coroutines.delay(FALLBACK_START_MS)
+            main.post {
+                if (spotifyFallbackId != id || LocalPlayer.active.value) return@post
+                if (playing && trackIdOf(_nowPlaying.value.uri) == id) { fallbackFailures = 0; return@post }
+                fallbackFailed(id, title)
+            }
+        }
+    }
+
+    private var fallbackWatch: kotlinx.coroutines.Job? = null
+    /** Songs skipped in a row because neither the extensions nor Spotify played them. */
+    private var fallbackFailures = 0
+
+    private fun fallbackFailed(id: String, title: String) {
+        val rest = fallbackRest?.takeIf { it.first == id }
+        val songs = rest?.second?.filter { it.spotifyTrackId.isNotBlank() && it.spotifyTrackId != id }.orEmpty()
+        val next = songs.firstOrNull()
+        fallbackFailures++
+        if (next == null || fallbackFailures > MAX_FALLBACK_FAILURES) {
+            app.myspoti.host.android.Logbook.log("local: Spotify did not play $title either, ${if (next == null) "no song after it" else "$fallbackFailures songs failed in a row"}: stopped")
+            fallbackFailures = 0; spotifyFallbackId = null; fallbackRest = null
+            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, title), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        app.myspoti.host.android.Logbook.log("local: Spotify did not play $title within ${FALLBACK_START_MS / 1000} s: the queue goes on with ${next.title}")
+        android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable_skipped, title), android.widget.Toast.LENGTH_SHORT).show()
+        val name = rest!!.third
+        playThroughExtensions(next.spotifyTrackId, next, name, fallback = {
+            // The next one is not on the extensions either: Spotify is tried for it, watched the same way.
+            spotifyPlayed.add(next.spotifyTrackId)
+            fallbackRest = Triple(next.spotifyTrackId, songs.drop(1), name)
+            playSong(buildSpotifyPlayQuery(next.spotifyTrackId, next.title, next.singer), positionMs = null, askExtensions = false)
+            watchFallback(next.spotifyTrackId, next.title)
+        }) { isLatest, _ ->
+            com.music.spotui.extensions.ExtensionAudio.playList(songs, next, name, shuffle = false, isLatest = isLatest)
+                .also { if (it) fallbackFailures = 0 }
+        }
     }
 
     /** What picking an audio source in the quality sheet did to the song playing ([switchSource]). */
@@ -1399,6 +1448,10 @@ object SongPlayer {
         playSong(buildSpotifyPlayQuery(trackId, t.title, t.artist), contextUri = SPOTIFY_TRACK_PREFIX + trackId,
             positionMs = end.takeIf { it > 0 }, askExtensions = false)
     }
+
+    /** How long a song sent to Spotify for want of the extensions may take to start there. */
+    private const val FALLBACK_START_MS = 10_000L
+    private const val MAX_FALLBACK_FAILURES = 3
 
     /** How long before its end the last song is played by Spotify, so its autoplay goes on at once. */
     private const val END_LEAD_MS = 1_000L
