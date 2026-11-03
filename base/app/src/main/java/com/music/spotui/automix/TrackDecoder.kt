@@ -27,7 +27,12 @@ object TrackDecoder {
     /** Longer songs are not analysed (memory: 4 bytes × 2 signals × 22 050 per second). */
     const val MAX_SECONDS = 15 * 60
 
-    class Pcm(val mid: FloatArray, val side: FloatArray)
+    class Pcm(val mid: FloatArray, val side: FloatArray) {
+        /** Of the decode, the time spent waiting for the bytes (network, decryption), ms; and their size. */
+        var readMs = 0L; var bytes = 0L
+        /** Of the decode, the time spent turning the codec's output into these signals, ms; reads elsewhere. */
+        var convertMs = 0L; var restarts = 0
+    }
 
     fun decode(uri: Uri, cancelled: () -> Boolean): Pcm {
         val source = ByteSource(uri, cancelled)
@@ -42,7 +47,7 @@ object TrackDecoder {
             val mime = format.getString(MediaFormat.KEY_MIME) ?: throw IOException("no audio codec")
             val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1L
             if (durationUs > MAX_SECONDS * 1_000_000L) throw IOException("song too long to analyse")
-            return run(extractor, format, mime, durationUs, cancelled)
+            return run(extractor, format, mime, durationUs, cancelled).also { it.readMs = source.readNs / 1_000_000; it.bytes = source.readBytes; it.restarts = source.restarts }
         } finally {
             runCatching { extractor.release() }
             source.close()
@@ -54,8 +59,9 @@ object TrackDecoder {
         var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         var encoding = if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) format.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
         var shorts = ShortArray(0); var floats = FloatArray(0)
+        var convertNs = 0L
         // Copied out in one go per buffer (a value at a time through the ByteBuffer is slow).
-        fun take(buffer: ByteBuffer) {
+        fun takeTimed(buffer: ByteBuffer) {
             val float = encoding == AudioFormat.ENCODING_PCM_FLOAT
             if (!float && encoding != AudioFormat.ENCODING_PCM_16BIT) throw IOException("unsupported decoded PCM")
             val values = buffer.remaining() / (if (float) 4 else 2)
@@ -69,6 +75,10 @@ object TrackDecoder {
                 out.push(if (l.isFinite()) l else 0f, if (r.isFinite()) r else 0f)
             }
         }
+        fun take(buffer: ByteBuffer) {
+            val t0 = System.nanoTime()
+            try { takeTimed(buffer) } finally { convertNs += System.nanoTime() - t0 }
+        }
         if (mime == "audio/raw") {
             val packet = ByteBuffer.allocateDirect(1 shl 20).order(ByteOrder.LITTLE_ENDIAN)
             while (true) {
@@ -80,7 +90,7 @@ object TrackDecoder {
                 take(packet)
                 extractor.advance()
             }
-            return out.result()
+            return out.result().also { it.convertMs = convertNs / 1_000_000 }
         }
         val codec = MediaCodec.createDecoderByType(mime)
         var started = false
@@ -122,7 +132,7 @@ object TrackDecoder {
             if (started) runCatching { codec.stop() }
             codec.release()
         }
-        return out.result()
+        return out.result().also { it.convertMs = convertNs / 1_000_000 }
     }
 
     /**
@@ -136,11 +146,12 @@ object TrackDecoder {
         private var pos = 0.0
         private var accM = 0.0; private var accS = 0.0; private var cnt = 0
 
-        fun rate(r: Int) { if (r in 8000..192000) inRate = r }
+        private var step = RATE.toDouble() / inRate
+        fun rate(r: Int) { if (r in 8000..192000) { inRate = r; step = RATE.toDouble() / r } }
 
         fun push(l: Float, r: Float) {
             accM += (l + r) * 0.5; accS += (l - r) * 0.5; cnt++
-            pos += RATE.toDouble() / inRate
+            pos += step
             while (pos >= 1.0) {
                 pos -= 1.0
                 if (n >= mid.size) {
@@ -158,40 +169,143 @@ object TrackDecoder {
         }
     }
 
-    /** Random-access adapter over the player's data source: each seek reopens it at the new position. */
+    /**
+     * Random-access adapter over the player's data source, reading ahead: a thread of its own fetches
+     * the bytes after the ones asked (up to [AHEAD_BYTES]) while the codec decodes. Read in turns, the
+     * network and the decoder added up (on the phone, 24 MB of a Tidal FLAC: 8.2 s waiting for bytes
+     * plus 7.8 s decoding). A read elsewhere (a seek) starts again from there.
+     */
     private class ByteSource(private val uri: Uri, private val cancelled: () -> Boolean) : MediaDataSource() {
         private val data = OfflineCrypto.Factory(Graph.app).createDataSource()
-        private var open = false
-        private var cursor = 0L
         private var size = -1L
         private var sizeKnown = false
+        /** [data] is open at 0 from [getSize], not read yet: the first read from 0 goes on from it. */
+        private var openAtStart = false
+        private var ahead: Ahead? = null
+
+        /** Time the decoder waited for bytes (ns), the bytes read, and the reads elsewhere (each starts again). */
+        var readNs = 0L; var readBytes = 0L; var restarts = 0
 
         @Synchronized override fun readAt(position: Long, buffer: ByteArray, offset: Int, length: Int): Int {
             if (cancelled()) throw IOException("cancelled")
             if (length == 0) return 0
             if (position < 0) return -1
-            if (!open || cursor != position) {
-                if (open) runCatching { data.close() }
-                val remaining = data.open(DataSpec.Builder().setUri(uri).setPosition(position).build())
-                if (!sizeKnown) { size = if (remaining >= 0) position + remaining else -1; sizeKnown = true }
-                open = true; cursor = position
-            }
-            val n = data.read(buffer, offset, length)
-            if (n == C.RESULT_END_OF_INPUT) return -1
-            if (n > 0) cursor += n
-            return n
+            if (sizeKnown && size >= 0 && position >= size) return -1
+            val t0 = System.nanoTime()
+            try {
+                var a = ahead
+                // A little further on (the extractor skipping a box): taken from the bytes read ahead.
+                if (a != null && position > a.pos && position - a.pos <= SKIP_BYTES) a.skip(position - a.pos)
+                if (a == null || a.pos != position) {
+                    if (a != null) restarts++
+                    a?.close()
+                    a = Ahead(position, openAtStart && position == 0L).also { ahead = it }
+                    openAtStart = false
+                }
+                val n = a.read(buffer, offset, length)
+                if (n > 0) readBytes += n
+                return n
+            } finally { readNs += System.nanoTime() - t0 }
         }
 
         @Synchronized override fun getSize(): Long {
             if (!sizeKnown) {
-                if (open) runCatching { data.close() }
+                ahead?.close(); ahead = null
+                if (openAtStart) runCatching { data.close() }
                 val total = data.open(DataSpec.Builder().setUri(uri).build())
                 size = if (total >= 0) total else -1
-                sizeKnown = true; open = true; cursor = 0
+                sizeKnown = true; openAtStart = true
             }
             return size
         }
 
-        @Synchronized override fun close() { runCatching { data.close() }; open = false }
+        @Synchronized override fun close() {
+            ahead?.close(); ahead = null
+            if (openAtStart) { runCatching { data.close() }; openAtStart = false }
+        }
+
+        /** The bytes from [start] on, fetched by a thread of its own into a bounded queue of chunks. */
+        private inner class Ahead(start: Long, private val alreadyOpen: Boolean) {
+            /** Where the next byte handed to the decoder is. */
+            var pos = start
+            private val chunks = java.util.concurrent.LinkedBlockingQueue<ByteArray>(AHEAD_BYTES / CHUNK)
+            @Volatile private var stopped = false
+            @Volatile private var failure: Throwable? = null
+            private var chunk: ByteArray? = null
+            private var at = 0
+            private val thread = Thread {
+                try {
+                    if (!alreadyOpen) {
+                        val remaining = data.open(DataSpec.Builder().setUri(uri).setPosition(start).build())
+                        if (!sizeKnown) { size = if (remaining >= 0) start + remaining else -1; sizeKnown = true }
+                    }
+                    while (!stopped) {
+                        val buf = ByteArray(CHUNK)
+                        var n = 0
+                        while (n < CHUNK && !stopped) {
+                            val r = data.read(buf, n, CHUNK - n)
+                            if (r == C.RESULT_END_OF_INPUT) break
+                            n += r
+                        }
+                        if (n > 0) chunks.put(if (n == CHUNK) buf else buf.copyOf(n))
+                        if (n < CHUNK) break
+                    }
+                } catch (t: Throwable) {
+                    if (!stopped) failure = t
+                } finally {
+                    runCatching { data.close() }
+                    // The end (or the failure) for the reader: an empty chunk.
+                    chunks.offer(END)
+                }
+            }.apply { isDaemon = true; name = "automix-read"; start() }
+
+            fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                var c = chunk
+                if (c == null || at >= c.size) {
+                    var next: ByteArray? = null
+                    while (next == null) {
+                        if (cancelled()) throw IOException("cancelled")
+                        next = chunks.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    }
+                    if (next.isEmpty()) {
+                        chunk = END; at = 0
+                        // Put back for any later read of the end.
+                        chunks.offer(END)
+                        failure?.let { throw if (it is IOException) it else IOException(it) }
+                        return -1
+                    }
+                    c = next; chunk = c; at = 0
+                }
+                val n = minOf(length, c.size - at)
+                System.arraycopy(c, at, buffer, offset, n)
+                at += n; pos += n
+                return n
+            }
+
+            /** Drops [n] bytes ahead (they come in order): the next read is [n] further on. */
+            fun skip(n: Long) {
+                var left = n
+                val scratch = ByteArray(minOf(left, CHUNK.toLong()).toInt())
+                while (left > 0) {
+                    val r = read(scratch, 0, minOf(left, scratch.size.toLong()).toInt())
+                    if (r <= 0) return
+                    left -= r
+                }
+            }
+
+            fun close() {
+                stopped = true
+                chunks.clear()
+                thread.interrupt()
+                runCatching { thread.join(2_000) }
+            }
+        }
+
+        companion object {
+            private const val CHUNK = 256 * 1024
+            private const val AHEAD_BYTES = 16 * 1024 * 1024
+            private const val SKIP_BYTES = 4L * 1024 * 1024
+            private val END = ByteArray(0)
+        }
     }
 }

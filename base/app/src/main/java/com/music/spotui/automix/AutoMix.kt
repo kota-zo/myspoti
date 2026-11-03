@@ -225,10 +225,14 @@ object AutoMix {
             val cancelled = { key !in wanted }
             val pcm = TrackDecoder.decode(uri, cancelled)
             val t1 = System.currentTimeMillis()
-            val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, if (frugal()) 2 else if (charging()) THREADS else minOf(THREADS, 3))
+            // On battery 3: measured on the S24, 5 made the same song's analysis slower (7.6 s against 5.5 s),
+            // the extra cores being small ones and the next song's decode running meanwhile.
+            val threads = if (frugal()) 2 else if (charging()) THREADS else minOf(THREADS, 3)
+            val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, threads)
             save(key, a)
-            journal(String.format("analysed %s: %.1f BPM%s, %d bars, key %d, decode %d ms, analysis %d ms", label(uri), a.bpm,
-                if (a.steady) " steady" else (if (a.tail != null) " (tail grid)" else " (no grid)"), a.bars, a.key, t1 - t0, System.currentTimeMillis() - t1) +
+            journal(String.format("analysed %s: %.1f BPM%s, %d bars, key %d, decode %d ms (bytes %d ms, %.1f MB, convert %d ms, %d restarts), analysis %d ms on %d threads", label(uri), a.bpm,
+                if (a.steady) " steady" else (if (a.tail != null) " (tail grid)" else " (no grid)"), a.bars, a.key, t1 - t0, pcm.readMs, pcm.bytes / 1e6, pcm.convertMs, pcm.restarts,
+                System.currentTimeMillis() - t1, threads) +
                 (if (a.note.isNotEmpty()) " | grids refused: ${a.note}" else ""))
             a
         } catch (e: InterruptedException) {
