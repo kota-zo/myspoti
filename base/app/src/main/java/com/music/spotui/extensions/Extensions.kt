@@ -745,6 +745,9 @@ object Extensions {
         return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource())
     }
 
+    /** An audio-source extension is turned on (running or not yet): a session of theirs goes back to them. */
+    fun audioSourceOn(): Boolean = isReady && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
+
     /** The app is still starting the extensions on at launch, an audio source among them. */
     private fun startingAudioSource(): Boolean =
         !started.isCompleted && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }

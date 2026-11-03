@@ -1542,16 +1542,53 @@ object SongPlayer {
      * mini player, the notification, headphones) is asked there first, from where it was, with
      * the engine's queue after it; Spotify resumes when they have nothing. False: Spotify resumes.
      */
-    private fun resumeThroughExtensions(): Boolean {
+    private fun resumeThroughExtensions(restoredLocal: Boolean = false): Boolean {
         val np = _nowPlaying.value
-        if (!np.uri.startsWith(SPOTIFY_TRACK_PREFIX) || _activeDevice.value != null || routing) return false
         val id = trackIdOf(np.uri)
-        if (id.isBlank() || id in spotifyPlayed || !com.music.spotui.extensions.Extensions.hasAudioSource()) return false
+        val ext = com.music.spotui.extensions.Extensions
+        // The session put back at launch was the extensions' (this phone's local player): it goes
+        // back to them, the extensions still starting are waited for ([Extensions.audio]), and a
+        // device Spotify still lists as active (the page has not caught up yet) does not send it to Spotify.
+        // Reported: a play right after a relaunch resumed on Spotify, and the source had to be picked again.
+        val why = when {
+            !np.uri.startsWith(SPOTIFY_TRACK_PREFIX) || id.isBlank() -> "not a song"
+            routing -> "a song is being asked"
+            _activeDevice.value != null && !restoredLocal -> "another device plays"
+            id in spotifyPlayed -> "no extension had it this session"
+            !ext.hasAudioSource() && !(restoredLocal && ext.audioSourceOn()) -> ext.audioSkipped() ?: "no audio source on"
+            else -> null
+        }
+        if (why != null) {
+            if (np.uri.startsWith(SPOTIFY_TRACK_PREFIX)) app.myspoti.host.android.Logbook.log("audio: resume of $id on Spotify: $why")
+            return false
+        }
         val q = _queue.value
         val songs = (listOfNotNull(q.current) + (q.queued + q.nextUp).map { it.song }).takeIf { l -> l.any { it.spotifyTrackId == id } }
         app.myspoti.host.android.Logbook.log("audio: resume of $id asked to the extensions")
         playSong(np.uri, contextUri = np.contextUri.ifBlank { null }, positionMs = getCurrentPosition(), songs = songs)
         return true
+    }
+
+    /**
+     * The extension answered for [trackId] after Spotify had started it for want of an answer in
+     * time ([com.music.spotui.extensions.ExtensionAudio.playList]): still that song on Spotify here,
+     * it goes to the extension from where it is, its queue after it, as picking the extension in the
+     * player does. On the main thread.
+     */
+    fun extensionAnsweredLate(trackId: String) {
+        val np = _nowPlaying.value
+        if (LocalPlayer.active.value || routing || _activeDevice.value != null || trackIdOf(np.uri) != trackId) return
+        if (com.music.spotui.data.DataSaver.active || com.music.spotui.cast.CastPlayback.active) return
+        spotifyPlayed.remove(trackId)
+        val q = _queue.value
+        val songs = (listOfNotNull(q.current) + (q.queued + q.nextUp).map { it.song }).takeIf { l -> l.any { it.spotifyTrackId == trackId } }
+        app.myspoti.host.android.Logbook.log("audio: the extension answered late for $trackId: it plays it from ${getCurrentPosition()} ms")
+        if (!isPlaying()) {
+            val song = songs?.firstOrNull { it.spotifyTrackId == trackId } ?: q.current?.takeIf { it.spotifyTrackId == trackId } ?: return
+            putPausedOnExtension(trackId, songs ?: listOf(song)) { }
+            return
+        }
+        playSong(np.uri, contextUri = np.contextUri.ifBlank { null }, positionMs = getCurrentPosition(), songs = songs)
     }
 
     /**
@@ -1608,8 +1645,9 @@ object SongPlayer {
         app.myspoti.host.android.Logbook.log("play asked by $by")
         if (routing) return // the song asked for starts by itself
         if (LocalPlayer.active.value) { Haptics.click(); if (!playDueOnSpotify()) LocalPlayer.resume(); return }
+        val wasLocal = restoredLocal
         if (resumeRestoredLocal()) { Haptics.click(); return }
-        if (resumeThroughExtensions()) { Haptics.click(); return }
+        if (resumeThroughExtensions(wasLocal)) { Haptics.click(); return }
         // Smart shuffle was turned off while paused: the list's order comes back as it plays on.
         plainOrderDue?.let { if (restorePlainOrder(it)) return }
         // Myspoti's shuffle turned on or off while paused: the song goes on in the list's new order.

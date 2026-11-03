@@ -8,6 +8,8 @@ import com.music.spotui.data.local.LocalTrack
 import com.music.spotui.data.offline.OfflineStore
 import com.music.spotui.di.LocalPlayer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -78,12 +80,76 @@ object ExtensionAudio {
     private fun keep(trackId: String, stream: AudioStream) {
         known[trackId] = Known(stream)
         answers.intValue++
+        Saved.put(trackId, stream)
+    }
+
+    /**
+     * The last few answers, kept on disk with when they came: an app relaunched within their life
+     * ([AudioStream.keepMs]) plays the song where it was at once, without waiting for the extension
+     * to start and answer again (reported: the resume after a relaunch fell back to Spotify). An
+     * address refused by then is asked again ([AudioRoute.openStream]), as any expired one.
+     */
+    private object Saved {
+        private const val PREFS = "extension_answers"
+        private const val MAX = 4
+        private val prefs get() = com.music.spotui.di.Graph.app.getSharedPreferences(PREFS, 0)
+        @Volatile private var loaded = false
+
+        fun put(trackId: String, s: AudioStream) {
+            // A transformed file (decrypted, remuxed) is not replayed from a bare address.
+            if (s.transform != null || trackId.isBlank()) return
+            val json = kotlinx.serialization.json.buildJsonObject {
+                put("at", kotlinx.serialization.json.JsonPrimitive(System.currentTimeMillis()))
+                put("url", kotlinx.serialization.json.JsonPrimitive(s.url))
+                put("headers", kotlinx.serialization.json.JsonObject(s.headers.mapValues { kotlinx.serialization.json.JsonPrimitive(it.value) }))
+                s.mimeType?.let { put("mime", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.durationMs?.let { put("duration", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.providerId?.let { put("provider", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.manifest?.let { put("manifest", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.expiresInMs?.let { put("expires", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.bitDepth?.let { put("bits", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.sampleRate?.let { put("rate", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.codec?.let { put("codec", kotlinx.serialization.json.JsonPrimitive(it)) }
+                s.source?.let { put("source", kotlinx.serialization.json.JsonPrimitive(it)) }
+            }.toString()
+            runCatching {
+                val p = prefs
+                val order = p.getString("order", "").orEmpty().split(',').filter { it.isNotBlank() && it != trackId } + trackId
+                val keep = order.takeLast(MAX)
+                p.edit().apply {
+                    order.dropLast(MAX).forEach { remove("a:$it") }
+                    putString("a:$trackId", json); putString("order", keep.joinToString(","))
+                }.apply()
+            }
+        }
+
+        /** Puts the answers still good back in [known], once, before the first use of an answer. */
+        fun load() {
+            if (loaded) return
+            loaded = true
+            runCatching {
+                val p = prefs
+                for (id in p.getString("order", "").orEmpty().split(',').filter { it.isNotBlank() }) {
+                    val o = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(p.getString("a:$id", null) ?: continue) as kotlinx.serialization.json.JsonObject }.getOrNull() ?: continue
+                    fun str(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
+                    fun num(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toLongOrNull()
+                    val headers = (o["headers"] as? kotlinx.serialization.json.JsonObject)?.mapValues { (it.value as kotlinx.serialization.json.JsonPrimitive).content }.orEmpty()
+                    val s = AudioStream(str("url").orEmpty(), headers, str("mime"), num("duration"), str("provider"), str("manifest"),
+                        num("expires"), num("bits")?.toInt(), num("rate")?.toInt(), str("codec"), str("source"))
+                    val k = Known(s, num("at") ?: 0L)
+                    if (k.fresh && known[id] == null) known[id] = k
+                }
+            }
+        }
     }
 
     /** [stream], from the source picked for it in the player (SongPlayer.switchSource), is the song [trackId]'s audio from now on. */
     fun use(trackId: String, stream: AudioStream) = keep(trackId, stream)
 
     private val warming = ConcurrentHashMap.newKeySet<String>()
+
+    /** Asks that outlive a tap's wait (see [playList]). */
+    private val late = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
 
     /** Taps being answered ([playList]): asking ahead waits, the extension's one thread is theirs. */
     private val picking = java.util.concurrent.atomic.AtomicInteger()
@@ -144,6 +210,7 @@ object ExtensionAudio {
      * [ahead]: asked before the song plays (the extension is told so).
      */
     fun resolve(u: Uri, again: Boolean = false, ahead: Boolean = false): AudioStream? {
+        Saved.load()
         val key = u.lastPathSegment.orEmpty()
         if (again) {
             known.remove(key)
@@ -191,18 +258,28 @@ object ExtensionAudio {
         // take a second ask for a refused address and resolve it anew.
         // A downloaded song plays from its file whatever the extensions have: asked first, a miss (after
         // up to 13 s) sent a song marked downloaded to Spotify's stream.
+        Saved.load()
         if (!OfflineStore.isDownloaded(picked.spotifyTrackId)) {
             // A tap waits [Extensions.PICK_AUDIO_MS] for the extensions, then Spotify plays the song.
             // The outer bound also covers a wait in the extension's queue or for extensions still loading.
+            // The ask itself goes on longer: an answer that comes after Spotify started the song
+            // takes it back to the extension where it is ([late]), rather than the user doing so by hand.
             picking.incrementAndGet()
+            val cached = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream
+            val ask = if (cached != null) null else late.async {
+                Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri), timeoutMs = Extensions.AUDIO_MS)
+            }
             val first = try {
-                known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withTimeoutOrNull(Extensions.PICK_AUDIO_MS + 1_000) {
-                    withContext(Dispatchers.IO) {
-                        Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri), timeoutMs = Extensions.PICK_AUDIO_MS)
-                    }
-                }
+                cached ?: withTimeoutOrNull(Extensions.PICK_AUDIO_MS + 1_000) { ask!!.await() }
             } finally { picking.decrementAndGet() } ?: run {
-                app.myspoti.host.android.Logbook.log("audio: no extension audio for ${picked.title} within ${Extensions.PICK_AUDIO_MS / 1000} s: Spotify plays it")
+                if (ask != null && !ask.isCompleted) {
+                    app.myspoti.host.android.Logbook.log("audio: no extension audio for ${picked.title} within ${(Extensions.PICK_AUDIO_MS + 1_000) / 1000} s: Spotify plays it, the extension's answer is still awaited")
+                    late.launch {
+                        val s = runCatching { ask.await() }.getOrNull() ?: return@launch
+                        keep(picked.spotifyTrackId, s)
+                        withContext(Dispatchers.Main) { com.music.spotui.di.SongPlayer.extensionAnsweredLate(picked.spotifyTrackId) }
+                    }
+                } else app.myspoti.host.android.Logbook.log("audio: no extension had ${picked.title}: Spotify plays it")
                 return false
             }
             keep(picked.spotifyTrackId, first)
