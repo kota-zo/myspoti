@@ -655,6 +655,8 @@ fun PlayerScreen(navController: NavController) {
                     mixCue, { mv.position() }, Color.White.copy(alpha = 0.8f), com.music.spotui.ui.theme.AppAccent, mixPulse,
                     Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp),
                 )
+                com.music.spotui.ui.components.PlaybackSpeedNote(Color.White.copy(alpha = 0.8f), com.music.spotui.ui.theme.AppAccent,
+                    Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp))
                 PlayerFull(songPlayingState, playerViewModel, context, shuffle, repeat, queueSongs)
 
                 PlayerConnectRow(

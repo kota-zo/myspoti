@@ -684,4 +684,5 @@
     <string name="settings_automix_pulse">Animação do player</string>
     <string name="settings_automix_pulse_subtle">Suave</string>
     <string name="settings_automix_pulse_strong">Forte</string>
+    <string name="playback_speed_note">Velocidade %1$s× · toque para 1×</string>
 </resources>

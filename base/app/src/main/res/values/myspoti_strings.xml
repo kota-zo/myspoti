@@ -712,4 +712,5 @@
     <string name="settings_automix_pulse">Player animation</string>
     <string name="settings_automix_pulse_subtle">Subtle</string>
     <string name="settings_automix_pulse_strong">Strong</string>
+    <string name="playback_speed_note">Speed %1$s× · tap for 1×</string>
 </resources>

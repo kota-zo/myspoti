@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -221,3 +222,23 @@ fun MixHint(cue: LocalPlayer.MixCue?, positionMs: () -> Long, tint: Color, accen
 
 private class LastCue { var value: LocalPlayer.MixCue? = null }
 private fun mutableLastCue() = LastCue()
+
+/**
+ * The local player's speed when it is not 1× ("1.5×"), under the seek bar: a speed left at 2× in
+ * the equalizer page made downloads sound broken with nothing on screen to say why (#137). A tap
+ * puts it back to 1×.
+ */
+@Composable
+fun PlaybackSpeedNote(tint: Color, accent: Color, modifier: Modifier = Modifier) {
+    val speed = com.music.spotui.data.preferences.EqualizerPref.speed
+    if (!LocalPlayer.active.value || kotlin.math.abs(speed - 1f) < 0.01f) return
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    Text(
+        stringResource(R.string.playback_speed_note, if (speed % 1f == 0f) "%.0f".format(speed) else "%.2f".format(speed).trimEnd('0')),
+        color = tint, fontSize = 12.sp,
+        modifier = modifier
+            .background(accent.copy(alpha = 0.16f), RoundedCornerShape(50))
+            .clickable { com.music.spotui.data.preferences.EqualizerPref.setSpeed(ctx, 1f) }
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}

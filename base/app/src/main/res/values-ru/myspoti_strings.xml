@@ -721,4 +721,5 @@
     <string name="settings_automix_pulse">Анимация плеера</string>
     <string name="settings_automix_pulse_subtle">Слабая</string>
     <string name="settings_automix_pulse_strong">Сильная</string>
+    <string name="playback_speed_note">Скорость %1$s× · нажмите для 1×</string>
 </resources>

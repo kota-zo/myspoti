@@ -148,6 +148,8 @@ internal fun PlayerScrubber(
             state.mixCue, state.positionMs, LocalPlayerTint.current.copy(alpha = 0.8f), com.music.spotui.ui.immersive.Immersive.Accent, state.mixPulse,
             Modifier.align(Alignment.CenterHorizontally).offset(y = (-4).dp),
         )
+        com.music.spotui.ui.components.PlaybackSpeedNote(LocalPlayerTint.current.copy(alpha = 0.8f), com.music.spotui.ui.immersive.Immersive.Accent,
+            Modifier.align(Alignment.CenterHorizontally).offset(y = (-4).dp))
     }
 }
 

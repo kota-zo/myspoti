@@ -711,4 +711,5 @@
     <string name="settings_automix_pulse">Animation du lecteur</string>
     <string name="settings_automix_pulse_subtle">Légère</string>
     <string name="settings_automix_pulse_strong">Forte</string>
+    <string name="playback_speed_note">Vitesse %1$s× · toucher pour 1×</string>
 </resources>

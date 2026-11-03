@@ -706,4 +706,5 @@
     <string name="settings_automix_pulse">Κίνηση προγράμματος αναπαραγωγής</string>
     <string name="settings_automix_pulse_subtle">Διακριτική</string>
     <string name="settings_automix_pulse_strong">Έντονη</string>
+    <string name="playback_speed_note">Ταχύτητα %1$s× · πάτησε για 1×</string>
 </resources>

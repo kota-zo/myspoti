@@ -706,4 +706,5 @@
     <string name="settings_automix_pulse">播放器动画</string>
     <string name="settings_automix_pulse_subtle">轻微</string>
     <string name="settings_automix_pulse_strong">强烈</string>
+    <string name="playback_speed_note">速度 %1$s× · 点按恢复 1×</string>
 </resources>
