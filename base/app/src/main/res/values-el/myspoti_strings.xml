@@ -37,6 +37,7 @@
     <string name="lyrics_select_hint">Πατήστε στίχους για να επιλέξετε τι θα μοιραστείτε</string>
     <string name="lyrics_select_max">Μπορείτε να μοιραστείτε έως %d στίχους</string>
     <string name="lyrics_romanization">Εμφάνιση ρωμανοποίησης</string>
+    <string name="lyrics_romanize">Ρωμανοποίηση</string>
     <string name="lyrics_other_source">Δοκιμή άλλης πηγής</string>
     <string name="lyrics_source_shown">Εμφανίζεται τώρα</string>
     <string name="lyrics_source_words">Λέξη προς λέξη</string>

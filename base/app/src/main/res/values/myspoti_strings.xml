@@ -37,6 +37,7 @@
     <string name="lyrics_select_hint">Tap lines to pick what to share</string>
     <string name="lyrics_select_max">You can share up to %d lines</string>
     <string name="lyrics_romanization">Show romanization</string>
+    <string name="lyrics_romanize">Romanize</string>
     <string name="lyrics_other_source">Try another source</string>
     <string name="lyrics_source_shown">Shown now</string>
     <string name="lyrics_source_words">Word by word</string>

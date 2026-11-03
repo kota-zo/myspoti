@@ -37,6 +37,7 @@
     <string name="lyrics_select_hint">Нажимайте на строки, чтобы выбрать, чем поделиться</string>
     <string name="lyrics_select_max">Можно поделиться не более чем %d строками</string>
     <string name="lyrics_romanization">Показать романизацию</string>
+    <string name="lyrics_romanize">Романизация</string>
     <string name="lyrics_other_source">Попробовать другой источник</string>
     <string name="lyrics_source_shown">Показан сейчас</string>
     <string name="lyrics_source_words">По словам</string>

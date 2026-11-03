@@ -37,6 +37,7 @@
     <string name="lyrics_select_hint">Tippe auf Zeilen, um auszuwählen, was du teilen möchtest</string>
     <string name="lyrics_select_max">Du kannst bis zu %d Zeilen teilen</string>
     <string name="lyrics_romanization">Romanisierung anzeigen</string>
+    <string name="lyrics_romanize">Romanisieren</string>
     <string name="lyrics_other_source">Andere Quelle versuchen</string>
     <string name="lyrics_source_shown">Wird angezeigt</string>
     <string name="lyrics_source_words">Wort für Wort</string>

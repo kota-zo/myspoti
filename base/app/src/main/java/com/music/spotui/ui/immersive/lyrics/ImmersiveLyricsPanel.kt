@@ -13,6 +13,7 @@
 package com.music.spotui.ui.immersive.lyrics
 
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material.icons.rounded.Translate
 import com.music.spotui.ui.components.secondaryClick
 import android.os.Build
@@ -87,6 +88,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -198,22 +200,37 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
                         translations = current.translations.takeIf { current.showTranslation },
                         romanizing = LyricsRomanizationPref.on && current.lyrics.hasRomanization,
                     )
-                    // The Classic screen's translation, with its language setting and its service: the
-                    // lyrics are only sent when it is tapped. Not offered for a song already in that language.
+                    // The romanization, when the lyrics have one, then the Classic screen's translation,
+                    // with its language setting and its service: the lyrics are only sent when it is
+                    // tapped. Not offered for a song already in that language.
                     val target = com.music.spotui.ui.components.readerLanguage()
-                    if (!selecting && !LyricsViewModel.sameLanguage(current.sourceLanguage, target)) {
+                    val canRomanize = current.lyrics.hasRomanization
+                    val canTranslate = !LyricsViewModel.sameLanguage(current.sourceLanguage, target)
+                    if (!selecting && (canRomanize || canTranslate)) {
                         val layoutDirection = LocalLayoutDirection.current
-                        TranslateToggle(
-                            on = current.showTranslation,
-                            loading = current.translating && current.translationRequested,
-                            onClick = { vm.toggleTranslation(target) },
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(
                                     top = contentPadding.calculateTopPadding(),
                                     end = Immersive.Gutter + contentPadding.calculateEndPadding(layoutDirection),
                                 ),
-                        )
+                        ) {
+                            if (canRomanize) LyricsToggle(
+                                icon = Icons.Rounded.Abc,
+                                description = stringResource(R.string.lyrics_romanize),
+                                on = LyricsRomanizationPref.on,
+                                onClick = { LyricsRomanizationPref.set(context, !LyricsRomanizationPref.on) },
+                            )
+                            if (canTranslate) LyricsToggle(
+                                icon = Icons.Rounded.Translate,
+                                description = stringResource(R.string.lyrics_fullscreen_chip_label_translate),
+                                on = current.showTranslation,
+                                loading = current.translating && current.translationRequested,
+                                onClick = { vm.toggleTranslation(target) },
+                            )
+                        }
                     }
                     if (selecting) ShareBar(
                         canShare = picked != null,
@@ -227,9 +244,16 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
     }
 }
 
-/** A round toggle over the lyrics, lit white while the translation is showing; a spinner while it is fetched. */
+/** A round toggle over the lyrics, lit white while what it shows is on; a spinner while that is fetched. */
 @Composable
-private fun TranslateToggle(on: Boolean, loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LyricsToggle(
+    icon: ImageVector,
+    description: String,
+    on: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    loading: Boolean = false,
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -242,8 +266,8 @@ private fun TranslateToggle(on: Boolean, loading: Boolean, onClick: () -> Unit, 
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
         } else {
             Icon(
-                Icons.Rounded.Translate,
-                contentDescription = stringResource(R.string.lyrics_fullscreen_chip_label_translate),
+                icon,
+                contentDescription = description,
                 tint = if (on) Color.Black else Color.White,
                 modifier = Modifier.size(20.dp),
             )
@@ -801,7 +825,9 @@ private fun PanelRow(
                 )
             }
             // Under the words, smaller and dimmer, and they take the row's blur and brightness with
-            // them: the backing vocals, then the romanization, then the translation.
+            // them: the backing vocals, then the romanization, then the translation. The romanization
+            // in italics and the translation a little apart: one says how the line sounds, the other
+            // what it means.
             val romanized = row.romanization.takeIf { romanizing }
             if (row.background != null) {
                 PanelBackground(
@@ -813,9 +839,9 @@ private fun PanelRow(
             if (romanized != null) {
                 Text(
                     text = romanized,
-                    style = secondaryStyle(TRANSLATION_STYLE, lane),
+                    style = secondaryStyle(ROMANIZATION_STYLE, lane),
                     color = Immersive.TextSecondary,
-                    modifier = Modifier.fillMaxWidth().padding(start = GLOW_ROOM, end = GLOW_ROOM, bottom = if (translation != null) 4.dp else GLOW_ROOM),
+                    modifier = Modifier.fillMaxWidth().padding(start = GLOW_ROOM, end = GLOW_ROOM, bottom = if (translation != null) 10.dp else GLOW_ROOM),
                 )
             }
             if (translation != null) {
@@ -852,6 +878,9 @@ private fun ShareBar(canShare: Boolean, onCancel: () -> Unit, onShare: () -> Uni
 
 /** A translated line: well below the lyric's 30 sp, so the sung words stay the focus. */
 private val TRANSLATION_STYLE = Immersive.Lyric.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+
+/** A romanized line: a translation's size, in italics as a transliteration is set, so the two never read alike. */
+private val ROMANIZATION_STYLE = TRANSLATION_STYLE.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
 
 /** The backing vocals: a little smaller than a translation, and drawn dimmer still (see [PanelBackground]). */
 private val BACKGROUND_STYLE = Immersive.Lyric.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
