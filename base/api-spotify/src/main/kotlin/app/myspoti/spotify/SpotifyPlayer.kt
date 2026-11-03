@@ -723,6 +723,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         )
     }
 
+    /** The ad machinery acts on an ad: off on a Premium account, which has none (see [AccountPlan]). */
+    private val adsHandled: Boolean get() = !AccountPlan.isPremium
+
     /**
      * Every [WATCH_TICK_MS]: the page answers (else it is frozen and reloaded), the song it
      * says it plays is heard (its media element moves), the sound is on, ads are got past,
@@ -812,7 +815,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             if (localMuted && s?.item?.uri != hushedUri) { hushedUri = s?.item?.uri; applyHush() }
             if (tick % VOLUME_CHECK_TICKS == 0) guardVolume(s, media)
             if (!_adPlaying.value) { remoteAdLogged = false; adHeldLogged = false }
-            if (_adPlaying.value && remoteActive) {
+            // On a Premium account (AccountPlan) an ad is not watched: no mute, skip, reload or recovery.
+            if (_adPlaying.value && adsHandled && remoteActive) {
                 // The ad plays on another device of the account (Connect, Cast): muted there by the
                 // app (RemoteAdMute), never got past from here. A reload or a play of the next song
                 // was refused by it, or pulled playback back to the phone.
@@ -823,7 +827,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 key = null; silentSince = 0L
                 continue
             }
-            if (_adPlaying.value) {
+            if (_adPlaying.value && adsHandled) {
                 // The screens show the break (or the song before it, waiting), not a stall.
                 notStalled()
                 val ad = adState
@@ -1749,6 +1753,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         runCatching { bridge.call("media.hush", buildJsonObject { put("on", clipHushed || localMuted) }).toString().trim('"').toIntOrNull() ?: 0 }.getOrDefault(0)
 
     private suspend fun muteForAd() = runCatching {
+        if (!adsHandled) return@runCatching
         adMuted = true
         adMutedAt = System.currentTimeMillis()
         var muted = bridge.call("media.mute", buildJsonObject { put("on", true) })

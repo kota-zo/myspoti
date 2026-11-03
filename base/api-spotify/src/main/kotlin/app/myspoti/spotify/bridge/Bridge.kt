@@ -1,5 +1,6 @@
 package app.myspoti.spotify.bridge
 
+import app.myspoti.spotify.AccountPlan
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
@@ -140,7 +141,8 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
         // re-announces only when the host is not ready (a page it thought it had lost).
         // The page's generation goes in with it: a call made for a page that went away is refused
         // by the next one (see [call]) instead of running there.
-        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; ${BridgeScript.source}")
+        // The account's plan as known now (see AccountPlan): on Premium the page's ad managers are left on.
+        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; window.__mspKeepAds = ${AccountPlan.isPremium}; ${BridgeScript.source}")
     }
 
     /**

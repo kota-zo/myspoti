@@ -354,6 +354,9 @@
   // ad that came through was tools/playback_test.py's own fake.
   let adsLatched = false;
   const adsOff = () => {
+    // A Premium account (the host sets window.__mspKeepAds from its AccountPlan): no ads to turn off,
+    // and the page's own ad managers are left as they are.
+    if (window.__mspKeepAds) return 'kept (Premium)';
     if (!services) return 'not ready';
     if (adsLatched) return 'already off';
     let audio = null;

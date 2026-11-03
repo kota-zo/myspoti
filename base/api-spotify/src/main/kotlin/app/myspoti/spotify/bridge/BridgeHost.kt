@@ -1,5 +1,6 @@
 package app.myspoti.spotify.bridge
 
+import app.myspoti.spotify.AccountPlan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.Json
@@ -52,7 +53,7 @@ object AdBlock {
      * never calls them stands out. Ads that come anyway are muted and skipped by the player,
      * and sponsored content is dropped from the screens.
      */
-    val blockedHosts = listOf(
+    private val adHosts = listOf(
         // The ad audio files.
         "adstudio-assets.scdn.co",
         // Google's ad servers (audio and video ads served in other markets).
@@ -63,17 +64,28 @@ object AdBlock {
         "imasdk.googleapis.com",
         // DoubleClick's ad media CDN (host list credit: coldMEW/Hush, GPL-3.0).
         "s0.2mdn.net",
-        // Third-party audience trackers the page loads (nothing it needs to play).
+    )
+
+    /** Third-party audience trackers the page loads (nothing it needs to play): refused on every account. */
+    private val trackerHosts = listOf(
         "googletagmanager.com",
         "google-analytics.com",
         "scorecardresearch.com",
         "fastly-insights.com",
     )
 
+    /** Every host refused on a free account. */
+    val blockedHosts = adHosts + trackerHosts
+
+    /**
+     * Whether [url] is refused. On a Premium account ([AccountPlan.isPremium]) the ad hosts are let
+     * through (Spotify sends no ads there, and nothing is to be interfered with); the trackers stay refused.
+     */
     fun isBlocked(url: String): Boolean {
         val rest = url.substringAfter("://")
         val host = rest.substringBefore('/').substringBefore('?').substringBefore(':').lowercase()
-        return blockedHosts.any { host == it || host.endsWith(".$it") }
+        val refused = if (AccountPlan.isPremium) trackerHosts else blockedHosts
+        return refused.any { host == it || host.endsWith(".$it") }
     }
 
     /**
@@ -88,7 +100,7 @@ object AdBlock {
      * is left as it is; an ad that is already the current state cannot be left out either.
      */
     fun withoutAds(body: String): Pair<String, List<String>>? {
-        if (!AD_HINT.containsMatchIn(body)) return null
+        if (AccountPlan.isPremium || !AD_HINT.containsMatchIn(body)) return null
         val root = runCatching { Json.parseToJsonElement(body).jsonObject }.getOrNull() ?: return null
         val notes = mutableListOf<String>()
         val out = root.toMutableMap()
@@ -115,7 +127,7 @@ object AdBlock {
 
     /** The [AdAhead] in a track-playback reply (after [withoutAds]), or null. */
     fun adAhead(body: String): AdAhead? = runCatching {
-        if (!AD_HINT.containsMatchIn(body)) return null
+        if (AccountPlan.isPremium || !AD_HINT.containsMatchIn(body)) return null
         val root = Json.parseToJsonElement(body).jsonObject
         val machine = root["state_machine"] as? JsonObject ?: return null
         val tracks = machine["tracks"] as? JsonArray ?: return null
@@ -163,6 +175,7 @@ object AdBlock {
      * at all). Null when it does not look like one.
      */
     fun whyKept(body: String): String? = runCatching {
+        if (AccountPlan.isPremium) return null
         val marker = AD_HINT.find(body)?.value?.trim('"') ?: return null
         val root = Json.parseToJsonElement(body).jsonObject
         val machine = root["state_machine"] as? JsonObject ?: return "$marker: no state machine in the reply"

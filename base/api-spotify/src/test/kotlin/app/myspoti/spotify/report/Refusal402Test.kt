@@ -1,5 +1,6 @@
 package app.myspoti.spotify.report
 
+import app.myspoti.spotify.AccountPlan
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -14,6 +15,12 @@ class Refusal402Test {
     @AfterEach fun restore() { Refusal402.reset(); Refusal402.clock = { System.nanoTime() / 1_000_000 } }
 
     private fun summary() = Refusal402.summary("product=FREE country=ID", "7-30 d ago").toMap()
+
+    @Test fun `on a Premium account the ads line says there is none`() {
+        fresh()
+        AccountPlan.set(true)
+        try { assertEquals("none (Premium)", summary()["ads"]) } finally { AccountPlan.set(null) }
+    }
 
     @Test fun `a refused session reads in one screen`() {
         fresh()

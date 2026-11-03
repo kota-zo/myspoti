@@ -2,6 +2,7 @@ package com.music.spotui.connect
 
 import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
+import app.myspoti.spotify.AccountPlan
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import kotlinx.coroutines.CoroutineScope
@@ -113,6 +114,8 @@ object RemoteAdMute {
     }
 
     private suspend fun onChange(ad: Boolean, elsewhere: Boolean) {
+        // Premium: Spotify sends no ads to this account, so nothing is muted here (AccountPlan).
+        if (AccountPlan.isPremium) return
         val api = MyspotiRuntime.api
         muted?.let { m ->
             if (ad) { holdUntilTooLong(m); return }

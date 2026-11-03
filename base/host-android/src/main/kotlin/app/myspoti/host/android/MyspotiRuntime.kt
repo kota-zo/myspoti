@@ -2,6 +2,7 @@ package app.myspoti.host.android
 
 import android.content.Context
 import app.myspoti.api.MyspotiApi
+import app.myspoti.spotify.AccountPlan
 import app.myspoti.spotify.SpotifyApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,9 @@ object MyspotiRuntime {
         private set
     val api: MyspotiApi get() = spotify
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** A plan not known yet is asked again after this (a failed or unclear answer). */
+    private const val PLAN_ASK_GAP_MS = 60_000L
 
     val isStarted: Boolean get() = ::host.isInitialized
     val loginRequired: StateFlow<Boolean> get() = host.loginRequired
@@ -54,7 +58,8 @@ object MyspotiRuntime {
         // changes is logged when it changes, not once every 10 s whether or not anything happened.
         scope.launch {
             var last = ""
-            var planLogged = false
+            // When the account's plan was last asked for (AccountPlan), so a failed or unknown answer is asked again later.
+            var planAskedAt = 0L
             // A login page or an anonymous session seen in this run: the sign-in that follows is new.
             var sawSignedOut = false
             // A page that loaded but whose player never became ready (no bridge, a script that
@@ -74,20 +79,25 @@ object MyspotiRuntime {
                     notReadyWait = (notReadyWait * 2).coerceAtMost(600_000L)
                     host.reload()
                 }
-                // Once per signed-in session: the account's plan, the first thing a refused play
-                // (402) needs. No name, no id — only what decides what the account may play.
-                if (!planLogged && spotify.ready.value && runCatching { isSignedIn() }.getOrDefault(false)) {
-                    planLogged = true
+                // The account's plan (AccountPlan: Premium turns the ad machinery off), asked while it is not
+                // known, once the page is signed in; forgotten at a sign-out (below). Its log line is the first
+                // thing a refused play (402) needs. No name, no id, only what decides what the account may play.
+                if (spotify.ready.value && runCatching { isSignedIn() }.getOrDefault(false)) {
                     host.noteSignedIn(fresh = sawSignedOut)
-                    runCatching {
-                        val a = spotify.raw.gql("accountAttributes", kotlinx.serialization.json.buildJsonObject { })
-                            .let { (it as kotlinx.serialization.json.JsonObject)["data"] as kotlinx.serialization.json.JsonObject }
-                            .let { (it["me"] as kotlinx.serialization.json.JsonObject)["account"] as kotlinx.serialization.json.JsonObject }
-                        val attrs = a["attributes"] as? kotlinx.serialization.json.JsonObject
-                        fun v(o: kotlinx.serialization.json.JsonObject?, k: String) = (o?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content
-                        Logbook.log("account: product=${v(a, "product")} country=${v(a, "country")} catalogue=${v(attrs, "catalogue")} onDemand=${v(attrs, "onDemand")} ads=${v(attrs, "ads")}")
-                        Logbook.fact("account", "product=${v(a, "product")} country=${v(a, "country")} catalogue=${v(attrs, "catalogue")} onDemand=${v(attrs, "onDemand")} ads=${v(attrs, "ads")}")
-                    }.onFailure { planLogged = false }
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (AccountPlan.premium.value == null && now - planAskedAt >= PLAN_ASK_GAP_MS) {
+                        planAskedAt = now
+                        runCatching {
+                            val answer = spotify.raw.gql("accountAttributes", kotlinx.serialization.json.buildJsonObject { })
+                            val a = ((answer as kotlinx.serialization.json.JsonObject)["data"] as kotlinx.serialization.json.JsonObject)
+                                .let { (it["me"] as kotlinx.serialization.json.JsonObject)["account"] as kotlinx.serialization.json.JsonObject }
+                            val attrs = a["attributes"] as? kotlinx.serialization.json.JsonObject
+                            fun v(o: kotlinx.serialization.json.JsonObject?, k: String) = (o?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content
+                            AccountPlan.set(AccountPlan.fromAnswer(answer))
+                            Logbook.log("account: product=${v(a, "product")} country=${v(a, "country")} catalogue=${v(attrs, "catalogue")} onDemand=${v(attrs, "onDemand")} ads=${v(attrs, "ads")}")
+                            Logbook.fact("account", "product=${v(a, "product")} country=${v(a, "country")} catalogue=${v(attrs, "catalogue")} onDemand=${v(attrs, "onDemand")} ads=${v(attrs, "ads")}")
+                        }
+                    }
                 }
                 val s = spotify.player.state.value
                 // "login" alone said nothing (it only meant "the page is on a login URL"): a bug
@@ -97,7 +107,11 @@ object MyspotiRuntime {
                     // The token in hand: a fresh one every 10 s held every request behind the page's answer.
                     else -> when (spotify.signedInHint()) { true -> "signed-in"; false -> "anonymous"; null -> "unknown" }
                 }
-                if (session == "login-page" || session == "anonymous") sawSignedOut = true
+                if (session == "login-page" || session == "anonymous") {
+                    sawSignedOut = true
+                    // Signed out: the plan of the account that left is forgotten (a new sign-in reads its own).
+                    AccountPlan.set(null)
+                }
                 val line = "status ready=${spotify.ready.value} session=$session " +
                     "track=${s?.item?.name} paused=${s?.isPaused} buffering=${s?.isBuffering} url=${host.url.value.take(60)}"
                 if (line != last) {
