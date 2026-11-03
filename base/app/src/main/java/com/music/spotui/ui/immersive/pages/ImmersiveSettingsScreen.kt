@@ -1,5 +1,6 @@
 package com.music.spotui.ui.immersive.pages
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import com.music.spotui.data.preferences.TransitionPref.Mode as TransitionMode
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -28,7 +29,6 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -458,9 +458,8 @@ private fun DownloadsPage(navController: NavController, open: (SettingsPage) -> 
             }
         }
     }
-    if (ask) AlertDialog(
+    if (ask) ImmersiveAlertDialog(
         onDismissRequest = { ask = false },
-        containerColor = Immersive.Raised,
         title = { Text(stringResource(R.string.settings_storage_remove_downloads_dialog_title), style = Immersive.Headline) },
         text = { Text(stringResource(R.string.playlist_entity_remove_download_dialog_description), style = Immersive.Subhead) },
         confirmButton = {

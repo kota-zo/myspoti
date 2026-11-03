@@ -1,5 +1,6 @@
 package com.music.spotui.ui.immersive.pages
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -371,9 +371,8 @@ fun ImmersiveExtensionScreen(navController: NavController, id: String) {
         }
     }
 
-    if (uninstall && e != null) AlertDialog(
+    if (uninstall && e != null) ImmersiveAlertDialog(
         onDismissRequest = { uninstall = false },
-        containerColor = Immersive.Raised,
         text = { Text(stringResource(R.string.extension_uninstall_confirm, e.name), style = Immersive.Body) },
         confirmButton = {
             TextButton(onClick = {
