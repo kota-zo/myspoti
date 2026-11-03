@@ -726,7 +726,7 @@
     <string name="settings_automix_style_cut">Corte no tempo</string>
     <string name="settings_automix_style_fade">Fade suave</string>
     <string name="settings_automix_style_detail">A mistura no ritmo acerta os andamentos quando pode; senão, corta no tempo ou faz fade. O corte no tempo troca de música num primeiro tempo. O fade suave não mexe no andamento.</string>
-    <string name="settings_automix_length_detail">Curta: 4 a 8 compassos. Equilibrada: 2 a 16, conforme a música. Longa: 12 a 32 compassos, até cerca de um minuto.</string>
+    <string name="settings_automix_length_detail">Curta: 4 a 8 compassos. Equilibrada: de preferência 8 a 16. Longa: de preferência 12 a 32, até 90 segundos. Mais curta quando a música o exige.</string>
     <string name="settings_automix_harmonic">Mistura harmónica</string>
     <string name="settings_automix_harmonic_detail">Músicas em tons que chocam têm misturas curtas; em tons compatíveis, longas. Desativada, o tom é ignorado.</string>
     <string name="settings_automix_podcasts">Misturar podcasts</string>

@@ -741,7 +741,7 @@
     <string name="settings_automix_style_cut">Cięcie na bit</string>
     <string name="settings_automix_style_fade">Płynne przenikanie</string>
     <string name="settings_automix_style_detail">Miks w rytm dopasowuje tempa, gdy może, a w przeciwnym razie tnie na bit lub przenika. Cięcie na bit zmienia utwór na raz taktu. Płynne przenikanie nie zmienia tempa.</string>
-    <string name="settings_automix_length_detail">Krótki: 4–8 taktów. Zrównoważony: 2–16, jak pozwala muzyka. Długi: 12–32 takty, do około minuty.</string>
+    <string name="settings_automix_length_detail">Krótki: 4–8 taktów. Zrównoważony: najlepiej 8–16. Długi: najlepiej 12–32, do 90 sekund. Krócej, gdy wymaga tego muzyka.</string>
     <string name="settings_automix_harmonic">Miksowanie harmoniczne</string>
     <string name="settings_automix_harmonic_detail">Utwory w kłócących się tonacjach dostają krótkie miksy, w zgodnych długie. Wyłączone: tonacje są pomijane.</string>
     <string name="settings_automix_podcasts">Miksuj podcasty</string>

@@ -166,7 +166,7 @@ class AutoMixTest {
     /** [a] with a clear [key] (the loops' own keys are too weak to count). */
     private fun withKey(a: TrackAnalysis, key: Int) = TrackAnalysis(a.duration, a.contentStart, a.contentEnd, a.loudnessDb, key, 1.0, a.bpm,
         a.steady, a.head, a.tail, a.beats, a.barStarts, a.barDb, a.barLowDb, a.barHighDb, a.barCentre, a.barNovelty, a.phraseOffset,
-        a.stereo, a.headDown, a.tailDown, a.note)
+        a.stereo, a.headDown, a.tailDown, a.note, a.barVocalRisk)
 
     @Test fun harmonicMixingShortensClashingKeys() {
         val a = withKey(Analyzer.analyze(loop(124.0, 120.0, seed = 1), null), 0)          // C major, 8B

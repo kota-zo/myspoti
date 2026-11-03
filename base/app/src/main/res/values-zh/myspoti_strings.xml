@@ -726,7 +726,7 @@
     <string name="settings_automix_style_cut">踩拍切换</string>
     <string name="settings_automix_style_fade">平滑淡入淡出</string>
     <string name="settings_automix_style_detail">节拍混音在可行时对齐速度，否则踩拍切换或淡入淡出。踩拍切换在强拍上换歌。平滑淡入淡出不改变速度。</string>
-    <string name="settings_automix_length_detail">短：4 到 8 小节。均衡：2 到 16 小节，视音乐而定。长：12 到 32 小节，最长约一分钟。</string>
+    <string name="settings_automix_length_detail">短：4 到 8 小节。均衡：优先 8 到 16 小节。长：优先 12 到 32 小节，最长 90 秒。音乐需要时会缩短。</string>
     <string name="settings_automix_harmonic">和声混音</string>
     <string name="settings_automix_harmonic_detail">调性冲突的歌曲混音较短，调性相合的较长。关闭时忽略调性。</string>
     <string name="settings_automix_podcasts">混音播客</string>

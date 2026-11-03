@@ -726,7 +726,7 @@
     <string name="settings_automix_style_cut">Corte en el tiempo</string>
     <string name="settings_automix_style_fade">Fundido suave</string>
     <string name="settings_automix_style_detail">La mezcla al ritmo iguala los tempos cuando puede; si no, corta en el tiempo o hace un fundido. El corte en el tiempo cambia de canción en un primer tiempo. El fundido suave funde sin tocar el tempo.</string>
-    <string name="settings_automix_length_detail">Corta: 4 a 8 compases. Equilibrada: 2 a 16, según la música. Larga: 12 a 32 compases, hasta un minuto aproximadamente.</string>
+    <string name="settings_automix_length_detail">Corta: 4 a 8 compases. Equilibrada: preferiblemente 8 a 16. Larga: preferiblemente 12 a 32, hasta 90 segundos. Más corta cuando la música lo necesita.</string>
     <string name="settings_automix_harmonic">Mezcla armónica</string>
     <string name="settings_automix_harmonic_detail">Las canciones en tonalidades que chocan tienen mezclas cortas; las compatibles, largas. Desactivada, se ignora la tonalidad.</string>
     <string name="settings_automix_podcasts">Mezclar pódcast</string>

@@ -464,6 +464,10 @@ private fun CrossfadePage(back: () -> Unit) {
         }
         if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_title, footerRes = R.string.settings_automix_detail) {
             row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_session), checked = automix.sessionDj,
+                    onChecked = automix::changeSessionDj, detail = stringResource(R.string.settings_automix_session_detail))
+            }
+            row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_on_next), checked = automix.mixOnNext,
                     onChecked = automix::changeMixOnNext, detail = stringResource(R.string.settings_automix_on_next_detail))
             }

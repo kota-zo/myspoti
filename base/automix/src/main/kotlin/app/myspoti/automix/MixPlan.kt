@@ -5,6 +5,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * A transition from song A (going out) to song B (coming in).
@@ -55,17 +56,24 @@ class MixPlan(
         if (x <= 0) return Levels(1.0, 0.0, 0.0, KILL, 0.0, 0.0)
         if (x >= 1) return Levels(0.0, matchB, KILL, 0.0, 0.0, 0.0)
         val raw = rawLevels(x)
-        if (matchA >= 0.999) return raw
         // A eased down to B's level over the first half, so the loudness holds when A leaves.
         val down = 1 - (1 - matchA) * smooth((x / 0.5).coerceIn(0.0, 1.0))
-        return Levels(raw.gainA * down, raw.gainB, raw.lowA, raw.lowB, raw.highA, raw.highB)
+        val a = raw.gainA * down
+        val b = raw.gainB
+        // Keep the energy envelope bounded even when the phone cannot attach the DJ EQ.
+        // This preserves the fader ratio and the bass hand-off without the +2 dB swell of two
+        // full-level decks. It is an equal-power bound, not a limiter for correlated sample peaks.
+        val power = a * a + b * b
+        val scale = if (power > 1.0) 1.0 / sqrt(power) else 1.0
+        if (scale == 1.0 && down == 1.0) return raw
+        return Levels(a * scale, b * scale, raw.lowA, raw.lowB, raw.highA, raw.highB)
     }
 
     private fun rawLevels(x: Double): Levels {
         return when (style) {
             Style.BLEND -> {
                 val s = swapAt
-                val ramp = beatShare.coerceAtLeast(0.01)
+                val ramp = beatShare.coerceAtLeast(0.0001)
                 // B's fader rises over the first half with its bass cut, sitting under A.
                 val gB = if (x < s) 0.8 * sin(PI / 2 * (x / s)).pow(0.8) else 0.8 + 0.2 * ((x - s) / (1 - s)).coerceIn(0.0, 1.0)
                 // A stays up until the swap, then fades out (equal power) over the second half.

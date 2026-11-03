@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_automix_session">Session DJ</string>
+    <string name="settings_automix_session_detail">Autoriser les transitions sur un changement de section avant la fin. Désactivez pour garder davantage de chaque morceau.</string>
+</resources>

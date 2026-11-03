@@ -726,7 +726,7 @@
     <string name="settings_automix_style_cut">Taglio sul battere</string>
     <string name="settings_automix_style_fade">Dissolvenza morbida</string>
     <string name="settings_automix_style_detail">Il mix a tempo allinea i tempi quando può, altrimenti taglia sul battere o sfuma. Il taglio sul battere cambia brano su un primo tempo. La dissolvenza morbida sfuma senza toccare il tempo.</string>
-    <string name="settings_automix_length_detail">Breve: da 4 a 8 battute. Bilanciato: da 2 a 16, come la musica permette. Lungo: da 12 a 32 battute, fino a circa un minuto.</string>
+    <string name="settings_automix_length_detail">Breve: da 4 a 8 battute. Bilanciato: preferibilmente da 8 a 16. Lungo: preferibilmente da 12 a 32, fino a 90 secondi. Più breve quando lo richiede la musica.</string>
     <string name="settings_automix_harmonic">Mix armonico</string>
     <string name="settings_automix_harmonic_detail">I brani in tonalità che stridono hanno mix brevi, quelli in tonalità compatibili mix lunghi. Disattivato, la tonalità è ignorata.</string>
     <string name="settings_automix_podcasts">Mixa i podcast</string>

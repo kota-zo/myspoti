@@ -15,7 +15,16 @@ Then, from `base/`:
 ./gradlew :automix:bench -Pargs="analyze <work folder>"                # tempo, grids, downbeats; agreement with the references
 ./gradlew :automix:bench -Pargs="plan <work folder> s01,s02 s03,s06"   # plans; beat alignment on the references
 ./gradlew :automix:bench -Pargs="plan <work folder> s01,s02 render"    # also mix-s01-s02.wav (12 s before, 15 s after)
+./gradlew :automix:bench -Pargs="matrix <work folder> long"           # every ordered pair, current app's Long/Session DJ settings
+./gradlew :automix:bench -Pargs="matrix <work folder> long whole"     # same, preserving the whole-song exit policy
 ```
+
+`plan` and `matrix` keep analyses in `<work folder>/.automix-bench`. The cache is invalidated by
+analysis version, source size/modification time and model size/modification time. A warm matrix
+does not decode or run ONNX again. Add `fresh` to `matrix` to force a fresh analysis. Each track's
+cache/read/analysis time and each pair's planning time are printed separately, followed by counts
+of BLEND/CUT/FADE and blends of at least 12 bars. These are plans, not transitions heard on a phone.
+The matrix does not render audio; `plan … render` remains explicit.
 
 The bench reads the app's Beat This model (`app/src/main/assets/automix/`) through the JVM build of
 ONNX Runtime. References: `pip install beat_this` (PyTorch), then `beat_this <work folder>/*.wav`.

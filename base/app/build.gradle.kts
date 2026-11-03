@@ -13,6 +13,9 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+// -PautomixLab: a test app with its own data, installed alongside every regular/dev build.
+val automixLab = findProperty("automixLab") != null
+
 
 android {
     namespace = "app.myspoti.engine"
@@ -26,8 +29,8 @@ android {
     // "-beta" as in UpdateChecker.isBeta, one predicate for the app id, the label and the log stripping.
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     defaultConfig {
-        applicationId = if (beta) "app.myspoti" else "app.myspoti.stable"
-        manifestPlaceholders["appLabel"] = if (beta) "Myspoti Beta" else "Myspoti"
+        applicationId = if (automixLab) "app.myspoti.automixlab" else if (beta) "app.myspoti" else "app.myspoti.stable"
+        manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else if (beta) "Myspoti Beta" else "Myspoti"
         // The adb command line (com.music.spotui.cli): betas and debug builds only.
         manifestPlaceholders["cliEnabled"] = beta.toString()
         minSdk = 29
@@ -78,8 +81,8 @@ android {
     buildTypes {
         debug {
             // Installs next to the release apps (own data, own sign-in).
-            applicationIdSuffix = ".dev"
-            manifestPlaceholders["appLabel"] = "Myspoti dev"
+            if (!automixLab) applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else "Myspoti dev"
             manifestPlaceholders["cliEnabled"] = "true"
         }
         release {
@@ -88,7 +91,7 @@ android {
             signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
             // -PoverDev: the optimised build under the dev app's id, to measure the speed of a
             // beta on the test phone without replacing the signed beta installed there.
-            if (findProperty("overDev") != null) {
+            if (findProperty("overDev") != null && !automixLab) {
                 applicationIdSuffix = ".dev"
                 manifestPlaceholders["appLabel"] = "Myspoti dev"
             }

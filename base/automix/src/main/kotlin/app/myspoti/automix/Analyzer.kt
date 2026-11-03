@@ -18,13 +18,9 @@ object Analyzer {
     const val HEAD_SEC = 75.0
     const val TAIL_SEC = 90.0
 
-    /** Seconds of the start and of the end that Beat This reads. */
-    const val MODEL_HEAD_SEC = 30.0
-    const val MODEL_TAIL_SEC = 40.0
-
     /**
-     * [mid] and [side] (or null) at [Features.RATE] Hz. With [model], Beat This reads the song's first
-     * and last seconds for the metrical level and the downbeats; without it (or when it finds no
+     * [mid] and [side] (or null) at [Features.RATE] Hz. With [model], Beat This reads the whole song
+     * for the metrical level and the downbeats; without it (or when it finds no
      * beats) the onsets alone decide.
      */
     fun analyze(mid: FloatArray, side: FloatArray?, model: BeatThis? = null, cancelled: () -> Boolean = { false }, threads: Int = 1): TrackAnalysis {
@@ -32,11 +28,13 @@ object Analyzer {
         // outside the audible part are dropped below).
         var feats: Features? = null
         var act: BeatThis.Activations? = null
-        val split = max(1, threads / 2)
-        parallel(if (model != null) 2 else 1, 2) { task ->
-            if (task == 0) feats = Features.of(mid, side, cancelled, if (model != null) split else threads)
-            else act = model!!.run(mid, 0, mid.size, cancelled, max(1, threads - split))
+        val budget = max(1, threads)
+        val split = max(1, budget / 2)
+        parallel(if (model != null) 2 else 1, if (model != null && budget > 1) 2 else 1) { task ->
+            if (task == 0) feats = Features.of(mid, side, cancelled, if (model != null) split else budget)
+            else act = model!!.run(mid, 0, mid.size, cancelled, max(1, budget - split))
         }
+        if (cancelled()) throw InterruptedException("analysis cancelled")
         val f = feats!!
         val n = f.frames
         val env = BeatTracker.envelope(f)
@@ -120,7 +118,7 @@ object Analyzer {
         val barStarts = starts.toDoubleArray()
         val bars = barStarts.size
         val barDb = FloatArray(bars); val barLow = FloatArray(bars); val barHigh = FloatArray(bars); val barMid = FloatArray(bars)
-        val barOnset = FloatArray(bars); val barCentre = FloatArray(bars)
+        val barOnset = FloatArray(bars); val barCentre = FloatArray(bars); val absoluteCentre = FloatArray(bars)
         val barChroma = Array(bars) { FloatArray(12) }
         val centreMedian = if (f.stereo) percentile(f.centre, 0.5) else 0f
         for (i in 0 until bars) {
@@ -135,7 +133,8 @@ object Analyzer {
             var c = 0.0
             for (j in ca until cb) { for (p in 0 until 12) barChroma[i][p] += f.chroma[j][p]; c += f.centre[j] }
             for (p in 0 until 12) barChroma[i][p] /= (cb - ca)
-            barCentre[i] = if (f.stereo) (c / (cb - ca)).toFloat() - centreMedian else 0f
+            absoluteCentre[i] = if (f.stereo) (c / (cb - ca)).toFloat() else 0f
+            barCentre[i] = if (f.stereo) absoluteCentre[i] - centreMedian else 0f
         }
         // A downbeat on the head and on the tail grids: the model's downbeats voted on grid beats, else
         // the bar start nearest to the grid.
@@ -152,11 +151,12 @@ object Analyzer {
         }
         val headDown = downOn(head, headSpan); val tailDown = downOn(tail, tailSpan)
         val novelty = novelty(arrayOf(barDb, barLow, barMid, barHigh, barOnset), barChroma)
-        val phraseOffset = phraseOffset(novelty, barDb)
+        val phraseOffset = phraseOffset(novelty)
+        val vocalRisk = VocalRisk.estimate(barDb, barMid, absoluteCentre, barCentre, f.stereo)
         val (key, keyStrength) = key(f, level, gate)
         val loud = loudness(f.rmsDb, peak - 20f)
         return TrackAnalysis(f.durationSec, contentStart, contentEnd, loud, key, keyStrength, bpm, steady, head, tail,
-            beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'))
+            beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'), vocalRisk)
     }
 
     /**
@@ -322,7 +322,7 @@ object Analyzer {
     }
 
     /** The bar offset of 8-bar phrases: where the novelty peaks recur every 8 bars. */
-    private fun phraseOffset(novelty: FloatArray, barDb: FloatArray): Int {
+    private fun phraseOffset(novelty: FloatArray): Int {
         if (novelty.size < 16) return 0
         val per8 = DoubleArray(8)
         for (i in novelty.indices) per8[i % 8] += novelty[i].toDouble()

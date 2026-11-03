@@ -731,7 +731,7 @@
     <string name="settings_automix_style_cut">Coupe sur le temps</string>
     <string name="settings_automix_style_fade">Fondu doux</string>
     <string name="settings_automix_style_detail">Le mix sur le temps cale les tempos quand il le peut, sinon il coupe sur le temps ou fait un fondu. La coupe sur le temps change de morceau sur un premier temps. Le fondu doux fond sans toucher au tempo.</string>
-    <string name="settings_automix_length_detail">Court : 4 à 8 mesures. Équilibré : 2 à 16, selon la musique. Long : 12 à 32 mesures, jusqu\'à une minute environ.</string>
+    <string name="settings_automix_length_detail">Court : 4 à 8 mesures. Équilibré : de préférence 8 à 16. Long : de préférence 12 à 32, jusqu\'à 90 secondes. Plus court lorsque la musique le demande.</string>
     <string name="settings_automix_harmonic">Mix harmonique</string>
     <string name="settings_automix_harmonic_detail">Les morceaux de tonalités qui se heurtent ont des mix courts, les tonalités proches des mix longs. Désactivé, la tonalité est ignorée.</string>
     <string name="settings_automix_podcasts">Mixer les podcasts</string>

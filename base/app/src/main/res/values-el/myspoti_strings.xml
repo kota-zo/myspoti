@@ -726,7 +726,7 @@
     <string name="settings_automix_style_cut">Κοπή στον χρόνο</string>
     <string name="settings_automix_style_fade">Ομαλό σβήσιμο</string>
     <string name="settings_automix_style_detail">Η μίξη στον ρυθμό ταιριάζει τα τέμπο όταν μπορεί, αλλιώς κόβει στον χρόνο ή σβήνει. Η κοπή στον χρόνο αλλάζει τραγούδι σε ισχυρό χρόνο. Το ομαλό σβήσιμο δεν αλλάζει το τέμπο.</string>
-    <string name="settings_automix_length_detail">Σύντομη: 4 έως 8 μέτρα. Ισορροπημένη: 2 έως 16, όπως επιτρέπει η μουσική. Μεγάλη: 12 έως 32 μέτρα, έως περίπου ένα λεπτό.</string>
+    <string name="settings_automix_length_detail">Σύντομη: 4 έως 8 μέτρα. Ισορροπημένη: κατά προτίμηση 8 έως 16. Μεγάλη: κατά προτίμηση 12 έως 32, έως 90 δευτερόλεπτα. Συντομότερη όταν το απαιτεί η μουσική.</string>
     <string name="settings_automix_harmonic">Αρμονική μίξη</string>
     <string name="settings_automix_harmonic_detail">Τραγούδια σε τονικότητες που συγκρούονται παίρνουν σύντομες μίξεις, σε συμβατές μεγάλες. Ανενεργό: η τονικότητα αγνοείται.</string>
     <string name="settings_automix_podcasts">Μίξη podcast</string>

@@ -167,7 +167,7 @@ object TrackDecoder {
         private var sizeKnown = false
 
         @Synchronized override fun readAt(position: Long, buffer: ByteArray, offset: Int, length: Int): Int {
-            if (cancelled()) throw IOException("cancelled")
+            if (cancelled()) throw InterruptedException("cancelled")
             if (length == 0) return 0
             if (position < 0) return -1
             if (!open || cursor != position) {
