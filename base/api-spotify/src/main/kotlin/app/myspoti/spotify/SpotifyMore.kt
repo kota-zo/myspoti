@@ -46,6 +46,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import java.net.URLEncoder
@@ -481,7 +484,8 @@ class SpotifyDevices(private val bridge: Bridge) : Devices {
 }
 
 /** Jam goes through the page's SocialConnectAPI. Free accounts get RESTRICTED from Spotify. */
-class SpotifyJam(private val bridge: Bridge) : Jam {
+class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Jam {
+    private companion object { const val SOCIAL = "https://spclient.wg.spotify.com/social-connect" }
     private val _session = MutableStateFlow<JamSession?>(null)
     override val session: StateFlow<JamSession?> = _session
 
@@ -499,7 +503,9 @@ class SpotifyJam(private val bridge: Bridge) : Jam {
                 userUri = "spotify:user:" + (m.str("username") ?: m.str("id") ?: ""),
                 name = m.str("display_name") ?: m.str("displayName") ?: m.str("username") ?: "",
                 imageUrl = m.str("image_url") ?: m.str("imageUrl") ?: m.str("large_image_url"),
-                host = m.bool("is_host") ?: m.bool("isHost") ?: (m.str("username") == s.str("session_owner_id")),
+                // session_owner_id is the member's id (hex), not its username.
+                host = m.bool("is_host") ?: m.bool("isHost")
+                    ?: ((s.str("session_owner_id") ?: s.str("sessionOwnerId")).let { o -> o != null && (m.str("id") == o || m.str("username") == o) }),
             )
         }
         return JamSession(
@@ -512,7 +518,12 @@ class SpotifyJam(private val bridge: Bridge) : Jam {
         )
     }
 
-    override suspend fun refresh() { _session.value = parse(bridge.service("SocialConnectAPI", "fetchCurrentSession")) }
+    /** The session this account is in, read from Spotify (404: none): also a Jam joined in the room, which the page does not know. */
+    override suspend fun refresh() {
+        val (code, body) = http.send("GET", "$SOCIAL/v2/sessions/current")
+        _session.value = if (code in 200..299) parse(runCatching { Json.parseToJsonElement(body) }.getOrNull()) else if (code == 404) null
+            else parse(bridge.service("SocialConnectAPI", "fetchCurrentSession"))
+    }
 
     override suspend fun start(): JamSession {
         if (availability() == JamAvailability.RESTRICTED) throw UnsupportedOperationException("Jam is restricted on this account")
@@ -524,26 +535,31 @@ class SpotifyJam(private val bridge: Bridge) : Jam {
     }
 
     override suspend fun join(joinToken: String): JamSession {
-        // As the page's own join dialog does (the token alone sent an incomplete join that did nothing):
-        // a link join ("deeplinking") listening here (REMOTE: listen and control); an account that may
-        // not (Spotify keeps that for Premium) joins as in the room (IN_PERSON: it controls the host's
-        // playback). POST social-connect/v3/sessions/join, each try with its own attempt id.
-        var failure: Throwable? = null
-        for (mode in listOf("REMOTE", "IN_PERSON")) {
-            val r = runCatching {
-                bridge.service("SocialConnectAPI", "joinSession", JsonPrimitive(joinToken), JsonPrimitive("deeplinking"),
-                    JsonPrimitive(mode), JsonPrimitive(java.util.UUID.randomUUID().toString()))
+        // Sent to Spotify directly, as the page's own join dialog sends it (docs/api/JAM.md): the page's
+        // service gives up at once on an account it marks RESTRICTED, while Spotify lets a free account
+        // join as in the room. Listening here first (LISTEN_AND_CONTROL, Premium), else in the room
+        // (CONTROL: this phone controls the host's playback), each try with its own attempt id.
+        var last = 0 to ""
+        for (control in listOf("LISTEN_AND_CONTROL", "CONTROL")) {
+            val body = buildJsonObject {
+                put("join_token", joinToken); put("join_type", "deeplinking"); put("playback_control", control)
+                put("join_attempt_id", java.util.UUID.randomUUID().toString()); put("permission_mode", "FULL")
             }
-            failure = r.exceptionOrNull() ?: failure
-            if (r.getOrNull().let { it != null && it !is kotlinx.serialization.json.JsonNull }) { failure = null; break }
+            last = http.send("POST", "$SOCIAL/v3/sessions/join", body.toString())
+            if (last.first in 200..299) parse(runCatching { Json.parseToJsonElement(last.second) }.getOrNull())?.let { _session.value = it; return it }
         }
-        refresh()
-        failure?.takeIf { _session.value == null }?.let { throw it }
-        return _session.value ?: throw GqlException("jam", "join failed")
+        throw GqlException("jam", "join failed: HTTP ${last.first} ${last.second.take(200)}")
     }
 
-    override suspend fun leave() { bridge.service("SocialConnectAPI", "leaveSession"); _session.value = null }
-    override suspend fun end() { bridge.service("SocialConnectAPI", "deleteSession"); _session.value = null }
+    override suspend fun leave() {
+        _session.value?.let { http.send("POST", "$SOCIAL/v3/sessions/${it.id}/leave") }
+        _session.value = null
+    }
+
+    override suspend fun end() {
+        _session.value?.let { http.send("DELETE", "$SOCIAL/v3/sessions/${it.id}") }
+        _session.value = null
+    }
 
     override suspend fun inviteLink(): String? {
         // The page shortens a link from the join token and the session's URI (not its id: that gave nothing).

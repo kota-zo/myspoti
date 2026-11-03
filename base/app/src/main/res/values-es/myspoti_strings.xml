@@ -707,4 +707,5 @@
     <string name="settings_automix_pulse_subtle">Suave</string>
     <string name="settings_automix_pulse_strong">Fuerte</string>
     <string name="playback_speed_note">Velocidad %1$s× · toca para 1×</string>
+    <string name="jam_start_premium">Iniciar una Jam requiere Spotify Premium. Puedes unirte a una con su enlace o código QR.</string>
 </resources>

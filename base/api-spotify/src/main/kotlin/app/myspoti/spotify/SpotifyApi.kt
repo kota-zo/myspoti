@@ -61,7 +61,7 @@ class SpotifyApi(
     override val users = SpotifyUsers(gql, bridge, this.http)
     override val extras = SpotifyTrackExtras(gql, bridge, this.http)
     override val devices = SpotifyDevices(bridge)
-    override val jam = SpotifyJam(bridge)
+    override val jam = SpotifyJam(bridge, this.http)
     override val blends = SpotifyBlends(this.http)
     override val recents = SpotifyRecents(gql)
 

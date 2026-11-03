@@ -707,4 +707,5 @@
     <string name="settings_automix_pulse_subtle">Διακριτική</string>
     <string name="settings_automix_pulse_strong">Έντονη</string>
     <string name="playback_speed_note">Ταχύτητα %1$s× · πάτησε για 1×</string>
+    <string name="jam_start_premium">Η έναρξη Jam απαιτεί Spotify Premium. Μπορείς να μπεις σε ένα με τον σύνδεσμο ή τον κωδικό QR.</string>
 </resources>

@@ -707,4 +707,5 @@
     <string name="settings_automix_pulse_subtle">轻微</string>
     <string name="settings_automix_pulse_strong">强烈</string>
     <string name="playback_speed_note">速度 %1$s× · 点按恢复 1×</string>
+    <string name="jam_start_premium">发起 Jam 需要 Spotify Premium。你可以通过链接或二维码加入。</string>
 </resources>

@@ -712,4 +712,5 @@
     <string name="settings_automix_pulse_subtle">Légère</string>
     <string name="settings_automix_pulse_strong">Forte</string>
     <string name="playback_speed_note">Vitesse %1$s× · toucher pour 1×</string>
+    <string name="jam_start_premium">Lancer un Jam demande Spotify Premium. Tu peux en rejoindre un avec son lien ou son QR code.</string>
 </resources>

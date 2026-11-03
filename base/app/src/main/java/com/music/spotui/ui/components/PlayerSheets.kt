@@ -412,6 +412,9 @@ private fun JamSection(onDismiss: () -> Unit) {
             modifier = Modifier.fillMaxWidth().clickable {
                 scope.launch { if (runCatching { jam.start() }.isFailure) failed() }
             }.padding(vertical = 10.dp))
+        // Spotify refuses to start a Jam on a free account (FREE_USER_NOT_ALLOWED); joining one works.
+        if (availability == app.myspoti.api.JamAvailability.RESTRICTED && session == null) Text(stringResource(R.string.jam_start_premium),
+            color = AppMuted, fontSize = 13.sp, modifier = Modifier.padding(vertical = 6.dp))
         // Join: scan the QR code another phone shows in its Jam.
         Text(stringResource(R.string.jam_scan), color = Green, fontSize = 15.sp,
             modifier = Modifier.fillMaxWidth().clickable {

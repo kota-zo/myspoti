@@ -713,4 +713,5 @@
     <string name="settings_automix_pulse_subtle">Subtle</string>
     <string name="settings_automix_pulse_strong">Strong</string>
     <string name="playback_speed_note">Speed %1$s× · tap for 1×</string>
+    <string name="jam_start_premium">Starting a Jam needs Spotify Premium. You can join one with its link or QR code.</string>
 </resources>

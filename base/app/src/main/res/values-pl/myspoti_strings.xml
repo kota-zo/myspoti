@@ -722,4 +722,5 @@
     <string name="settings_automix_pulse_subtle">Delikatna</string>
     <string name="settings_automix_pulse_strong">Mocna</string>
     <string name="playback_speed_note">Prędkość %1$s× · dotknij, aby 1×</string>
+    <string name="jam_start_premium">Rozpoczęcie Jamu wymaga Spotify Premium. Możesz dołączyć do jednego przez link lub kod QR.</string>
 </resources>

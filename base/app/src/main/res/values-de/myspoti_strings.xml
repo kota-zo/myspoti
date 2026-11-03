@@ -707,4 +707,5 @@
     <string name="settings_automix_pulse_subtle">Dezent</string>
     <string name="settings_automix_pulse_strong">Stark</string>
     <string name="playback_speed_note">Tempo %1$s× · tippen für 1×</string>
+    <string name="jam_start_premium">Einen Jam starten braucht Spotify Premium. Beitreten geht mit dem Link oder QR-Code.</string>
 </resources>
