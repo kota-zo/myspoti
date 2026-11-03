@@ -229,6 +229,17 @@
   // Not heard, yet not "muted audio" to Chromium (see 'media.mute').
   const SILENT = 0.001;
 
+  // Holds an element unheard while an ad is muted or the page hushed: the page sets its own volume
+  // again after a mute (a new song, its fade-in, a Spotify Connect volume), and a one-off set left
+  // the ad heard until the next mute two seconds later. The host's document-start hook puts the
+  // same guard on every element from its first play (window.__mspSilence); this one is the fallback.
+  const silence = window.__mspSilence || (el => {
+    if (el.__mspGuard) return;
+    el.__mspGuard = () => { if ((window.__mspMuted || window.__mspHushed) && !el.muted && el.volume > SILENT) el.volume = SILENT; };
+    el.addEventListener('volumechange', el.__mspGuard);
+    el.addEventListener('playing', el.__mspGuard);
+  });
+
   // A fade is a list of setTimeout steps: a second fade, a plain volume set or a mute must
   // cancel the pending ones, or they would override it seconds later (the up-ramp of a
   // crossfade undone by the tail of its own down-ramp, a restored volume pulled down again).
@@ -463,6 +474,7 @@
       // The end of an ad's mute leaves a hushed page unheard ('media.hush'): seen, the page heard
       // over the local player it mirrors after an ad, on an element the hush had not reached yet.
       for (const el of els) {
+        silence(el);
         el.muted = false;
         el.volume = a.on || window.__mspHushed ? SILENT : (player && el === player._player ? ownLevel(player) : 1);
       }
@@ -478,11 +490,7 @@
       const player = await localPlayer().catch(() => null);
       const els = new Set([...(window.__mspMedia || []), ...document.querySelectorAll('audio, video'), ...await playerMedia()]);
       for (const el of els) {
-        if (!el.__mspHush) {
-          el.__mspHush = () => { if (window.__mspHushed && !window.__mspMuted && el.volume > SILENT) el.volume = SILENT; };
-          el.addEventListener('volumechange', el.__mspHush);
-          el.addEventListener('playing', el.__mspHush);
-        }
+        silence(el);
         if (a.on) { cancelFade(); el.muted = false; el.volume = SILENT; }
         else if (!window.__mspMuted) el.volume = player && el === player._player ? ownLevel(player) : 1;
       }
