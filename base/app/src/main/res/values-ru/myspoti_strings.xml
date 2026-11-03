@@ -540,7 +540,7 @@
     <string name="song_unavailable_skipped">Трек «%1$s» недоступен и был пропущен.</string>
     <string name="song_unavailable">Трек «%1$s» недоступен.</string>
     <string name="songs_skipped_by_spotify">Spotify продолжал пропускать треки, которые не смог воспроизвести, поэтому воспроизведение приостановлено. Нажмите «Воспроизвести», чтобы повторить, или проверьте аккаунт и подключение.</string>
-    <string name="licences_refused_by_spotify">Spotify пока отказывается воспроизводить треки на этом аккаунте (лицензия отклонена), поэтому воспроизведение приостановлено. Нажмите «Воспроизвести», чтобы повторить позже.</string>
+    <string name="licences_refused_by_spotify">Spotify пока отказывается воспроизводить треки на этом аккаунте (аудиолицензия отклонена), поэтому воспроизведение приостановлено. Немного подождите и нажмите «Воспроизвести», чтобы повторить, и проверьте, работает ли аккаунт в официальном приложении Spotify.</string>
     <string name="playlist_member_listener">Слушатель</string>
     <string name="playlist_member_remove_collab">Убрать из соавторов</string>
     <string name="playlist_member_make_collab">Сделать соавтором</string>

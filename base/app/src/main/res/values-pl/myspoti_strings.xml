@@ -540,7 +540,7 @@
     <string name="song_unavailable_skipped">Utwór %1$s jest niedostępny i został pominięty.</string>
     <string name="song_unavailable">Utwór %1$s jest niedostępny.</string>
     <string name="songs_skipped_by_spotify">Spotify wciąż pomijał utwory, których nie mógł odtworzyć, więc odtwarzanie wstrzymano. Dotknij odtwarzania, aby spróbować ponownie, lub sprawdź konto i połączenie.</string>
-    <string name="licences_refused_by_spotify">Spotify na razie odmawia odtwarzania utworów na tym koncie (licencja odrzucona), więc odtwarzanie wstrzymano. Dotknij odtwarzania, aby spróbować ponownie później.</string>
+    <string name="licences_refused_by_spotify">Spotify na razie odmawia odtwarzania utworów na tym koncie (licencja audio odrzucona), więc odtwarzanie wstrzymano. Poczekaj chwilę i dotknij odtwarzania, aby spróbować ponownie, oraz sprawdź, czy konto działa w oficjalnej aplikacji Spotify.</string>
     <string name="playlist_member_listener">Słuchacz</string>
     <string name="playlist_member_remove_collab">Usuń z grona współtwórców</string>
     <string name="playlist_member_make_collab">Zrób współtwórcą</string>

@@ -515,7 +515,7 @@
     <string name="song_unavailable_skipped">%1$s non è disponibile ed è stato saltato.</string>
     <string name="song_unavailable">%1$s non è disponibile.</string>
     <string name="songs_skipped_by_spotify">Spotify continuava a saltare brani che non riusciva a riprodurre, quindi la riproduzione è stata messa in pausa. Tocca riproduci per riprovare oppure controlla il tuo account e la connessione.</string>
-    <string name="licences_refused_by_spotify">Spotify per ora rifiuta di riprodurre brani su questo account (licenza rifiutata), quindi la riproduzione è stata messa in pausa. Tocca riproduci per riprovare più tardi.</string>
+    <string name="licences_refused_by_spotify">Spotify per ora rifiuta di riprodurre brani su questo account (licenza audio rifiutata), quindi la riproduzione è stata messa in pausa. Aspetta un po’ e tocca riproduci per riprovare, e controlla che l’account funzioni nell’app ufficiale di Spotify.</string>
     <string name="playlist_leave">Esci dalla playlist</string>
     <string name="playlist_leave_confirm">Uscire da %1$s? Non sarai più un collaboratore e non potrai aggiungere o rimuovere brani. Per rientrare ti servirà un nuovo link di invito.</string>
     <string name="playlist_leave_button">Esci</string>

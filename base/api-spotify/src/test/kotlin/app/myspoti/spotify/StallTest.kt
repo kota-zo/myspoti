@@ -35,6 +35,11 @@ class StallTest {
         assertEquals(nextEpisode.uri, SpotifyPlayer.onwardTarget(state(199_500, 0, next = nextEpisode).copy(item = episode), emptyList()))
     @Test fun `the queue is read when the state names no next item`() =
         assertEquals(nextEpisode.uri, SpotifyPlayer.onwardTarget(state(199_500, 0, next = null).copy(item = episode), listOf(ad, nextEpisode)))
+    @Test fun `the song autoplay brings is told from the list's own`() {
+        val auto = after.copy(uri = "spotify:track:auto", provider = "autoplay")
+        assertEquals("autoplay", SpotifyPlayer.onwardItem(state(199_500, 0, next = auto), emptyList())?.provider)
+        assertEquals("autoplay", SpotifyPlayer.onwardItem(state(199_500, 0, next = null), listOf(auto))?.provider)
+    }
     @Test fun `an ad is never a target`() = assertNull(SpotifyPlayer.onwardTarget(state(199_500, 0, next = ad), listOf(ad)))
 
     @Test fun `a stuck ad reloads the page first, then plays on twice before reloading again`() {

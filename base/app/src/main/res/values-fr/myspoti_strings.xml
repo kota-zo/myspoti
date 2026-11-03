@@ -445,7 +445,7 @@
     <string name="song_unavailable_skipped">%1$s est indisponible et a été passé.</string>
     <string name="song_unavailable">%1$s est indisponible.</string>
     <string name="songs_skipped_by_spotify">Spotify enchaînait des morceaux qu’il ne pouvait pas lire : la lecture a été mise en pause. Appuyez sur lecture pour réessayer, ou vérifiez votre compte et votre connexion.</string>
-    <string name="licences_refused_by_spotify">Spotify refuse pour l’instant de lire des morceaux sur ce compte (licence refusée) : la lecture a été mise en pause. Appuyez sur lecture pour réessayer plus tard.</string>
+    <string name="licences_refused_by_spotify">Spotify refuse pour l’instant de lire des morceaux sur ce compte (licence audio refusée) : la lecture a été mise en pause. Patientez un moment puis appuyez sur lecture pour réessayer, et vérifiez que le compte fonctionne dans l’application Spotify officielle.</string>
     <string name="spotify_limited">Spotify limite la lecture pour le moment. Réessayez dans une minute.</string>
     <string name="library_change_undone">Spotify a refusé la modification, votre bibliothèque est revenue comme avant</string>
     <string name="blend_title">Mix à plusieurs</string>

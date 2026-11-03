@@ -316,7 +316,9 @@ object SongPlayer {
                     kotlinx.coroutines.delay(AD_SHOW_AFTER_MS)
                     // Spotify limiting playback holds every repair, the ad's too: the limit is what
                     // the user is told (its toast), not an ad for as long as it lasts (50 s seen).
-                    while (MyspotiRuntime.host.licenseLimited()) kotlinx.coroutines.delay(1_000)
+                    // The same when it refuses the account its licences (#134): the ad it is stuck on
+                    // stays out of the screens, the toast said why nothing plays.
+                    while (MyspotiRuntime.host.licenseLimited() || MyspotiRuntime.spotify.player.licencesHeld) kotlinx.coroutines.delay(1_000)
                 }
                 onAdPlaying(on)
             }

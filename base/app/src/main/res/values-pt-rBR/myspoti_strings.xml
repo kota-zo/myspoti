@@ -444,7 +444,7 @@
     <string name="song_unavailable_skipped">%1$s está indisponível e foi pulada.</string>
     <string name="song_unavailable">%1$s está indisponível.</string>
     <string name="songs_skipped_by_spotify">O Spotify continuou pulando músicas que não conseguiu tocar, então a reprodução foi pausada. Toque em reproduzir para tentar de novo, ou verifique sua conta e sua conexão.</string>
-    <string name="licences_refused_by_spotify">O Spotify está se recusando a tocar músicas nesta conta por ora (licença recusada), então a reprodução foi pausada. Toque em reproduzir para tentar de novo mais tarde.</string>
+    <string name="licences_refused_by_spotify">O Spotify está se recusando a tocar músicas nesta conta por ora (licença de áudio recusada), então a reprodução foi pausada. Aguarde um pouco e toque em reproduzir para tentar de novo, e confira se a conta funciona no app oficial do Spotify.</string>
     <string name="spotify_limited">O Spotify está limitando a reprodução por um momento. Tente novamente em um minuto.</string>
     <string name="library_change_undone">O Spotify recusou a alteração, sua biblioteca voltou ao que era</string>
     <string name="blend_title">Blend</string>
