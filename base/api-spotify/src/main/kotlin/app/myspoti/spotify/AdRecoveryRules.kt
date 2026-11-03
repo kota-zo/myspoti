@@ -43,6 +43,22 @@ object AdRecoveryRules {
      */
     fun keepsPickBeforeAd(mirrored: Boolean): Boolean = !mirrored
 
+    /** A mirror play this close to the start is the local player's new song; further in, it is a position to seek to. */
+    const val MIRROR_SKIP_MAX_MS = 1_500L
+
+    /**
+     * Whether a play the mirror sends is the step onto the song an ad is [due] before, the page
+     * being on the song that ad follows ([playing]): the local player's Next. Spotify sends a skip
+     * of that song, and a plain play of the next one, to the ad (reported, log seen: the ad stayed
+     * current with its audio refused, the page was reloaded and lost its list, #144); only a skip
+     * within the page's queue gets past it (see [SpotifyPlayer.next]).
+     */
+    fun mirrorSkipsPastAd(
+        mirrored: Boolean, due: app.myspoti.spotify.bridge.AdBlock.AdAhead?, playing: app.myspoti.api.NowPlaying?,
+        trackUri: Uri?, positionMs: Long?,
+    ): Boolean =
+        mirrored && due != null && trackUri == due.nextUri && SpotifyPlayer.adDueFor(due, playing) && (positionMs ?: 0L) <= MIRROR_SKIP_MAX_MS
+
     /** What a page that is ready again plays. */
     enum class PageBack {
         /** Nothing (our own reload says itself what plays, or nothing played). */

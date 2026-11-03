@@ -411,7 +411,13 @@ object SongPlayer {
         positionMs = p.getLong("position", 0L)
         positionAt = SystemClock.elapsedRealtime()
         playing = false
-        _nowPlaying.value = NowPlaying(uri = uri)
+        // The list it was played in, with its name and queue: a resume through the extensions plays
+        // the song in it (alone, the list was lost at every launch).
+        val contextUri = p.getString("contextUri", "").orEmpty()
+        val contextName = p.getString("contextName", "").orEmpty()
+        registerContextName(contextUri, contextName)
+        currentContextUri = contextUri
+        _nowPlaying.value = NowPlaying(uri = uri, contextUri = contextUri, contextName = contextName)
         state.updateSongState(
             coverUri = p.getString("cover", "").orEmpty(),
             title = title,
@@ -422,29 +428,32 @@ object SongPlayer {
             album = p.getString("album", "").orEmpty(),
         )
         state.likeState.value = p.getBoolean("liked", false)
-        if (restoredLocal) {
-            val rest = com.music.spotui.data.preferences.LastSession.decodeQueue(p.getString("queue", null))
-            if (rest.isNotEmpty()) {
-                _queue.value = EngineQueue(
-                    current = rest.first(),
-                    nextUp = rest.drop(1).map { QueueItem(it, SPOTIFY_TRACK_PREFIX + it.spotifyTrackId, "", "") },
-                )
-            }
+        // Spotify's own queue too: the page's replaces it once it reports.
+        val rest = com.music.spotui.data.preferences.LastSession.decodeQueue(p.getString("queue", null))
+        if (rest.isNotEmpty()) {
+            _queue.value = EngineQueue(
+                current = rest.first(),
+                nextUp = rest.drop(1).map { QueueItem(it, SPOTIFY_TRACK_PREFIX + it.spotifyTrackId, "", "") },
+            )
         }
     }
 
     /** Saved on track change and on play/pause (not on every state). */
     private fun saveLastTrack(
-        song: SongsModel, uri: String, liked: Boolean,
+        song: SongsModel, uri: String, liked: Boolean, contextUri: String, contextName: String,
         source: String = com.music.spotui.data.preferences.LastSession.SOURCE_SPOTIFY, queue: List<SongsModel>? = null,
     ) {
-        val key = "$uri|$playing|$liked|$source"
+        val key = "$uri|$playing|$liked|$source|$contextUri"
         if (uri.isBlank() || key == savedLast) return
         savedLast = key
         savedSource = source; savedAtMs = System.currentTimeMillis(); restoredLocal = false
-        lastTrackPrefs().edit()
+        val p = lastTrackPrefs()
+        // No queue known yet for this song: the one saved with it stays (a pause, a like), another song's goes.
+        val kept = if (queue.isNullOrEmpty() && p.getString("uri", "") == uri) p.getString("queue", "").orEmpty() else null
+        p.edit()
             .putString("source", source).putLong("savedAt", savedAtMs)
-            .putString("queue", queue?.let(com.music.spotui.data.preferences.LastSession::encodeQueue).orEmpty())
+            .putString("queue", kept ?: queue?.let(com.music.spotui.data.preferences.LastSession::encodeQueue).orEmpty())
+            .putString("contextUri", contextUri).putString("contextName", contextName)
             .putString("uri", uri).putString("title", song.title).putString("singer", song.singer)
             .putString("album", song.album).putString("cover", song.coverUri)
             .putLong("duration", durationMs).putLong("position", getCurrentPosition())
@@ -733,7 +742,7 @@ object SongPlayer {
             album = song.album,
         )
         pushNotification(song, liked)
-        saveLastTrack(song, uri, liked)
+        saveLastTrack(song, uri, liked, s.contextUri.orEmpty(), s.contextName.orEmpty(), queue = spotifyQueueOf(id))
         trackListen(uri, song, com.music.spotui.data.local.ListenHistory.Source.SPOTIFY, playing)
         // A song never asked about (the one restored at launch is not a change): its state is asked
         // once, not read as "not liked" until the next song. A failed ask is not repeated by every state.
@@ -850,6 +859,24 @@ object SongPlayer {
             queued = items(q.queued),
             nextUp = items(q.nextUp),
         )
+        saveSpotifyQueue()
+    }
+
+    /** The page's queue from the song [id] on, for the saved session (see [saveLastTrack]). */
+    private fun spotifyQueueOf(id: String): List<SongsModel> {
+        val q = _queue.value
+        if (LocalPlayer.active.value || id.isBlank()) return emptyList()
+        return com.music.spotui.data.preferences.LastSession.queueFor(id, listOfNotNull(q.current) + (q.queued + q.nextUp).map { it.song })
+    }
+
+    /** The queue arrives after the song's state: it is saved with the song once it is there. */
+    private fun saveSpotifyQueue() {
+        val uri = _nowPlaying.value.uri
+        val queue = spotifyQueueOf(trackIdOf(uri)).ifEmpty { return }
+        val p = lastTrackPrefs()
+        if (savedSource != com.music.spotui.data.preferences.LastSession.SOURCE_SPOTIFY || p.getString("uri", "") != uri) return
+        val encoded = com.music.spotui.data.preferences.LastSession.encodeQueue(queue)
+        if (p.getString("queue", "") != encoded) p.edit().putString("queue", encoded).apply()
     }
 
     /**
@@ -2854,7 +2881,8 @@ object SongPlayer {
             // An extension's stream or a download (it has a Spotify id): kept to come back to at launch.
             if (likeUri != null) {
                 val rest = LocalPlayer.upcoming().map { localSong(it.second) }.filter { it.spotifyTrackId.isNotBlank() }
-                saveLastTrack(song.copy(coverUri = cover), likeUri, liked, com.music.spotui.data.preferences.LastSession.SOURCE_LOCAL, listOf(song) + rest)
+                saveLastTrack(song.copy(coverUri = cover), likeUri, liked, LocalPlayer.contextUri, LocalPlayer.contextName,
+                    com.music.spotui.data.preferences.LastSession.SOURCE_LOCAL, listOf(song) + rest)
             }
         }
     }
@@ -2872,7 +2900,9 @@ object SongPlayer {
         val downloads = store.list().associateBy { it.trackId }
         if (songs.firstOrNull()?.spotifyTrackId?.let(downloads::containsKey) != true) return false
         val list = songs.mapNotNull { downloads[it.spotifyTrackId] }.map(store::toLocalTrack)
-        LocalPlayer.play(list, 0, startMs = getCurrentPosition(), context = null)
+        // In the list it was played in, as the extensions' resume does.
+        val np = _nowPlaying.value
+        LocalPlayer.play(list, 0, startMs = getCurrentPosition(), context = np.contextName.ifBlank { null }, contextUri = np.contextUri)
         return true
     }
 

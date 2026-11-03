@@ -264,7 +264,15 @@ class MirrorRulesTest {
         assertEquals(a, MirrorRules.playContext("", a, emptySet()))
     }
 
-    @Test fun `a play, a resume or a seek of the local player is a move, its clock running on is not`() {
+    @Test fun `a page back after an ad or a reload keeps the list of the local queue (#144)`() {
+        val playlist = "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
+        // The same context the start used: the song sent again is played in its list, not alone.
+        assertEquals(playlist, MirrorRules.playContext(playlist, a, emptySet()))
+        // A list that put the page on another song stays out of it, as before the reload.
+        assertEquals(a, MirrorRules.playContext(playlist, a, setOf(playlist)))
+    }
+
+    @Test fun `a play, a resume or a seek of the local player is a move,its clock running on is not`() {
         assertTrue(MirrorRules.localMoved(wasPlaying = false, playing = true, expectedMs = 30_000, positionMs = 30_000))
         assertTrue(MirrorRules.localMoved(wasPlaying = true, playing = true, expectedMs = 30_000, positionMs = 90_000))
         assertFalse(MirrorRules.localMoved(wasPlaying = true, playing = true, expectedMs = 30_000, positionMs = 30_400))

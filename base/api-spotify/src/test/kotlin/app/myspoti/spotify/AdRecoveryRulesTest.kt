@@ -1,7 +1,10 @@
 package app.myspoti.spotify
 
+import app.myspoti.api.ItemKind
+import app.myspoti.api.NowPlaying
 import app.myspoti.spotify.AdRecoveryRules.PageBack
 import app.myspoti.spotify.AdRecoveryRules.Stuck
+import app.myspoti.spotify.bridge.AdBlock
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -39,6 +42,19 @@ class AdRecoveryRulesTest {
         assertEquals(PageBack.RESUME, AdRecoveryRules.pageBack(ownReload = false, mirrored = false, pickHeld = false, lost = true, intent = true))
         assertEquals(PageBack.INTENT, AdRecoveryRules.pageBack(ownReload = false, mirrored = false, pickHeld = false, lost = false, intent = true))
         assertEquals(PageBack.NOTHING, AdRecoveryRules.pageBack(ownReload = false, mirrored = false, pickHeld = false, lost = false, intent = false))
+    }
+
+    @Test fun theMirrorsNextWithAnAdDueSkipsPastIt() {
+        val due = AdBlock.AdAhead("uid-a", "spotify:track:a", "spotify:track:b")
+        val song = NowPlaying(ItemKind.TRACK, "spotify:track:a", "uid-a", "A", emptyList(), null, null, 200_000)
+        // The local player's Next while the page is on the song the ad follows: a skip within the queue.
+        assertTrue(AdRecoveryRules.mirrorSkipsPastAd(true, due, song, "spotify:track:b", 260))
+        // Not another song, a position far in, no ad due, the page on another song, or not a mirror.
+        assertFalse(AdRecoveryRules.mirrorSkipsPastAd(true, due, song, "spotify:track:c", 0))
+        assertFalse(AdRecoveryRules.mirrorSkipsPastAd(true, due, song, "spotify:track:b", 60_000))
+        assertFalse(AdRecoveryRules.mirrorSkipsPastAd(true, null, song, "spotify:track:b", 0))
+        assertFalse(AdRecoveryRules.mirrorSkipsPastAd(true, due, song.copy(uid = "uid-x", uri = "spotify:track:x"), "spotify:track:b", 0))
+        assertFalse(AdRecoveryRules.mirrorSkipsPastAd(false, due, song, "spotify:track:b", 0))
     }
 
     @Test fun theUsersQueueIsAddedAgainAfterOurReload() {

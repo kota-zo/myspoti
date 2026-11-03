@@ -4,7 +4,7 @@ import com.music.spotui.data.entity.SongsModel
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-// The last session's queue and the rule that decides who wins at launch, kept pure so they
+// The last session's queue (and the list it was played in, kept beside it) and the rule that decides who wins at launch, kept pure so they
 // are tested without Android. The song itself lives in SongPlayer's "myspoti_last_track".
 
 object LastSession {
@@ -23,6 +23,17 @@ object LastSession {
     fun decodeQueue(raw: String?): List<SongsModel> {
         if (raw.isNullOrBlank()) return emptyList()
         return runCatching { json.decodeFromString(ListSerializer(SongsModel.serializer()), raw) }.getOrDefault(emptyList())
+    }
+
+    /**
+     * The saved queue of the song [trackId]: [songs] from that song on, once each. The page's queue
+     * can still list the song before it, and a queue read just after a skip belongs to the song
+     * left: that one holds no [trackId] and is not saved with it. Empty when it does not hold it.
+     */
+    fun queueFor(trackId: String, songs: List<SongsModel>): List<SongsModel> {
+        val at = songs.indexOfFirst { it.spotifyTrackId == trackId }
+        if (trackId.isBlank() || at < 0) return emptyList()
+        return songs.drop(at).distinctBy { it.spotifyTrackId.ifBlank { it.url } }
     }
 
     /**

@@ -358,8 +358,9 @@ object ConnectMirror {
         log("the page is back (ad over or reloaded): ${w.uri} played there again")
         landed = false; retries = 0; resends = 0; lastWeb = null; gapFrom = null
         recoverUntil = SystemClock.elapsedRealtime() + RECOVER_MS
-        // The track alone: the list the page had went with the ad's or the reload's own plays.
-        pendingContext = w.uri; newSong = false
+        // In the list the local queue came from, as at the start: the track alone would replace the
+        // list on Spotify for every other device (#144).
+        pendingContext = MirrorRules.playContext(LocalPlayer.contextUri, w.uri, missedContexts); newSong = false
         echo.sent(PLAY_ECHO_MS)
         main.removeCallbacks(sendPlay); main.postDelayed(sendPlay, START_COALESCE_MS)
     }

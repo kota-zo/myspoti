@@ -1749,7 +1749,18 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // The ad due after the song that played before: a new play brings its own queue, and the
         // put-back of an earlier ad skip would queue that old song after the pick.
         adRestore?.cancel()
-        app.myspoti.spotify.bridge.AdBlock.ahead.value = null
+        // The mirror's play keeps it: it sends the same song again (a resend, the page back), after
+        // which that ad is still due; its Next is the step onto the song after the ad (below).
+        val due = app.myspoti.spotify.bridge.AdBlock.ahead.value
+        if (origin != "mirror") app.myspoti.spotify.bridge.AdBlock.ahead.value = null
+        // The mirror's Next with an ad due: a plain play of the next song makes Spotify play the ad,
+        // which the host refuses and only a reload leaves (the list is lost with it, #144).
+        if (due != null && !_adPlaying.value && _state.value?.contextUri == contextUri &&
+            AdRecoveryRules.mirrorSkipsPastAd(origin == "mirror", due, _state.value?.item, trackUri, positionMs)) {
+            app.myspoti.spotify.bridge.AdBlock.ahead.compareAndSet(due, null)
+            bridge.logger?.invoke("mirror: ${due.nextUri} skipped to, an ad due after ${_state.value?.item?.name}")
+            if (skipPastAd(due)) return
+        }
         // Held whether or not the song comes with its place in the list (SongPlayer.rowIndex).
         if (_adPlaying.value) {
             if (trackUri == null || trackUri != liveIntent()?.item?.uri) intent = null
