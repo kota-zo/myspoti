@@ -538,6 +538,16 @@ object ConnectMirror {
     /** Another device of the account took playback while mirrored: the local player stops, as it would have. */
     private fun wentAway() {
         if (!running || want?.paused != false) return
+        // The page just (re)loaded: Spotify still lists this phone's previous page device as the one
+        // playing until it is taken off (a second or two after a relaunch). That is not another device:
+        // seen as one, the extension's song was stopped right after a relaunch (reported). Checked
+        // again once the page has settled.
+        val left = recoverUntil - SystemClock.elapsedRealtime()
+        if (left > 0) {
+            log("another device seems to play while the page settles: checked again in ${left / 1000} s")
+            main.postDelayed({ if (page.playsElsewhere.value) wentAway() }, left + 500)
+            return
+        }
         log("another device took playback: the local player stops")
         handedAway = true
         // Ends the mirror too (SongPlayer.unmuteMirror); nothing to pause here, the page stands still.

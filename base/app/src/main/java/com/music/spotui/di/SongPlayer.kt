@@ -482,6 +482,24 @@ object SongPlayer {
             .apply()
     }
 
+    /**
+     * The saved session's position kept current while a song plays (every [POSITION_SAVE_MS]): saved on
+     * track changes and play/pause only, an app closed mid-song resumed it from its start (reported
+     * with an extension's song after a relaunch).
+     */
+    private val savePosition = object : Runnable {
+        override fun run() {
+            main.postDelayed(this, POSITION_SAVE_MS)
+            if (!(playing || LocalPlayer.isPlaying())) return
+            val p = lastTrackPrefs()
+            val uri = p.getString("uri", "").orEmpty()
+            val now = if (LocalPlayer.active.value) localSpotifyUri(LocalPlayer.current()) else _nowPlaying.value.uri
+            if (uri.isBlank() || uri != now) return
+            p.edit().putLong("position", getCurrentPosition()).apply()
+        }
+    }
+    init { main.postDelayed(savePosition, POSITION_SAVE_MS) }
+
     private fun acceptsSessionUpdates() = Graph.app.getSharedPreferences("myspoti_prefs", Context.MODE_PRIVATE)
         .getBoolean("LoggedIn", false)
 
@@ -1449,6 +1467,8 @@ object SongPlayer {
         playSong(buildSpotifyPlayQuery(trackId, t.title, t.artist), contextUri = SPOTIFY_TRACK_PREFIX + trackId,
             positionMs = end.takeIf { it > 0 }, askExtensions = false)
     }
+
+    private const val POSITION_SAVE_MS = 10_000L
 
     /** How long a song sent to Spotify for want of the extensions may take to start there. */
     private const val FALLBACK_START_MS = 10_000L
