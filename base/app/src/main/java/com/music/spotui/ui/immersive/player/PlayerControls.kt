@@ -141,7 +141,6 @@ internal fun PlayerScrubber(
             // AutoMix: the mix's stretch in the accent from the moment it is planned, beating while it plays.
             mixZone = { state.mixCue?.zoneOn(state.durationMs, incomingShown = state.blend?.outgoingWords == false) },
             mixColor = com.music.spotui.ui.immersive.Immersive.Accent,
-            mixPulse = { state.mixPulse?.level() ?: 0f },
         )
         ScrubTimes(frame, scrub, state)
         com.music.spotui.ui.components.PlaybackSpeedNote(LocalPlayerTint.current.copy(alpha = 0.8f), com.music.spotui.ui.immersive.Immersive.Accent,

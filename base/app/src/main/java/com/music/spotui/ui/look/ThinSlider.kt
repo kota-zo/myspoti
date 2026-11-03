@@ -108,7 +108,6 @@ fun ThinSlider(
     mixZone: () -> ClosedFloatingPointRange<Float>? = { null },
     mixColor: Color = Color.White,
     /** The mix's beat, 0..1, read in the draw: the stretch thickens and glows with it. */
-    mixPulse: () -> Float = { 0f },
 ) {
     var dragging by remember { mutableStateOf(false) }
     val height by animateDpAsState(
@@ -201,7 +200,7 @@ fun ThinSlider(
                 )
             }
             mixZone()?.let { z ->
-                drawMixZone(z, value().coerceIn(0f, 1f) * fillFactor, size.height / 2f, size.height, mixColor, mixPulse())
+                drawMixZone(z, value().coerceIn(0f, 1f) * fillFactor, size.height / 2f, size.height, mixColor)
             }
         }
         // Composed only while loading. The infinite animation therefore costs no
