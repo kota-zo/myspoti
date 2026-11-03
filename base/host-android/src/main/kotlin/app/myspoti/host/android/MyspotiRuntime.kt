@@ -17,6 +17,7 @@ import java.util.Locale
  */
 object MyspotiRuntime {
     lateinit var host: WebPlayerHost
+    private var appContext: Context? = null
         private set
     lateinit var spotify: SpotifyApi
         private set
@@ -32,10 +33,11 @@ object MyspotiRuntime {
     /** [loadPage] false (data saver on a metered network): nothing goes out until [resume]. */
     fun start(context: Context, loadPage: Boolean = true) {
         if (isStarted) return
+        appContext = context.applicationContext
         val updater = app.myspoti.spotify.gql.GqlOpsUpdater(okhttp3.OkHttpClient(), java.io.File(context.filesDir, "spotify/gql-ops.json"))
         host = WebPlayerHost(context)
         AudioModeWatch.install(context.applicationContext)
-        spotify = SpotifyApi(host, scope, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context), userAgent = host.userAgent)
+        spotify = SpotifyApi(host, scope, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context, host.accounts.list.value.active), userAgent = host.userAgent)
         spotify.bridge.logger = { line -> Logbook.log(line) }
         host.onPageLoaded = { scope.launch { spotify.onPageLoaded() } }
         host.onPageStarting = { spotify.onPageStarting() }
@@ -58,8 +60,6 @@ object MyspotiRuntime {
         // changes is logged when it changes, not once every 10 s whether or not anything happened.
         scope.launch {
             var last = ""
-            // When the account's plan was last asked for (AccountPlan), so a failed or unknown answer is asked again later.
-            var planAskedAt = 0L
             // A login page or an anonymous session seen in this run: the sign-in that follows is new.
             var sawSignedOut = false
             // A page that loaded but whose player never became ready (no bridge, a script that
@@ -85,15 +85,19 @@ object MyspotiRuntime {
                 if (spotify.ready.value && runCatching { isSignedIn() }.getOrDefault(false)) {
                     host.noteSignedIn(fresh = sawSignedOut)
                     val now = android.os.SystemClock.elapsedRealtime()
-                    if (AccountPlan.premium.value == null && now - planAskedAt >= PLAN_ASK_GAP_MS) {
+                    if (AccountPlan.premium.value == null && (planAskedAt == 0L || now - planAskedAt >= PLAN_ASK_GAP_MS)) {
                         planAskedAt = now
+                        // The account asked about: a switch while the answer comes leaves the next one's plan unknown.
+                        val profile = host.profile
                         runCatching {
                             val answer = spotify.raw.gql("accountAttributes", kotlinx.serialization.json.buildJsonObject { })
                             val a = ((answer as kotlinx.serialization.json.JsonObject)["data"] as kotlinx.serialization.json.JsonObject)
                                 .let { (it["me"] as kotlinx.serialization.json.JsonObject)["account"] as kotlinx.serialization.json.JsonObject }
                             val attrs = a["attributes"] as? kotlinx.serialization.json.JsonObject
                             fun v(o: kotlinx.serialization.json.JsonObject?, k: String) = (o?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content
-                            AccountPlan.set(AccountPlan.fromAnswer(answer))
+                            val plan = AccountPlan.fromAnswer(answer)
+                            host.accounts.update { it.plan(profile, plan) }
+                            if (host.profile == profile) AccountPlan.set(plan)
                             Logbook.log("account: product=${v(a, "product")} country=${v(a, "country")} catalogue=${v(attrs, "catalogue")} onDemand=${v(attrs, "onDemand")} ads=${v(attrs, "ads")}")
                             Logbook.fact("account", "product=${v(a, "product")} country=${v(a, "country")} catalogue=${v(attrs, "catalogue")} onDemand=${v(attrs, "onDemand")} ads=${v(attrs, "ads")}")
                         }
@@ -148,6 +152,21 @@ object MyspotiRuntime {
         return runCatching { isSignedIn() }.getOrDefault(false)
     }
 
+    /** When the account's plan was last asked for (AccountPlan), so a failed or unknown answer is asked again later; 0: at once. */
+    @Volatile private var planAskedAt = 0L
+
+    /**
+     * The page is moving to another account (a switch, an added account): what the API knows of the
+     * one that leaves (its token, username, Jam) and its plan are forgotten, and the next one's plan
+     * is asked for as soon as it is signed in.
+     */
+    fun accountChanged() {
+        appContext?.let { spotify.http.useDeviceId(clientDeviceId(it, host.accounts.list.value.active)) }
+        AccountPlan.set(null)
+        planAskedAt = 0L
+        scope.launch { spotify.forgetAccount() }
+    }
+
     /** Data saver: frees the page; [resume] loads it again. */
     fun suspendPlayer() = host.unload()
     fun resume() = host.load()
@@ -156,8 +175,10 @@ object MyspotiRuntime {
      * The client's device id, kept across launches: a client token is issued per (client, device)
      * pair, and a fresh id at every start made the app look like a brand-new client each time.
      */
-    private fun clientDeviceId(context: Context): String {
-        val file = java.io.File(context.filesDir, "spotify/device-id")
+    /** The client's device id for the account kept in [profile]: the first account keeps the one it always had. */
+    private fun clientDeviceId(context: Context, profile: String): String {
+        val name = if (profile == AccountList.DEFAULT_PROFILE) "device-id" else "device-id-" + profile.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+        val file = java.io.File(context.filesDir, "spotify/$name")
         runCatching { file.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
         val id = java.util.UUID.randomUUID().toString()
         runCatching { file.parentFile?.mkdirs(); file.writeText(id) }

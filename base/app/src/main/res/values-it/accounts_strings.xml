@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Account</string>
+    <string name="accounts_switch_row">Cambia account</string>
+    <string name="accounts_switch_row_detail">I tuoi account Spotify su questo telefono</string>
+    <string name="accounts_add">Aggiungi account</string>
+    <string name="accounts_add_detail">Apre l\'accesso a Spotify; gli account qui restano connessi</string>
+    <string name="accounts_add_single_detail">Disconnette questo account e apre l\'accesso a Spotify</string>
+    <string name="accounts_not_signed_in">Non connesso</string>
+    <string name="accounts_in_use">In uso</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Free</string>
+    <string name="accounts_switch_title">Passare a %1$s?</string>
+    <string name="accounts_switch_text">La riproduzione si ferma. I download e la cronologia di ascolto seguono il proprio account; le estensioni continuano a funzionare.</string>
+    <string name="accounts_switch_confirm">Cambia</string>
+    <string name="accounts_remove">Rimuovi</string>
+    <string name="accounts_remove_title">Rimuovere %1$s?</string>
+    <string name="accounts_remove_text">L\'accesso e i dati web vengono eliminati da questo telefono, insieme alla cronologia di ascolto. I download vengono messi da parte e tornano se lo aggiungi di nuovo.</string>
+    <string name="accounts_footer">Ogni account resta connesso su questo telefono. Cambiare account ferma la riproduzione; i download e la cronologia di ascolto seguono il loro account; le estensioni continuano a funzionare.</string>
+    <string name="accounts_single_footer">La WebView di questo telefono tiene un solo account alla volta: cambiare o aggiungere un account disconnette questo e apre l\'accesso a Spotify. Aggiornando Android System WebView più account restano connessi.</string>
+    <string name="accounts_back_to">Di nuovo su %1$s</string>
+</resources>

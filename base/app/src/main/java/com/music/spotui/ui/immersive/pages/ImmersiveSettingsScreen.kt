@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Info
@@ -70,7 +71,7 @@ import com.music.spotui.ui.screens.shareDiagnosticReport
 import kotlinx.coroutines.launch
 
 /** Where the Immersive Settings are: the list of categories, one category, or a choice inside it. */
-private enum class SettingsPage { Root, Playback, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App }
+private enum class SettingsPage { Root, Playback, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts }
 
 private val StreamingChoices = listOf(
     Triple(StreamingQuality.AUTO, R.string.quality_streaming_auto, R.string.quality_streaming_auto_detail),
@@ -141,6 +142,7 @@ fun ImmersiveSettingsScreen(navController: NavController) {
             SettingsPage.Language -> LanguagePage(back)
             SettingsPage.LyricsLanguage -> LyricsLanguagePage(back)
             SettingsPage.App -> AppPage(navController, back)
+            SettingsPage.Accounts -> AccountsPage(back)
         }
     }
 }
@@ -159,6 +161,14 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_data), icon = Icons.Rounded.SignalCellularAlt, chevron = true, onClick = { open(SettingsPage.Data) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_display), icon = Icons.Rounded.Palette, chevron = true, onClick = { open(SettingsPage.Display) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_app), icon = Icons.Rounded.Info, chevron = true, onClick = { open(SettingsPage.App) }) }
+        }
+        immersiveGroup("accounts") {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.accounts_title), detail = com.music.spotui.ui.components.switchAccountDetail(),
+                    icon = Icons.Rounded.Person, chevron = true, onClick = { open(SettingsPage.Accounts) },
+                )
+            }
         }
         immersiveGroup("extensions") {
             row {
@@ -980,6 +990,26 @@ private fun AppPage(navController: NavController, back: () -> Unit) {
                         if (file != null) shareDiagnosticReport(ctx, file)
                         else android.widget.Toast.makeText(ctx, ctx.getString(R.string.diagnostic_export_failed), android.widget.Toast.LENGTH_SHORT).show()
                     },
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Accounts
+
+/** The Spotify accounts kept on the phone ([com.music.spotui.ui.components.AccountsList]), and signing this one out. */
+@Composable
+private fun AccountsPage(back: () -> Unit) {
+    ImmersivePage(title = stringResource(R.string.accounts_title), onBack = back) {
+        immersiveGroup("accounts") {
+            row { com.music.spotui.ui.components.AccountsList() }
+        }
+        immersiveGroup("sign-out") {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.connect_device_menu_logout), destructive = true,
+                    onClick = { com.music.spotui.di.SessionActions.logout(com.music.spotui.di.Graph.app) },
                 )
             }
         }

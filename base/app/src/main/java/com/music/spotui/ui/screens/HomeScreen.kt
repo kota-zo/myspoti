@@ -577,6 +577,15 @@ private fun ProfileSheet(onOpen: (route: String) -> Unit = {}, onDismiss: () -> 
                 Text(stringResource(R.string.supporter_perks_title), color = AppText, fontSize = 16.sp)
                 Text(stringResource(R.string.supporter_perks_detail), color = AppMuted, fontSize = 12.sp)
             }
+            // The other Spotify accounts kept on the phone: switch, add, remove.
+            var accounts by remember { androidx.compose.runtime.mutableStateOf(false) }
+            if (accounts) com.music.spotui.ui.components.AccountsSheet(onDismiss = { accounts = false }, onLeave = { accounts = false; onDismiss() })
+            androidx.compose.foundation.layout.Column(
+                Modifier.fillMaxWidth().clickable { accounts = true }.padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.accounts_switch_row), color = AppText, fontSize = 16.sp)
+                Text(com.music.spotui.ui.components.switchAccountDetail(), color = AppMuted, fontSize = 12.sp)
+            }
             Text(
                 stringResource(R.string.connect_device_menu_logout),
                 color = AppText, fontSize = 16.sp,

@@ -85,7 +85,7 @@ class SpotifyHttp(
      * every launch, so Spotify saw a brand-new client every start (a new client token each time,
      * one more device). The host passes an id kept across restarts; null keeps the old behaviour.
      */
-    private val deviceId: String = java.util.UUID.randomUUID().toString(),
+    private var deviceId: String = java.util.UUID.randomUUID().toString(),
 ) {
     private data class WebToken(val access: String, val expiresAtMs: Long, val clientId: String, val appVersion: String, val anonymous: Boolean,
                                 val fetchedAtMs: Long = System.currentTimeMillis())
@@ -94,6 +94,16 @@ class SpotifyHttp(
     private val lock = Mutex()
     private var web: WebToken? = null
     private var client: ClientToken? = null
+
+    /**
+     * Another account's device id (each account kept here has its own, so Spotify is not shown
+     * several accounts on one client): the client token minted for the last one is dropped.
+     */
+    fun useDeviceId(id: String) {
+        if (id == deviceId) return
+        deviceId = id
+        client = null
+    }
 
     /** Drops the cached web token (it belongs to one account); the client token is kept. */
     suspend fun forgetWebToken() = lock.withLock { web = null }

@@ -202,6 +202,12 @@ internal fun ImmersiveProfileSheet(onOpen: (route: String) -> Unit, onDismiss: (
                     perks = true
                 }
             }
+            // The other Spotify accounts kept on the phone: switch, add, remove.
+            var accounts by remember { mutableStateOf(false) }
+            if (accounts) com.music.spotui.ui.components.AccountsSheet(onDismiss = { accounts = false }, onLeave = { accounts = false; onDismiss() })
+            SheetRow(stringResource(R.string.accounts_switch_row), com.music.spotui.ui.components.switchAccountDetail()) {
+                accounts = true
+            }
             SheetRow(stringResource(R.string.connect_device_menu_logout), null) {
                 onDismiss()
                 SessionActions.logout(Graph.app)

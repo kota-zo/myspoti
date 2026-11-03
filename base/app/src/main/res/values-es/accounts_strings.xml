@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Cuentas</string>
+    <string name="accounts_switch_row">Cambiar de cuenta</string>
+    <string name="accounts_switch_row_detail">Tus cuentas de Spotify en este teléfono</string>
+    <string name="accounts_add">Añadir cuenta</string>
+    <string name="accounts_add_detail">Abre el inicio de sesión de Spotify; las cuentas de aquí siguen conectadas</string>
+    <string name="accounts_add_single_detail">Cierra la sesión de esta cuenta y abre el inicio de sesión de Spotify</string>
+    <string name="accounts_not_signed_in">Sin sesión iniciada</string>
+    <string name="accounts_in_use">En uso</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Free</string>
+    <string name="accounts_switch_title">¿Cambiar a %1$s?</string>
+    <string name="accounts_switch_text">La reproducción se detiene. Las descargas y el historial de escucha siguen a su propia cuenta; las extensiones siguen funcionando.</string>
+    <string name="accounts_switch_confirm">Cambiar</string>
+    <string name="accounts_remove">Quitar</string>
+    <string name="accounts_remove_title">¿Quitar %1$s?</string>
+    <string name="accounts_remove_text">Su sesión y sus datos web se borran de este teléfono, junto con su historial de escucha. Sus descargas se guardan aparte y vuelven si la añades de nuevo.</string>
+    <string name="accounts_footer">Cada cuenta sigue con la sesión iniciada en este teléfono. Cambiar detiene la reproducción; las descargas y el historial de escucha siguen a su cuenta; las extensiones siguen funcionando.</string>
+    <string name="accounts_single_footer">El WebView de este teléfono guarda una sola cuenta a la vez: cambiar o añadir una cuenta cierra la sesión de esta y abre el inicio de sesión de Spotify. Actualizar Android System WebView permite mantener varias cuentas conectadas.</string>
+    <string name="accounts_back_to">De vuelta a %1$s</string>
+</resources>

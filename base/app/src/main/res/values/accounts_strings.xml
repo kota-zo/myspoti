@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Accounts</string>
+    <string name="accounts_switch_row">Switch account</string>
+    <string name="accounts_switch_row_detail">Your Spotify accounts on this phone</string>
+    <string name="accounts_add">Add account</string>
+    <string name="accounts_add_detail">Opens Spotify\'s sign-in; the accounts here stay signed in</string>
+    <string name="accounts_add_single_detail">Signs this account out and opens Spotify\'s sign-in</string>
+    <string name="accounts_not_signed_in">Not signed in</string>
+    <string name="accounts_in_use">In use</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Free</string>
+    <string name="accounts_switch_title">Switch to %1$s?</string>
+    <string name="accounts_switch_text">Playback stops. Downloads and the listening history follow their own account; extensions keep running.</string>
+    <string name="accounts_switch_confirm">Switch</string>
+    <string name="accounts_remove">Remove</string>
+    <string name="accounts_remove_title">Remove %1$s?</string>
+    <string name="accounts_remove_text">Its sign-in and web data are deleted from this phone, with its listening history. Its downloads are kept aside and come back if you add it again.</string>
+    <string name="accounts_footer">Each account stays signed in on this phone. Switching stops playback; downloads and the listening history follow their account; extensions keep running.</string>
+    <string name="accounts_single_footer">This phone\'s WebView keeps one account at a time: switching or adding an account signs this one out and opens Spotify\'s sign-in. Updating Android System WebView lets several accounts stay signed in.</string>
+    <string name="accounts_back_to">Back to %1$s</string>
+</resources>

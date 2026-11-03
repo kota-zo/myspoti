@@ -77,7 +77,49 @@ object ListenHistory {
         list
     }
 
-    fun clear() = synchronized(lock) { loaded = null; file?.delete() }
+    fun clear() = synchronized(lock) { loaded = null; file?.delete(); owner()?.delete() }
+
+    /*
+     * The history belongs to the account it was heard on, as the downloads do (OfflineAccounts): on an
+     * account switch it is put aside under that account's key (`listen-history/<key>.jsonl`) and the
+     * next account's comes back. A history from before has no owner and goes to the first account read.
+     */
+    private fun owner(): File? = file?.let { File(it.parentFile, "listen_history.owner") }
+    private fun parked(key: String): File? = file?.let { File(it.parentFile, "listen-history/$key.jsonl") }
+    private fun ownerKey(): String? = owner()?.takeIf { it.isFile }?.let { runCatching { it.readText().trim() }.getOrNull() }?.ifBlank { null }
+
+    /** [from] is put after what [to] already holds (a copy left by an earlier move that went wrong), then removed. */
+    private fun moveInto(from: File, to: File) {
+        to.parentFile?.mkdirs()
+        if (!to.exists() && from.renameTo(to)) return
+        to.appendText(from.readText())
+        from.delete()
+    }
+
+    /** Leaving the account [key] (its stamp wins): its history goes aside, the next account starts with none. */
+    fun park(key: String?) = synchronized(lock) {
+        val f = file ?: return@synchronized
+        val owner = ownerKey() ?: key ?: "unclaimed-${System.currentTimeMillis()}"
+        runCatching { if (f.exists()) moveInto(f, parked(owner)!!) }
+        owner()?.delete()
+        loaded = null
+    }
+
+    /** The account [key] is signed in: its own history is the one shown; one with no owner yet becomes its own. */
+    fun claim(key: String) = synchronized(lock) {
+        val f = file ?: return@synchronized
+        val owner = ownerKey()
+        if (owner == key) return@synchronized
+        runCatching {
+            if (owner != null && f.exists()) moveInto(f, parked(owner)!!)
+            parked(key)?.takeIf { it.exists() }?.let { moveInto(it, f) }
+            owner()?.writeText(key)
+        }
+        loaded = null
+    }
+
+    /** The account [key] is removed from the phone: its history put aside goes with it. */
+    fun forget(key: String) = synchronized(lock) { parked(key)?.delete(); Unit }
 
     data class Ranked(val name: String, val subtitle: String, val cover: String, val count: Int, val minutes: Long)
 

@@ -509,6 +509,8 @@ object SongPlayer {
         lastTrackPrefs().edit().clear().apply(); savedLast = ""; resumeWhenReady = false
         savedSource = com.music.spotui.data.preferences.LastSession.SOURCE_SPOTIFY; savedAtMs = 0L; restoredLocal = false
         _activeDevice.value = null; _sleepEndsAt.value = null; sleepFade?.cancel(); main.removeCallbacks(sleepFadeRunnable); sleepTrackId = null; spotifyFallbackId = null
+        // The Connect device picked was the account's that leaves: the next one starts on this phone.
+        chosenRemote = null
         boundState?.let { state ->
             state.updateQueue(emptyList())
             state.updateSongState("", "", "", false, 0, 0, "")
@@ -1622,7 +1624,7 @@ object SongPlayer {
         }
         // Off a song Spotify played for want of an extension: the next one is asked there first.
         if (pendingSkips == 0) _queue.value.let { it.queued + it.nextUp }.firstOrNull()?.song?.let { t ->
-            if (backToExtensions(t, trackIdOf(_nowPlaying.value.uri), upcomingSongs(t)) { intendPlaying(); transport { api.player.next() } }) return
+            if (backToExtensions(t, trackIdOf(_nowPlaying.value.uri), upcomingSongs(t)) { intendPlaying(); transport(pullBack = false) { api.player.next() } }) return
         }
         intendPlaying()
         tapSeq++
@@ -1650,7 +1652,7 @@ object SongPlayer {
             val tappedOn = api.player.state.value?.item?.uri
             // The device check after the skip, as for a resume: before it, a slow network held
             // every skip for the device list's round trip (up to DEVICES_WAIT_MS).
-            transport(waitReady = !stateSeen, checkAfter = true, done = { ok -> skipDone(shown, ok) }) {
+            transport(waitReady = !stateSeen, checkAfter = true, pullBack = false, done = { ok -> skipDone(shown, ok) }) {
                 val now = api.player.state.value?.item?.uri
                 if (tappedOn != null && now != null && now != tappedOn) {
                     app.myspoti.host.android.Logbook.log("next not sent: the song it was tapped on had already ended")
@@ -1742,7 +1744,7 @@ object SongPlayer {
         val target = burstUpcoming.getOrNull(burstTaps - 1)
         app.myspoti.host.android.Logbook.log("next taps merged: $burstTaps skips${if (target != null) " in one jump to ${target.name}" else ", sent as a plain next"}")
         val shown = pendingSkip
-        transport(waitReady = !stateSeen, checkAfter = true, done = { ok -> skipDone(shown, ok) }) {
+        transport(waitReady = !stateSeen, checkAfter = true, pullBack = false, done = { ok -> skipDone(shown, ok) }) {
             if (target == null) api.player.next() else api.player.skipTo(target)
         }
         if (target != null) {
@@ -1832,7 +1834,7 @@ object SongPlayer {
         // Off a song Spotify played for want of an extension (a previous that goes back a song).
         if (getCurrentPosition() <= 3_000) _nowPlaying.value.prev?.let { t ->
             val songs = listOf(t) + upcomingSongs(_queue.value.current ?: t).filter { it.spotifyTrackId != t.spotifyTrackId }
-            if (backToExtensions(t, trackIdOf(_nowPlaying.value.uri), songs, forward = false) { intendPlaying(); transport { api.player.previous() } }) return
+            if (backToExtensions(t, trackIdOf(_nowPlaying.value.uri), songs, forward = false) { intendPlaying(); transport(pullBack = false) { api.player.previous() } }) return
         }
         cancelBurst()
         skipSentAt = SystemClock.elapsedRealtime()
@@ -1840,7 +1842,7 @@ object SongPlayer {
         // position stays until Spotify reports, and a quick second previous would restart again.
         positionMs = 0L
         positionAt = SystemClock.elapsedRealtime()
-        transport(waitReady = !stateSeen, checkAfter = true) { api.player.previous() }
+        transport(waitReady = !stateSeen, checkAfter = true, pullBack = false) { api.player.previous() }
     }
 
     /** Tracks shufflePlay plays without a context: the first one, plus up to 49 queued. */

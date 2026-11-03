@@ -102,6 +102,17 @@ class SpotifyApi(
 
     suspend fun onPageLoaded() = bridge.inject()
 
+    /**
+     * The page moves to another account (an account switch): its token, username and Jam are
+     * forgotten now, not at the next ready page, so no direct call goes out meanwhile as the account
+     * that left.
+     */
+    suspend fun forgetAccount() {
+        http.forgetWebToken()
+        users.forgetUsername()
+        jam.forgetSession()
+    }
+
     /** The host calls this when a Web Player page load starts (reload, renderer back). */
     fun onPageStarting() = bridge.pageGone()
 

@@ -76,7 +76,7 @@ fun SettingsScreen(navController: NavController) {
         // One tab per group, so the page is no longer one long list.
         var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
         val tabs = listOf(R.string.settings_section_playback, R.string.settings_section_downloads, R.string.settings_tab_appearance,
-            R.string.extensions_title, R.string.settings_tab_about)
+            R.string.extensions_title, R.string.settings_tab_about, R.string.accounts_title)
         androidx.compose.material3.ScrollableTabRow(
             selectedTabIndex = tab, containerColor = Color.Transparent, contentColor = AppText, edgePadding = 12.dp,
             indicator = { positions ->
@@ -405,6 +405,17 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.diagnostic_export_title), color = AppText, fontSize = 16.sp)
                 Text(stringResource(R.string.diagnostic_export_detail), color = AppMuted, fontSize = 12.sp)
             }
+            }
+            if (tab == 5) {
+            // The Spotify accounts kept on the phone: switch, add, remove; and signing this one out.
+            Section(R.string.accounts_title)
+            com.music.spotui.ui.components.AccountsList()
+            Divider()
+            Text(
+                stringResource(R.string.connect_device_menu_logout), color = AppText, fontSize = 16.sp,
+                modifier = Modifier.fillMaxWidth().clickable { com.music.spotui.di.SessionActions.logout(com.music.spotui.di.Graph.app) }
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+            )
             }
             // Clear of the mini player and the navigation bar, as every other page (96 dp left the
             // last rows, "Restart the player" among them, under the mini player).

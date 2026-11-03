@@ -210,6 +210,24 @@ class MainActivity : AppCompatActivity() {
         watchSession()
         watchLoginReturn()
         watchLogout()
+        watchSwitch()
+        // On the sign-in page of an added account (or of one whose session was gone), back goes to
+        // the account used before instead of leaving the app on a page with no account.
+        // Enabled only then, so back keeps its system behaviour (and its predictive animation) elsewhere.
+        val backToAccount = object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                if (!com.music.spotui.di.SessionActions.backToPreviousAccount(this@MainActivity)) return
+                MyspotiRuntime.host.accounts.list.value.current?.name?.let {
+                    android.widget.Toast.makeText(this@MainActivity, getString(R.string.accounts_back_to, it), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backToAccount)
+        lifecycleScope.launch {
+            combine(androidx.compose.runtime.snapshotFlow { showingLogin && !connecting }, MyspotiRuntime.host.accounts.list) { login, list ->
+                login && MyspotiRuntime.host.multiProfile && list.others.isNotEmpty()
+            }.collect { backToAccount.isEnabled = it }
+        }
         // Only on a fresh start: on recreation (theme, locale, process restore)
         // the same intent would play its link again. New links arrive in onNewIntent.
         if (savedInstanceState == null) handle(intent)
@@ -352,8 +370,8 @@ class MainActivity : AppCompatActivity() {
         // Another door already started the screens over: this activity is on its way out.
         if (isFinishing) return
         loginProblem = false
-        if (com.music.spotui.di.SessionActions.signedOut.value) {
-            // Signed in again after a logout, maybe as someone else: start the
+        if (com.music.spotui.di.SessionActions.signedOut.value || com.music.spotui.di.SessionActions.switching.value) {
+            // Signed in again after a logout or an account switch, maybe as someone else: start the
             // screens over (a new activity also drops their view models).
             com.music.spotui.di.SessionActions.signedIn()
             prefs.edit().putBoolean("LoggedIn", true).apply()
@@ -388,6 +406,48 @@ class MainActivity : AppCompatActivity() {
                     signedIn = false
                     showingLogin = true
                     MyspotiRuntime.host.attach(root, visible = true)
+                }
+            }
+        }
+    }
+
+    /**
+     * An account switch: the page is rebuilt on the other account's profile, hidden, while the app's
+     * own loading screen shows. Its session confirmed, the screens start over ([sessionConfirmed]).
+     * Spotify's sign-in page instead (that account's session is gone), or no session in time: the
+     * sign-in page is shown, as for any sign-in.
+     */
+    private fun watchSwitch() {
+        lifecycleScope.launch {
+            com.music.spotui.di.SessionActions.switching.collect { on ->
+                if (!on) return@collect
+                signedIn = false
+                showingLogin = false
+                loginProblem = false
+                connecting = true
+                MyspotiRuntime.host.attach(root, visible = false)
+                loginWait?.cancel()
+                loginWait = launch {
+                    // The old page's state may still be published for a moment: the new one is looked at.
+                    kotlinx.coroutines.delay(1_000)
+                    val wait = SessionWait(SESSION_WAIT_MS, SESSION_LOAD_MAX_MS)
+                    var last = android.os.SystemClock.elapsedRealtime()
+                    while (!wait.expired) {
+                        if (MyspotiRuntime.host.loginRequired.value) break
+                        val ready = MyspotiRuntime.spotify.ready.value
+                        val answer = if (ready) runCatching { MyspotiRuntime.isSignedIn() } else null
+                        if (answer?.getOrNull() == true) { sessionConfirmed(); return@launch }
+                        // An anonymous token: that account's session is gone.
+                        if (answer?.getOrNull() == false) break
+                        kotlinx.coroutines.delay(500)
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        wait.tick(now - last, lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED), MyspotiRuntime.spotify.ready.value)
+                        last = now
+                    }
+                    Logbook.log("account switch: no session on that account, sign-in page shown")
+                    connecting = false
+                    // Its sign-in, on its own profile: a session still good there comes straight back.
+                    showLogin()
                 }
             }
         }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Аккаунты</string>
+    <string name="accounts_switch_row">Сменить аккаунт</string>
+    <string name="accounts_switch_row_detail">Ваши аккаунты Spotify на этом телефоне</string>
+    <string name="accounts_add">Добавить аккаунт</string>
+    <string name="accounts_add_detail">Открывает вход в Spotify; аккаунты здесь остаются в системе</string>
+    <string name="accounts_add_single_detail">Выходит из этого аккаунта и открывает вход в Spotify</string>
+    <string name="accounts_not_signed_in">Вход не выполнен</string>
+    <string name="accounts_in_use">Используется</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Free</string>
+    <string name="accounts_switch_title">Переключиться на %1$s?</string>
+    <string name="accounts_switch_text">Воспроизведение остановится. Загрузки и история прослушивания остаются со своим аккаунтом; расширения продолжают работать.</string>
+    <string name="accounts_switch_confirm">Переключить</string>
+    <string name="accounts_remove">Удалить</string>
+    <string name="accounts_remove_title">Удалить %1$s?</string>
+    <string name="accounts_remove_text">Вход и веб-данные будут удалены с этого телефона вместе с историей прослушивания. Загрузки откладываются и вернутся, если вы снова добавите аккаунт.</string>
+    <string name="accounts_footer">Каждый аккаунт остаётся в системе на этом телефоне. Переключение останавливает воспроизведение; загрузки и история прослушивания остаются со своим аккаунтом; расширения продолжают работать.</string>
+    <string name="accounts_single_footer">WebView этого телефона хранит только один аккаунт: смена или добавление аккаунта выходит из этого и открывает вход в Spotify. После обновления Android System WebView несколько аккаунтов смогут оставаться в системе.</string>
+    <string name="accounts_back_to">Снова %1$s</string>
+</resources>

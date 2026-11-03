@@ -579,6 +579,9 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
         }
     }
 
+    /** Another account takes the page: the Jam known is that of the account that left. */
+    internal fun forgetSession() { _session.value = null }
+
     /** In a Jam this account joined: the music plays on the host's device, never to be pulled here. */
     val member: Boolean get() = _session.value?.isHost == false
 
