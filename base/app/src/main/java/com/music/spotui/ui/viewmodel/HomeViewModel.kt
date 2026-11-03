@@ -58,8 +58,13 @@ class HomeViewModel constructor(private val repository: AppRepository = Graph.re
         if (System.currentTimeMillis() - fetchedAt >= STALE_MS) fetchHome()
     }
 
+    /**
+     * The chip [f] tapped: it is picked, or unpicked when it already was: a sub-chip (Following) goes
+     * back to its parent (Music), a top chip back to everything.
+     */
     fun selectFacet(f: String) {
-        facet.value = if (facet.value == f) "" else f
+        facet.value = if (facet.value != f) f
+            else com.music.spotui.data.entity.HomeSubChips.parentOf(f)?.takeIf { it != f } ?: ""
         fetchHome()
     }
 

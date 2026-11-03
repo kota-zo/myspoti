@@ -149,14 +149,30 @@ class LayerBackdrop internal constructor(
                 with(obtainInverseLayerScope()) { inverseTransform(density, layerBlock) }
             }
         }) {
-            drawSources { src ->
+            val offsetOf: (LayoutCoordinates) -> Offset = { src ->
                 try {
                     src.localPositionOf(coordinates)
                 } catch (_: Exception) {
                     coordinates.positionInWindow() - src.positionInWindow()
                 }
             }
+            if (sources.isNotEmpty()) drawSources(offsetOf) else drawExported(offsetOf)
         }
+    }
+
+    /**
+     * A glass exported here (drawBackdrop's exportedBackdrop: the tab bar's glass, for its
+     * selection lens) records into [graphicsLayer] and sets [layerCoordinates], with no page source.
+     * Reported: a tap or a drag on the Liquid Glass tab bar left the selection pill fully see-through
+     * (the bare page, no glass) until it landed and the flat pill took over with a jump: only the
+     * page sources were drawn here, so the lens refracted the page, the fill and the tabs, never
+     * the bar's glass under them.
+     */
+    private fun DrawScope.drawExported(offsetOf: (LayoutCoordinates) -> Offset) {
+        val c = layerCoordinates ?: return
+        if (!c.isAttached || graphicsLayer.isReleased || graphicsLayer.size.width <= 0) return
+        val o = offsetOf(c)
+        withTransform({ translate(-o.x, -o.y) }) { drawLayer(graphicsLayer) }
     }
 
     private fun obtainInverseLayerScope(): InverseLayerScope {

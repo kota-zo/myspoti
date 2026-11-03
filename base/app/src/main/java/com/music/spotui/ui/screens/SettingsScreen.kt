@@ -75,7 +75,7 @@ fun SettingsScreen(navController: NavController) {
         }
         // One tab per group, so the page is no longer one long list.
         var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
-        val tabs = listOf(R.string.settings_section_playback, R.string.settings_section_downloads, R.string.settings_tab_appearance,
+        val tabs = listOf(R.string.settings_section_playback, R.string.settings_section_lyrics, R.string.settings_section_downloads, R.string.settings_tab_appearance,
             R.string.extensions_title, R.string.settings_tab_about, R.string.accounts_title)
         androidx.compose.material3.ScrollableTabRow(
             selectedTabIndex = tab, containerColor = Color.Transparent, contentColor = AppText, edgePadding = 12.dp,
@@ -107,13 +107,6 @@ fun SettingsScreen(navController: NavController) {
                 StreamingQualityPicker(title = R.string.quality_streaming_wifi_title)
                 StreamingQualityPicker(cellular = true, title = R.string.quality_streaming_cell_title)
             }
-            var canvasWifiOnly by remember { mutableStateOf(com.music.spotui.data.preferences.isCanvasWifiOnly(ctx)) }
-            OptionRow(
-                label = stringResource(R.string.canvas_wifi_only),
-                detail = stringResource(R.string.canvas_wifi_only_detail),
-                checked = canvasWifiOnly,
-                onChecked = { canvasWifiOnly = it; com.music.spotui.data.preferences.setCanvasWifiOnly(ctx, it) },
-            )
             OptionRow(
                 label = stringResource(R.string.settings_autoplay_title),
                 detail = stringResource(R.string.settings_autoplay_detail),
@@ -135,6 +128,8 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.equalizer_title), color = AppText, fontSize = 16.sp)
                 Text(stringResource(R.string.equalizer_settings_detail), color = AppMuted, fontSize = 12.sp)
             }
+            // What keeps the music going and what the headset buttons do.
+            Section(R.string.settings_section_controls)
             var keepPlaying by remember { mutableStateOf(app.myspoti.host.android.PlaybackService.keepsPlayingOnClose(ctx)) }
             OptionRow(
                 label = stringResource(R.string.settings_keep_playing_title),
@@ -149,6 +144,8 @@ fun SettingsScreen(navController: NavController) {
                 checked = headsetSkip,
                 onChecked = { headsetSkip = it; app.myspoti.host.android.PlaybackService.setSkipsOnEpisodes(ctx, it) },
             )
+            // What other devices see of this phone, and a Jam joined here.
+            Section(R.string.settings_section_connect)
             // Songs an extension streams, played by Spotify too (unheard): counted there, seen by Connect.
             if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty())
                 OptionRow(
@@ -157,19 +154,20 @@ fun SettingsScreen(navController: NavController) {
                     checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
                     onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
                 )
-            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
-            OptionRow(
-                label = stringResource(R.string.live_radio_settings_title),
-                detail = stringResource(R.string.live_radio_settings_detail),
-                checked = com.music.spotui.radio.RadioFeaturePref.on,
-                onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
-            )
             // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
             OptionRow(
                 label = stringResource(R.string.settings_download_sync_title),
                 detail = stringResource(R.string.settings_download_sync_detail),
                 checked = com.music.spotui.data.preferences.DownloadSyncPref.on,
                 onChecked = { com.music.spotui.data.preferences.DownloadSyncPref.set(ctx, it) },
+            )
+            Section(R.string.settings_section_library)
+            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
+            OptionRow(
+                label = stringResource(R.string.live_radio_settings_title),
+                detail = stringResource(R.string.live_radio_settings_detail),
+                checked = com.music.spotui.radio.RadioFeaturePref.on,
+                onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
             )
             // Songs marked "Not interested": skipped by lists, listed here to be shown again.
             Column(
@@ -179,48 +177,6 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.hidden_songs_title), color = AppText, fontSize = 16.sp)
                 Text(stringResource(R.string.hidden_songs_detail), color = AppMuted, fontSize = 12.sp)
             }
-            // Lyrics: word by word (karaoke) first, or line by line with Spotify's first.
-            Section(R.string.settings_section_lyrics)
-            var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
-            OptionRow(
-                label = stringResource(R.string.lyrics_word_sync_title),
-                detail = stringResource(if (wordSync) R.string.lyrics_word_sync_on else R.string.lyrics_word_sync_off),
-                checked = wordSync,
-                onChecked = {
-                    wordSync = it
-                    com.music.spotui.data.preferences.setLyricsWordSync(ctx, it)
-                    com.music.spotui.data.api.LyricsApi.wordSync = it
-                    com.music.spotui.data.api.LyricsApi.forgetAll()
-                },
-            )
-            // NetEase and Genius after Spotify and LRCLIB (also in the lyrics' own menu).
-            var lyricsExtra by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsExtraSources(ctx)) }
-            OptionRow(
-                label = stringResource(R.string.lyrics_extra_title),
-                detail = stringResource(R.string.lyrics_extra_summary),
-                checked = lyricsExtra,
-                onChecked = {
-                    lyricsExtra = it
-                    com.music.spotui.data.preferences.setLyricsExtraSources(ctx, it)
-                    com.music.spotui.data.api.LyricsApi.extraSources = it
-                    com.music.spotui.data.api.LyricsApi.extraSourcesOff = !it
-                    com.music.spotui.data.api.LyricsApi.forgetAll()
-                },
-            )
-            OptionRow(
-                label = stringResource(R.string.settings_lyrics_keep_awake_title),
-                detail = stringResource(R.string.settings_lyrics_keep_awake_detail),
-                checked = com.music.spotui.data.preferences.LyricsKeepAwakePref.on,
-                onChecked = { com.music.spotui.data.preferences.LyricsKeepAwakePref.set(ctx, it) },
-            )
-            // The song in Latin letters under its lines, when the lyrics carry one (as in the lyrics' menu).
-            OptionRow(
-                label = stringResource(R.string.lyrics_romanization),
-                detail = stringResource(R.string.settings_lyrics_romanization_detail),
-                checked = com.music.spotui.data.preferences.LyricsRomanizationPref.on,
-                onChecked = { com.music.spotui.data.preferences.LyricsRomanizationPref.set(ctx, it) },
-            )
-            LyricsTranslationRow()
             Divider()
             SourcesBlock(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
             // Podcasts: SponsorBlock (SponsorBlockSettings.kt).
@@ -263,6 +219,50 @@ fun SettingsScreen(navController: NavController) {
             }
             }
             if (tab == 1) {
+            // Lyrics: word by word (karaoke) first, or line by line with Spotify's first.
+            Section(R.string.settings_section_lyrics)
+            var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
+            OptionRow(
+                label = stringResource(R.string.lyrics_word_sync_title),
+                detail = stringResource(if (wordSync) R.string.lyrics_word_sync_on else R.string.lyrics_word_sync_off),
+                checked = wordSync,
+                onChecked = {
+                    wordSync = it
+                    com.music.spotui.data.preferences.setLyricsWordSync(ctx, it)
+                    com.music.spotui.data.api.LyricsApi.wordSync = it
+                    com.music.spotui.data.api.LyricsApi.forgetAll()
+                },
+            )
+            // NetEase and Genius after Spotify and LRCLIB (also in the lyrics' own menu).
+            var lyricsExtra by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsExtraSources(ctx)) }
+            OptionRow(
+                label = stringResource(R.string.lyrics_extra_title),
+                detail = stringResource(R.string.lyrics_extra_summary),
+                checked = lyricsExtra,
+                onChecked = {
+                    lyricsExtra = it
+                    com.music.spotui.data.preferences.setLyricsExtraSources(ctx, it)
+                    com.music.spotui.data.api.LyricsApi.extraSources = it
+                    com.music.spotui.data.api.LyricsApi.extraSourcesOff = !it
+                    com.music.spotui.data.api.LyricsApi.forgetAll()
+                },
+            )
+            OptionRow(
+                label = stringResource(R.string.settings_lyrics_keep_awake_title),
+                detail = stringResource(R.string.settings_lyrics_keep_awake_detail),
+                checked = com.music.spotui.data.preferences.LyricsKeepAwakePref.on,
+                onChecked = { com.music.spotui.data.preferences.LyricsKeepAwakePref.set(ctx, it) },
+            )
+            // The song in Latin letters under its lines, when the lyrics carry one (as in the lyrics' menu).
+            OptionRow(
+                label = stringResource(R.string.lyrics_romanization),
+                detail = stringResource(R.string.settings_lyrics_romanization_detail),
+                checked = com.music.spotui.data.preferences.LyricsRomanizationPref.on,
+                onChecked = { com.music.spotui.data.preferences.LyricsRomanizationPref.set(ctx, it) },
+            )
+            LyricsTranslationRow()
+            }
+            if (tab == 2) {
             Section(R.string.settings_section_downloads)
             // Its role quality takes the place of the app's (kept, and still passed to every extension as `quality`).
             val ext = remember(registry) { com.music.spotui.extensions.Extensions.sectionPlacement(app.myspoti.extensions.SettingSection.DOWNLOADS) }
@@ -296,7 +296,7 @@ fun SettingsScreen(navController: NavController) {
             StorageRows()
             if (com.music.spotui.data.offline.OfflineStore.tracks.isNotEmpty()) RemoveDownloadsRow()
             }
-            if (tab == 2) {
+            if (tab == 3) {
 
             Section(R.string.settings_section_display)
             OptionRow(
@@ -311,6 +311,13 @@ fun SettingsScreen(navController: NavController) {
                 checked = energy.canvasEnabled && !energy.policy.saverEnabled,
                 enabled = !energy.policy.saverEnabled,
                 onChecked = app.myspoti.power.EnergySettings::setCanvasEnabled,
+            )
+            var canvasWifiOnly by remember { mutableStateOf(com.music.spotui.data.preferences.isCanvasWifiOnly(ctx)) }
+            OptionRow(
+                label = stringResource(R.string.canvas_wifi_only),
+                detail = stringResource(R.string.canvas_wifi_only_detail),
+                checked = canvasWifiOnly,
+                onChecked = { canvasWifiOnly = it; com.music.spotui.data.preferences.setCanvasWifiOnly(ctx, it) },
             )
             OptionRow(
                 label = stringResource(R.string.settings_music_video_title),
@@ -360,7 +367,7 @@ fun SettingsScreen(navController: NavController) {
             OrientationRow()
             LanguageRow()
             }
-            if (tab == 3) {
+            if (tab == 4) {
             ExtensionSettingsRows(navController)
             // Third-party extensions: lyrics, a song's audio, scripts reacting to the music.
             Column(
@@ -371,7 +378,7 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.extensions_row_detail), color = AppMuted, fontSize = 12.sp)
             }
             }
-            if (tab == 4) {
+            if (tab == 5) {
             Section(R.string.settings_section_app)
             AboutRow()
             // A18: the launch check can be turned off; the manual check below keeps working.
@@ -406,7 +413,7 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.diagnostic_export_detail), color = AppMuted, fontSize = 12.sp)
             }
             }
-            if (tab == 5) {
+            if (tab == 6) {
             // The Spotify accounts kept on the phone: switch, add, remove; and signing this one out.
             Section(R.string.accounts_title)
             com.music.spotui.ui.components.AccountsList()
@@ -536,7 +543,6 @@ private fun AccentRow(look: com.music.spotui.data.preferences.Look) {
 @Composable
 private fun TransitionsRow() {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val pref = com.music.spotui.data.preferences.CrossfadePref
     val transition = com.music.spotui.data.preferences.TransitionPref
     val automix = com.music.spotui.automix.AutoMix
     val mode = transition.mode
@@ -587,12 +593,9 @@ private fun TransitionsRow() {
         if (mode == TransitionMode.AUTOMIX) com.music.spotui.ui.components.autoMixReasonText(automix.whyNot())?.let {
             Text(stringResource(it), color = com.music.spotui.ui.theme.AppAccent, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         }
-        if (mode == TransitionMode.CROSSFADE) Row(
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 10.dp),
-        ) {
-            for (v in listOf(3, 6, 9, 12)) Chip(stringResource(R.string.settings_crossfade_seconds, v), pref.seconds == v) { pref.set(ctx, v) }
-        }
+        // Any length from 1 to 12 s on a slider (it was four fixed choices).
+        if (mode == TransitionMode.CROSSFADE) com.music.spotui.ui.components.CrossfadeSlider(
+            com.music.spotui.ui.theme.AppAccent, AppText, AppMuted, Modifier.padding(top = 12.dp))
     }
     if (mode == TransitionMode.AUTOMIX) {
         OptionRow(stringResource(R.string.settings_automix_on_next), stringResource(R.string.settings_automix_on_next_detail),

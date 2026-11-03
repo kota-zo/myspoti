@@ -415,14 +415,15 @@ class Api constructor(
         )
     }
 
-    /** [facet]: "" (all), "music-chip", "podcasts-chip", "audiobooks-chip". */
+    /** [facet]: "" (all), "music-chip", "podcasts-chip", "audiobooks-chip", or a sub-chip Spotify sent (HomeSubChips). */
     suspend fun getHomeFeed(facet: String = ""): Flow<Response<HomeFeedModel>> = flow {
         val cached = if (facet.isEmpty()) HomeCache.home ?: diskHome() else HomeCache.facets[facet]
         cached?.let { emit(Response.Success(it)) } ?: emit(Response.Loading())
         if (!ready()) { if (cached == null) emit(Response.Error(notSignedIn())); return@flow }
-        val filter = app.myspoti.api.HomeFilter.entries.firstOrNull { it.facet == facet } ?: app.myspoti.api.HomeFilter.ALL
-        runCatching { api.home.feed(filter, itemsPerShelf = 20) }.fold(
+        // Any facet Spotify offers: a top chip, or one opened beside it (Music > Following).
+        runCatching { api.home.feed(facet, itemsPerShelf = 20) }.fold(
             onSuccess = { feed ->
+                com.music.spotui.data.entity.HomeSubChips.learn(feed.chips)
                 val sections = feed.shelves.mapNotNull { shelf ->
                     val items = shelf.items.distinctBy { it.uri }.mapNotNull(::homeItem)
                         .distinctBy { it::class.simpleName + "|" + it.name.lowercase() }

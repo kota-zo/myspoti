@@ -714,6 +714,11 @@
     <string name="settings_automix_mobile_data_detail">As músicas das extensões também são analisadas com dados móveis. Cada uma é baixada uma segunda vez para isso: mais ou menos os mesmos dados que ao ouvi-la. Desativado, só no Wi-Fi.</string>
     <string name="playback_speed_note">Velocidade %1$s× · toque para 1×</string>
     <string name="jam_start_premium">Iniciar uma Jam exige Spotify Premium. Você pode entrar em uma pelo link ou QR code.</string>
+    <string name="jam_plays_here">A Jam toca neste celular.</string>
+    <string name="jam_plays_on_host">A música toca no dispositivo do anfitrião: este celular a controla. O Spotify só deixa contas Premium ouvirem uma Jam no próprio celular.</string>
+    <string name="settings_section_controls">Controles e segundo plano</string>
+    <string name="settings_section_connect">Spotify Connect e Jam</string>
+    <string name="settings_section_library">Biblioteca</string>
     <string name="settings_dynamic_color_title">Cores dinâmicas (Material You)</string>
     <string name="settings_dynamic_color_detail">A cor de destaque do visual Classic vem do seu papel de parede. O visual Immersive mantém as cores da capa tocando.</string>
     <string name="settings_system_font_title">Fonte do sistema</string>

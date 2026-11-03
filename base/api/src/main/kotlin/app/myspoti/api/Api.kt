@@ -218,6 +218,9 @@ interface Playlists {
 
 interface Home {
     suspend fun feed(filter: HomeFilter = HomeFilter.ALL, itemsPerShelf: Int = 10): HomeFeed
+    /** The feed of any facet Spotify offers, a sub-chip's too ([HomeChip.id], e.g. Music > Following). */
+    suspend fun feed(facet: String, itemsPerShelf: Int = 10): HomeFeed =
+        feed(HomeFilter.entries.firstOrNull { it.facet == facet } ?: HomeFilter.ALL, itemsPerShelf)
     suspend fun categories(): List<Category>
     suspend fun category(uri: Uri): BrowsePage
     /** New releases from the artists the user follows, newest first ("What's new"). */

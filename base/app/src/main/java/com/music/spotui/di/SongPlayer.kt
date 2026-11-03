@@ -1569,6 +1569,7 @@ object SongPlayer {
         if (!stateSeen) resumeWhenReady = true
         val uri = _nowPlaying.value.uri
         transport(checkAfter = true) { api.player.resume() }
+        jamFollowUp(wantPaused = false)
         // An episode ignored by a plain resume (the page's element stays paused, which is what
         // "the podcast stopped and the play button does nothing" was — B11) is asked for again
         // by its uri, where it was. Music keeps the plain resume: it never showed that.
@@ -1596,8 +1597,29 @@ object SongPlayer {
         if (LocalPlayer.active.value) { LocalPlayer.pause(); return }
         intendPaused()
         positionMs = getCurrentPosition(); positionAt = SystemClock.elapsedRealtime(); playing = false
-        if (send) transport(pullBack = false) { api.player.pause() }
+        if (send) { transport(pullBack = false) { api.player.pause() }; jamFollowUp(wantPaused = true) }
     }
+
+    /**
+     * In a Jam this phone controls (the music on the host's device): a play or pause the host has
+     * not followed [JAM_FOLLOW_MS] later is sent once more. Reported: "starting the sound from the
+     * phone does not work": the first play after joining was answered 202 by Spotify and never
+     * reached the host; the next one did.
+     */
+    private fun jamFollowUp(wantPaused: Boolean) {
+        val jam = api.jam.session.value ?: return
+        if (jam.isHost || jam.listensHere) return
+        scope.launch {
+            kotlinx.coroutines.delay(JAM_FOLLOW_MS)
+            if (playing == wantPaused) return@launch // asked otherwise since
+            kotlinx.coroutines.withTimeoutOrNull(RECONCILE_READ_MS) { runCatching { MyspotiRuntime.spotify.player.refresh() } }
+            val s = api.player.state.value ?: return@launch
+            if (s.isPaused == wantPaused || playing == wantPaused) return@launch
+            app.myspoti.host.android.Logbook.log("jam: the host did not ${if (wantPaused) "pause" else "play"} in ${JAM_FOLLOW_MS / 1000} s, sent again")
+            transport(pullBack = false) { if (wantPaused) api.player.pause() else api.player.resume() }
+        }
+    }
+    private val JAM_FOLLOW_MS = 3_000L
 
     fun stop() = pause()
 

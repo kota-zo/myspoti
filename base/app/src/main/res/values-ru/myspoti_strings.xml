@@ -750,6 +750,11 @@
     <string name="settings_automix_mobile_data_detail">Треки из расширений анализируются и по мобильной сети. Каждый для этого скачивается второй раз: примерно столько же трафика, сколько при прослушивании. Выключено: только по Wi-Fi.</string>
     <string name="playback_speed_note">Скорость %1$s× · нажмите для 1×</string>
     <string name="jam_start_premium">Чтобы начать Jam, нужен Spotify Premium. Присоединиться можно по ссылке или QR-коду.</string>
+    <string name="jam_plays_here">Jam играет на этом телефоне.</string>
+    <string name="jam_plays_on_host">Музыка играет на устройстве хоста: этот телефон управляет ею. Spotify позволяет слушать Jam на своём телефоне только аккаунтам Premium.</string>
+    <string name="settings_section_controls">Управление и фон</string>
+    <string name="settings_section_connect">Spotify Connect и Jam</string>
+    <string name="settings_section_library">Медиатека</string>
     <string name="settings_dynamic_color_title">Динамические цвета (Material You)</string>
     <string name="settings_dynamic_color_detail">Акцентный цвет оформления «Классическое» берётся из обоев. Оформление «Иммерсивное» сохраняет цвета текущей обложки.</string>
     <string name="settings_system_font_title">Системный шрифт</string>

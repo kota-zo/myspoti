@@ -66,7 +66,13 @@ data class Shelf(val uri: Uri?, val title: String?, val items: List<MediaCard>, 
 
 enum class HomeFilter(val facet: String) { ALL(""), MUSIC("music-chip"), PODCASTS("podcasts-chip"), AUDIOBOOKS("audiobooks-chip") }
 
-data class HomeFeed(val greeting: String, val filters: List<HomeFilter>, val shelves: List<Shelf>)
+/**
+ * A chip of the home's filter row as Spotify sends it ([id] is the facet to load). [subChips]: the
+ * ones that open beside it once it is picked (Music > Following), each a facet of its own.
+ */
+data class HomeChip(val id: String, val label: String, val subChips: List<HomeChip> = emptyList())
+
+data class HomeFeed(val greeting: String, val filters: List<HomeFilter>, val shelves: List<Shelf>, val chips: List<HomeChip> = emptyList())
 
 data class Category(val uri: Uri, val title: String, val images: List<Image>, val color: String?)
 
@@ -257,6 +263,13 @@ data class JamSession(
     val members: List<JamMember>,
     val isHost: Boolean,
     val queueOnly: Boolean,
+    /**
+     * A member whose own device plays the Jam (joined as REMOTE, "Continue on this device"), as the
+     * official apps do for Premium. False: joined IN_PERSON (Spotify refuses the other way to a free
+     * account: 403 "User not allowed to join session"), the music plays on the host's device and this
+     * one controls it. Known from the join; false for a host and after a restart.
+     */
+    val listensHere: Boolean = false,
 )
 
 data class HistoryEntry(val uri: Uri, val kind: MediaKind, val name: String, val images: List<Image>, val playedAtMs: Long?)

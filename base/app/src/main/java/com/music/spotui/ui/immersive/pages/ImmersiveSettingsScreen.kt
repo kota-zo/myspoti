@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -71,7 +72,7 @@ import com.music.spotui.ui.screens.shareDiagnosticReport
 import kotlinx.coroutines.launch
 
 /** Where the Immersive Settings are: the list of categories, one category, or a choice inside it. */
-private enum class SettingsPage { Root, Playback, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts }
+private enum class SettingsPage { Root, Playback, Lyrics, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts }
 
 private val StreamingChoices = listOf(
     Triple(StreamingQuality.AUTO, R.string.quality_streaming_auto, R.string.quality_streaming_auto_detail),
@@ -129,6 +130,7 @@ fun ImmersiveSettingsScreen(navController: NavController) {
         when (p) {
             SettingsPage.Root -> SettingsRoot(navController, open, back)
             SettingsPage.Playback -> PlaybackPage(navController, open, back)
+            SettingsPage.Lyrics -> LyricsPage(open, back)
             SettingsPage.StreamingWifi -> StreamingPage(cellular = false, back)
             SettingsPage.StreamingCell -> StreamingPage(cellular = true, back)
             SettingsPage.Crossfade -> CrossfadePage(back)
@@ -156,6 +158,7 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
     ImmersivePage(title = stringResource(R.string.settings_title), onBack = back) {
         immersiveGroup("root") {
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_playback), icon = Icons.Rounded.PlayArrow, chevron = true, onClick = { open(SettingsPage.Playback) }) }
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_lyrics), icon = Icons.Rounded.Lyrics, chevron = true, onClick = { open(SettingsPage.Lyrics) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_downloads), icon = Icons.Rounded.Download, chevron = true, onClick = { open(SettingsPage.Downloads) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_storage), icon = Icons.Rounded.Storage, chevron = true, onClick = { open(SettingsPage.Storage) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_data), icon = Icons.Rounded.SignalCellularAlt, chevron = true, onClick = { open(SettingsPage.Data) }) }
@@ -221,8 +224,6 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
     val label = { q: StreamingQuality -> StreamingChoices.first { it.first == q }.second }
     var headsetSkip by remember { mutableStateOf(app.myspoti.host.android.PlaybackService.skipsOnEpisodes(ctx)) }
     var keepPlaying by remember { mutableStateOf(app.myspoti.host.android.PlaybackService.keepsPlayingOnClose(ctx)) }
-    var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
-    var lyricsExtra by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsExtraSources(ctx)) }
     val crossfade = com.music.spotui.data.preferences.CrossfadePref.seconds
     // The first source of the audio order, when it is an extension announcing settings here:
     // they show, and Spotify's quality (kept, still used for what Spotify plays) leaves the screen.
@@ -273,6 +274,9 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     chevron = true, onClick = { navController.navigate(Routes.Equalizer.route) },
                 )
             }
+        }
+        // What keeps the music going and what the headset buttons do.
+        immersiveGroup("controls", headerRes = R.string.settings_section_controls) {
             row {
                 ImmersiveSwitchRow(
                     stringResource(R.string.settings_keep_playing_title), checked = keepPlaying,
@@ -287,6 +291,9 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     detail = stringResource(R.string.settings_headset_skip_detail),
                 )
             }
+        }
+        // What other devices see of this phone, and a Jam joined here.
+        immersiveGroup("connect", headerRes = R.string.settings_section_connect) {
             // Songs an extension streams, played by Spotify too (unheard): counted there, seen by Connect.
             if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty()) row {
                 ImmersiveSwitchRow(
@@ -294,15 +301,6 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
                     onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
                     detail = stringResource(R.string.settings_connect_mirror_detail),
-                )
-            }
-            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
-            row {
-                ImmersiveSwitchRow(
-                    stringResource(R.string.live_radio_settings_title),
-                    checked = com.music.spotui.radio.RadioFeaturePref.on,
-                    onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
-                    detail = stringResource(R.string.live_radio_settings_detail),
                 )
             }
             // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
@@ -314,6 +312,17 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     detail = stringResource(R.string.settings_download_sync_detail),
                 )
             }
+        }
+        immersiveGroup("library", headerRes = R.string.settings_section_library) {
+            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.live_radio_settings_title),
+                    checked = com.music.spotui.radio.RadioFeaturePref.on,
+                    onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+                    detail = stringResource(R.string.live_radio_settings_detail),
+                )
+            }
             // Songs marked "Not interested": skipped by lists, listed here to be shown again.
             row {
                 ImmersiveGroupRow(
@@ -323,7 +332,19 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             }
         }
         sourcesGroup(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
-        immersiveGroup("lyrics", headerRes = R.string.settings_section_lyrics) {
+        // Podcasts: SponsorBlock (SponsorBlockGroup.kt).
+        sponsorBlockGroup()
+    }
+}
+
+/** Lyrics: their sources, word by word or by line, the screen kept on, romanization and translation. */
+@Composable
+private fun LyricsPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
+    val ctx = LocalContext.current
+    var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
+    var lyricsExtra by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsExtraSources(ctx)) }
+    ImmersivePage(title = stringResource(R.string.settings_section_lyrics), onBack = back) {
+        immersiveGroup("lyrics") {
             // Lyrics: word by word (karaoke) first, or line by line with Spotify's first.
             row {
                 ImmersiveSwitchRow(
@@ -378,8 +399,6 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                 )
             }
         }
-        // Podcasts: SponsorBlock (SponsorBlockGroup.kt).
-        sponsorBlockGroup()
     }
 }
 
@@ -406,7 +425,6 @@ private fun StreamingPage(cellular: Boolean, back: () -> Unit) {
 @Composable
 private fun CrossfadePage(back: () -> Unit) {
     val ctx = LocalContext.current
-    val pref = com.music.spotui.data.preferences.CrossfadePref
     val transition = com.music.spotui.data.preferences.TransitionPref
     val automix = com.music.spotui.automix.AutoMix
     val mode = transition.mode
@@ -438,10 +456,10 @@ private fun CrossfadePage(back: () -> Unit) {
             row { ImmersiveGroupRow(stringResource(reason)) }
         }
         if (mode == TransitionMode.CROSSFADE) immersiveGroup("length", headerRes = R.string.settings_crossfade_length, footerRes = R.string.settings_crossfade_detail) {
-            for (v in listOf(3, 6, 9, 12)) {
-                row {
-                    ImmersiveChoiceRow(stringResource(R.string.settings_crossfade_seconds, v), selected = pref.seconds == v, onClick = { pref.set(ctx, v) })
-                }
+            // Any length from 1 to 12 s on a slider (it was four fixed choices).
+            row {
+                com.music.spotui.ui.components.CrossfadeSlider(Immersive.Accent, Immersive.Text, Immersive.TextSecondary,
+                    Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
         if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_title, footerRes = R.string.settings_automix_detail) {

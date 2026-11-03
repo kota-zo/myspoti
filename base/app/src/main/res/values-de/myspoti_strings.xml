@@ -735,6 +735,11 @@
     <string name="settings_automix_mobile_data_detail">Songs aus Erweiterungen werden auch über mobile Daten analysiert. Jeder wird dafür ein zweites Mal geladen: etwa so viele Daten wie beim Abspielen. Aus: nur im WLAN.</string>
     <string name="playback_speed_note">Tempo %1$s× · tippen für 1×</string>
     <string name="jam_start_premium">Einen Jam starten braucht Spotify Premium. Beitreten geht mit dem Link oder QR-Code.</string>
+    <string name="jam_plays_here">Der Jam läuft auf diesem Handy.</string>
+    <string name="jam_plays_on_host">Die Musik läuft auf dem Gerät des Hosts: Dieses Handy steuert sie. Spotify erlaubt nur Premium-Konten, einen Jam auf dem eigenen Handy zu hören.</string>
+    <string name="settings_section_controls">Steuerung und Hintergrund</string>
+    <string name="settings_section_connect">Spotify Connect und Jam</string>
+    <string name="settings_section_library">Bibliothek</string>
     <string name="settings_dynamic_color_title">Dynamische Farben (Material You)</string>
     <string name="settings_dynamic_color_detail">Die Akzentfarbe des Looks „Klassisch“ kommt von deinem Hintergrundbild. Der Look „Immersiv“ behält die Farben des laufenden Covers.</string>
     <string name="settings_system_font_title">Systemschriftart</string>

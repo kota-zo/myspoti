@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -385,10 +387,17 @@ private class DrawBackdropNode(
 
         exportedBackdrop?.graphicsLayer?.let { layer ->
             recordLayer(this@DrawBackdropNode, layer) {
-                onDrawBehind?.invoke(this)
-                drawRecordedBackdrop()
-                onDrawSurface?.invoke(this)
-                onDrawFront?.invoke(this)
+                // Inside the surface's own shape, as on screen: a lens lifted past the bar's edge
+                // would otherwise show the blur's padding as a square of glass around it.
+                val clip = androidx.compose.ui.graphics.Path().apply {
+                    addOutline(shapeProvider.shape.createOutline(size, layoutDirection, this@recordLayer))
+                }
+                clipPath(clip) {
+                    onDrawBehind?.invoke(this)
+                    drawRecordedBackdrop()
+                    onDrawSurface?.invoke(this)
+                    onDrawFront?.invoke(this)
+                }
             }
         }
     }

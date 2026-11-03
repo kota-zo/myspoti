@@ -16,6 +16,12 @@ what Myspoti goes through (`SpotifyJam`, `api-spotify/.../SpotifyMore.kt`). Host
 | Invite link | `POST url-dispenser/v1/generate-url` | `spotify_uri: spotify:socialsession:<token>`, `custom_data` (`ssp=1`, `app_destination=socialsession`), `link_preview` (title, `https://shareables.scdn.co/publish/socialsession/<token>`), `utm_*` (`utm_medium` `share-link` or `qr`). Answers `shareable_url` (`spotify.link/…`), `share_id`, `full_url` (`open.spotify.com/socialsession/<token>?si=…`). Service: `getShortInviteLink(token, joinSessionUri, qr?)`. |
 | Queued by | GraphQL `decorateQueuedByUsers` (`userUris`) | The host names who queued a song (seen when a member added one). |
 
+Measured on the phone on 2026-11-03 (free account, host on Premium): `LISTEN_AND_CONTROL` answered
+403 `{"code":7,"message":"User not allowed to join session"}`, `CONTROL` 200. The Web Player's join
+dialog offers the same two: "Continue on this device" (`REMOTE`) and "Play from the host's speaker"
+(`IN_PERSON`). Myspoti asks for the first and takes the second when Spotify refuses it, and the Jam
+sheet says where the music plays (`JamSession.listensHere`).
+
 Checked from Myspoti's own code on a free account (`host-cdp` JamLiveTest, the desktop app as the
 host): `current_or_new` answers 403 `FREE_USER_NOT_ALLOWED` (a free account cannot start a Jam), the
 join answers 200 with `CONTROL`. With `local_device_id` set to the page's own Connect device, the

@@ -53,6 +53,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -310,23 +313,62 @@ private fun HomeHeaderRow(navController: NavController, facet: String, onFacet: 
                 .horizontalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         ) {
-            // Spotify's home chips; tapping the selected one goes back to "Tout".
-            HomePill(stringResource(R.string.filter_chip_all_label), selected = facet.isEmpty()) { onFacet("") }
-            HomePill(stringResource(R.string.recents_content_filter_music), selected = facet == "music-chip") { onFacet("music-chip") }
-            if (com.music.spotui.data.api.Features.PODCASTS) {
-                HomePill(stringResource(R.string.ad_category_title_podcasts), selected = facet == "podcasts-chip") { onFacet("podcasts-chip") }
-                HomePill(stringResource(R.string.audiobooks_title), selected = facet == "audiobooks-chip") { onFacet("audiobooks-chip") }
+            // Spotify's home chips. Once one is picked, as in Spotify: a close chip, the picked one,
+            // and joined to it the chips it opens (Following: only what the user follows).
+            val labels = mapOf(
+                "music-chip" to stringResource(R.string.recents_content_filter_music),
+                "podcasts-chip" to stringResource(R.string.ad_category_title_podcasts),
+                "audiobooks-chip" to stringResource(R.string.audiobooks_title),
+            )
+            if (facet.isEmpty()) {
+                HomePill(stringResource(R.string.filter_chip_all_label), selected = true) {}
+                HomePill(labels.getValue("music-chip")) { onFacet("music-chip") }
+                if (com.music.spotui.data.api.Features.PODCASTS) {
+                    HomePill(labels.getValue("podcasts-chip")) { onFacet("podcasts-chip") }
+                    HomePill(labels.getValue("audiobooks-chip")) { onFacet("audiobooks-chip") }
+                }
+            } else {
+                val parent = com.music.spotui.data.entity.HomeSubChips.parentOf(facet) ?: facet
+                val subs = com.music.spotui.data.entity.HomeSubChips.byParent[parent].orEmpty()
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.clip(CircleShape).background(tone(0xFF2A2A2A)).clickable { onFacet("") }.padding(8.dp),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.Close, contentDescription = stringResource(R.string.filter_chip_all_label),
+                        tint = AppText, modifier = Modifier.size(18.dp))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    HomePill(labels[parent].orEmpty(), selected = true, shape = if (subs.isEmpty()) RoundedCornerShape(50) else JoinedStart) { onFacet(parent) }
+                    subs.forEachIndexed { i, (id, label) ->
+                        val shown = remember(id) { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+                        androidx.compose.animation.AnimatedVisibility(
+                            visibleState = shown,
+                            enter = androidx.compose.animation.expandHorizontally(expandFrom = Alignment.Start) + androidx.compose.animation.fadeIn(),
+                        ) {
+                            HomePill(label, selected = facet == id, shape = if (i == subs.lastIndex) JoinedEnd else RoundedCornerShape(4.dp)) { onFacet(id) }
+                        }
+                    }
+                }
             }
+        }
+        // Friend activity, out of the tab bar: at the end of the header, as Spotify has it.
+        IconButton(onClick = { navController.navigate(com.music.spotui.ui.navigation.Routes.Friends.route) }) {
+            Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_friends_big), contentDescription = stringResource(R.string.friends_title),
+                tint = AppText, modifier = Modifier.size(24.dp))
         }
     }
 }
 
+/** The left half of two pills joined (a picked chip and the one it opened), and the right one. */
+private val JoinedStart = RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50, topEndPercent = 15, bottomEndPercent = 15)
+private val JoinedEnd = RoundedCornerShape(topStartPercent = 15, bottomStartPercent = 15, topEndPercent = 50, bottomEndPercent = 50)
+
 @Composable
-private fun HomePill(label: String, selected: Boolean = false, onClick: () -> Unit) {
+private fun HomePill(label: String, selected: Boolean = false, shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(50), onClick: () -> Unit) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
+            .clip(shape)
             .background(if (selected) com.music.spotui.ui.theme.AppAccent else tone(0xFF2A2A2A))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),

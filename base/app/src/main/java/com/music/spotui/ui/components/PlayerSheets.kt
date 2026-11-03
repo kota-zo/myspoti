@@ -394,6 +394,9 @@ private fun JamSection(onDismiss: () -> Unit) {
         val s = session
         if (s != null) {
             Text(stringResource(R.string.jam_members, s.members.size), color = Green, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            // A member: where the music plays, as Spotify let this phone in (see JamSession.listensHere).
+            if (!s.isHost) Text(stringResource(if (s.listensHere) R.string.jam_plays_here else R.string.jam_plays_on_host),
+                color = AppMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
             Text(stringResource(R.string.jam_invite), color = AppText, fontSize = 15.sp,
                 modifier = Modifier.fillMaxWidth().clickable {
                     scope.launch {
@@ -421,10 +424,7 @@ private fun JamSection(onDismiss: () -> Unit) {
                 com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(context).startScan()
                     .addOnSuccessListener { code ->
                         val raw = code.rawValue.orEmpty()
-                        scope.launch {
-                            val token = JamLinks.token(raw)
-                            if (token == null || runCatching { jam.join(token) }.isFailure) failed() else onDismiss()
-                        }
+                        joinJam(context, raw, onDismiss)
                     }
                     // No scanner on this phone (Play services missing or too old): say so.
                     .addOnFailureListener { failed() }
@@ -434,11 +434,29 @@ private fun JamSection(onDismiss: () -> Unit) {
             modifier = Modifier.fillMaxWidth().clickable {
                 val clip = context.getSystemService(android.content.ClipboardManager::class.java)?.primaryClip
                 val raw = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
-                scope.launch {
-                    val token = JamLinks.token(raw)
-                    if (token == null || runCatching { jam.join(token) }.isFailure) failed() else onDismiss()
-                }
+                joinJam(context, raw, onDismiss)
             }.padding(vertical = 10.dp))
+    }
+}
+
+/**
+ * Joins the Jam of the invite [raw] (a link, a QR code's text) on the app's scope, not the sheet's.
+ * Reported: "Spotify refused the Jam" while the phone was in it: the sheet closes as soon as the
+ * Jam's device shows up, which cancelled the join still waiting on the page, and that cancellation
+ * was shown as a failure. Only an answer Spotify refused (or a link that is not one) says so now.
+ */
+private fun joinJam(context: android.content.Context, raw: String, onDismiss: () -> Unit) {
+    fun failed() = android.widget.Toast.makeText(context.applicationContext, context.getString(R.string.jam_failed), android.widget.Toast.LENGTH_SHORT).show()
+    onDismiss()
+    app.myspoti.host.android.MyspotiRuntime.scope.launch {
+        // A short link (spotify.link) is followed to its token first.
+        val token = JamLinks.token(raw)
+            ?: return@launch kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { failed() }
+        val error = runCatching { app.myspoti.host.android.MyspotiRuntime.api.jam.join(token) }.exceptionOrNull()
+        if (error != null && error !is kotlinx.coroutines.CancellationException) {
+            app.myspoti.host.android.Logbook.log("jam: join failed: ${error.message}")
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { failed() }
+        }
     }
 }
 

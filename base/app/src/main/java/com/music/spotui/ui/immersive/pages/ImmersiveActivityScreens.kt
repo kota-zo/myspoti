@@ -105,8 +105,8 @@ fun ImmersiveFriendsScreen(navController: NavController) {
     val now = remember(state) { System.currentTimeMillis() }
     ImmersivePage(
         title = stringResource(R.string.friends_title),
-        // A tab of its own: no back arrow.
-        onBack = null,
+        // Opened from Home's header (no longer a tab): back to it.
+        onBack = { navController.popBackStack() },
         actions = {
             ImmersiveBarAction(Icons.Rounded.Refresh, stringResource(R.string.friends_refresh), onClick = { state = null; attempt++ })
         },

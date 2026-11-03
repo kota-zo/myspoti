@@ -735,6 +735,11 @@
     <string name="settings_automix_mobile_data_detail">Τα τραγούδια από επεκτάσεις αναλύονται και με δεδομένα κινητής. Το καθένα κατεβαίνει δεύτερη φορά γι\' αυτό: περίπου όσα δεδομένα και η ακρόασή του. Ανενεργό: μόνο σε Wi-Fi.</string>
     <string name="playback_speed_note">Ταχύτητα %1$s× · πάτησε για 1×</string>
     <string name="jam_start_premium">Η έναρξη Jam απαιτεί Spotify Premium. Μπορείς να μπεις σε ένα με τον σύνδεσμο ή τον κωδικό QR.</string>
+    <string name="jam_plays_here">Το Jam παίζει σε αυτό το τηλέφωνο.</string>
+    <string name="jam_plays_on_host">Η μουσική παίζει στη συσκευή του οικοδεσπότη: αυτό το τηλέφωνο την ελέγχει. Το Spotify επιτρέπει μόνο στους λογαριασμούς Premium να ακούν ένα Jam στο δικό τους τηλέφωνο.</string>
+    <string name="settings_section_controls">Χειρισμός και παρασκήνιο</string>
+    <string name="settings_section_connect">Spotify Connect και Jam</string>
+    <string name="settings_section_library">Βιβλιοθήκη</string>
     <string name="settings_dynamic_color_title">Δυναμικά χρώματα (Material You)</string>
     <string name="settings_dynamic_color_detail">Το χρώμα έμφασης της εμφάνισης «Κλασική» προέρχεται από την ταπετσαρία σου. Η εμφάνιση «Εμβυθιστική» κρατά τα χρώματα του εξώφυλλου που παίζει.</string>
     <string name="settings_system_font_title">Γραμματοσειρά συστήματος</string>

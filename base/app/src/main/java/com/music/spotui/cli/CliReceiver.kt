@@ -277,7 +277,7 @@ class CliReceiver : BroadcastReceiver() {
     }
 
     private fun jamJson(s: app.myspoti.api.JamSession?): JsonElement = if (s == null) JsonNull else buildJsonObject {
-        put("id", s.id); put("token", s.joinToken ?: ""); put("host", s.isHost); put("queueOnly", s.queueOnly)
+        put("id", s.id); put("token", s.joinToken ?: ""); put("host", s.isHost); put("queueOnly", s.queueOnly); put("listensHere", s.listensHere)
         put("members", JsonArray(s.members.map { m -> JsonPrimitive(m.name + if (m.host) " (host)" else "") }))
     }
 

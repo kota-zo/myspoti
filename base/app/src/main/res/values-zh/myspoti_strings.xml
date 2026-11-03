@@ -735,6 +735,11 @@
     <string name="settings_automix_mobile_data_detail">扩展中的歌曲在移动数据下也会分析。每首歌为此要再下载一次：流量约等于再播放一遍。关闭时仅在 Wi-Fi 下分析。</string>
     <string name="playback_speed_note">速度 %1$s× · 点按恢复 1×</string>
     <string name="jam_start_premium">发起 Jam 需要 Spotify Premium。你可以通过链接或二维码加入。</string>
+    <string name="jam_plays_here">Jam 正在此手机上播放。</string>
+    <string name="jam_plays_on_host">音乐在主持人的设备上播放：此手机负责控制。Spotify 只允许 Premium 账户在自己的手机上收听 Jam。</string>
+    <string name="settings_section_controls">控制与后台</string>
+    <string name="settings_section_connect">Spotify Connect 与 Jam</string>
+    <string name="settings_section_library">音乐库</string>
     <string name="settings_dynamic_color_title">动态取色 (Material You)</string>
     <string name="settings_dynamic_color_detail">经典外观的强调色取自你的壁纸。沉浸式外观保留正在播放的封面颜色。</string>
     <string name="settings_system_font_title">系统字体</string>

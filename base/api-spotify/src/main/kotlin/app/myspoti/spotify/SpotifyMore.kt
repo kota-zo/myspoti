@@ -91,9 +91,11 @@ private fun shelf(section: JsonElement): Shelf? {
 }
 
 class SpotifyHome(private val gql: Gql) : Home {
-    override suspend fun feed(filter: HomeFilter, itemsPerShelf: Int): HomeFeed {
+    override suspend fun feed(filter: HomeFilter, itemsPerShelf: Int): HomeFeed = feed(filter.facet, itemsPerShelf)
+
+    override suspend fun feed(facet: String, itemsPerShelf: Int): HomeFeed {
         val home = gql.query("home", vars(
-            "timeZone" to TimeZone.getDefault().id, "sp_t" to "", "facet" to filter.facet,
+            "timeZone" to TimeZone.getDefault().id, "sp_t" to "", "facet" to facet,
             "sectionItemsLimit" to itemsPerShelf, "homeEndUserIntegration" to "INTEGRATION_WEB_PLAYER",
             "includeEpisodeContentRatingsV2" to true, "includeHomeChapterVideoCards" to false,
         )).entity("data.home", "home")
@@ -102,7 +104,15 @@ class SpotifyHome(private val gql: Gql) : Home {
             greeting = home.str("greeting.transformedLabel") ?: "",
             filters = listOf(HomeFilter.ALL) + filters,
             shelves = home.list("sectionContainer.sections.items").mapNotNull(::shelf),
+            chips = home.list("homeChips").mapNotNull(::homeChip),
         )
+    }
+
+    /** {id, label.transformedLabel, subChips[]}, as the Web Player reads it (a chip with no label is not shown there). */
+    private fun homeChip(c: JsonElement): app.myspoti.api.HomeChip? {
+        val id = c.str("id")?.takeIf { it.isNotBlank() } ?: return null
+        val label = c.str("label.transformedLabel")?.takeIf { it.isNotBlank() } ?: return null
+        return app.myspoti.api.HomeChip(id, label, c.list("subChips").mapNotNull(::homeChip))
     }
 
     override suspend fun categories(): List<Category> =
@@ -521,9 +531,14 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
     /** The session this account is in, read from Spotify (404: none): also a Jam joined in the room, which the page does not know. */
     override suspend fun refresh() {
         val (code, body) = http.send("GET", "$SOCIAL/v2/sessions/current")
-        _session.value = if (code in 200..299) parse(runCatching { Json.parseToJsonElement(body) }.getOrNull()) else if (code == 404) null
+        val read = if (code in 200..299) parse(runCatching { Json.parseToJsonElement(body) }.getOrNull()) else if (code == 404) null
             else parse(bridge.service("SocialConnectAPI", "fetchCurrentSession"))
+        // How this phone joined is not in the session read again: kept from the join.
+        _session.value = read?.copy(listensHere = read.id == listeningIn)
     }
+
+    /** The session this phone joined as a listener (REMOTE), null when it joined to control the host. */
+    @Volatile private var listeningIn: String? = null
 
     override suspend fun start(): JamSession {
         if (availability() == JamAvailability.RESTRICTED) throw UnsupportedOperationException("Jam is restricted on this account")
@@ -537,8 +552,11 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
     override suspend fun join(joinToken: String): JamSession {
         // Sent to Spotify directly, as the page's own join dialog sends it (docs/api/JAM.md): the page's
         // service gives up at once on an account it marks RESTRICTED, while Spotify lets a free account
-        // join as in the room. Listening here first (LISTEN_AND_CONTROL, Premium), else in the room
-        // (CONTROL: this phone controls the host's playback), each try with its own attempt id.
+        // join as in the room. As the official apps offer it: "Continue on this device" first
+        // (LISTEN_AND_CONTROL: this phone streams the Jam itself, Spotify's own playback), else "Play
+        // from the host's speaker" (CONTROL: this phone controls the host's playback). Measured on a
+        // free account (3 Nov 2026): the first is answered 403 "User not allowed to join session",
+        // the second 200. Each try has its own attempt id.
         // The page's own Connect device joins (local_device_id): without it the session took this
         // account but not always the page's device, which then knew of no Jam, made itself the
         // active device at the first command (a transfer to itself) and so left the Jam.
@@ -551,10 +569,17 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
                 put("join_attempt_id", java.util.UUID.randomUUID().toString()); put("permission_mode", "FULL")
             }
             last = http.send("POST", "$SOCIAL/v3/sessions/join", body.toString())
-            if (last.first in 200..299) parse(runCatching { Json.parseToJsonElement(last.second) }.getOrNull())?.let {
-                _session.value = it
-                awaitJamDevice()
-                return it
+            // What Spotify answered each way of joining: the diagnostic says how this phone is in the Jam.
+            bridge.logger?.invoke("jam: join as $control (device ${device?.take(6) ?: "none"}) -> HTTP ${last.first} ${last.second.take(300)}")
+            if (last.first in 200..299) parse(runCatching { Json.parseToJsonElement(last.second) }.getOrNull())?.let { joined ->
+                val listening = control == "LISTEN_AND_CONTROL"
+                listeningIn = joined.id.takeIf { listening }
+                val s = joined.copy(listensHere = listening)
+                _session.value = s
+                // Listening, the page is the Jam's player itself: nothing to wait for. Controlling, the
+                // first command waits for the page to see the host's device (else it went to itself).
+                if (!listening) awaitJamDevice()
+                return s
             }
         }
         throw GqlException("jam", "join failed: HTTP ${last.first} ${last.second.take(200)}")
@@ -580,14 +605,15 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
     }
 
     /** Another account takes the page: the Jam known is that of the account that left. */
-    internal fun forgetSession() { _session.value = null }
+    internal fun forgetSession() { _session.value = null; listeningIn = null }
 
-    /** In a Jam this account joined: the music plays on the host's device, never to be pulled here. */
+    /** In a Jam this account joined: its songs are Spotify's (the Jam's), never an extension's. */
     val member: Boolean get() = _session.value?.isHost == false
 
     override suspend fun leave() {
         _session.value?.let { http.send("POST", "$SOCIAL/v3/sessions/${it.id}/leave") }
         _session.value = null
+        listeningIn = null
     }
 
     override suspend fun end() {

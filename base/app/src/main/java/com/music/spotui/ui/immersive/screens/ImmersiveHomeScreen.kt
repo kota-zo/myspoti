@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,22 +158,17 @@ fun ImmersiveHomeScreen(navController: NavController) {
             modifier = Modifier.fillMaxSize().immersiveHazeSource().immersiveChromeScroll(),
         ) {
             item(key = "home:facets") {
-                ImmersiveChipRow {
-                    ImmersiveChip(stringResource(R.string.filter_chip_all_label), selected = facet.isEmpty()) {
-                        if (facet.isNotEmpty()) homeViewModel.selectFacet(facet)
-                    }
-                    ImmersiveChip(stringResource(R.string.recents_content_filter_music), selected = facet == "music-chip") {
-                        homeViewModel.selectFacet("music-chip")
-                    }
-                    if (Features.PODCASTS) {
-                        ImmersiveChip(stringResource(R.string.ad_category_title_podcasts), selected = facet == "podcasts-chip") {
-                            homeViewModel.selectFacet("podcasts-chip")
-                        }
-                        ImmersiveChip(stringResource(R.string.audiobooks_title), selected = facet == "audiobooks-chip") {
-                            homeViewModel.selectFacet("audiobooks-chip")
-                        }
-                    }
-                }
+                ImmersiveHomeFacets(
+                    facet,
+                    labels = mapOf(
+                        "" to stringResource(R.string.filter_chip_all_label),
+                        "music-chip" to stringResource(R.string.recents_content_filter_music),
+                        "podcasts-chip" to stringResource(R.string.ad_category_title_podcasts),
+                        "audiobooks-chip" to stringResource(R.string.audiobooks_title),
+                    ),
+                    podcasts = Features.PODCASTS,
+                    select = homeViewModel::selectFacet,
+                )
             }
             when {
                 feed != null && feed.sections.isNotEmpty() -> {
@@ -210,6 +206,12 @@ fun ImmersiveHomeScreen(navController: NavController) {
         }
         // The greeting and the profile disc on floating glass; the feed scrolls under it.
         ImmersiveFloatingHeader(title, collapse = rememberTopBarCollapse(listState, 24.dp)) {
+            // Friend activity, out of the tab bar: beside the profile, as Spotify has it.
+            com.music.spotui.ui.immersive.shell.ImmersiveBarAction(
+                androidx.compose.ui.graphics.vector.ImageVector.vectorResource(R.drawable.ic_friends_big),
+                contentDescription = stringResource(R.string.friends_title),
+                onClick = { navController.navigate(com.music.spotui.ui.navigation.Routes.Friends.route) },
+            )
             val size = LocalBarControlSize.current
             // The tap area is the header's full height and reaches past the disc toward the
             // title, so the small disc of the minimized bar is still easy to hit.
