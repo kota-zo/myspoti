@@ -190,6 +190,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
     /** Spotify refuses this account its audio licences: playback was paused, the UI says so. */
     val licencesRefused: kotlinx.coroutines.flow.SharedFlow<Unit> = _licencesRefused
 
+    /** True from the pause the refusal made until the user plays: an ad the page is stuck on meanwhile is the refusal's, not an ad. */
+    val licencesHeld: Boolean get() = licenceRefusedHold
+
     /** Repairs wait: held by the host ([recoveryHeld]), or licences refused ([licenceRefusedHold]). */
     private fun repairsHeld(): Boolean = recoveryHeld() || licenceRefusedHold
 

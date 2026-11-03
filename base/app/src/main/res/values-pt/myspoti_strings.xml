@@ -515,7 +515,7 @@
     <string name="song_unavailable_skipped">%1$s não está disponível e foi ignorada.</string>
     <string name="song_unavailable">%1$s não está disponível.</string>
     <string name="songs_skipped_by_spotify">O Spotify continuou pulando músicas que não conseguia reproduzir, então a reprodução foi pausada. Toque em reproduzir para tentar de novo ou verifique sua conta e sua conexão.</string>
-    <string name="licences_refused_by_spotify">O Spotify está recusando reproduzir músicas nesta conta por enquanto (licença recusada), então a reprodução foi pausada. Toque em reproduzir para tentar de novo mais tarde.</string>
+    <string name="licences_refused_by_spotify">O Spotify está recusando reproduzir músicas nesta conta por enquanto (licença de áudio recusada), então a reprodução foi pausada. Aguarde um pouco e toque em reproduzir para tentar de novo, e verifique se a conta funciona no app oficial do Spotify.</string>
     <string name="playlist_leave">Sair da playlist</string>
     <string name="playlist_leave_confirm">Sair de %1$s? Você deixará de ser colaborador e não poderá adicionar nem remover músicas. Para entrar de novo, você precisará de um novo link de convite.</string>
     <string name="playlist_leave_button">Sair</string>

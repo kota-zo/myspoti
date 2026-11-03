@@ -455,7 +455,7 @@
     <string name="song_unavailable_skipped">%1$s is unavailable and was skipped.</string>
     <string name="song_unavailable">%1$s is unavailable.</string>
     <string name="songs_skipped_by_spotify">Spotify kept skipping songs it could not play, so playback was paused. Tap play to try again, or check your account and connection.</string>
-    <string name="licences_refused_by_spotify">Spotify is refusing to play songs on this account for now (licence refused), so playback was paused. Tap play to try again later.</string>
+    <string name="licences_refused_by_spotify">Spotify is refusing to play songs on this account right now (audio licence refused), so playback was paused. Wait a while and tap play to try again, and check that the account plays in the official Spotify app.</string>
     <string name="spotify_limited">Spotify is limiting playback for a moment. Try again in a minute.</string>
     <string name="library_change_undone">Spotify refused the change, your library is back as it was</string>
     <string name="blend_title">Blend</string>
