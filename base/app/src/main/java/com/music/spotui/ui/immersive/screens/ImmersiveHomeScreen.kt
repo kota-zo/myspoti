@@ -9,6 +9,7 @@ import com.music.spotui.ui.immersive.shell.immersiveHazeSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import com.music.spotui.ui.components.arrivingRow
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -177,14 +178,19 @@ fun ImmersiveHomeScreen(navController: NavController) {
                 feed != null && feed.sections.isNotEmpty() -> {
                     shortcuts?.let { tiles ->
                         item(key = "home:shortcuts") {
-                            ShortcutGrid(navController, tiles, playingContext)
+                            // The feed fades in over its placeholder (see immersiveFeedSkeleton).
+                            Box(arrivingRow()) {
+                                ShortcutGrid(navController, tiles, playingContext)
+                            }
                         }
                     }
                     carousels.forEachIndexed { index, section ->
                         item(key = "home:section:$index:${section.title}") {
                             // The lead carousel gets the big cards, unless it is a row of artists.
                             val hero = index == 0 && section.items.none { it is HomeItem.Artist }
-                            if (hero) HeroSection(navController, section, playingContext) else ShelfSection(navController, section, playingContext)
+                            Box(arrivingRow()) {
+                                if (hero) HeroSection(navController, section, playingContext) else ShelfSection(navController, section, playingContext)
+                            }
                         }
                     }
                     // Sections from extensions (home.sections), after Spotify's own.

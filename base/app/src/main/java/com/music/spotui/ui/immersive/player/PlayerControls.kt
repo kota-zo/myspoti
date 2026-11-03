@@ -256,7 +256,9 @@ internal fun TransportRow(
             heightScale = PLAYER_SKIP_HEIGHT_SCALE,
             onClick = onPrevious,
         )
-        if (isLoading) {
+        // The spinner and the button hand over in a short fade, not in one frame.
+        com.music.spotui.ui.components.LoadedFade(isLoading) { loading ->
+        if (loading) {
             // Same footprint as the play/pause target: a smaller box would shunt everything below it.
             Box(Modifier.size(playTouch), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(38.dp))
@@ -269,6 +271,7 @@ internal fun TransportRow(
                 touchSize = playTouch,
                 onClick = onPlayPause,
             )
+        }
         }
         TransportGlyph(
             icon = Icons.Rounded.SkipNext,
@@ -306,14 +309,17 @@ private fun TransportGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier
-                .size(size)
-                .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
-        )
+        // Play and pause swap as in the Classic player (the skip glyphs never change).
+        com.music.spotui.ui.components.GlyphSwap(icon) { glyph ->
+            Icon(
+                imageVector = glyph,
+                contentDescription = contentDescription,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(size)
+                    .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
+            )
+        }
     }
 }
 

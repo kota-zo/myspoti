@@ -486,7 +486,8 @@ private fun TransportButton(icon: ImageVector, contentDescription: String, size:
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(size))
+        // Play and pause swap as in the music player.
+        com.music.spotui.ui.components.GlyphSwap(icon) { Icon(it, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(size)) }
     }
 }
 

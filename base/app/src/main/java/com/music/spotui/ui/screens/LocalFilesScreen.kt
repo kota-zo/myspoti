@@ -149,7 +149,7 @@ fun LocalFilesScreen(navController: NavController) {
                                     }
                                     .clip(CircleShape).background(com.music.spotui.ui.theme.AppAccent),
                             ) {
-                                Icon(painterResource(if (playingLocal && SongPlayer.isPlaying()) R.drawable.ic_playing else R.drawable.play_svgrepo_com),
+                                com.music.spotui.ui.components.PlayPauseIcon(playingLocal && SongPlayer.isPlaying(),
                                     stringResource(R.string.content_description_play_button), tint = Color.Black, modifier = Modifier.size(26.dp))
                             }
                         }

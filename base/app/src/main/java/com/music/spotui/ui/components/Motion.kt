@@ -86,9 +86,39 @@ fun Modifier.pressScale(source: MutableInteractionSource, pressedScale: Float = 
 }
 
 /**
- * The play/pause glyph of the official app: the new one springs in from a smaller size
- * while the old one fades out, instead of swapping in a single frame. [playing] picks
- * the pause glyph.
+ * The few durations the Classic look's small transitions share (the same values as the
+ * Immersive look's [com.music.spotui.ui.immersive.motion.ImmersiveMotion], so both feel alike):
+ * a colour or glyph changing state, and content arriving in place of its placeholder.
+ */
+object Motion {
+    const val FADE_MS = 150
+    const val CONTENT_MS = 220
+}
+
+/**
+ * One glyph replacing another (play/pause, a heart filling, a follow check), as in the official
+ * app: the new one springs in from a smaller size while the old one fades out, instead of
+ * swapping in a single frame. Shown at once on first display; a plain swap under "Remove
+ * animations". [target] is what the glyph shows (a Boolean, an icon...).
+ */
+@Composable
+fun <T> GlyphSwap(target: T, modifier: Modifier = Modifier, content: @Composable (T) -> Unit) {
+    val reduce = com.music.spotui.ui.look.rememberReduceMotion()
+    AnimatedContent(
+        targetState = target,
+        modifier = modifier,
+        transitionSpec = {
+            if (reduce) EnterTransition.None togetherWith ExitTransition.None
+            else (scaleIn(spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow), initialScale = 0.6f) + fadeIn(tween(120))) togetherWith
+                (scaleOut(tween(120), targetScale = 0.6f) + fadeOut(tween(90)))
+        },
+        contentAlignment = Alignment.Center,
+        label = "glyphSwap",
+    ) { content(it) }
+}
+
+/**
+ * The play/pause glyph of the official app, on [GlyphSwap]. [playing] picks the pause glyph.
  */
 @Composable
 fun PlayPauseIcon(
@@ -97,17 +127,7 @@ fun PlayPauseIcon(
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
-    val reduce = com.music.spotui.ui.look.rememberReduceMotion()
-    AnimatedContent(
-        targetState = playing,
-        transitionSpec = {
-            if (reduce) EnterTransition.None togetherWith ExitTransition.None
-            else (scaleIn(spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow), initialScale = 0.6f) + fadeIn(tween(120))) togetherWith
-                (scaleOut(tween(120), targetScale = 0.6f) + fadeOut(tween(90)))
-        },
-        contentAlignment = Alignment.Center,
-        label = "playPause",
-    ) { isPlaying ->
+    GlyphSwap(playing) { isPlaying ->
         Icon(
             painter = painterResource(if (isPlaying) R.drawable.ic_playing else R.drawable.play_svgrepo_com),
             contentDescription = contentDescription,
@@ -116,6 +136,43 @@ fun PlayPauseIcon(
         )
     }
 }
+
+/**
+ * A page that loads: its content fades in over its placeholder ([Loader]) instead of replacing
+ * it in one frame. A page shown from the cache (not loading at first) appears at once, and an
+ * update of a page already shown keeps its composition and its state (same [loading], no fade).
+ * A plain cut under "Remove animations". [content] gets whether it draws the loading state.
+ */
+@Composable
+fun LoadedFade(loading: Boolean, modifier: Modifier = Modifier, content: @Composable (loading: Boolean) -> Unit) {
+    val reduce = com.music.spotui.ui.look.rememberReduceMotion()
+    androidx.compose.animation.Crossfade(
+        targetState = loading,
+        modifier = modifier,
+        animationSpec = if (reduce) androidx.compose.animation.core.snap() else tween(Motion.CONTENT_MS),
+        label = "loadedFade",
+    ) { content(it) }
+}
+
+/**
+ * A row of a lazy list arriving in place of the list's placeholder rows: it fades in once instead
+ * of popping. A list laid out with its rows at once (from the cache) shows them still, and rows
+ * scrolled into view never fade (Compose animates only items new to the list). Nothing moves:
+ * no placement animation. Nothing under "Remove animations". Only for items with stable keys.
+ */
+@Composable
+fun LazyItemScope.arrivingRow(): Modifier =
+    if (com.music.spotui.ui.look.rememberReduceMotion()) Modifier
+    else Modifier.animateItem(fadeInSpec = tween(Motion.CONTENT_MS), placementSpec = null, fadeOutSpec = null)
+
+/**
+ * A placeholder row of a lazy list: it fades out as the real rows ([arrivingRow]) fade in over
+ * it, instead of vanishing in one frame. Nothing under "Remove animations".
+ */
+@Composable
+fun LazyItemScope.leavingPlaceholder(): Modifier =
+    if (com.music.spotui.ui.look.rememberReduceMotion()) Modifier
+    else Modifier.animateItem(fadeInSpec = null, placementSpec = null, fadeOutSpec = tween(Motion.CONTENT_MS))
 
 /**
  * A row of a lazy list that reorders or loses items: it slides to its new place, on the spring

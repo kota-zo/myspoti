@@ -97,10 +97,12 @@ fun HomeScreen(navController: NavController){
             .background(Color(AppBackground.toArgb()))
     ) {
         val feed = (home as? Response.Success)?.data
-
+        val hasFeed = feed != null && feed.sections.isNotEmpty()
+        // The feed fades in over the placeholder instead of replacing it in one frame.
+        com.music.spotui.ui.components.LoadedFade(!hasFeed) { waiting ->
         when {
             // Preferred: the real personalized Spotify home feed.
-            feed != null && feed.sections.isNotEmpty() -> {
+            !waiting && feed != null -> {
                 HomeFeedContent(navController, feed, homeViewModel.facet.value) { homeViewModel.selectFacet(it) }
             }
 
@@ -110,7 +112,8 @@ fun HomeScreen(navController: NavController){
                 HomeHeaderRow(navController, homeViewModel.facet.value) { homeViewModel.selectFacet(it) }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     when {
-                        home is Response.Loading -> Loader(SkeletonKind.Home)
+                        // Fading out as the feed fades in: still the placeholder.
+                        home is Response.Loading || hasFeed -> Loader(SkeletonKind.Home)
                         else -> androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = if (home is Response.Error) stringResource(R.string.home_error) else stringResource(R.string.home_empty),
@@ -124,6 +127,7 @@ fun HomeScreen(navController: NavController){
                     }
                 }
             }
+        }
         }
     }
 }

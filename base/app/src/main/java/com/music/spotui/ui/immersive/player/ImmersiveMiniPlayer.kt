@@ -141,7 +141,9 @@ fun ImmersiveMiniPlayer(modifier: Modifier = Modifier) {
                 )
             }
         }
-        if (buffering) {
+        // The spinner and the button hand over in a short fade, not in one frame.
+        com.music.spotui.ui.components.LoadedFade(buffering) { loading ->
+        if (loading) {
             Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Immersive.Text, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
             }
@@ -155,13 +157,17 @@ fun ImmersiveMiniPlayer(modifier: Modifier = Modifier) {
                 },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = stringResource(if (playing) R.string.immersive_player_pause else R.string.immersive_player_play),
-                    tint = Immersive.Text,
-                    modifier = Modifier.size(GLYPH_SIZE),
-                )
+                // Play and pause swap as in the full player.
+                com.music.spotui.ui.components.GlyphSwap(playing) { on ->
+                    Icon(
+                        imageVector = if (on) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = stringResource(if (on) R.string.immersive_player_pause else R.string.immersive_player_play),
+                        tint = Immersive.Text,
+                        modifier = Modifier.size(GLYPH_SIZE),
+                    )
+                }
             }
+        }
         }
         Box(
             Modifier.size(GLYPH_SLOT).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {

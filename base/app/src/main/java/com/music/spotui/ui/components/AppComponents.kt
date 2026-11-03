@@ -62,44 +62,62 @@ import kotlinx.coroutines.delay
 /**
  * Loading placeholder, as in the official app: static grey shapes of the page to
  * come, no spinner. Shown only if loading lasts (cached pages appear without it),
- * and never animated (no frames spent while waiting).
+ * with a short fade in, then still (no frames spent while waiting).
  */
 @Composable
 fun Loader(kind: SkeletonKind = SkeletonKind.List) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(200); visible = true }
+    val shown = placeholderAlpha()
     Column(
         Modifier
             .fillMaxSize()
             .background(Color(AppBackground.toArgb()))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        if (!visible) return@Column
+        if (shown.value == 0f) return@Column
         val tile = tone(0xFF242424)
         val line = tone(0xFF2A2A2A)
-        when (kind) {
-            SkeletonKind.Home -> {
-                repeat(4) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        repeat(2) { Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
+        // The shapes fade in, the page's background stays opaque under them.
+        Column(Modifier.fillMaxWidth().graphicsLayer { alpha = shown.value }) {
+            when (kind) {
+                SkeletonKind.Home -> {
+                    repeat(4) {
+                        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            repeat(2) { Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
+                        }
+                    }
+                    repeat(2) {
+                        Box(Modifier.padding(top = 24.dp, bottom = 12.dp).width(180.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).background(line))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            repeat(3) { Box(Modifier.size(140.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
+                        }
                     }
                 }
-                repeat(2) {
-                    Box(Modifier.padding(top = 24.dp, bottom = 12.dp).width(180.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).background(line))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        repeat(3) { Box(Modifier.size(140.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
-                    }
+                SkeletonKind.Header -> {
+                    Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp, bottom = 20.dp).size(220.dp).clip(RoundedCornerShape(4.dp)).background(tile))
+                    Box(Modifier.width(200.dp).height(22.dp).clip(RoundedCornerShape(4.dp)).background(line))
+                    Box(Modifier.padding(top = 10.dp, bottom = 20.dp).width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(line))
+                    SkeletonRows(tile, line, 6)
                 }
+                SkeletonKind.List -> SkeletonRows(tile, line, 9)
             }
-            SkeletonKind.Header -> {
-                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp, bottom = 20.dp).size(220.dp).clip(RoundedCornerShape(4.dp)).background(tile))
-                Box(Modifier.width(200.dp).height(22.dp).clip(RoundedCornerShape(4.dp)).background(line))
-                Box(Modifier.padding(top = 10.dp, bottom = 20.dp).width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(line))
-                SkeletonRows(tile, line, 6)
-            }
-            SkeletonKind.List -> SkeletonRows(tile, line, 9)
         }
     }
+}
+
+/**
+ * The opacity of a loading placeholder: 0 for its first 200 ms (a quick load shows nothing),
+ * then a short fade in instead of a pop. At once under "Remove animations".
+ */
+@Composable
+private fun placeholderAlpha(): androidx.compose.runtime.State<Float> {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(200); visible = true }
+    val reduce = com.music.spotui.ui.look.rememberReduceMotion()
+    return androidx.compose.animation.core.animateFloatAsState(
+        if (visible) 1f else 0f,
+        if (reduce) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(Motion.FADE_MS),
+        label = "placeholder",
+    )
 }
 
 enum class SkeletonKind { List, Home, Header }
@@ -111,10 +129,9 @@ enum class SkeletonKind { List, Home, Header }
  */
 @Composable
 fun SkeletonList(count: Int = 6, round: Boolean = false, modifier: Modifier = Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(200); visible = true }
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        if (!visible) return@Column
+    val shown = placeholderAlpha()
+    Column(modifier.fillMaxWidth().graphicsLayer { alpha = shown.value }.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        if (shown.value == 0f) return@Column
         if (round) repeat(count) {
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(tone(0xFF242424)))
@@ -127,10 +144,9 @@ fun SkeletonList(count: Int = 6, round: Boolean = false, modifier: Modifier = Mo
 /** Lyrics loading: lines of grey bars of varied widths, in the lyrics' own colour. */
 @Composable
 fun SkeletonLyrics(color: Color, modifier: Modifier = Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(200); visible = true }
-    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
-        if (!visible) return@Column
+    val shown = placeholderAlpha()
+    Column(modifier.fillMaxWidth().graphicsLayer { alpha = shown.value }.padding(horizontal = 24.dp, vertical = 16.dp)) {
+        if (shown.value == 0f) return@Column
         for (w in floatArrayOf(0.85f, 0.6f, 0.75f, 0.5f, 0.9f, 0.65f, 0.7f, 0.45f)) {
             Box(Modifier.padding(vertical = 9.dp).fillMaxWidth(w).height(22.dp).clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.18f)))
         }

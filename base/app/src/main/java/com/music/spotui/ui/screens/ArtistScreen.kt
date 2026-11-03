@@ -106,7 +106,10 @@ fun ArtistScreen(navController: NavController, artistName: String, artistId: Str
             .fillMaxSize()
             .background(Color(AppBackground.toArgb()))
     ) {
-        when (val state = overview) {
+        // The page fades in over its placeholder instead of replacing it in one frame.
+        com.music.spotui.ui.components.LoadedFade(overview is Response.Loading) { loading ->
+        if (loading) Loader(SkeletonKind.Header)
+        else when (val state = overview) {
             is Response.Loading -> Loader(SkeletonKind.Header)
             is Response.Error -> androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 androidx.compose.material3.Icon(
@@ -121,6 +124,7 @@ fun ArtistScreen(navController: NavController, artistName: String, artistId: Str
             is Response.Success -> ArtistOverviewContent(
                 navController, artistViewModel, state.data, artistName,
             )
+        }
         }
     }
 }
@@ -366,8 +370,8 @@ private fun ArtistOverviewContent(
                         ,
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            painter = painterResource(id = if (isThisArtist && playingNow) R.drawable.ic_playing else R.drawable.play_svgrepo_com),
+                        com.music.spotui.ui.components.PlayPauseIcon(
+                            playing = isThisArtist && playingNow,
                             contentDescription = if (isThisArtist && playingNow) stringResource(R.string.content_description_pause_button) else stringResource(R.string.content_description_play_button),
                             tint = Color.Black,
                             modifier = Modifier.size(26.dp),

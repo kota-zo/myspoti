@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.animatedRow
 import com.music.spotui.ui.theme.AppText
 
 import androidx.compose.ui.res.stringResource
@@ -99,35 +100,51 @@ fun QueueScreen(navController: NavController) {
                 .navigationBarsPadding()
         ) {
             q.current?.let {
-                item {
+                item(key = "now") {
                     QueueHeader(stringResource(R.string.default_notification_channel_name))
                     QueueRow(song = it, highlight = true, onClick = {})
                 }
             }
+            // Keyed by song and occurrence (as the Immersive queue): a row removed or played lets
+            // the ones under it slide up instead of every row after it being drawn anew.
+            val keys = queueKeys(q.queued + q.nextUp)
             if (q.queued.isNotEmpty()) {
-                item { QueueHeader(stringResource(R.string.next_in_queue)) }
-                itemsIndexed(q.queued, key = { i, it -> "q" + i + it.uid + it.uri }) { _, item ->
-                    SwipeRemove(item) { QueueRow(song = item.song, highlight = false, onClick = { SongPlayer.skipTo(item) }) }
+                item(key = "heading-queued") { QueueHeader(stringResource(R.string.next_in_queue), animatedRow()) }
+                itemsIndexed(q.queued, key = { i, _ -> keys[i] }) { _, item ->
+                    Box(animatedRow()) {
+                        SwipeRemove(item) { QueueRow(song = item.song, highlight = false, onClick = { SongPlayer.skipTo(item) }) }
+                    }
                 }
             }
             if (q.nextUp.isNotEmpty()) {
-                item { QueueHeader(stringResource(R.string.next_up)) }
-                itemsIndexed(q.nextUp, key = { i, it -> "n" + i + it.uid + it.uri }) { _, item ->
-                    SwipeRemove(item) { QueueRow(song = item.song, highlight = false, onClick = { SongPlayer.skipTo(item) }) }
+                item(key = "heading-next") { QueueHeader(stringResource(R.string.next_up), animatedRow()) }
+                itemsIndexed(q.nextUp, key = { i, _ -> keys[q.queued.size + i] }) { _, item ->
+                    Box(animatedRow()) {
+                        SwipeRemove(item) { QueueRow(song = item.song, highlight = false, onClick = { SongPlayer.skipTo(item) }) }
+                    }
                 }
             }
         }
     }
 }
 
+/** One key per row: the song's uri, with its occurrence after the first ("uri~2"), never twice the same. */
+private fun queueKeys(rows: List<SongPlayer.QueueItem>): List<String> {
+    val seen = HashMap<String, Int>()
+    return rows.map { item ->
+        val count = seen.merge(item.uri, 1, Int::plus)!!
+        if (count == 1) item.uri else "${item.uri}~$count"
+    }
+}
+
 @Composable
-private fun QueueHeader(text: String) {
+private fun QueueHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
         color = AppText,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(16.dp, 18.dp, 16.dp, 6.dp)
+        modifier = modifier.padding(16.dp, 18.dp, 16.dp, 6.dp)
     )
 }
 

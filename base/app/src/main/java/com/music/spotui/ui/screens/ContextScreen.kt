@@ -564,14 +564,19 @@ fun ContextScreen(navController: NavController, type: String, id: String) {
     // During composition, so a cached page is there for the very first frame.
     remember(type, id) { vm.load(type, id) }
     val resp by vm.page.collectAsState()
-    Box(modifier = Modifier.fillMaxSize().background(PageBackground)) {
-        when (val r = resp) {
-            is Response.Loading -> Loader(SkeletonKind.Header)
-            is Response.Error -> com.music.spotui.ui.components.ErrorRetry(
-                stringResource(R.string.page_load_failed),
-                Modifier.align(Alignment.Center),
-            ) { vm.reload() }
-            is Response.Success -> ContextContent(navController, vm, r.data)
+    // The page fades in over its placeholder instead of replacing it in one frame.
+    com.music.spotui.ui.components.LoadedFade(resp is Response.Loading, Modifier.fillMaxSize().background(PageBackground)) { loading ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            // The placeholder fading out stays the placeholder, whatever the response is now.
+            if (loading) Loader(SkeletonKind.Header)
+            else when (val r = resp) {
+                is Response.Error -> com.music.spotui.ui.components.ErrorRetry(
+                    stringResource(R.string.page_load_failed),
+                    Modifier.align(Alignment.Center),
+                ) { vm.reload() }
+                is Response.Success -> ContextContent(navController, vm, r.data)
+                is Response.Loading -> Loader(SkeletonKind.Header)
+            }
         }
     }
 }
@@ -955,16 +960,30 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                     }
                     Spacer(Modifier.weight(1f))
                     val smart = SmartShuffle.on.value == p.uri
+                    // The glyph and its dot light up in a short fade instead of in one frame.
+                    val shuffleLit = shuffle || smart
+                    val shuffleTint by androidx.compose.animation.animateColorAsState(
+                        if (shuffleLit) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                        if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
+                        else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
+                        label = "shuffleTint",
+                    )
+                    val shuffleDot by androidx.compose.animation.core.animateFloatAsState(
+                        if (shuffleLit) 1f else 0f,
+                        if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
+                        else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
+                        label = "shuffleDot",
+                    )
                     Box {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_player_shuffle),
                         contentDescription = stringResource(if (smart) R.string.smart_shuffle_title else R.string.play_mode_item_shuffle_title),
-                        tint = if (shuffle || smart) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                        tint = shuffleTint,
                         modifier = Modifier
                             .size(26.dp)
                             .drawWithContent {
                                 drawContent()
-                                if (shuffle || smart) drawCircle(SpotifyGreen, radius = 2.dp.toPx(),
+                                if (shuffleDot > 0f) drawCircle(SpotifyGreen.copy(alpha = shuffleDot), radius = 2.dp.toPx(),
                                     center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height + 7.dp.toPx()))
                             }
                             .clickable(
@@ -1003,8 +1022,8 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                             .clip(CircleShape)
                             .background(SpotifyGreen),
                     ) {
-                        Icon(
-                            painter = painterResource(id = if (isThisContext && playing) R.drawable.ic_playing else R.drawable.play_svgrepo_com),
+                        com.music.spotui.ui.components.PlayPauseIcon(
+                            playing = isThisContext && playing,
                             contentDescription = if (isThisContext && playing) stringResource(R.string.content_description_pause_button) else stringResource(R.string.content_description_play_button),
                             tint = Color.Black,
                             modifier = Modifier.size(24.dp),

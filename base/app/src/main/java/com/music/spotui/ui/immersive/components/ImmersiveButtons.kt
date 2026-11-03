@@ -5,6 +5,9 @@
  */
 package com.music.spotui.ui.immersive.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +38,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.myspoti.engine.R
+import com.music.spotui.ui.components.GlyphSwap
 import com.music.spotui.ui.immersive.Immersive
+import com.music.spotui.ui.immersive.motion.ImmersiveMotion
+import com.music.spotui.ui.look.rememberReduceMotion
 
 /** The height of the page action buttons (Play / Shuffle), and what their skeleton reserves. */
 val ImmersiveActionButtonHeight = 50.dp
@@ -54,19 +61,23 @@ fun ImmersiveButton(
     shape: Shape = Immersive.Button,
     enabled: Boolean = true,
 ) {
-    val content = if (filled) Color.White else Immersive.Accent
+    // Lighting up (Shuffle on) fades the fill and the content instead of swapping them in one frame.
+    val reduce = rememberReduceMotion()
+    val content by animateColorAsState(if (filled) Color.White else Immersive.Accent, stateFade(reduce), label = "buttonContent")
+    val fill by animateColorAsState(if (filled) Immersive.Accent else Immersive.Raised, stateFade(reduce), label = "buttonFill")
     Row(
         modifier = modifier
             .immersiveClickable(onClick = onClick, enabled = enabled)
             .height(ImmersiveActionButtonHeight)
             .clip(shape)
-            .background(if (filled) Immersive.Accent else Immersive.Raised)
+            .background(fill)
             .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
+            // Play turning into Pause: the glyphs swap as the player's do.
+            GlyphSwap(icon) { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(8.dp))
         }
         Text(
@@ -87,6 +98,9 @@ fun ImmersiveCircleButton(
     tint: Color = Immersive.Accent,
     size: androidx.compose.ui.unit.Dp = 44.dp,
 ) {
+    // A toggle (save, follow, download) changes glyph and colour in a short spring and fade
+    // instead of in one frame; nothing runs on first display.
+    val shownTint by animateColorAsState(tint, stateFade(rememberReduceMotion()), label = "circleTint")
     Box(
         modifier = modifier
             .immersiveClickable(onClick = onClick)
@@ -95,9 +109,13 @@ fun ImmersiveCircleButton(
             .background(Immersive.Raised),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(22.dp))
+        GlyphSwap(icon) { Icon(it, contentDescription = contentDescription, tint = shownTint, modifier = Modifier.size(22.dp)) }
     }
 }
+
+/** A colour changing with a control's state: a short fade, a cut under "reduce motion". */
+private fun stateFade(reduce: Boolean): androidx.compose.animation.core.AnimationSpec<Color> =
+    if (reduce) snap() else tween(ImmersiveMotion.FADE_MS)
 
 /**
  * The Play / Shuffle pair under an album's or a playlist's header: two equal-width buttons, side

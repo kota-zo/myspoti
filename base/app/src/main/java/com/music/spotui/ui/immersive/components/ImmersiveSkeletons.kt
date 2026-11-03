@@ -11,6 +11,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import com.music.spotui.ui.components.leavingPlaceholder
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -201,16 +202,16 @@ fun ImmersiveShelfSkeleton(
     }
 }
 
-/** Home while the first page of shelves is still loading. */
+/** Home while the first page of shelves is still loading; it fades out as the shelves fade in. */
 fun LazyListScope.immersiveFeedSkeleton(shelves: Int = 3, firstIsHero: Boolean = true) {
     if (firstIsHero) {
-        item(key = "skeleton:hero") { ImmersiveHeroShelfSkeleton() }
+        item(key = "skeleton:hero") { Box(leavingPlaceholder()) { ImmersiveHeroShelfSkeleton() } }
         items(shelves - 1, key = { "skeleton:shelf:$it" }) { index ->
-            ImmersiveShelfSkeleton(index = index + 1)
+            Box(leavingPlaceholder()) { ImmersiveShelfSkeleton(index = index + 1) }
         }
     } else {
         items(shelves, key = { "skeleton:shelf:$it" }) { index ->
-            ImmersiveShelfSkeleton(index = index)
+            Box(leavingPlaceholder()) { ImmersiveShelfSkeleton(index = index) }
         }
     }
 }
