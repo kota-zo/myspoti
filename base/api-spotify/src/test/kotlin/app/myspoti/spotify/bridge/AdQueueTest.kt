@@ -52,17 +52,6 @@ class AdQueueTest {
         assertEquals(listOf("advance after Playing: After instead of an ad"), notes)
     }
 
-    @Test fun `ads owed are left in the queue`() {
-        AdBlock.adsOwed = true
-        try {
-            assertNull(AdBlock.withoutAds(first))
-            assertNull(AdBlock.adAhead(second))
-            assertTrue(AdBlock.whyKept(first)!!.contains("let through"))
-        } finally { AdBlock.adsOwed = false }
-        // Once a licence is granted again, they are left out as before.
-        assertTrue(AdBlock.withoutAds(first) != null)
-    }
-
     @Test fun `when the skip goes to the ad too, the reply is left as it is`() =
         // show_next is a display-only state: the server refuses a page sent there (502).
         assertNull(AdBlock.withoutAds(second))

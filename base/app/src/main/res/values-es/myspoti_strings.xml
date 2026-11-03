@@ -516,6 +516,7 @@
     <string name="song_unavailable">%1$s no está disponible.</string>
     <string name="songs_skipped_by_spotify">Spotify seguía omitiendo canciones que no podía reproducir, así que la reproducción se pausó. Toca reproducir para intentarlo de nuevo, o revisa tu cuenta y tu conexión.</string>
     <string name="licences_refused_by_spotify">Spotify se niega ahora mismo a reproducir canciones en esta cuenta (licencia de audio rechazada), así que la reproducción se pausó. Espera un poco y toca reproducir para intentarlo de nuevo, y comprueba que la cuenta funciona en la aplicación oficial de Spotify.</string>
+    <string name="licences_refused_old_widevine">Spotify rechaza las licencias de audio de este teléfono: su DRM (Widevine %1$s) es más antiguo de lo que acepta el reproductor web de Spotify, sea cual sea la cuenta, así que la reproducción se pausó. Las canciones de Spotify no pueden reproducirse desde Myspoti en este teléfono; una extensión de fuente de audio puede reproducirlas.</string>
     <string name="playlist_leave">Salir de la playlist</string>
     <string name="playlist_leave_confirm">¿Salir de %1$s? Dejarás de ser colaborador y no podrás añadir ni quitar canciones. Para volver a unirte, necesitarás un nuevo enlace de invitación.</string>
     <string name="playlist_leave_button">Salir</string>

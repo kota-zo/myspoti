@@ -532,6 +532,7 @@
     <string name="song_unavailable">%1$s 不可用。</string>
     <string name="songs_skipped_by_spotify">Spotify 不断跳过无法播放的歌曲，因此播放已暂停。点按播放重试，或检查你的账号和网络连接。</string>
     <string name="licences_refused_by_spotify">Spotify 暂时拒绝在此账号上播放歌曲（音频许可被拒绝），因此播放已暂停。请稍等片刻后点按播放重试，并检查该账号能否在官方 Spotify 应用中正常播放。</string>
+    <string name="licences_refused_old_widevine">Spotify 拒绝了此手机的音频许可：它的 DRM（Widevine %1$s）比 Spotify 网页播放器接受的版本更旧，与账号无关，因此已暂停播放。在此手机上无法通过 Myspoti 播放 Spotify 歌曲；音频来源扩展可以播放它们。</string>
     <string name="playlist_member_listener">听众</string>
     <string name="playlist_member_remove_collab">取消协作者身份</string>
     <string name="playlist_member_make_collab">设为协作者</string>

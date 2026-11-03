@@ -516,6 +516,7 @@
     <string name="song_unavailable">%1$s ist nicht verfügbar.</string>
     <string name="songs_skipped_by_spotify">Spotify hat immer wieder Titel übersprungen, die es nicht abspielen konnte, daher wurde die Wiedergabe pausiert. Tippe auf Wiedergabe, um es erneut zu versuchen, oder prüfe dein Konto und deine Verbindung.</string>
     <string name="licences_refused_by_spotify">Spotify verweigert auf diesem Konto gerade die Wiedergabe (Audiolizenz abgelehnt), daher wurde die Wiedergabe pausiert. Warte etwas und tippe auf Wiedergabe, um es erneut zu versuchen, und prüfe, ob das Konto in der offiziellen Spotify-App abspielt.</string>
+    <string name="licences_refused_old_widevine">Spotify verweigert die Audiolizenzen dieses Telefons: Sein DRM (Widevine %1$s) ist älter als das, was der Spotify-Webplayer akzeptiert, unabhängig vom Konto, daher wurde die Wiedergabe pausiert. Spotify-Titel können auf diesem Telefon nicht über Myspoti abgespielt werden; eine Audioquellen-Erweiterung kann sie abspielen.</string>
     <string name="playlist_leave">Playlist verlassen</string>
     <string name="playlist_leave_confirm">%1$s verlassen? Du bist dann kein Mitwirkender mehr und kannst keine Titel mehr hinzufügen oder entfernen. Um wieder beizutreten, brauchst du einen neuen Einladungslink.</string>
     <string name="playlist_leave_button">Verlassen</string>

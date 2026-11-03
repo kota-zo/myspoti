@@ -344,7 +344,13 @@ object SongPlayer {
         }
         scope.launch {
             MyspotiRuntime.spotify.player.licencesRefused.collect {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.licences_refused_by_spotify, android.widget.Toast.LENGTH_LONG).show()
+                // A Widevine older than Spotify still accepts is the phone, not the account: waiting
+                // or another account changes nothing, an extension's source does.
+                val drm = app.myspoti.host.android.Widevine.version
+                val text = if (app.myspoti.host.android.Widevine.tooOld(drm))
+                    Graph.app.getString(app.myspoti.engine.R.string.licences_refused_old_widevine, drm?.substringBefore('@'))
+                else Graph.app.getString(app.myspoti.engine.R.string.licences_refused_by_spotify)
+                android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
             }
         }
         // Said once the page has asked its WebView: a device that cannot decrypt Spotify's streams

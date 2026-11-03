@@ -353,13 +353,8 @@
   // are left out of the queue by the host (AdBlock.withoutAds). The "Test ad" once taken for an
   // ad that came through was tools/playback_test.py's own fake.
   let adsLatched = false;
-  // Spotify refuses the account its audio licences (the host's AdBlock.adsOwed, set before the
-  // bridge is injected and by "ads.owed"): the ads it queues are let play, muted by the host, so
-  // the page's own managers are left on and drive them as on any free account.
-  const adsOwed = () => window.__mspAdsOwed === true;
   const adsOff = () => {
     if (!services) return 'not ready';
-    if (adsOwed()) return 'owed: left on';
     if (adsLatched) return 'already off';
     let audio = null;
     try { audio = services.resolve('AdManagers').audio; } catch (e) { return 'unresolved'; }
@@ -380,30 +375,6 @@
   };
 
   /**
-   * Ads owed or not. On: the latch of [adsOff] is undone (the instance's `enable` stand-in removed,
-   * the prototype's own run), so a break the server queues is played by the page's managers. Off:
-   * the managers are turned off again.
-   */
-  const adsOwedSet = on => {
-    window.__mspAdsOwed = !!on;
-    if (!on) return adsOff();
-    if (!services) return 'not ready';
-    let audio = null;
-    try { audio = services.resolve('AdManagers').audio; } catch (e) { return 'unresolved'; }
-    if (!audio) return 'no ad manager';
-    const done = [];
-    for (const [label, mgr] of [['audio', audio], ['inStream', audio.inStreamApi]]) {
-      if (!mgr) continue;
-      try {
-        if (Object.prototype.hasOwnProperty.call(mgr, 'enable')) delete mgr.enable;
-        if (typeof mgr.enable === 'function') { mgr.enable(); done.push(label); }
-      } catch (e) { /* left as it is */ }
-    }
-    adsLatched = false;
-    return done.length ? 'on: ' + done.join(',') : 'nothing to enable';
-  };
-
-  /**
    * Asks the in-stream ad manager to end its break. Kept for diagnosis only: on a real ad whose
    * audio was refused it did nothing (20/10), the server holds the ad ("ad_disallow").
    */
@@ -419,7 +390,6 @@
   const commands = {
     'bridge.version': () => VERSION,
     'ads.off': () => adsOff(),
-    'ads.owed': args => adsOwedSet(!!(args && args.on)),
     'ads.skip': () => adsSkip(),
 
     'player.state': () => mapState(need().player.getState()),

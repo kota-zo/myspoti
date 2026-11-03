@@ -14,19 +14,6 @@ class AdBlockTest {
     }
 
     @Test
-    fun `ads owed, their files load and the trackers stay refused`() {
-        AdBlock.adsOwed = true
-        try {
-            assertFalse(AdBlock.isBlocked("https://adstudio-assets.scdn.co/mp3/d0448345e619692e0b13626ad4994d4b824f7107.mp3"))
-            assertFalse(AdBlock.isBlocked("https://pubads.g.doubleclick.net/gampad/ads?x=1"))
-            assertFalse(AdBlock.isBlocked("https://s0.2mdn.net/ads/richmedia/studio/abc.mp4"))
-            assertTrue(AdBlock.isBlocked("https://www.googletagmanager.com/gtm.js"))
-            assertTrue(AdBlock.isBlocked("https://sb.scorecardresearch.com/b"))
-        } finally { AdBlock.adsOwed = false }
-        assertTrue(AdBlock.isBlocked("https://adstudio-assets.scdn.co/mp3/d0448345e619692e0b13626ad4994d4b824f7107.mp3"))
-    }
-
-    @Test
     fun `blocks foreign ad servers only`() {
         assertTrue(AdBlock.isBlocked("https://pubads.g.doubleclick.net/gampad/ads?x=1"))
         assertTrue(AdBlock.isBlocked("https://imasdk.googleapis.com/js/sdkloader/ima3.js"))

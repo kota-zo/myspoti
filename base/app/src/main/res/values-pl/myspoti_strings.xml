@@ -541,6 +541,7 @@
     <string name="song_unavailable">Utwór %1$s jest niedostępny.</string>
     <string name="songs_skipped_by_spotify">Spotify wciąż pomijał utwory, których nie mógł odtworzyć, więc odtwarzanie wstrzymano. Dotknij odtwarzania, aby spróbować ponownie, lub sprawdź konto i połączenie.</string>
     <string name="licences_refused_by_spotify">Spotify na razie odmawia odtwarzania utworów na tym koncie (licencja audio odrzucona), więc odtwarzanie wstrzymano. Poczekaj chwilę i dotknij odtwarzania, aby spróbować ponownie, oraz sprawdź, czy konto działa w oficjalnej aplikacji Spotify.</string>
+    <string name="licences_refused_old_widevine">Spotify odrzuca licencje audio tego telefonu: jego DRM (Widevine %1$s) jest starszy niż to, co akceptuje odtwarzacz internetowy Spotify, niezależnie od konta, więc odtwarzanie zostało wstrzymane. Utworów Spotify nie da się odtwarzać z Myspoti na tym telefonie; rozszerzenie źródła dźwięku może je odtwarzać.</string>
     <string name="playlist_member_listener">Słuchacz</string>
     <string name="playlist_member_remove_collab">Usuń z grona współtwórców</string>
     <string name="playlist_member_make_collab">Zrób współtwórcą</string>

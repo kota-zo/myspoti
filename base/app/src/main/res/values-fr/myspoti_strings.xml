@@ -446,6 +446,7 @@
     <string name="song_unavailable">%1$s est indisponible.</string>
     <string name="songs_skipped_by_spotify">Spotify enchaînait des morceaux qu’il ne pouvait pas lire : la lecture a été mise en pause. Appuyez sur lecture pour réessayer, ou vérifiez votre compte et votre connexion.</string>
     <string name="licences_refused_by_spotify">Spotify refuse pour l’instant de lire des morceaux sur ce compte (licence audio refusée) : la lecture a été mise en pause. Patientez un moment puis appuyez sur lecture pour réessayer, et vérifiez que le compte fonctionne dans l’application Spotify officielle.</string>
+    <string name="licences_refused_old_widevine">Spotify refuse les licences audio de ce téléphone : sa DRM (Widevine %1$s) est plus ancienne que ce qu’accepte le lecteur web de Spotify, quel que soit le compte, donc la lecture a été mise en pause. Les morceaux Spotify ne peuvent pas être lus depuis Myspoti sur ce téléphone ; une extension de source audio peut les lire.</string>
     <string name="spotify_limited">Spotify limite la lecture pour le moment. Réessayez dans une minute.</string>
     <string name="library_change_undone">Spotify a refusé la modification, votre bibliothèque est revenue comme avant</string>
     <string name="blend_title">Mix à plusieurs</string>

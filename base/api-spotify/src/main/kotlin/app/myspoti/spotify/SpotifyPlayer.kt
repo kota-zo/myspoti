@@ -212,8 +212,6 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val s = _state.value
         if (pageLicences++ < PAGE_LICENCES_LOGGED)
             bridge.logger?.invoke("page licence #$pageLicences: $status ${url.substringAfter("widevine-license", url).take(60)} on ${s?.item?.uri ?: "nothing"}, ${if (pageReadyAt > 0) "${now - pageReadyAt} ms after ready" else "page not ready"}")
-        // A song's licence granted while ads were owed: Spotify plays this account again.
-        if (status in 200..299 && LicenceRefusals.isAudio(url)) { licencesGranted(); return }
         if (status != 403 || !LicenceRefusals.isAudio(url)) return
         // The page only mirrors a song of an extension, heard from the phone's own player: its
         // licences are not what the user hears. Nor are another device's.
@@ -231,29 +229,6 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         bridge.logger?.invoke("Spotify refuses this account's audio licences ($why): paused, no reload nor replay until the next play")
         _licencesRefused.tryEmit(Unit)
         scope.launch { runCatching { pause() } }
-        adsOwed(true)
-    }
-
-    /**
-     * Ads owed (see [app.myspoti.spotify.bridge.AdBlock.adsOwed]): on from the refusal until a
-     * song's licence is granted again. Every report of the refusal had no licence granted at all
-     * and the one ad Spotify queued refused by the app; the ads it queues now play, muted.
-     */
-    private fun adsOwed(on: Boolean) {
-        if (app.myspoti.spotify.bridge.AdBlock.adsOwed == on) return
-        app.myspoti.spotify.bridge.AdBlock.adsOwed = on
-        bridge.logger?.invoke(if (on) "ads let through and played muted until Spotify grants a licence again" else "ads blocked again: Spotify grants this account's licences")
-        scope.launch { runCatching { bridge.call("ads.owed", buildJsonObject { put("on", on) }) } }
-    }
-
-    /** A song's licence granted (200): a refusal before it is over, its hold and its ads owed too. */
-    private fun licencesGranted() {
-        if (!app.myspoti.spotify.bridge.AdBlock.adsOwed && !licenceRefusedHold) return
-        if (licenceRefusedHold) {
-            licenceRefusedHold = false
-            bridge.logger?.invoke("a licence granted again: repairs back on")
-        }
-        adsOwed(false)
     }
 
     /** The user plays (a pick, a skip, play): repairs may run again. */
@@ -666,9 +641,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         var attempts = 0
         var adAttempts = 0
         var adReloaded = false
-        /** This break was said once in the log: on another device, let play (ads owed), left as it is (held). */
+        /** This break was said once in the log: on another device, left as it is (held). */
         var remoteAdLogged = false
-        var adOwedLogged = false
         var adHeldLogged = false
         var frozenReloadAt = 0L
         /** Consecutive ticks where the page answered nothing (see FROZEN_MISSES). */
@@ -744,7 +718,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             tickCrossfade(s, media, now)
             if (localMuted && s?.item?.uri != hushedUri) { hushedUri = s?.item?.uri; applyHush() }
             if (tick % VOLUME_CHECK_TICKS == 0) guardVolume(s, media)
-            if (!_adPlaying.value) { remoteAdLogged = false; adOwedLogged = false; adHeldLogged = false }
+            if (!_adPlaying.value) { remoteAdLogged = false; adHeldLogged = false }
             if (_adPlaying.value && remoteActive) {
                 // The ad plays on another device of the account (Connect, Cast): muted there by the
                 // app (RemoteAdMute), never got past from here. A reload or a play of the next song
@@ -778,12 +752,10 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 // next song, so nothing clears the ad flag and the phone stays silent for good
                 // (reported as "no sound until the app is restarted"). The sound comes back
                 // anyway, and the state is read again.
-                // Ads owed play to their end, a whole break of them (several ads) muted.
-                val muteMax = if (app.myspoti.spotify.bridge.AdBlock.adsOwed) AD_BREAK_MAX_MS else AD_MUTE_MAX_MS
-                if (adMutedAt > 0 && now - adMutedAt > muteMax) {
-                    bridge.logger?.invoke("ad mute older than ${muteMax / 1000}s: unmuted")
+                if (adMutedAt > 0 && now - adMutedAt > AD_MUTE_MAX_MS) {
+                    bridge.logger?.invoke("ad mute older than ${AD_MUTE_MAX_MS / 1000}s: unmuted")
                     runCatching { unmuteAfterAd() }
-                    if (adStateAt > 0 && now - adStateAt > muteMax) {
+                    if (adStateAt > 0 && now - adStateAt > AD_MUTE_MAX_MS) {
                         adState = null; adStateAt = 0L
                         adAttempts = 0; adReloaded = false; adsOffSent = false
                         _adPlaying.value = false
@@ -808,21 +780,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                     }
                 }
                 // A refused ad sits at 0:00, buffering; a real one plays to its end.
-                // Ads owed: its file now loads, which a slow phone takes more than AD_STUCK_MS over.
-                val owed = LicenceRefusals.letAdPlay(app.myspoti.spotify.bridge.AdBlock.adsOwed, mirroring, refused = false)
-                val refused = ad != null && (ad.isBuffering || ad.speed == 0.0) && now - adSince > (if (owed) AD_OWED_STUCK_MS else AD_STUCK_MS)
+                val refused = ad != null && (ad.isBuffering || ad.speed == 0.0) && now - adSince > AD_STUCK_MS
                 // A video ad reports neither a position nor a speed the way an audio one does: it
                 // is taken as playing from the start, so it is got past instead of waited on.
                 val videoAd = ad?.item?.mediaType == "video"
                 val playing = ad != null && !refused && (videoAd || now - adSince > AD_PLAYING_SKIP_MS) && !adReloaded
-                // Ads owed (Spotify refuses the licences): one that plays is let play, muted, to its
-                // end; one that does not, or a break past AD_BREAK_MAX_MS, is got past as before.
-                val owedPlays = owed && !refused
-                val stuck = refused || (playing && !owedPlays) || now - adSince > AD_BREAK_MAX_MS
-                if (playing && owedPlays && !adOwedLogged) {
-                    adOwedLogged = true
-                    bridge.logger?.invoke("ad plays on ${ad?.item?.name}: let play muted, Spotify refuses this account's licences")
-                }
+                val stuck = refused || playing || now - adSince > AD_BREAK_MAX_MS
                 // Measured on 20/10 (desktop, free account, a real ad with its audio refused): the
                 // page now keeps a refused ad current for good (20 min, buffering at 0:00), and
                 // neither the in-stream manager's skipToNext nor playing the next song moves it
@@ -2391,8 +2354,6 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val AD_RESTORE_WAIT_MS = 6_000L
         /** A refused ad left current that long: the page will not move on by itself. */
         const val AD_STUCK_MS = 3_000L
-        /** [AD_STUCK_MS] while ads are owed (see AdBlock.adsOwed): the ad's file loads then. */
-        const val AD_OWED_STUCK_MS = 10_000L
         /**
          * An ad mute that old is lifted. The page never reports the end of a break, so a lost
          * unmute used to leave the phone silent until the app was restarted; longer than any ad

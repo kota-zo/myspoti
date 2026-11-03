@@ -70,27 +70,10 @@ object AdBlock {
         "fastly-insights.com",
     )
 
-    /** The trackers of [blockedHosts]: refused even while [adsOwed] (no ad needs them). */
-    private val trackerHosts = setOf("googletagmanager.com", "google-analytics.com", "scorecardresearch.com", "fastly-insights.com")
-
-    /**
-     * Spotify refuses this account its audio licences (set by [app.myspoti.spotify.SpotifyPlayer]
-     * from three 403 in a row, cleared by the first audio licence granted again). Every report of
-     * it (#134 and five diagnostics, 26/10 to 03/11: free accounts, phones from three makers, L1
-     * and L3) has the same course: no audio licence granted at all, then an ad Spotify queues,
-     * whose file this app refuses, so the ad never plays and is never heard of again. Whether
-     * Spotify withholds the licences until an ad plays is not known; meanwhile nothing plays
-     * anyway, so the ads it queues are let through and play muted: their files load, the queue
-     * keeps them ([withoutAds], [adAhead] stand aside) and the page's ad managers stay on.
-     */
-    @Volatile var adsOwed = false
-
     fun isBlocked(url: String): Boolean {
         val rest = url.substringAfter("://")
         val host = rest.substringBefore('/').substringBefore('?').substringBefore(':').lowercase()
-        fun matches(h: String) = host == h || host.endsWith(".$h")
-        if (adsOwed) return trackerHosts.any(::matches)
-        return blockedHosts.any(::matches)
+        return blockedHosts.any { host == it || host.endsWith(".$it") }
     }
 
     /**
@@ -105,7 +88,7 @@ object AdBlock {
      * is left as it is; an ad that is already the current state cannot be left out either.
      */
     fun withoutAds(body: String): Pair<String, List<String>>? {
-        if (adsOwed || !AD_HINT.containsMatchIn(body)) return null
+        if (!AD_HINT.containsMatchIn(body)) return null
         val root = runCatching { Json.parseToJsonElement(body).jsonObject }.getOrNull() ?: return null
         val notes = mutableListOf<String>()
         val out = root.toMutableMap()
@@ -132,7 +115,7 @@ object AdBlock {
 
     /** The [AdAhead] in a track-playback reply (after [withoutAds]), or null. */
     fun adAhead(body: String): AdAhead? = runCatching {
-        if (adsOwed || !AD_HINT.containsMatchIn(body)) return null
+        if (!AD_HINT.containsMatchIn(body)) return null
         val root = Json.parseToJsonElement(body).jsonObject
         val machine = root["state_machine"] as? JsonObject ?: return null
         val tracks = machine["tracks"] as? JsonArray ?: return null
@@ -181,7 +164,6 @@ object AdBlock {
      */
     fun whyKept(body: String): String? = runCatching {
         val marker = AD_HINT.find(body)?.value?.trim('"') ?: return null
-        if (adsOwed) return "$marker: let through, Spotify refuses this account's licences"
         val root = Json.parseToJsonElement(body).jsonObject
         val machine = root["state_machine"] as? JsonObject ?: return "$marker: no state machine in the reply"
         val tracks = machine["tracks"] as? JsonArray ?: return "$marker: no tracks"

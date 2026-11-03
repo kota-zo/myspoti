@@ -49,7 +49,6 @@ class AdFlagTest {
 
     @AfterEach fun down() {
         AdBlock.ahead.value = null
-        AdBlock.adsOwed = false
         scope.cancel()
     }
 
@@ -92,26 +91,5 @@ class AdFlagTest {
         host.pageState = stateOf(track("B"))
         waitFor("ad flag cleared", ms = 15_000) { !player.adPlaying.value }
         assertEquals("spotify:track:B", player.state.value?.item?.uri)
-    }
-
-    private fun licence(status: Int) =
-        """{"type":"net","url":"https://gew4-spclient.spotify.com/widevine-license/v1/audio/license","status":$status,"bytes":0,"ms":100}"""
-
-    @Test fun `licences refused, ads owed until one is granted again (#134)`() = runBlocking {
-        host.post("""{"type":"ready"}""")
-        waitFor("page ready") { bridge.ready.value }
-        host.post("""{"type":"state","state":${stateOf(track("A"))}}""")
-        // The certificate is not a song's licence; one 403 is a song, not the account.
-        host.post("""{"type":"net","url":"https://gew4-spclient.spotify.com/widevine-license/v1/application-certificate","status":200,"bytes":0,"ms":100}""")
-        host.post(licence(403))
-        delay(300)
-        assertEquals(false, AdBlock.adsOwed)
-        host.post(licence(403)); host.post(licence(403))
-        waitFor("ads owed") { AdBlock.adsOwed && player.licencesHeld }
-        // The ad Spotify queues meanwhile loads its file.
-        assertEquals(false, AdBlock.isBlocked("https://adstudio-assets.scdn.co/mp3/x.mp3"))
-        host.post(licence(200))
-        waitFor("licences back") { !AdBlock.adsOwed && !player.licencesHeld }
-        assertEquals(true, AdBlock.isBlocked("https://adstudio-assets.scdn.co/mp3/x.mp3"))
     }
 }
