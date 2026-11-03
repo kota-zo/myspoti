@@ -371,7 +371,9 @@ object MixPlanner {
 
     /** B's speed back to 1: about 0.3 % per beat, at least 8 beats. */
     private fun restore(speed: Double, period: Double): Double {
-        val beats = max(8.0, abs(speed - 1) / 0.003)
+        // About 0.1 % a beat, 16 beats at least: at 0.3 % the tempo was heard dropping back to the
+        // song's own after the mix (reported: "sped up, then suddenly normal").
+        val beats = max(16.0, abs(speed - 1) / 0.001)
         return if (abs(speed - 1) < 1e-4) 0.0 else (beats * period).let { (it * 10).roundToInt() / 10.0 }
     }
 }

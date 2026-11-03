@@ -751,7 +751,8 @@ object LocalPlayer {
         // (Started early by the start delay on purpose: up to that much before its start is expected.)
         if (preroll && target < run.startMs - startLead * plan.speedB - 300) { d.pause(); d.seekTo(run.startMs); run.state = MixState.READY; run.errors.clear(); return }
         val err = bPos - target
-        run.errors.addLast(err); while (run.errors.size > 3) run.errors.removeFirst()
+        // Five readings: a player's position moves in steps of 10–20 ms, three let that noise through.
+        run.errors.addLast(err); while (run.errors.size > 5) run.errors.removeFirst()
         val e = run.errors.sorted()[run.errors.size / 2]
         val base = plan.speedB * rate()
         // A second after the start, the deck's distance says how late it sounded: the next starts that much earlier.
@@ -767,11 +768,12 @@ object LocalPlayer {
         }
         run.locked = kotlin.math.abs(e) < 15
         if (!preroll) run.worstMs = maxOf(run.worstMs, kotlin.math.abs(e))
-        // Muted, or still low in the mix: fast and strong; heard: gentle.
-        val fast = preroll || quiet
-        val dead = if (preroll) 2.0 else 6.0
-        val horizon = if (fast) 300.0 else 1500.0
-        val limit = if (preroll) 0.08 else if (quiet) 0.05 else 0.02
+        // Muted: fast and strong. Heard, even low in the mix, gentle: up to 5 % within 300 ms there
+        // made B's tempo sway between 1.04 and 1.11 every second over a 9 % stretch (reported as a mess),
+        // for gaps of 5–20 ms that are mostly the positions' own noise.
+        val dead = if (preroll) 2.0 else 12.0
+        val horizon = if (preroll) 300.0 else if (quiet) 800.0 else 2000.0
+        val limit = if (preroll) 0.08 else if (quiet) 0.015 else 0.008
         val nudge = if (kotlin.math.abs(e) <= dead) 0.0 else (-e / horizon).coerceIn(-limit, limit)
         val speed = (base * (1 + nudge)).toFloat()
         // What the nudges moved the deck by so far (ms of B), for the start delay learnt above.
