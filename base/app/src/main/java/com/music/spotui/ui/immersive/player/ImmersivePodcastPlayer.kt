@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -85,6 +84,7 @@ import com.music.spotui.ui.components.QueueSheet
 import com.music.spotui.ui.components.SleepTimerSheet
 import com.music.spotui.ui.components.playingSourceLabel
 import com.music.spotui.ui.components.speedLabel
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.look.MeshGradientBackground
 import com.music.spotui.ui.look.rememberArtworkColors
@@ -191,10 +191,10 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .then(if (reduce) Modifier else Modifier.basicMarquee(iterations = Int.MAX_VALUE))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                         navController.navigate(episodeRoute(episodeId, title))
-                    },
+                    }
+                    .titleMarquee(iterations = Int.MAX_VALUE),
             )
             Text(
                 text = showName,
@@ -207,8 +207,8 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .then(if (reduce) Modifier else Modifier.basicMarquee(iterations = Int.MAX_VALUE))
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { openShow() },
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { openShow() }
+                    .titleMarquee(iterations = Int.MAX_VALUE),
             )
             // What the sound is when Myspoti's own player plays it; a tap opens its quality.
             if (sourceLabel.isNotBlank()) Text(
@@ -312,6 +312,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.titleMarquee(),
                                 )
                             }
                             Row(Modifier.fillMaxWidth().height(TITLE_HEIGHT), verticalAlignment = Alignment.CenterVertically) { credits() }
@@ -351,6 +352,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.titleMarquee(),
                     )
                 }
 

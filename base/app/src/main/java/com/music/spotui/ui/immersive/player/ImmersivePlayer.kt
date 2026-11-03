@@ -25,7 +25,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -118,6 +117,7 @@ import com.music.spotui.ui.look.lerp
 import com.music.spotui.ui.components.SongBlend
 import com.music.spotui.ui.components.SongBlendCover
 import com.music.spotui.ui.components.mixHalo
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
 import kotlin.math.abs
@@ -617,8 +617,9 @@ private fun RowScope.PlayerCredits(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f, fill = false)
-                    .then(if (scrolls) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openAlbum() },
+                    // The marquee inside the tap target: scrolling leaves the target as it was.
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openAlbum() }
+                    .titleMarquee(enabled = scrolls, iterations = Int.MAX_VALUE),
             )
             if (state.explicit && !state.adPlaying) {
                 Spacer(Modifier.width(6.dp))
@@ -644,8 +645,8 @@ private fun RowScope.PlayerCredits(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .then(if (scrolls) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openArtist() },
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openArtist() }
+                    .titleMarquee(enabled = scrolls, iterations = Int.MAX_VALUE),
             )
         }
         // What the sound is when Myspoti's own player plays it (an extension's stream, a

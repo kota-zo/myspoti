@@ -6,7 +6,6 @@ import com.music.spotui.ui.theme.AppText
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -299,13 +298,17 @@ fun MiniPlayer() {
                     Column(modifier = Modifier.padding(start = 12.dp, end = 8.dp)
                         .graphicsLayer { alpha = if (page == 1) blend?.wordsAlpha() ?: 1f else 1f }) {
                         if (remote == null) {
-                            Text(text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(
+                                text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                // Once per song then rests: the mini player is always on screen.
+                                modifier = Modifier.titleMarquee(iterations = 1),
+                            )
                             if (!adPlaying) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 // The artist yields the width: the output's name stays whole.
                                 Text(
                                     text = m.singer, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, lineHeight = 15.sp,
                                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false),
+                                    modifier = Modifier.weight(1f, fill = false).titleMarquee(iterations = 1),
                                 )
                                 // The extension the sound comes from, discreet, as the output's name.
                                 playingExtensionName()?.let { name ->
@@ -343,7 +346,7 @@ fun MiniPlayer() {
                                 fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, softWrap = false,
                                 // Scrolls once per track then rests: an endless marquee in the always-visible
                                 // mini player made the whole app redraw at 120 Hz without pause.
-                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 2_000),
+                                modifier = Modifier.titleMarquee(iterations = 1),
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = com.music.spotui.ui.theme.AppAccent, modifier = Modifier.size(14.dp))
