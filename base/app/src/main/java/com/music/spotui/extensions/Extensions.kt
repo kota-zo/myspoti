@@ -97,6 +97,12 @@ object Extensions {
     const val LYRICS_MS = HookBudgets.LYRICS
     /** An audio-source hook call. */
     const val AUDIO_MS = HookBudgets.AUDIO
+    /**
+     * An audio-source call for a song the user just picked: past it Spotify plays the song (seen:
+     * a source whose server timed out held the tap silent 12 s, up to [AUDIO_MS]). The extension
+     * is asked again for the next songs; one timing out several times in a row is set aside a while.
+     */
+    const val PICK_AUDIO_MS = 5_000L
     /** A download-source hook call (an extension may try several places). */
     const val DOWNLOAD_MS = HookBudgets.DOWNLOAD
     private const val TRACK_MS = HookBudgets.TRACK

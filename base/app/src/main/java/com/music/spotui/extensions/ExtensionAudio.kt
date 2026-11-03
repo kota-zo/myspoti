@@ -10,6 +10,7 @@ import com.music.spotui.di.LocalPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -185,9 +186,16 @@ object ExtensionAudio {
         // A downloaded song plays from its file whatever the extensions have: asked first, a miss (after
         // up to 13 s) sent a song marked downloaded to Spotify's stream.
         if (!OfflineStore.isDownloaded(picked.spotifyTrackId)) {
-            val first = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withContext(Dispatchers.IO) {
-                Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri))
-            } ?: return false
+            // A tap waits [Extensions.PICK_AUDIO_MS] for the extensions, then Spotify plays the song.
+            // The outer bound also covers a wait in the extension's queue or for extensions still loading.
+            val first = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream ?: withTimeoutOrNull(Extensions.PICK_AUDIO_MS + 1_000) {
+                withContext(Dispatchers.IO) {
+                    Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri), timeoutMs = Extensions.PICK_AUDIO_MS)
+                }
+            } ?: run {
+                app.myspoti.host.android.Logbook.log("audio: no extension audio for ${picked.title} within ${Extensions.PICK_AUDIO_MS / 1000} s: Spotify plays it")
+                return false
+            }
             keep(picked.spotifyTrackId, first)
         }
         val (list, at) = AudioRoute.queue(songs, picked)
