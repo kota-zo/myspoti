@@ -118,6 +118,10 @@ object MixPlanner {
         for (e in exits) for (bars in lengths) for (n in entries + dropEntries(b, gb, drops, bars * barA * m.speed)) {
             val len = bars * barA
             if (len > s.maxSec + 0.01 && bars > 2) continue
+            // Half or double time (71 against 130 BPM): two grooves that only meet every other beat,
+            // heard as a mess over a long mix (reported, 40 s). A large stretch is heard too.
+            if (m.beatsPerB != 1.0 && bars > 8) continue
+            if (abs(m.speed - 1) > WIDE_STRETCH && bars > 16) continue
             // A must still be playing (its audible part) for most of the mix.
             if (e.time + len > musicEnd(a) + barA) continue
             val bEnd = n.time + len * m.speed
@@ -144,6 +148,8 @@ object MixPlanner {
             score -= voiceClash(a, e.time, e.time + len, b, n.time, bEnd) * bars / 8.0
             // Two loud songs over each other for long: worse than a loud A over a quiet intro.
             score -= max(0.0, levelAt(a, e.time, e.time + len) + levelAt(b, n.time, bEnd)) * 0.08 * bars / 8.0
+            // A blend scored this low (clashing keys, a large stretch, two voices) is worse than a cut on the beat.
+            if (score < MIN_BLEND_SCORE) continue
             if (score > bestScore) {
                 bestScore = score
                 val swapBar = (bars / 2.0).let { if (bars >= 4) floor(it) else it }
@@ -153,6 +159,10 @@ object MixPlanner {
         }
         return best
     }
+
+    private const val MIN_BLEND_SCORE = 0.5
+    /** Beyond this stretch a blend is kept to 16 bars. */
+    private const val WIDE_STRETCH = 0.08
 
     /** Blend lengths tried, bars (longest first). */
     private val BARS = intArrayOf(32, 24, 16, 12, 8, 6, 4, 2)
