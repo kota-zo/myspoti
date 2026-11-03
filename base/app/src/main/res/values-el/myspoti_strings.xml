@@ -372,6 +372,14 @@
     <string name="recents_filter_podcasts">Podcast</string>
     <string name="recents_today">Σήμερα</string>
     <string name="recents_yesterday">Χθες</string>
+    <string name="whats_new_title">Τι νέο υπάρχει</string>
+    <string name="whats_new_subtitle">Οι πιο πρόσφατες κυκλοφορίες και τα επεισόδια από τους καλλιτέχνες και τις εκπομπές που ακολουθείτε.</string>
+    <string name="whats_new_section_new">Νέα</string>
+    <string name="whats_new_section_earlier">Παλαιότερα</string>
+    <string name="whats_new_empty">Τίποτα νέο ακόμα. Ακολουθήστε καλλιτέχνες και podcast για να βλέπετε εδώ τις νέες κυκλοφορίες και τα επεισόδιά τους.</string>
+    <string name="whats_new_failed">Δεν ήταν δυνατή η φόρτωση του «Τι νέο υπάρχει» (%1$s)</string>
+    <string name="whats_new_add_library">Προσθήκη στη Βιβλιοθήκη</string>
+    <string name="whats_new_remove_library">Αφαίρεση από τη Βιβλιοθήκη</string>
     <string name="recents_played_one">1 κομμάτι αναπαράχθηκε</string>
     <string name="recents_played_many">%1$d κομμάτια αναπαράχθηκαν</string>
     <string name="recents_saved_one">1 κομμάτι προστέθηκε</string>

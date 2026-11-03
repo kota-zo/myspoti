@@ -14,6 +14,7 @@ class GqlErrorsTest {
         assertTrue(isMutation("addToPlaylist"))
         assertTrue(isMutation("unfollowUsers"))
         assertTrue(isMutation("removeRecentSearches"))
+        assertTrue(isMutation("SetItemsStateInWhatsNewFeed"))
         assertFalse(isMutation("fetchPlaylist"))
         assertFalse(isMutation("searchTracks"))
         assertFalse(isMutation("address"))

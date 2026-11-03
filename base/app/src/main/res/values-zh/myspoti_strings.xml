@@ -159,6 +159,14 @@
     <string name="recents_filter_podcasts">播客</string>
     <string name="recents_today">今天</string>
     <string name="recents_yesterday">昨天</string>
+    <string name="whats_new_title">最新动态</string>
+    <string name="whats_new_subtitle">你关注的艺人和节目的最新发行和单集。</string>
+    <string name="whats_new_section_new">新内容</string>
+    <string name="whats_new_section_earlier">较早</string>
+    <string name="whats_new_empty">暂时没有新内容。关注艺人和播客，即可在这里看到他们的新发行和新单集。</string>
+    <string name="whats_new_failed">无法加载最新动态（%1$s）</string>
+    <string name="whats_new_add_library">添加到音乐库</string>
+    <string name="whats_new_remove_library">从音乐库中移除</string>
     <string name="recents_played_one">播放了 1 首曲目</string>
     <string name="recents_played_many">播放了 %1$d 首曲目</string>
     <string name="recents_saved_one">添加了 1 首曲目</string>

@@ -165,6 +165,14 @@
     <string name="recents_filter_podcasts">Podcasts</string>
     <string name="recents_today">Today</string>
     <string name="recents_yesterday">Yesterday</string>
+    <string name="whats_new_title">What\'s New</string>
+    <string name="whats_new_subtitle">The latest releases and episodes from the artists and shows you follow.</string>
+    <string name="whats_new_section_new">New</string>
+    <string name="whats_new_section_earlier">Earlier</string>
+    <string name="whats_new_empty">Nothing new yet. Follow artists and podcasts to see their new releases and episodes here.</string>
+    <string name="whats_new_failed">Could not load What\'s New (%1$s)</string>
+    <string name="whats_new_add_library">Add to Your Library</string>
+    <string name="whats_new_remove_library">Remove from Your Library</string>
     <string name="recents_played_one">1 track played</string>
     <string name="recents_played_many">%1$d tracks played</string>
     <string name="recents_saved_one">1 track added</string>

@@ -162,6 +162,14 @@
     <string name="recents_filter_podcasts">Podcasty</string>
     <string name="recents_today">Dziś</string>
     <string name="recents_yesterday">Wczoraj</string>
+    <string name="whats_new_title">Nowości</string>
+    <string name="whats_new_subtitle">Najnowsze wydania i odcinki artystów i programów, które obserwujesz.</string>
+    <string name="whats_new_section_new">Nowe</string>
+    <string name="whats_new_section_earlier">Wcześniej</string>
+    <string name="whats_new_empty">Na razie nic nowego. Obserwuj artystów i podcasty, aby zobaczyć tutaj ich nowe wydania i odcinki.</string>
+    <string name="whats_new_failed">Nie udało się wczytać nowości (%1$s)</string>
+    <string name="whats_new_add_library">Dodaj do Biblioteki</string>
+    <string name="whats_new_remove_library">Usuń z Biblioteki</string>
     <string name="recents_played_one">Odtworzono 1 utwór</string>
     <string name="recents_played_many">Odtworzone utwory: %1$d</string>
     <string name="recents_saved_one">Dodano 1 utwór</string>

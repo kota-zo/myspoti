@@ -293,9 +293,12 @@ class SpotifyHttp(
     }
 }
 
-/** Operations that change something: not replayed when their outcome is unknown, and any error fails them. */
+/**
+ * Operations that change something: not replayed when their outcome is unknown, and any error fails them.
+ * A few of the Web Player's own are capitalised (`SetItemsStateInWhatsNewFeed`).
+ */
 fun isMutation(name: String): Boolean =
-    Regex("^(add|remove|move|update|delete|set|create|follow|unfollow|pin|unpin|edit|save|ban|unban|clear)[A-Z]").containsMatchIn(name)
+    Regex("^(add|remove|move|update|delete|set|Set|create|follow|unfollow|pin|unpin|edit|save|ban|unban|clear)[A-Z]").containsMatchIn(name)
 
 /**
  * Throws when [response] reports a failure: errors without data for a read, any error or

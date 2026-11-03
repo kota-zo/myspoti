@@ -210,6 +210,15 @@ fun MyNavHost(
             if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveRecentlyPlayedScreen(navHostController) else com.music.spotui.ui.screens.RecentlyPlayedScreen(navHostController)
         }
 
+        // New releases and episodes of what the account follows (the bell on Home).
+        page(Routes.WhatsNew.route) {
+            LaunchedEffect(playerState) {
+                bottomBarState.value = true
+                bottomBarPlayerState.value = playerState != ""
+            }
+            if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveWhatsNewScreen(navHostController) else com.music.spotui.ui.screens.WhatsNewScreen(navHostController)
+        }
+
         page(Routes.Liked.route){
             LaunchedEffect(playerState) {
                 bottomBarState.value = true

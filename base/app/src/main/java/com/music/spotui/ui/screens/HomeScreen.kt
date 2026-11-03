@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -304,6 +305,7 @@ private fun HomeHeaderRow(navController: NavController, facet: String, onFacet: 
             }
         }
         }
+        WhatsNewBell { navController.navigate(com.music.spotui.ui.navigation.Routes.WhatsNew.route) }
         // B31: a separator between the profile and the options, reported missing from this
         // header (the sheets already carry one).
         Box(
@@ -475,6 +477,25 @@ private fun HomeFeedCard(item: HomeItem, onClick: () -> Unit) {
             minLines = 2,
             maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
+        )
+    }
+}
+
+/** The bell beside the avatar: opens "What's New". */
+@Composable
+private fun WhatsNewBell(onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(end = 10.dp, top = 10.dp, bottom = 10.dp)
+            .size(34.dp),
+    ) {
+        androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.Outlined.Notifications,
+            contentDescription = stringResource(R.string.whats_new_title),
+            tint = AppText,
+            modifier = Modifier.size(24.dp),
         )
     }
 }
