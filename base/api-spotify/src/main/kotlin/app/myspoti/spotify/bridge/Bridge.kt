@@ -140,7 +140,8 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
         // re-announces only when the host is not ready (a page it thought it had lost).
         // The page's generation goes in with it: a call made for a page that went away is refused
         // by the next one (see [call]) instead of running there.
-        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; ${BridgeScript.source}")
+        // Ads owed (AdBlock.adsOwed): the new page leaves its own ad managers on from the start.
+        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; window.__mspAdsOwed = ${AdBlock.adsOwed}; ${BridgeScript.source}")
     }
 
     /**

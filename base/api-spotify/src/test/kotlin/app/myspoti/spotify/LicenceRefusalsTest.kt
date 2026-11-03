@@ -28,4 +28,13 @@ class LicenceRefusalsTest {
         assertTrue(LicenceRefusals.isAudio("https://gew4-spclient.spotify.com/widevine-license/v1/audio/license"))
         assertFalse(LicenceRefusals.isAudio("https://gew4-spclient.spotify.com/widevine-license/v1/application/certificate"))
     }
+
+    @Test fun `an ad that plays is let play only while ads are owed`() {
+        assertTrue(LicenceRefusals.letAdPlay(owed = true, mirroring = false, refused = false))
+        assertFalse(LicenceRefusals.letAdPlay(owed = false, mirroring = false, refused = false))
+        // A page that only mirrors an extension's song is reloaded as before.
+        assertFalse(LicenceRefusals.letAdPlay(owed = true, mirroring = true, refused = false))
+        // An ad whose file did not load never ends by itself.
+        assertFalse(LicenceRefusals.letAdPlay(owed = true, mirroring = false, refused = true))
+    }
 }
