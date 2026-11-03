@@ -241,7 +241,14 @@ class PlaybackService : MediaBrowserServiceCompat() {
         }
         override fun onSeekTo(pos: Long) = command("seek", wake = false) { seekTo(pos) }
         override fun onStop() = command("stop", wake = false) { pause() }
-        override fun onPlayFromMediaId(mediaId: String, extras: Bundle?) = command("play $mediaId") { playFromMediaId(mediaId) }
+        override fun onPlayFromMediaId(mediaId: String, extras: Bundle?) {
+            // The "recent" item of the resumption root (see onGetRoot): play on where the last session stopped.
+            if (mediaId == RESUME_ID) command("resume") { play() } else command("play $mediaId") { playFromMediaId(mediaId) }
+        }
+        // The car's own shuffle button (Android Auto greys it out without the action).
+        override fun onSetShuffleMode(shuffleMode: Int) = command("shuffle mode $shuffleMode", wake = false) {
+            setShuffle(shuffleMode != PlaybackStateCompat.SHUFFLE_MODE_NONE)
+        }
         override fun onSkipToQueueItem(id: Long) = command("queue row $id") { skipToQueueItem(id) }
         override fun onPlayFromSearch(query: String, extras: Bundle?) = command("play from search") {
             // "Play music" with no words (Assistant, the car's voice button) is a plain play, not a search.
@@ -290,6 +297,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             info.playing -> PlaybackStateCompat.STATE_PLAYING
             else -> PlaybackStateCompat.STATE_PAUSED
         }
+        session.setShuffleMode(if (info.shuffle) PlaybackStateCompat.SHUFFLE_MODE_ALL else PlaybackStateCompat.SHUFFLE_MODE_NONE)
         session.setPlaybackState(PlaybackStateCompat.Builder()
             .setActions(if (info.episode) ACTIONS or SKIP_ACTIONS else ACTIONS)
             // Like on the left of previous / play / next, shuffle on the right: five buttons, so
@@ -531,6 +539,12 @@ class PlaybackService : MediaBrowserServiceCompat() {
             android.util.Log.w("Myspoti", "media browser: empty root for $clientPackageName")
             return BrowserRoot(EMPTY_ROOT_ID, null)
         }
+        // Media resumption (Android Auto on a new connection, the system's resume card): the system asks
+        // for the "recent" root, whose only item is what played last. Without it a reconnected car has
+        // nothing to restart (#142).
+        if (rootHints?.getBoolean(BrowserRoot.EXTRA_RECENT) == true) {
+            return BrowserRoot(RECENT_ROOT_ID, Bundle().apply { putBoolean(BrowserRoot.EXTRA_RECENT, true) })
+        }
         return BrowserRoot(ROOT_ID, Bundle().apply {
             putBoolean("android.media.browse.SEARCH_SUPPORTED", true)
             // Without this the car ignores the list / grid hints of the folders (AutoBrowser).
@@ -544,6 +558,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         // A client may subscribe to any id, not only the root it was given:
         // check the caller here too.
         if (parentId == EMPTY_ROOT_ID || !callerMayBrowse()) return result.sendResult(mutableListOf())
+        if (parentId == RECENT_ROOT_ID) return result.sendResult(recentItems())
         val lib = library ?: return result.sendResult(mutableListOf())
         result.detach()
         scope.launch {
@@ -570,6 +585,15 @@ class PlaybackService : MediaBrowserServiceCompat() {
             if (items == null) android.util.Log.w("Myspoti", "search: ${outcome.exceptionOrNull()?.message}")
             result.sendResult(items ?: mutableListOf())
         }
+    }
+
+    /** The song played last, as the one playable item of the resumption root: a tap plays on ([RESUME_ID]). */
+    private fun recentItems(): MutableList<MediaBrowserCompat.MediaItem> {
+        val info = current?.takeIf { it.title.isNotBlank() } ?: return mutableListOf()
+        val icon = info.coverUrl?.takeIf { it.startsWith("http") }
+        return mutableListOf(MediaBrowserCompat.MediaItem(MediaDescriptionCompat.Builder()
+            .setMediaId(RESUME_ID).setTitle(info.title).setSubtitle(info.artist).setIconUri(icon?.let(Uri::parse))
+            .build(), MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
     }
 
     /** The app itself, the listed browsers, and system apps may browse the library. */
@@ -612,6 +636,9 @@ class PlaybackService : MediaBrowserServiceCompat() {
         const val ROOT_ID = "root"
         /** Root for callers that may control playback but not browse (see onGetRoot). */
         private const val EMPTY_ROOT_ID = "empty"
+        /** Root asked for with EXTRA_RECENT: the last song, to resume it (see onGetRoot). */
+        private const val RECENT_ROOT_ID = "recent"
+        private const val RESUME_ID = "resume"
         private const val CHANNEL_ID = "playback"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_LIKE = "like"
@@ -620,7 +647,8 @@ class PlaybackService : MediaBrowserServiceCompat() {
         private val ACTIONS = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_PLAY_PAUSE or
             PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
             PlaybackStateCompat.ACTION_SEEK_TO or PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
-            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM
+            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM or
+            PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE
         /** Added while an episode plays: the notification's 15 s buttons and the keys of the same name. */
         private val SKIP_ACTIONS = PlaybackStateCompat.ACTION_FAST_FORWARD or PlaybackStateCompat.ACTION_REWIND
         private val http = OkHttpClient()
