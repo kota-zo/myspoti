@@ -134,6 +134,9 @@ object MixPlanner {
             if (bars > max(2, s.maxBars)) continue
             // A large stretch is heard on B for the second half and its way back: kept to 16 bars.
             if (abs(m.speed - 1) > WIDE_STRETCH && bars > 16) continue
+            // Half or double time (71 against 130 BPM): two grooves that meet every other beat only,
+            // a mess over a long mix (reported on the phone: 40 s of it).
+            if (m.beatsPerB != 1.0 && bars > 8) continue
             val len = bars * barA
             if (len > s.maxSec + 0.01 && bars > 2) continue
             val spanB = len * m.speed
