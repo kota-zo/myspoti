@@ -54,4 +54,11 @@
     <string name="nerd_mirror_off">Wyłączone</string>
     <string name="nerd_spotify_note">Strumień Spotify jest zaszyfrowany wewnątrz strony: jego dokładny kodek i przepływność są niedostępne, tylko to, co podaje strona.</string>
     <string name="nerd_spotify_remote">Dźwięk pochodzi z innego urządzenia: ten telefon tylko nim steruje.</string>
+    <string name="nerd_automix">AutoMix</string>
+    <string name="nerd_automix_blend">Miks zgrany z bitem</string>
+    <string name="nerd_automix_cut">Cięcie na bicie</string>
+    <string name="nerd_automix_fade">Przejście</string>
+    <string name="nerd_automix_mixing">Miksowanie: %1$s</string>
+    <string name="nerd_automix_planned">%1$s o %2$s, %3$d s</string>
+    <string name="nerd_automix_waiting">Włączony, brak zaplanowanego miksu</string>
 </resources>

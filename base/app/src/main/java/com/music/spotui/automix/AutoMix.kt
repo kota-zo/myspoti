@@ -34,6 +34,8 @@ object AutoMix {
     fun set(value: Boolean) {
         on = value
         Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY, value).apply()
+        // The Spotify songs' fade follows: a short one with AutoMix on (see TransitionPref).
+        com.music.spotui.data.preferences.applyCrossfade(com.music.spotui.data.preferences.CrossfadePref.seconds)
         journal("AutoMix ${if (value) "on" else "off"}")
     }
 
@@ -70,8 +72,89 @@ object AutoMix {
         private set
     fun changePulseLevel(value: Int) { pulseLevel = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_pulse", value).apply() }
 
-    /** The planner's settings from the ones above. */
-    fun settings() = MixPlanner.Settings(maxStretch = doubleArrayOf(0.04, 0.08, 0.12)[tempoRange], lengthBias = mixLength - 1)
+    /**
+     * The transition style: 0 beat blend (beat-matched where both grids allow, else a cut on the beat
+     * or a fade), 1 always a cut on A's downbeat (a fade when A has no grid), 2 always a plain fade.
+     */
+    var style by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getInt("automix_style", 0).coerceIn(0, 2))
+        private set
+    fun changeStyle(value: Int) { style = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_style", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+
+    /** Harmonic mixing: the songs' keys weigh strongly in the choice of the mix; off, they are ignored. On by default. */
+    var harmonic by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_harmonic", true))
+        private set
+    fun changeHarmonic(value: Boolean) { harmonic = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_harmonic", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+
+    /** Podcast episodes and audiobooks mixed like songs; off (the default), they start and end whole. */
+    var mixPodcasts by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_podcasts", false))
+        private set
+    fun changeMixPodcasts(value: Boolean) { mixPodcasts = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_podcasts", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+
+    /** Extension streams analysed on mobile data too (each is read a second time: about the song's size again). Off by default. */
+    var analyzeOnMobileData by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_mobile_data", false))
+        private set
+    fun changeAnalyzeOnMobileData(value: Boolean) {
+        analyzeOnMobileData = value
+        Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_mobile_data", value).apply()
+        // The songs refused on mobile data are asked again.
+        if (value) synchronized(memory) { refused.values.removeAll { it == Reason.MobileData } }
+        com.music.spotui.di.LocalPlayer.autoMixSettingsChanged()
+    }
+
+    /**
+     * The planner's settings from the ones above. Mix length in bars: short 4–8, balanced 2–16 (as
+     * the music says), long 12–32 (up to a minute); the lower end is a preference (a shorter mix only
+     * when no longer one fits the songs), the upper one a limit. A plain fade lasts 4, 8 or 14 s.
+     */
+    fun settings() = MixPlanner.Settings(
+        maxStretch = doubleArrayOf(0.04, 0.08, 0.12)[tempoRange],
+        maxSec = if (mixLength == 2) 64.0 else 32.0,
+        lengthBias = mixLength - 1,
+        style = arrayOf(MixPlan.Style.BLEND, MixPlan.Style.CUT, MixPlan.Style.FADE)[style],
+        minBars = intArrayOf(4, 2, 12)[mixLength],
+        maxBars = intArrayOf(8, 16, 32)[mixLength],
+        keyWeight = if (harmonic) 2.0 else 0.0,
+        smoothSec = doubleArrayOf(4.0, 8.0, 14.0)[mixLength],
+    )
+
+    // ── Why a song is not mixed (for the screens) ──
+
+    /** Why the next transition is not an AutoMix one. */
+    enum class Reason {
+        /** AutoMix is off. */
+        Off,
+        /** A Spotify song: it plays in the Web Player, whose audio the app never has. */
+        SpotifyStream,
+        /** The songs play on a Cast device. */
+        Cast,
+        /** A podcast episode or an audiobook, with "Mix podcasts" off. */
+        Podcast,
+        /** Two songs that follow each other on their album, with "Keep albums whole" on. */
+        Album,
+        /** A stream not analysed on mobile data ("Analyze on mobile data" off, or the data saver). */
+        MobileData,
+        /** Not analysed in time while saving energy (the phone's saver, the app's, or a low battery). */
+        Frugal,
+        /** Not analysed in time, or the analysis failed: the songs change with a plain fade. */
+        NotAnalyzed,
+    }
+
+    /** The reason LocalPlayer found for the next pair (null: it is mixed, or still being analysed). */
+    internal val pairReason = mutableStateOf<Reason?>(null)
+
+    /**
+     * Why the song playing does not mix into the next one, null when it does (or will, once
+     * analysed). Compose state: a screen reading it redraws when it changes.
+     */
+    fun whyNot(): Reason? = when {
+        !on -> Reason.Off
+        com.music.spotui.cast.CastPlayback.device.value != null || com.music.spotui.cast.CastPlayback.active -> Reason.Cast
+        !com.music.spotui.di.LocalPlayer.active.value -> Reason.SpotifyStream
+        else -> pairReason.value
+    }
+
+    /** Why [uri] has no analysis and will get none for now (null: ready, or under way). */
+    fun missing(uri: Uri): Reason? = synchronized(memory) { refused[key(uri)] }
 
     fun changeShowInPlayer(value: Boolean) { showInPlayer = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_show", value).apply() }
 
@@ -92,6 +175,8 @@ object AutoMix {
     }
     private val asked = HashSet<String>()
     private val failed = HashSet<String>()
+    /** Songs without an analysis for now, and why (shown through [missing]). */
+    private val refused = HashMap<String, Reason>()
     @Volatile private var wanted: Set<String> = emptySet()
 
     /** The analysis of [uri] if it is ready (memory or cache), else null. */
@@ -106,7 +191,7 @@ object AutoMix {
      * any other song; [ready] runs on the worker when one is done.
      */
     fun request(uris: List<Uri>, ready: () -> Unit) {
-        // Saving battery (the phone's saver, or under 20 % unplugged): the song playing and the next only.
+        // Saving energy (see [frugal]): the song playing and the next only.
         val songs = if (frugal()) uris.take(2) else uris
         wanted = songs.map(::key).toSet()
         for (uri in songs) {
@@ -116,19 +201,24 @@ object AutoMix {
                 try {
                     if (key !in wanted) return@execute
                     val a = load(key) ?: analyse(uri, key)
-                    if (a != null) { synchronized(memory) { memory[key] = a }; ready() }
+                    if (a != null) { synchronized(memory) { memory[key] = a; refused -= key }; ready() }
                 } finally { synchronized(memory) { asked -= key } }
             }
         }
     }
 
     private fun analyse(uri: Uri, key: String): TrackAnalysis? {
-        // A stream is read a second time for the analysis: on unmetered networks only.
+        // A stream is read a second time for the analysis: on unmetered networks only, unless the
+        // listener allows mobile data (never under the data saver, which refuses every connection).
         if (uri.scheme == ExtensionAudio.SCHEME) {
-            if (com.music.spotui.data.DataSaver.metered) { journal("not analysed (metered network): ${uri.lastPathSegment}"); return null }
+            val saver = com.music.spotui.data.DataSaver.active
+            if (com.music.spotui.data.DataSaver.metered && (saver || !analyzeOnMobileData)) {
+                synchronized(memory) { refused[key] = Reason.MobileData }
+                journal("not analysed (${if (saver) "data saver" else "metered network"}): ${uri.lastPathSegment}"); return null
+            }
             // DASH answers too: the data source reads them as one file, as the player does.
             val s = runCatching { ExtensionAudio.resolve(uri, ahead = true) }.getOrNull()
-            if (s == null) { synchronized(memory) { failed += key }; journal("not analysed (no stream): ${uri.lastPathSegment}"); return null }
+            if (s == null) { synchronized(memory) { failed += key; refused[key] = Reason.NotAnalyzed }; journal("not analysed (no stream): ${uri.lastPathSegment}"); return null }
         }
         val t0 = System.currentTimeMillis()
         return try {
@@ -144,7 +234,7 @@ object AutoMix {
         } catch (e: InterruptedException) {
             null
         } catch (e: Throwable) {
-            synchronized(memory) { failed += key }
+            synchronized(memory) { failed += key; refused[key] = Reason.NotAnalyzed }
             journal("analysis failed for ${label(uri)}: ${e.javaClass.simpleName} ${e.message?.take(120)}")
             null
         }
@@ -153,8 +243,11 @@ object AutoMix {
     private fun charging(): Boolean =
         runCatching { Graph.app.getSystemService(android.os.BatteryManager::class.java).isCharging }.getOrDefault(false)
 
-    /** The phone saving battery: its saver on, or under 20 % and unplugged. */
-    private fun frugal(): Boolean = runCatching {
+    /**
+     * Saving energy: the app's own energy saver or its data saver applying, the phone's battery
+     * saver, or under 20 % and unplugged.
+     */
+    internal fun frugal(): Boolean = app.myspoti.power.EnergySettings.state.value.manualSaver || com.music.spotui.data.DataSaver.active || runCatching {
         val power = Graph.app.getSystemService(android.os.PowerManager::class.java)
         val battery = Graph.app.getSystemService(android.os.BatteryManager::class.java)
         power.isPowerSaveMode || (!battery.isCharging && battery.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) in 0 until 20)
@@ -206,8 +299,12 @@ object AutoMix {
 
     private fun label(uri: Uri) = uri.lastPathSegment?.takeLast(48).orEmpty()
 
+    /** Off the main thread: every song analysed is dropped (they are analysed again when played). */
     fun clearCache() {
-        synchronized(memory) { memory.clear(); failed.clear() }
+        synchronized(memory) { memory.clear(); failed.clear(); refused.clear() }
         dir().listFiles()?.forEach { it.delete() }
     }
+
+    /** The space the analyses take on disk, in bytes (off the main thread). */
+    fun cacheBytes(): Long = dir().listFiles()?.sumOf { it.length() } ?: 0L
 }

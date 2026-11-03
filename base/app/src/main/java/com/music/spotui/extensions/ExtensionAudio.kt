@@ -228,6 +228,7 @@ object ExtensionAudio {
         OfflineStore.tracks[s.spotifyTrackId]?.takeIf { OfflineStore.isDownloaded(s.spotifyTrackId) }?.let(OfflineStore::toLocalTrack) ?: LocalTrack(
             id = OfflineStore.localIdOf(s.spotifyTrackId), uri = uri(s), title = s.title, artist = s.singer,
             album = s.album, durationMs = s.durationMs.toLong(), artUri = Uri.parse(s.coverUri),
+            speech = com.music.spotui.data.offline.episodeKeyOf(s) != null || s.url.startsWith("spotify:episode:"),
         )
 
     /**

@@ -6,9 +6,10 @@ import androidx.compose.ui.graphics.lerp
 val AppBackground: Color get() =
     if (app.myspoti.power.EnergySettings.oledBlack) Color.Black else Color(0xFF121212)
 val GridBackground: Color get() = tone(0xFF2A2A2A)
-/** The accent (Spotify green, or the colour a supporter chose). */
+/** The accent (Spotify green, the colour chosen in the settings, or the wallpaper's: see DynamicColorPref). */
 val AppPalette: Color get() = AppAccent
-val AppAccent: Color get() = com.music.spotui.data.api.SupportReminder.accentColor
+val AppAccent: Color get() =
+    com.music.spotui.data.preferences.DynamicColorPref.accent() ?: com.music.spotui.data.api.SupportReminder.accentColor
 
 /** Primary text and icons. */
 val AppText: Color = Color.White

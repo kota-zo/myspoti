@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,7 +70,7 @@ import com.music.spotui.ui.screens.shareDiagnosticReport
 import kotlinx.coroutines.launch
 
 /** Where the Immersive Settings are: the list of categories, one category, or a choice inside it. */
-private enum class SettingsPage { Root, Playback, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Data, Display, Look, Rotation, Language, App }
+private enum class SettingsPage { Root, Playback, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App }
 
 private val StreamingChoices = listOf(
     Triple(StreamingQuality.AUTO, R.string.quality_streaming_auto, R.string.quality_streaming_auto_detail),
@@ -132,11 +133,13 @@ fun ImmersiveSettingsScreen(navController: NavController) {
             SettingsPage.Crossfade -> CrossfadePage(back)
             SettingsPage.Downloads -> DownloadsPage(navController, open, back)
             SettingsPage.DownloadQuality -> DownloadQualityPage(back)
+            SettingsPage.Storage -> StoragePage(back)
             SettingsPage.Data -> DataPage(back)
             SettingsPage.Display -> DisplayPage(open, back)
             SettingsPage.Look -> LookPage(back)
             SettingsPage.Rotation -> RotationPage(back)
             SettingsPage.Language -> LanguagePage(back)
+            SettingsPage.LyricsLanguage -> LyricsLanguagePage(back)
             SettingsPage.App -> AppPage(navController, back)
         }
     }
@@ -152,6 +155,7 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
         immersiveGroup("root") {
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_playback), icon = Icons.Rounded.PlayArrow, chevron = true, onClick = { open(SettingsPage.Playback) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_downloads), icon = Icons.Rounded.Download, chevron = true, onClick = { open(SettingsPage.Downloads) }) }
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_storage), icon = Icons.Rounded.Storage, chevron = true, onClick = { open(SettingsPage.Storage) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_data), icon = Icons.Rounded.SignalCellularAlt, chevron = true, onClick = { open(SettingsPage.Data) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_display), icon = Icons.Rounded.Palette, chevron = true, onClick = { open(SettingsPage.Display) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_app), icon = Icons.Rounded.Info, chevron = true, onClick = { open(SettingsPage.App) }) }
@@ -309,7 +313,7 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             }
         }
         sourcesGroup(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
-        immersiveGroup("visuals") {
+        immersiveGroup("lyrics", headerRes = R.string.settings_section_lyrics) {
             // Lyrics: word by word (karaoke) first, or line by line with Spotify's first.
             row {
                 ImmersiveSwitchRow(
@@ -345,7 +349,27 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                     detail = stringResource(R.string.settings_lyrics_keep_awake_detail),
                 )
             }
+            // The song in Latin letters under its lines, when the lyrics carry one (as in the lyrics' menu).
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.lyrics_romanization),
+                    checked = com.music.spotui.data.preferences.LyricsRomanizationPref.on,
+                    onChecked = { com.music.spotui.data.preferences.LyricsRomanizationPref.set(ctx, it) },
+                    detail = stringResource(R.string.settings_lyrics_romanization_detail),
+                )
+            }
+            row {
+                val translateTo = com.music.spotui.data.preferences.getLyricTranslateLang(ctx)
+                ImmersiveGroupRow(
+                    stringResource(R.string.lyrics_translation_title), detail = stringResource(R.string.lyrics_translation_detail),
+                    value = if (translateTo.isEmpty()) stringResource(R.string.language_auto)
+                    else com.music.spotui.data.AppLanguage.nativeName(translateTo),
+                    chevron = true, onClick = { open(SettingsPage.LyricsLanguage) },
+                )
+            }
         }
+        // Podcasts: SponsorBlock (SponsorBlockGroup.kt).
+        sponsorBlockGroup()
     }
 }
 
@@ -376,6 +400,14 @@ private fun CrossfadePage(back: () -> Unit) {
     val transition = com.music.spotui.data.preferences.TransitionPref
     val automix = com.music.spotui.automix.AutoMix
     val mode = transition.mode
+    val scope = rememberCoroutineScope()
+    var intro by remember { mutableStateOf(false) }
+    // Why the song playing will not mix into the next one, while that is so.
+    val reason = if (mode == TransitionMode.AUTOMIX) com.music.spotui.ui.components.autoMixReasonText(automix.whyNot()) else null
+    var cacheRefresh by remember { mutableStateOf(0) }
+    val cacheBytes by androidx.compose.runtime.produceState<Long?>(null, cacheRefresh) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { automix.cacheBytes() }
+    }
     ImmersivePage(title = stringResource(R.string.settings_transitions_title), onBack = back) {
         immersiveGroup("mode", footerRes = R.string.settings_transitions_detail) {
             for ((m, title, detail) in listOf(
@@ -385,9 +417,15 @@ private fun CrossfadePage(back: () -> Unit) {
             )) {
                 row {
                     ImmersiveChoiceRow(stringResource(title), selected = mode == m, detail = stringResource(detail),
-                        onClick = { transition.set(ctx, m) })
+                        onClick = {
+                            transition.set(ctx, m)
+                            if (m == TransitionMode.AUTOMIX && !com.music.spotui.ui.components.AutoMixIntro.seen) intro = true
+                        })
                 }
             }
+        }
+        if (reason != null) immersiveGroup("automix-now") {
+            row { ImmersiveGroupRow(stringResource(reason)) }
         }
         if (mode == TransitionMode.CROSSFADE) immersiveGroup("length", headerRes = R.string.settings_crossfade_length, footerRes = R.string.settings_crossfade_detail) {
             for (v in listOf(3, 6, 9, 12)) {
@@ -406,6 +444,14 @@ private fun CrossfadePage(back: () -> Unit) {
                     onChecked = automix::changeAlbumOrder, detail = stringResource(R.string.settings_automix_album_order_detail))
             }
             row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_podcasts), checked = automix.mixPodcasts,
+                    onChecked = automix::changeMixPodcasts, detail = stringResource(R.string.settings_automix_podcasts_detail))
+            }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_harmonic), checked = automix.harmonic,
+                    onChecked = automix::changeHarmonic, detail = stringResource(R.string.settings_automix_harmonic_detail))
+            }
+            row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_eq), checked = automix.djEq,
                     onChecked = automix::changeDjEq, detail = stringResource(R.string.settings_automix_eq_detail))
             }
@@ -413,8 +459,17 @@ private fun CrossfadePage(back: () -> Unit) {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_show), checked = automix.showInPlayer,
                     onChecked = automix::changeShowInPlayer, detail = stringResource(R.string.settings_automix_show_detail))
             }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_mobile_data), checked = automix.analyzeOnMobileData,
+                    onChecked = automix::changeAnalyzeOnMobileData, detail = stringResource(R.string.settings_automix_mobile_data_detail))
+            }
         }
-        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-length", headerRes = R.string.settings_automix_length) {
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-style", headerRes = R.string.settings_automix_style, footerRes = R.string.settings_automix_style_detail) {
+            listOf(R.string.settings_automix_style_blend, R.string.settings_automix_style_cut, R.string.settings_automix_style_fade).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.style == i, onClick = { automix.changeStyle(i) }) }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-length", headerRes = R.string.settings_automix_length, footerRes = R.string.settings_automix_length_detail) {
             listOf(R.string.settings_automix_length_short, R.string.settings_automix_length_auto, R.string.settings_automix_length_long).forEachIndexed { i, label ->
                 row { ImmersiveChoiceRow(stringResource(label), selected = automix.mixLength == i, onClick = { automix.changeMixLength(i) }) }
             }
@@ -429,7 +484,34 @@ private fun CrossfadePage(back: () -> Unit) {
                 row { ImmersiveChoiceRow(stringResource(label), selected = automix.pulseLevel == i, onClick = { automix.changePulseLevel(i) }) }
             }
         }
+        // The analyses kept on the phone: dropped, the songs are analysed again when they play.
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-cache") {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.settings_automix_cache),
+                    detail = cacheBytes?.let { stringResource(R.string.settings_automix_cache_detail, android.text.format.Formatter.formatShortFileSize(ctx, it)) },
+                    trailing = {
+                        TextButton(enabled = (cacheBytes ?: 0L) > 0L, onClick = {
+                            scope.launch {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { automix.clearCache() }
+                                cacheRefresh++
+                            }
+                        }) { Text(stringResource(R.string.settings_automix_cache_clear), color = if ((cacheBytes ?: 0L) > 0L) Immersive.Accent else Immersive.TextSecondary) }
+                    },
+                )
+            }
+        }
     }
+    if (intro) ImmersiveAlertDialog(
+        onDismissRequest = { intro = false; com.music.spotui.ui.components.AutoMixIntro.markSeen() },
+        title = { Text(stringResource(R.string.settings_automix_intro_title), style = Immersive.Headline) },
+        text = { Text(stringResource(R.string.settings_automix_intro_text), style = Immersive.Subhead) },
+        confirmButton = {
+            TextButton(onClick = { intro = false; com.music.spotui.ui.components.AutoMixIntro.markSeen() }) {
+                Text(stringResource(R.string.settings_automix_intro_ok), color = Immersive.Accent)
+            }
+        },
+    )
 }
 
 // ---------------------------------------------------------------- Downloads
@@ -438,8 +520,7 @@ private fun CrossfadePage(back: () -> Unit) {
 private fun DownloadsPage(navController: NavController, open: (SettingsPage) -> Unit, back: () -> Unit) {
     val ctx = LocalContext.current
     val quality = getDownloadQuality(ctx)
-    var ask by remember { mutableStateOf(false) }
-    val size = android.text.format.Formatter.formatShortFileSize(ctx, com.music.spotui.data.offline.OfflineStore.totalBytes())
+    val size =android.text.format.Formatter.formatShortFileSize(ctx, com.music.spotui.data.offline.OfflineStore.totalBytes())
     // The first extension of the download order, when it announces settings here; its role quality
     // takes the place of the app's (kept, and still passed to every extension as `quality`).
     val registry by com.music.spotui.extensions.Extensions.registry.collectAsStateWithLifecycle()
@@ -465,6 +546,65 @@ private fun DownloadsPage(navController: NavController, open: (SettingsPage) -> 
                         else R.string.downloads_source_row_off,
                     ),
                     chevron = true, onClick = { navController.navigate(Routes.Extensions.route) },
+                )
+            }
+        }
+        // A downloaded song's lyrics kept with it, shown without a connection.
+        immersiveGroup("lyrics") {
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_download_lyrics_title), checked = com.music.spotui.data.preferences.LyricsOfflinePref.on,
+                    onChecked = { com.music.spotui.data.preferences.LyricsOfflinePref.set(ctx, it) }, detail = stringResource(R.string.settings_download_lyrics_detail))
+            }
+        }
+        // Their space and their removal: in Storage.
+        if (com.music.spotui.data.offline.OfflineStore.tracks.isNotEmpty()) immersiveGroup("storage") {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.settings_section_storage), detail = stringResource(R.string.downloads_size, size),
+                    chevron = true, onClick = { open(SettingsPage.Storage) },
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Storage
+
+/** What the app keeps on the phone: the media cache's size, the caches (emptied here) and the downloads. */
+@Composable
+private fun StoragePage(back: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val storage = com.music.spotui.data.AppStorage
+    var ask by remember { mutableStateOf(false) }
+    var refresh by remember { mutableStateOf(0) }
+    var clearing by remember { mutableStateOf(false) }
+    val usage by androidx.compose.runtime.produceState<com.music.spotui.data.AppStorage.Usage?>(null, refresh) { value = storage.usage(ctx) }
+    val size = android.text.format.Formatter.formatShortFileSize(ctx, com.music.spotui.data.offline.OfflineStore.totalBytes())
+    val opened = storage.mediaCacheMbOpen
+    val labels = storage.MEDIA_CACHE_CHOICES.associateWith { com.music.spotui.ui.screens.cacheSizeLabel(it) }
+    ImmersivePage(title = stringResource(R.string.settings_section_storage), onBack = back) {
+        immersiveGroup("media", headerRes = R.string.settings_storage_media_cache,
+            footerRes = if (opened != null && opened != storage.mediaCacheMb) R.string.settings_storage_media_cache_restart else R.string.settings_storage_media_cache_detail) {
+            storage.MEDIA_CACHE_CHOICES.forEach { mb ->
+                row { ImmersiveChoiceRow(labels.getValue(mb), selected = storage.mediaCacheMb == mb, onClick = { storage.chooseMediaCacheMb(mb) }) }
+            }
+        }
+        immersiveGroup("caches") {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.settings_storage_clear_cache),
+                    detail = usage?.let { stringResource(R.string.settings_storage_clear_cache_detail, android.text.format.Formatter.formatShortFileSize(ctx, it.caches)) },
+                    enabled = !clearing,
+                    onClick = {
+                        clearing = true
+                        scope.launch {
+                            storage.clearCaches(ctx)
+                            clearing = false
+                            refresh++
+                            android.widget.Toast.makeText(ctx, ctx.getString(R.string.settings_storage_cleared), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
                 )
             }
         }
@@ -555,6 +695,7 @@ private fun DataPage(back: () -> Unit) {
 @Composable
 private fun DisplayPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
     val ctx = LocalContext.current
+    var canvasWifiOnly by remember { mutableStateOf(com.music.spotui.data.preferences.isCanvasWifiOnly(ctx)) }
     val energy by app.myspoti.power.EnergySettings.state.collectAsStateWithLifecycle()
     val look = com.music.spotui.data.preferences.LookPref.look
     val rotation = com.music.spotui.data.preferences.OrientationPref.mode
@@ -570,6 +711,15 @@ private fun DisplayPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
                 )
             }
             row { AccentRow(com.music.spotui.data.preferences.Look.IMMERSIVE) }
+            // Material You is the Classic look's: this look's colours come from the playing cover.
+            if (look == com.music.spotui.data.preferences.Look.CLASSIC && com.music.spotui.data.preferences.DynamicColorPref.available) row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_dynamic_color_title), checked = com.music.spotui.data.preferences.DynamicColorPref.on,
+                    onChecked = { com.music.spotui.data.preferences.DynamicColorPref.set(ctx, it) }, detail = stringResource(R.string.settings_dynamic_color_detail))
+            }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_system_font_title), checked = com.music.spotui.data.preferences.AppFontPref.system,
+                    onChecked = { com.music.spotui.data.preferences.AppFontPref.set(ctx, it) }, detail = stringResource(R.string.settings_system_font_detail))
+            }
         }
         immersiveGroup("display") {
             if (look == com.music.spotui.data.preferences.Look.IMMERSIVE) row {
@@ -592,6 +742,19 @@ private fun DisplayPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
             row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_amoled_theme), checked = energy.blackPreference,
                     onChecked = app.myspoti.power.EnergySettings::setBlackBackground, detail = stringResource(R.string.settings_amoled_theme_subtitle))
+            }
+            // The looping visuals, as in the Classic settings: off while the energy saver holds them.
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_item_canvas_title),
+                    checked = energy.canvasEnabled && !energy.policy.saverEnabled,
+                    enabled = !energy.policy.saverEnabled,
+                    onChecked = app.myspoti.power.EnergySettings::setCanvasEnabled,
+                    detail = stringResource(if (energy.policy.saverEnabled) R.string.energy_saver_summary else R.string.video_settings_canvas_subtitle))
+            }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.canvas_wifi_only), checked = canvasWifiOnly,
+                    onChecked = { canvasWifiOnly = it; com.music.spotui.data.preferences.setCanvasWifiOnly(ctx, it) },
+                    detail = stringResource(R.string.canvas_wifi_only_detail))
             }
             row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_music_video_title), checked = com.music.spotui.data.preferences.MusicVideoPref.on,
@@ -739,6 +902,25 @@ private fun LanguagePage(back: () -> Unit) {
                             }
                         },
                     )
+                }
+            }
+        }
+    }
+}
+
+/** "Translation language" of the lyrics: the app's languages (as "App language"); Automatic is the phone's. */
+@Composable
+private fun LyricsLanguagePage(back: () -> Unit) {
+    val ctx = LocalContext.current
+    var current by remember { mutableStateOf(com.music.spotui.data.preferences.getLyricTranslateLang(ctx)) }
+    val auto = stringResource(R.string.language_auto)
+    fun label(tag: String) = if (tag == com.music.spotui.data.AppLanguage.SYSTEM) auto else com.music.spotui.data.AppLanguage.nativeName(tag)
+    ImmersivePage(title = stringResource(R.string.lyrics_translation_title), onBack = back) {
+        immersiveGroup("choices", footerRes = R.string.lyrics_translation_detail) {
+            com.music.spotui.data.AppLanguage.AVAILABLE.forEach { tag ->
+                row {
+                    ImmersiveChoiceRow(label(tag), selected = tag == current,
+                        onClick = { current = tag; com.music.spotui.data.preferences.setLyricTranslateLang(ctx, tag) })
                 }
             }
         }

@@ -15,13 +15,15 @@ import kotlin.math.roundToInt
  * mix lasts and its style.
  *
  * Rules (from DJ practice, Mixxx's intro/outro model and Zehren et al. 2020 on cue points):
- * - Cues sit on downbeats, preferably on 8-bar phrase starts; the mix lasts 2 to 16 bars.
+ * - Cues sit on downbeats, preferably on 8-bar phrase starts; the mix lasts 2 to 32 bars
+ *   ([Settings.minBars] to [Settings.maxBars]).
  * - A goes out in its outro: late, where its level drops, without cutting a loud part short.
  * - B comes in at its first downbeat (or a later phrase start within its intro), and its first big
  *   change (the drop, the first verse) should land when A is gone.
  * - Beat-matching only with clear grids on both sides and a tempo change within [Settings.maxStretch]
  *   (half and double time count); keys a fifth apart or more and two voices at once shorten the mix.
  * - Otherwise a cut on A's downbeat (A has a grid) or a plain fade.
+ * The listener may ask for one style ([Settings.style]): always a cut on the beat, or always a fade.
  */
 object MixPlanner {
     class Settings(
@@ -31,24 +33,40 @@ object MixPlanner {
         val maxSec: Double = 32.0,
         /** Fade length without a beat grid, seconds. */
         val fadeSec: Double = 6.0,
-        /** The listener's taste for mix length: -1 short (2 to 8 bars), 0 as scored, 1 long (12 to 16 bars). */
+        /** The listener's taste for mix length: -1 short, 0 as scored, 1 long (a lean within [minBars]..[maxBars]). */
         val lengthBias: Int = 0,
+        /**
+         * The style asked for: [MixPlan.Style.BLEND] beat-matched where it can (a cut or a fade
+         * otherwise), [MixPlan.Style.CUT] always a cut on A's downbeat (a fade when A has no grid),
+         * [MixPlan.Style.FADE] always a plain equal-power fade of [smoothSec], tempos untouched.
+         */
+        val style: MixPlan.Style = MixPlan.Style.BLEND,
+        /** Shortest blend wanted, bars: a shorter one only when no longer one fits (each halving costs a lot). */
+        val minBars: Int = 2,
+        /** Longest blend, bars (2 to 32). */
+        val maxBars: Int = 16,
+        /** Weight of the key distance (Camelot) in a blend's score: 0 ignores the keys, 2 harmonic mixing. */
+        val keyWeight: Double = 1.0,
+        /** Length of the fade when the listener asks for fades ([style] FADE), seconds. */
+        val smoothSec: Double = 8.0,
     )
 
     fun plan(a: TrackAnalysis, b: TrackAnalysis, s: Settings = Settings()): MixPlan {
+        if (s.style == MixPlan.Style.FADE) return fade(a, b, "smooth fade asked", s.smoothSec)
         val ga = a.tail; val gb = b.head
         val match = if (ga != null && gb != null && !a.tailDown.isNaN() && !b.headDown.isNaN()) tempoMatch(ga.bpm, gb.bpm) else null
-        if (match != null && abs(match.speed - 1) <= s.maxStretch) {
+        if (s.style == MixPlan.Style.BLEND && match != null && abs(match.speed - 1) <= s.maxStretch) {
             blend(a, b, ga!!, gb!!, match, s)?.let { return it }
         }
         if (ga != null && !a.tailDown.isNaN()) cut(a, b, ga, gb, match, s)?.let { return it }
-        return fade(a, b, s, if (match == null) "no beat grid" else String.format("tempo %.1f → %.1f too far", ga!!.bpm, gb!!.bpm))
+        return fade(a, b, if (match == null) "no beat grid" else String.format("tempo %.1f → %.1f too far", ga!!.bpm, gb!!.bpm), s.fadeSec)
     }
 
     /**
      * The mix for a skip (the user pressed Next at A's time [now]; the next song can be heard [lead]
      * seconds later at the earliest): short, from A's next downbeat. Two bars beat-matched (one when
      * two are over 5.5 s), else a cut on the downbeat, else a 2.5 s fade. Either analysis may be missing.
+     * The style asked for holds: no blend with CUT, a 2.5 s fade with FADE.
      */
     fun planSkip(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double, s: Settings = Settings()): MixPlan {
         val from = now + lead
@@ -56,11 +74,11 @@ object MixPlanner {
         val gb = b?.head?.takeIf { !b.headDown.isNaN() }
         val entry = if (b != null && gb != null) firstDown(gb, b.headDown, b.contentStart - 0.08) else b?.contentStart ?: 0.0
         val gain = if (a != null && b != null) matchGain(a, b) else 1.0
-        if (a != null && ga != null) {
+        if (a != null && ga != null && s.style != MixPlan.Style.FADE) {
             val exit = firstDown(ga.first, ga.second, from)
             val barA = 4 * ga.first.period
             val m = gb?.let { tempoMatch(ga.first.bpm, it.bpm) }
-            if (m != null && abs(m.speed - 1) <= s.maxStretch) {
+            if (s.style == MixPlan.Style.BLEND && m != null && abs(m.speed - 1) <= s.maxStretch) {
                 val bars = if (2 * barA <= 5.5) 2 else 1
                 return MixPlan(MixPlan.Style.BLEND, exit, entry, bars * barA, m.speed, bars * 4, 0.5, 1.0 / (bars * 4), gain,
                     restore(m.speed, gb.period), String.format("skip: %d bar(s) from A's downbeat at %.1f, %.1f→%.1f BPM", bars, exit, ga.first.bpm, gb.bpm))
@@ -68,7 +86,8 @@ object MixPlanner {
             return MixPlan(MixPlan.Style.CUT, exit, entry, 2 * ga.first.period, 1.0, 2, 0.0, 0.5, gain, 0.0,
                 String.format("skip: cut on A's downbeat at %.1f", exit))
         }
-        return MixPlan(MixPlan.Style.FADE, from, entry, 2.5, 1.0, 0, 0.5, 0.1, gain, 0.0, "skip: fade (no beat grid here)")
+        return MixPlan(MixPlan.Style.FADE, from, entry, 2.5, 1.0, 0, 0.5, 0.1, gain, 0.0,
+            if (s.style == MixPlan.Style.FADE) "skip: fade" else "skip: fade (no beat grid here)")
     }
 
     /** The grid (and one of its downbeats) holding at A's time [t]: the tail's near the end, the head's near the start, the one grid of a steady song. */
@@ -93,9 +112,10 @@ object MixPlanner {
         val entries = entryCues(b, gb)
         if (exits.isEmpty() || entries.isEmpty()) return null
         val keyPenalty = keyDistance(a, b)
+        val lengths = BARS.filter { it <= max(2, s.maxBars) }
         var best: MixPlan? = null; var bestScore = Double.NEGATIVE_INFINITY
         val drops = drops(b, gb)
-        for (e in exits) for (bars in intArrayOf(16, 12, 8, 6, 4, 2)) for (n in entries + dropEntries(b, gb, drops, bars * barA * m.speed)) {
+        for (e in exits) for (bars in lengths) for (n in entries + dropEntries(b, gb, drops, bars * barA * m.speed)) {
             val len = bars * barA
             if (len > s.maxSec + 0.01 && bars > 2) continue
             // A must still be playing (its audible part) for most of the mix.
@@ -105,10 +125,13 @@ object MixPlanner {
             // The whole mix where both grids were checked (a grid of a song's first 25 s holds there only).
             if (bEnd > gb.last + gb.period || n.time < gb.first - gb.period || e.time < ga.first - ga.period) continue
             var score = e.score + n.score
-            // Long mixes suit songs in compatible keys with steady grids; clashing keys favour short ones.
-            score += when (bars) { 16 -> 1.0; 12 -> 0.6; 8 -> 1.5; 6 -> 0.4; 4 -> 0.8; else -> 0.0 } - keyPenalty * bars / 8.0
-            // The listener's taste: a lean towards short or long mixes (strong enough to win over the defaults).
-            score += s.lengthBias * (bars - 8) / 8.0 * 1.6
+            // Long mixes suit songs in compatible keys with steady grids; clashing keys favour short ones
+            // (as much as the listener weighs the keys: not at all without harmonic mixing).
+            score += when (bars) { 32 -> 0.6; 24 -> 0.3; 16 -> 1.0; 12 -> 0.6; 8 -> 1.5; 6 -> 0.4; 4 -> 0.8; else -> 0.0 } - keyPenalty * s.keyWeight * bars / 8.0
+            // The listener's taste: a lean towards short or long mixes (strong enough to win over the defaults),
+            // and below the shortest length asked for, a cost that only a mix that fits nothing longer pays.
+            score += s.lengthBias * ((min(bars, 16) - 8) / 8.0 + max(0, bars - 16) / 16.0) * 1.6
+            if (bars < s.minBars) score -= 6.0 * ln(s.minBars.toDouble() / bars) / ln(2.0)
             // Strong tempo changes are heard: shorter mixes then.
             score -= abs(m.speed - 1) / 0.08 * bars / 16.0
             // A's loud bars after the mix (cut short) and a long silence of A inside the mix.
@@ -131,6 +154,9 @@ object MixPlanner {
         return best
     }
 
+    /** Blend lengths tried, bars (longest first). */
+    private val BARS = intArrayOf(32, 24, 16, 12, 8, 6, 4, 2)
+
     private fun cut(a: TrackAnalysis, b: TrackAnalysis, ga: Grid, gb: Grid?, m: TempoMatch?, s: Settings): MixPlan? {
         val exits = exitCues(a, ga)
         if (exits.isEmpty()) return null
@@ -143,8 +169,8 @@ object MixPlanner {
             if (synced) restore(speed, gb!!.period) else 0.0, "cut on ${e.why}" + if (synced) "" else ", tempos apart")
     }
 
-    private fun fade(a: TrackAnalysis, b: TrackAnalysis, s: Settings, why: String): MixPlan {
-        val len = min(s.fadeSec, (a.contentEnd - a.contentStart) / 4)
+    private fun fade(a: TrackAnalysis, b: TrackAnalysis, why: String, seconds: Double): MixPlan {
+        val len = min(seconds, (a.contentEnd - a.contentStart) / 4)
         // On a bar of A (its bars come from the model's beats even without a steady grid), with B's
         // first downbeat on it when B has one.
         val target = max(a.contentStart, musicEnd(a) - len * 0.6)

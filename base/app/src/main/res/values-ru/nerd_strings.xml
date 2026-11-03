@@ -54,4 +54,11 @@
     <string name="nerd_mirror_off">Выключено</string>
     <string name="nerd_spotify_note">Поток Spotify зашифрован внутри страницы: его точные кодек и битрейт недоступны, только то, что сообщает страница.</string>
     <string name="nerd_spotify_remote">Звук идёт с другого устройства: этот телефон только управляет им.</string>
+    <string name="nerd_automix">AutoMix</string>
+    <string name="nerd_automix_blend">Сведение по битам</string>
+    <string name="nerd_automix_cut">Склейка на долю</string>
+    <string name="nerd_automix_fade">Плавный переход</string>
+    <string name="nerd_automix_mixing">Сводится: %1$s</string>
+    <string name="nerd_automix_planned">%1$s в %2$s, %3$d с</string>
+    <string name="nerd_automix_waiting">Включён, сведение пока не запланировано</string>
 </resources>

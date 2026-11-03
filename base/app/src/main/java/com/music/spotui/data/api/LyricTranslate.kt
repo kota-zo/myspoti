@@ -47,10 +47,26 @@ object LyricTranslate {
 
     private data class Response(val text: String, val sourceLanguage: String?)
 
+    /**
+     * The target as the translator names it: the app's languages carry regions ("pt-BR", "fr-CA",
+     * "zh-TW") it mostly does not take; only Chinese and Portuguese keep theirs.
+     */
+    internal fun translatorTag(tag: String): String {
+        val t = tag.replace('_', '-')
+        val lang = t.substringBefore('-').lowercase()
+        val region = t.substringAfter('-', "").uppercase()
+        return when (lang) {
+            "zh" -> if (region == "TW" || region == "HK" || region == "HANT") "zh-TW" else "zh-CN"
+            "pt" -> if (region == "PT") "pt-PT" else "pt"
+            "in" -> "id"
+            else -> lang
+        }
+    }
+
     private fun translateText(text: String, targetLang: String): Response? = runCatching {
         com.music.spotui.data.DataSaver.check()
         val q = URLEncoder.encode(text, "UTF-8")
-        val tl = URLEncoder.encode(targetLang, "UTF-8")
+        val tl = URLEncoder.encode(translatorTag(targetLang), "UTF-8")
         val conn = (URL(
             "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=$tl&dt=t&q=$q"
         ).openConnection() as HttpURLConnection).apply {

@@ -149,7 +149,38 @@ fun SettingsScreen(navController: NavController) {
                 checked = headsetSkip,
                 onChecked = { headsetSkip = it; app.myspoti.host.android.PlaybackService.setSkipsOnEpisodes(ctx, it) },
             )
+            // Songs an extension streams, played by Spotify too (unheard): counted there, seen by Connect.
+            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty())
+                OptionRow(
+                    label = stringResource(R.string.settings_connect_mirror_title),
+                    detail = stringResource(R.string.settings_connect_mirror_detail),
+                    checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
+                    onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
+                )
+            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
+            OptionRow(
+                label = stringResource(R.string.live_radio_settings_title),
+                detail = stringResource(R.string.live_radio_settings_detail),
+                checked = com.music.spotui.radio.RadioFeaturePref.on,
+                onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+            )
+            // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
+            OptionRow(
+                label = stringResource(R.string.settings_download_sync_title),
+                detail = stringResource(R.string.settings_download_sync_detail),
+                checked = com.music.spotui.data.preferences.DownloadSyncPref.on,
+                onChecked = { com.music.spotui.data.preferences.DownloadSyncPref.set(ctx, it) },
+            )
+            // Songs marked "Not interested": skipped by lists, listed here to be shown again.
+            Column(
+                Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.HiddenSongs.route) }
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.hidden_songs_title), color = AppText, fontSize = 16.sp)
+                Text(stringResource(R.string.hidden_songs_detail), color = AppMuted, fontSize = 12.sp)
+            }
             // Lyrics: word by word (karaoke) first, or line by line with Spotify's first.
+            Section(R.string.settings_section_lyrics)
             var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
             OptionRow(
                 label = stringResource(R.string.lyrics_word_sync_title),
@@ -182,38 +213,18 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.LyricsKeepAwakePref.on,
                 onChecked = { com.music.spotui.data.preferences.LyricsKeepAwakePref.set(ctx, it) },
             )
-            // Songs an extension streams, played by Spotify too (unheard): counted there, seen by Connect.
-            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty())
-                OptionRow(
-                    label = stringResource(R.string.settings_connect_mirror_title),
-                    detail = stringResource(R.string.settings_connect_mirror_detail),
-                    checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
-                    onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
-                )
-            // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
+            // The song in Latin letters under its lines, when the lyrics carry one (as in the lyrics' menu).
             OptionRow(
-                label = stringResource(R.string.live_radio_settings_title),
-                detail = stringResource(R.string.live_radio_settings_detail),
-                checked = com.music.spotui.radio.RadioFeaturePref.on,
-                onChecked = { com.music.spotui.radio.RadioFeaturePref.set(ctx, it) },
+                label = stringResource(R.string.lyrics_romanization),
+                detail = stringResource(R.string.settings_lyrics_romanization_detail),
+                checked = com.music.spotui.data.preferences.LyricsRomanizationPref.on,
+                onChecked = { com.music.spotui.data.preferences.LyricsRomanizationPref.set(ctx, it) },
             )
-            // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
-            OptionRow(
-                label = stringResource(R.string.settings_download_sync_title),
-                detail = stringResource(R.string.settings_download_sync_detail),
-                checked = com.music.spotui.data.preferences.DownloadSyncPref.on,
-                onChecked = { com.music.spotui.data.preferences.DownloadSyncPref.set(ctx, it) },
-            )
-            // Songs marked "Not interested": skipped by lists, listed here to be shown again.
-            Column(
-                Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.HiddenSongs.route) }
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-            ) {
-                Text(stringResource(R.string.hidden_songs_title), color = AppText, fontSize = 16.sp)
-                Text(stringResource(R.string.hidden_songs_detail), color = AppMuted, fontSize = 12.sp)
-            }
+            LyricsTranslationRow()
             Divider()
             SourcesBlock(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
+            // Podcasts: SponsorBlock (SponsorBlockSettings.kt).
+            SponsorBlockSettings()
 
             Section(R.string.settings_section_data)
             OptionRow(
@@ -273,6 +284,16 @@ fun SettingsScreen(navController: NavController) {
                     color = AppMuted, fontSize = 12.sp,
                 )
             }
+            // A downloaded song's lyrics kept with it, shown without a connection.
+            OptionRow(
+                label = stringResource(R.string.settings_download_lyrics_title),
+                detail = stringResource(R.string.settings_download_lyrics_detail),
+                checked = com.music.spotui.data.preferences.LyricsOfflinePref.on,
+                onChecked = { com.music.spotui.data.preferences.LyricsOfflinePref.set(ctx, it) },
+            )
+            // What the app keeps on the phone: the caches (emptied here) and the downloads.
+            Section(R.string.settings_section_storage)
+            StorageRows()
             if (com.music.spotui.data.offline.OfflineStore.tracks.isNotEmpty()) RemoveDownloadsRow()
             }
             if (tab == 2) {
@@ -321,7 +342,20 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.HideDjPref.on,
                 onChecked = { com.music.spotui.data.preferences.HideDjPref.set(ctx, it) },
             )
-            AccentRow(com.music.spotui.data.preferences.Look.CLASSIC)
+            // Material You: the wallpaper's accent (Android 12+), in place of the one picked below.
+            if (com.music.spotui.data.preferences.DynamicColorPref.available) OptionRow(
+                label = stringResource(R.string.settings_dynamic_color_title),
+                detail = stringResource(R.string.settings_dynamic_color_detail),
+                checked = com.music.spotui.data.preferences.DynamicColorPref.on,
+                onChecked = { com.music.spotui.data.preferences.DynamicColorPref.set(ctx, it) },
+            )
+            if (!com.music.spotui.data.preferences.DynamicColorPref.active) AccentRow(com.music.spotui.data.preferences.Look.CLASSIC)
+            OptionRow(
+                label = stringResource(R.string.settings_system_font_title),
+                detail = stringResource(R.string.settings_system_font_detail),
+                checked = com.music.spotui.data.preferences.AppFontPref.system,
+                onChecked = { com.music.spotui.data.preferences.AppFontPref.set(ctx, it) },
+            )
             LookRow()
             OrientationRow()
             LanguageRow()
@@ -360,8 +394,7 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.restart_player_detail), color = AppMuted, fontSize = 12.sp)
             }
             // The report a tester hands us. The engine's log is otherwise reachable only through
-            // adb logcat, which the person reporting the bug cannot run: the label is a literal
-            // rather than a string resource so this change stays out of the shared string files.
+            // adb logcat, which the person reporting the bug cannot run.
             Column(
                 Modifier.fillMaxWidth().clickable {
                     val file = runCatching { app.myspoti.host.android.Logbook.export(ctx) }.getOrNull()
@@ -496,6 +529,7 @@ private fun TransitionsRow() {
     val transition = com.music.spotui.data.preferences.TransitionPref
     val automix = com.music.spotui.automix.AutoMix
     val mode = transition.mode
+    var intro by remember { mutableStateOf(false) }
     @Composable
     fun Chip(label: String, selected: Boolean, onClick: () -> Unit) = Text(
         label,
@@ -518,7 +552,10 @@ private fun TransitionsRow() {
         ) {
             Chip(stringResource(R.string.settings_crossfade_off), mode == TransitionMode.OFF) { transition.set(ctx, TransitionMode.OFF) }
             Chip(stringResource(R.string.settings_crossfade_title), mode == TransitionMode.CROSSFADE) { transition.set(ctx, TransitionMode.CROSSFADE) }
-            Chip(stringResource(R.string.settings_automix_title), mode == TransitionMode.AUTOMIX) { transition.set(ctx, TransitionMode.AUTOMIX) }
+            Chip(stringResource(R.string.settings_automix_title), mode == TransitionMode.AUTOMIX) {
+                transition.set(ctx, TransitionMode.AUTOMIX)
+                if (!com.music.spotui.ui.components.AutoMixIntro.seen) intro = true
+            }
         }
         Text(
             stringResource(when (mode) {
@@ -529,6 +566,16 @@ private fun TransitionsRow() {
             color = AppMuted, fontSize = 12.sp,
             modifier = Modifier.padding(top = 8.dp),
         )
+        // The long explanation of AutoMix, as the Immersive page gives it under the choice.
+        if (mode == TransitionMode.AUTOMIX) Text(
+            stringResource(R.string.settings_automix_detail),
+            color = AppMuted, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        // Why the song playing will not mix into the next one, while that is so.
+        if (mode == TransitionMode.AUTOMIX) com.music.spotui.ui.components.autoMixReasonText(automix.whyNot())?.let {
+            Text(stringResource(it), color = com.music.spotui.ui.theme.AppAccent, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        }
         if (mode == TransitionMode.CROSSFADE) Row(
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(top = 10.dp),
@@ -541,20 +588,32 @@ private fun TransitionsRow() {
             checked = automix.mixOnNext, onChecked = automix::changeMixOnNext)
         OptionRow(stringResource(R.string.settings_automix_album_order), stringResource(R.string.settings_automix_album_order_detail),
             checked = automix.albumOrder, onChecked = automix::changeAlbumOrder)
+        OptionRow(stringResource(R.string.settings_automix_podcasts), stringResource(R.string.settings_automix_podcasts_detail),
+            checked = automix.mixPodcasts, onChecked = automix::changeMixPodcasts)
+        OptionRow(stringResource(R.string.settings_automix_harmonic), stringResource(R.string.settings_automix_harmonic_detail),
+            checked = automix.harmonic, onChecked = automix::changeHarmonic)
         OptionRow(stringResource(R.string.settings_automix_eq), stringResource(R.string.settings_automix_eq_detail),
             checked = automix.djEq, onChecked = automix::changeDjEq)
         OptionRow(stringResource(R.string.settings_automix_show), stringResource(R.string.settings_automix_show_detail),
             checked = automix.showInPlayer, onChecked = automix::changeShowInPlayer)
+        OptionRow(stringResource(R.string.settings_automix_mobile_data), stringResource(R.string.settings_automix_mobile_data_detail),
+            checked = automix.analyzeOnMobileData, onChecked = automix::changeAnalyzeOnMobileData)
+        // Chips wrap: the style's labels do not fit one line in every language.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
         @Composable
         fun Choices(title: Int, detail: Int?, labels: List<Int>, selected: Int, pick: (Int) -> Unit) =
             androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
                 Text(stringResource(title), color = AppText, fontSize = 16.sp)
                 detail?.let { Text(stringResource(it), color = AppMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp)) }
-                Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
                     labels.forEachIndexed { i, l -> Chip(stringResource(l), selected == i) { pick(i) } }
                 }
             }
-        Choices(R.string.settings_automix_length, null,
+        Choices(R.string.settings_automix_style, R.string.settings_automix_style_detail,
+            listOf(R.string.settings_automix_style_blend, R.string.settings_automix_style_cut, R.string.settings_automix_style_fade),
+            automix.style, automix::changeStyle)
+        Choices(R.string.settings_automix_length, R.string.settings_automix_length_detail,
             listOf(R.string.settings_automix_length_short, R.string.settings_automix_length_auto, R.string.settings_automix_length_long),
             automix.mixLength, automix::changeMixLength)
         Choices(R.string.settings_automix_tempo, R.string.settings_automix_tempo_detail,
@@ -563,6 +622,47 @@ private fun TransitionsRow() {
         if (automix.showInPlayer) Choices(R.string.settings_automix_pulse, null,
             listOf(R.string.settings_crossfade_off, R.string.settings_automix_pulse_subtle, R.string.settings_automix_pulse_strong),
             automix.pulseLevel, automix::changePulseLevel)
+        AutoMixCacheRow()
+    }
+    if (intro) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { intro = false; com.music.spotui.ui.components.AutoMixIntro.markSeen() },
+        containerColor = tone(0xFF282828),
+        title = { Text(stringResource(R.string.settings_automix_intro_title), color = AppText) },
+        text = { Text(stringResource(R.string.settings_automix_intro_text), color = AppMuted) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = { intro = false; com.music.spotui.ui.components.AutoMixIntro.markSeen() }) {
+                Text(stringResource(R.string.settings_automix_intro_ok), color = com.music.spotui.ui.theme.AppAccent)
+            }
+        },
+    )
+}
+
+/** The AutoMix analyses kept on the phone: their space, and a button that drops them (analysed again when played). */
+@Composable
+private fun AutoMixCacheRow() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var refresh by remember { mutableStateOf(0) }
+    val bytes by androidx.compose.runtime.produceState<Long?>(null, refresh) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.music.spotui.automix.AutoMix.cacheBytes() }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.settings_automix_cache), color = AppText, fontSize = 16.sp)
+            Text(
+                bytes?.let { stringResource(R.string.settings_automix_cache_detail, android.text.format.Formatter.formatShortFileSize(ctx, it)) }.orEmpty(),
+                color = AppMuted, fontSize = 12.sp,
+            )
+        }
+        androidx.compose.material3.TextButton(
+            enabled = (bytes ?: 0L) > 0L,
+            onClick = {
+                scope.launch {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.music.spotui.automix.AutoMix.clearCache() }
+                    refresh++
+                }
+            },
+        ) { Text(stringResource(R.string.settings_automix_cache_clear), color = com.music.spotui.ui.theme.AppAccent) }
     }
 }
 
@@ -643,6 +743,110 @@ private fun LanguageRow() {
                 }
             }
         }
+    }
+}
+
+/**
+ * "Translation language": the language lyrics are translated into, picked from the app's languages
+ * (the same list and names as "App language"); Automatic is the phone's language.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun LyricsTranslationRow() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var current by remember { mutableStateOf(com.music.spotui.data.preferences.getLyricTranslateLang(ctx)) }
+    var picking by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val auto = stringResource(R.string.language_auto)
+    fun label(tag: String) = if (tag == com.music.spotui.data.AppLanguage.SYSTEM) auto else com.music.spotui.data.AppLanguage.nativeName(tag)
+    androidx.compose.foundation.layout.Column(
+        Modifier.fillMaxWidth().clickable { picking = true }.padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Text(stringResource(R.string.lyrics_translation_title), color = AppText, fontSize = 16.sp)
+        Text(label(current), color = AppMuted, fontSize = 12.sp)
+    }
+    if (picking) androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = { picking = false },
+        containerColor = tone(0xFF282828),
+    ) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            item {
+                Text(stringResource(R.string.lyrics_translation_title), color = AppText, fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                Text(stringResource(R.string.lyrics_translation_detail), color = AppMuted, fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp))
+            }
+            items(com.music.spotui.data.AppLanguage.AVAILABLE.size) { i ->
+                val tag = com.music.spotui.data.AppLanguage.AVAILABLE[i]
+                val selected = tag == current
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable {
+                        picking = false
+                        if (!selected) {
+                            current = tag
+                            com.music.spotui.data.preferences.setLyricTranslateLang(ctx, tag)
+                        }
+                    }.padding(horizontal = 20.dp, vertical = 8.dp),
+                ) {
+                    Text(label(tag), color = if (selected) com.music.spotui.ui.theme.AppAccent else AppText, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                    if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Check, null, tint = com.music.spotui.ui.theme.AppAccent)
+                }
+            }
+        }
+    }
+}
+
+/** A size in MB as the storage rows show it ("256 MB", "1 GB"). */
+@Composable
+internal fun cacheSizeLabel(mb: Int): String =
+    if (mb >= 1024) stringResource(R.string.settings_storage_gb, mb / 1024) else stringResource(R.string.settings_storage_mb, mb)
+
+/** Storage: the media cache's size (applied when the app starts again) and the caches' space, with a button that empties them. */
+@Composable
+private fun StorageRows() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val storage = com.music.spotui.data.AppStorage
+    var refresh by remember { mutableStateOf(0) }
+    var clearing by remember { mutableStateOf(false) }
+    val usage by androidx.compose.runtime.produceState<com.music.spotui.data.AppStorage.Usage?>(null, refresh) { value = storage.usage(ctx) }
+    androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+        Text(stringResource(R.string.settings_storage_media_cache), color = AppText, fontSize = 16.sp)
+        val open = storage.mediaCacheMbOpen
+        Text(
+            stringResource(if (open != null && open != storage.mediaCacheMb) R.string.settings_storage_media_cache_restart else R.string.settings_storage_media_cache_detail),
+            color = AppMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp),
+        )
+        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+            for (mb in storage.MEDIA_CACHE_CHOICES) {
+                val selected = storage.mediaCacheMb == mb
+                Text(
+                    cacheSizeLabel(mb),
+                    color = if (selected) Color.Black else AppText, fontSize = 14.sp,
+                    modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .background(if (selected) com.music.spotui.ui.theme.AppAccent else tone(0xFF2A2A2A))
+                        .clickable { storage.chooseMediaCacheMb(mb) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+    androidx.compose.foundation.layout.Column(
+        Modifier.fillMaxWidth().clickable(enabled = !clearing) {
+            clearing = true
+            scope.launch {
+                storage.clearCaches(ctx)
+                clearing = false
+                refresh++
+                android.widget.Toast.makeText(ctx, ctx.getString(R.string.settings_storage_cleared), android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }.padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Text(stringResource(R.string.settings_storage_clear_cache), color = AppText, fontSize = 16.sp)
+        Text(
+            usage?.let { stringResource(R.string.settings_storage_clear_cache_detail, android.text.format.Formatter.formatShortFileSize(ctx, it.caches)) }.orEmpty(),
+            color = AppMuted, fontSize = 12.sp,
+        )
     }
 }
 

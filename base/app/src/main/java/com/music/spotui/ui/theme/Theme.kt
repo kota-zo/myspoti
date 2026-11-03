@@ -64,6 +64,9 @@ fun SpotuiTheme(
     androidx.compose.runtime.LaunchedEffect(policy.videoMaxHeight, policy.allowBackgroundLookups) {
         com.music.spotui.video.MusicVideoController.onEnergyPolicyChanged()
     }
+    // A new wallpaper recreates the activity: its accent is read again (Material You, see DynamicColorPref).
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    androidx.compose.runtime.remember(configuration) { com.music.spotui.data.preferences.DynamicColorPref.refresh() }
     // Dark only, like Spotify: a saved choice from the withdrawn light palette is ignored.
     val visualScheme: ColorScheme = spotifyColorScheme(AppAccent)
     val view = LocalView.current

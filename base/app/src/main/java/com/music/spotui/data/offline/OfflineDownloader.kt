@@ -270,6 +270,9 @@ object OfflineDownloader {
                 // Already on the IO scope: the index rewrite stays off the main thread.
                 OfflineStore.add(t)
                 withContext(Dispatchers.Main) { requests.remove(r.trackId) }
+                // Its lyrics kept with it, for playing offline (looked up behind, one song at a time).
+                if (com.music.spotui.data.preferences.LyricsOfflinePref.on) com.music.spotui.data.api.LyricsApi.keepForOffline(
+                    com.music.spotui.data.api.LyricsApi.Track(r.trackId, r.title, r.artist, r.album, r.durationMs, r.coverUrl))
                 null
             } catch (e: CancellationException) {
                 throw e

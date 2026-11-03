@@ -28,7 +28,8 @@ Two Media3 facts shaped the new design (read in Media3 1.8.0, the version the ap
 
 **Analysis** (`base/automix`, pure Kotlin, the same code on the phone and on the desktop bench).
 Each song is decoded once through the player's own data source (downloads decrypted, extension
-streams resolved, DASH answers read as one file; streams only on unmetered networks), to mid and side at 22.05 kHz.
+streams resolved, DASH answers read as one file; streams only on unmetered networks unless "Analyse on
+mobile data" is on, never under the data saver), to mid and side at 22.05 kHz.
 - Onsets: spectral flux on 40 log bands, plus the bands under 150 Hz (kicks, 808s).
 - Beat This! small0 (MIT, int8 ONNX, ONNX Runtime) on the whole song gives the metrical level
   (pure onset autocorrelation hesitates between the beat and ¾ or 4⁄3 of it on trap hi-hats) and
@@ -50,11 +51,30 @@ streams resolved, DASH answers read as one file; streams only on unmetered netwo
   analysed too, so a skip finds both of its songs ready. Beat This final0 (10× the parameters) would
   take 40–80 s a song for better metrical decisions on a few hard songs: not used.
 
+**Settings** (Transitions → AutoMix, both looks; `MixPlanner.Settings` from `AutoMix.settings()`):
+- *Transition style*: Beat blend (the styles below, chosen per pair), Cut on the beat (always CUT when
+  A has a grid, else FADE; a skip cuts too), Smooth fade (always FADE, tempos untouched).
+- *Mix length*, three levels mapped to bars: Short 4–8, Balanced 2–16, Long 12–32 (`maxSec` 64 s). The
+  upper end is a limit; the lower one a preference: a blend under it costs 6 points per halving, so a
+  pair that fits nothing longer still gets a shorter blend rather than a cut. A smooth fade lasts 4, 8 or 14 s.
+- *Harmonic mixing* (on by default): the key distance weighs ×2 in the blend's score (×1 before this
+  setting existed); off, ×0 (keys ignored).
+- *Mix podcasts* (off by default): a podcast episode or an audiobook at either end (`LocalTrack.speech`:
+  downloaded episodes, MediaStore's IS_PODCAST/IS_AUDIOBOOK) is neither analysed nor mixed, and Next cuts.
+- *Analyse on mobile data* (off by default): each extension stream is read a second time, about the
+  song's size again.
+- Saving energy (`AutoMix.frugal`: the app's energy saver, its data saver applying, Android's battery
+  saver, or under 20 % unplugged): the song playing and the next one only, two threads.
+- Spotify songs, with AutoMix on, change with a 3-s fade (`TransitionPref.SPOTIFY_FADE_SECONDS`),
+  not with the crossfade length kept for later.
+- `AutoMix.whyNot()` says why the next song is not mixed (Off, Cast, SpotifyStream, Podcast, Album,
+  MobileData, Frugal, NotAnalyzed), for the screens. Casting: no deck (any is dropped when the cast starts).
+
 **Planning** (`MixPlanner`): exit cues on A's downbeats in its last minute and a half (phrase starts,
 a level drop after them, late; never past where its music really ends, before a long fade-out),
 entry cues on B's first downbeat or a phrase start in its intro (a skip costs, less over a quiet
-intro, or the point that puts B's strong beat right at the end of the mix); 16, 12, 8, 6, 4 or 2
-bars, the whole mix inside the span where both grids were checked, scored first for B's strong beat
+intro, or the point that puts B's strong beat right at the end of the mix); 32, 24, 16, 12, 8, 6, 4 or 2
+bars (within the length setting), the whole mix inside the span where both grids were checked, scored first for B's strong beat
 (the drop, the first verse: where its level and bass jump) landing when A is gone, then for: A's loud bars
 left out, two voices at once, two loud songs at once, key distance on the Camelot wheel, size of
 the tempo change. Styles:

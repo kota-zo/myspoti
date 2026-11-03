@@ -160,8 +160,12 @@ object LyricsApi {
         // One request per track even when the card and the full screen ask together.
         val job = synchronized(inFlight) {
             inFlight[track.key] ?: scope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) {
-                // Read on an earlier run: from storage, not asked for again.
-                LyricsDisk.read(track.key)?.also { cache[track.key] = it } ?: resolve(track)
+                // Read on an earlier run: from storage, not asked for again. A downloaded song's own
+                // (see [keepForOffline]) when there is no connection, or when nothing else had any.
+                LyricsDisk.read(track.key)?.also { cache[track.key] = it }
+                    ?: (if (online()) null else kept(track))
+                    ?: resolve(track)
+                    ?: kept(track)
             }.also { created ->
                 inFlight[track.key] = created
                 created.invokeOnCompletion {
@@ -286,7 +290,7 @@ object LyricsApi {
             pending -> Partial(result)
             else -> result
         }
-        if (!pending) result?.let { LyricsDisk.write(track.key, it) }
+        if (!pending) result?.let { LyricsDisk.write(track.key, it); keepIfDownloaded(track, it) }
         Log.d("LyricsApi", "${track.title}: ${result?.let { "${it.lines.size} lines from ${it.provider}, synced=${it.synced}, words=${it.wordSynced}" } ?: "none"}" +
             if (pending) " (the extensions did not answer in time)" else "")
         result
@@ -346,7 +350,7 @@ object LyricsApi {
                 ?.sortedByDescending { it.lastModified() }?.drop(MAX_FILES)?.forEach { it.delete() }
         }
 
-        private fun encode(l: Lyrics) = JSONObject()
+        fun encode(l: Lyrics) = JSONObject()
             .put("synced", l.synced).put("language", l.language).put("provider", l.provider)
             .put("trl", l.translationLanguage)
             .put("colors", l.colors?.let { JSONArray(listOf(it.background, it.text, it.highlight)) })
@@ -368,7 +372,7 @@ object LyricsApi {
         private fun wordsOf(wa: JSONArray?) = wa?.let { List(it.length()) { j -> it.getJSONArray(j).let { w -> LyricWord(w.getLong(0), w.getLong(1), w.getString(2)) } } }
 
         // Entries written before translations, voices and backing vocals existed lack their keys: they read as none.
-        private fun decode(o: JSONObject): Lyrics {
+        fun decode(o: JSONObject): Lyrics {
             val colors = o.optJSONArray("colors")?.let { LyricsColors(it.getInt(0), it.getInt(1), it.getInt(2)) }
             val lines = o.getJSONArray("lines").let { arr ->
                 List(arr.length()) { i ->
@@ -384,6 +388,59 @@ object LyricsApi {
                 translationLanguage = o.optString("trl").takeIf { it.isNotEmpty() && it != "null" })
         }
     }
+
+    /**
+     * The lyrics kept with a downloaded song (OfflineStore.lyricsFile), for as long as the song is:
+     * read when there is no connection or no source had any, and written again when found anew.
+     * Shown as a [Partial]: the song is looked up again a while later, when there may be a connection.
+     */
+    private fun kept(track: Track): Lyrics? = runCatching {
+        val f = com.music.spotui.data.offline.OfflineStore.lyricsFile(track.trackId)?.takeIf { it.isFile } ?: return null
+        LyricsDisk.decode(JSONObject(f.readText()))
+    }.getOrNull()?.takeUnless { it.isEmpty }?.also {
+        cache[track.key] = Partial(it)
+        Log.d("LyricsApi", "${track.title}: ${it.lines.size} lines kept with the download")
+    }
+
+    /** What can be kept with a download: lyrics with lines, not a Free account's cut-short preview. */
+    internal fun keepable(lyrics: Lyrics): Boolean = !lyrics.isEmpty && lyrics.uncapped
+
+    private fun keep(track: Track, lyrics: Lyrics) {
+        if (!keepable(lyrics)) return
+        runCatching {
+            val f = com.music.spotui.data.offline.OfflineStore.lyricsFile(track.trackId) ?: return
+            f.parentFile?.mkdirs()
+            com.music.spotui.data.writeTextSafely(f, LyricsDisk.encode(lyrics).toString(), sync = false)
+        }.onFailure { Log.w("LyricsApi", "could not keep lyrics with the download: ${it.javaClass.simpleName}") }
+    }
+
+    /** Lyrics found for a downloaded song replace the ones kept with it (the setting on). */
+    private fun keepIfDownloaded(track: Track, lyrics: Lyrics) {
+        if (!runCatching { com.music.spotui.data.preferences.LyricsOfflinePref.on &&
+                com.music.spotui.data.offline.OfflineStore.isDownloaded(track.trackId) }.getOrDefault(false)) return
+        keep(track, lyrics)
+    }
+
+    // Downloads ask for their lyrics one song at a time, behind what is shown: an extension answers one call at a time.
+    private val keeping = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * A song was just downloaded ("Download lyrics with songs" on): its lyrics are looked up the usual
+     * way ([fetch], the lyrics extensions included) and kept with the download, for playing offline.
+     */
+    fun keepForOffline(track: Track) {
+        if (track.trackId.isBlank()) return
+        scope.launch {
+            keeping.lock()
+            try {
+                val lyrics = runCatching { fetch(track) }.getOrNull() ?: return@launch
+                keep(track, lyrics)
+            } finally { keeping.unlock() }
+        }
+    }
+
+    private fun online(): Boolean =
+        runCatching { com.music.spotui.data.offline.OfflineStore.isOnline(com.music.spotui.di.Graph.app) }.getOrDefault(true)
 
     /** Whether lyrics extensions are installed and running (false in unit tests: no app). */
     private fun extensionsAsked(): Boolean = runCatching { com.music.spotui.extensions.Extensions.hasLyrics() }.getOrDefault(false)

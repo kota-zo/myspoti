@@ -117,6 +117,9 @@ object YouTubeSource {
         }
     }
 
+    /** Plain YouTube videos for [query] (a podcast episode's upload, for SponsorBlock); blocking, call off the main thread. */
+    fun searchVideos(query: String): List<Hit> = search(query, YoutubeSearchQueryHandlerFactory.VIDEOS)
+
     private fun elided(s: String) = s.replace(Regex("""(?<=\p{L})['’](?=\p{L})"""), "")
 
     /** The YouTube Music "song" of the track (Topic / art track), duration within 3 s. */

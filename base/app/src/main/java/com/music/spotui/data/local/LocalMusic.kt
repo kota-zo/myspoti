@@ -31,6 +31,8 @@ data class LocalTrack(
     val isRadio: Boolean = false,
     /** MediaStore's track number (disc × 1000 + track), 0 unknown (streams and downloads have none). */
     val trackNo: Int = 0,
+    /** A podcast episode or an audiobook (spoken word): AutoMix leaves it whole unless asked. */
+    val speech: Boolean = false,
 )
 
 /** The device's music files, read through MediaStore (no file access beyond audio). */
@@ -63,6 +65,7 @@ object LocalMusic {
             MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.RELATIVE_PATH, MediaStore.Audio.Media.TRACK,
+            MediaStore.Audio.Media.IS_PODCAST, MediaStore.Audio.Media.IS_AUDIOBOOK,
         )
         val out = ArrayList<LocalTrack>()
         // Android's index decides what is "music": a phone full of recorded or downloaded audio can
@@ -87,6 +90,8 @@ object LocalMusic {
             val iAlbumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val iPath = c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
             val iTrack = c.getColumnIndex(MediaStore.Audio.Media.TRACK)
+            val iPodcast = c.getColumnIndex(MediaStore.Audio.Media.IS_PODCAST)
+            val iBook = c.getColumnIndex(MediaStore.Audio.Media.IS_AUDIOBOOK)
             while (c.moveToNext()) {
                 val id = c.getLong(iId)
                 val artist = c.getString(iArtist)?.takeIf { it != MediaStore.UNKNOWN_STRING }.orEmpty()
@@ -100,6 +105,7 @@ object LocalMusic {
                     artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), c.getLong(iAlbumId)),
                     folder = if (iPath >= 0) c.getString(iPath).orEmpty() else "",
                     trackNo = if (iTrack >= 0 && !c.isNull(iTrack)) c.getInt(iTrack).coerceAtLeast(0) else 0,
+                    speech = (iPodcast >= 0 && c.getInt(iPodcast) != 0) || (iBook >= 0 && c.getInt(iBook) != 0),
                 )
             }
         }

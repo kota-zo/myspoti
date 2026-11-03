@@ -40,11 +40,14 @@ private fun inter(weight: Int, opticalSize: Float) = Font(
 
 private val weights = listOf(400, 500, 600, 700, 800)
 
-/** Body text, captions, buttons. */
-val ImmersiveSans = FontFamily(weights.map { inter(it, 14f) })
+private val interText = FontFamily(weights.map { inter(it, 14f) })
+private val interDisplay = FontFamily(weights.map { inter(it, 32f) })
 
-/** Titles, the player's title and the lyrics (20sp and up). */
-val ImmersiveDisplay = FontFamily(weights.map { inter(it, 32f) })
+/** Body text, captions, buttons (the phone's system font when chosen in the settings: AppFontPref). */
+val ImmersiveSans: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else interText
+
+/** Titles, the player's title and the lyrics (20sp and up); the system font as [ImmersiveSans]. */
+val ImmersiveDisplay: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else interDisplay
 
 /**
  * The phone's "Remove animations" setting, read once at the root (see App) for both looks.

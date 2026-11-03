@@ -3026,7 +3026,7 @@ object SongPlayer {
             null
         }
 
-    // Media cache for the looping Canvas video on the now-playing screen.
+    // Media cache for the looping Canvas video on the now-playing screen, sized as Settings > Storage says (at its first use).
     @Volatile private var mediaCache: androidx.media3.datasource.cache.SimpleCache? = null
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -3034,7 +3034,7 @@ object SongPlayer {
         mediaCache ?: synchronized(this) {
             mediaCache ?: androidx.media3.datasource.cache.SimpleCache(
                 java.io.File(context.cacheDir, "media"),
-                androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(64L * 1024 * 1024),
+                androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(com.music.spotui.data.AppStorage.mediaCacheLimit()),
                 androidx.media3.database.StandaloneDatabaseProvider(context),
             ).also { mediaCache = it }
         }

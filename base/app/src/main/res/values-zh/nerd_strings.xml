@@ -54,4 +54,11 @@
     <string name="nerd_mirror_off">关</string>
     <string name="nerd_spotify_note">Spotify 的流在页面内加密：无法获取其确切的编解码器和比特率，只能看到页面声明的内容。</string>
     <string name="nerd_spotify_remote">声音来自另一台设备：此手机只负责控制它。</string>
+    <string name="nerd_automix">AutoMix</string>
+    <string name="nerd_automix_blend">节拍对齐混音</string>
+    <string name="nerd_automix_cut">节拍切换</string>
+    <string name="nerd_automix_fade">淡入淡出</string>
+    <string name="nerd_automix_mixing">正在混音：%1$s</string>
+    <string name="nerd_automix_planned">%1$s 于 %2$s，%3$d 秒</string>
+    <string name="nerd_automix_waiting">已开启，暂未安排混音</string>
 </resources>

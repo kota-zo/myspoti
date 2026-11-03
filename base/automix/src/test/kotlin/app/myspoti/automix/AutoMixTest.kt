@@ -11,7 +11,7 @@ import kotlin.math.sin
 
 class AutoMixTest {
     /** A drum loop at [bpm]: kick on 1 and 3 (low), snare on 2 and 4 (noise), hat on eighths, a bass note per bar. */
-    private fun loop(bpm: Double, seconds: Double, offset: Double = 0.5, seed: Long = 1): FloatArray {
+    private fun loop(bpm: Double, seconds: Double, offset: Double = 0.5, seed: Long = 1, transpose: Int = 0): FloatArray {
         val sr = Features.RATE
         val x = FloatArray((seconds * sr).toInt())
         val rnd = java.util.Random(seed)
@@ -33,7 +33,7 @@ class AutoMixTest {
             k++
         }
         // A bass note changing every bar (pitch classes C, F, G, C).
-        val notes = doubleArrayOf(65.4, 87.3, 98.0, 65.4)
+        val notes = doubleArrayOf(65.4, 87.3, 98.0, 65.4).map { it * Math.pow(2.0, transpose / 12.0) }
         for (i in x.indices) {
             val t = i.toDouble() / sr - offset
             if (t < 0) continue
@@ -123,5 +123,60 @@ class AutoMixTest {
         assertEquals(0.0, Math.floorMod(Math.round(g.index(p.exitA) - g.index(a.tailDown)).toInt(), 4).toDouble(), 0.0)
         // Nothing known: a short fade.
         assertEquals(MixPlan.Style.FADE, MixPlanner.planSkip(null, null, 40.0, 0.5).style)
+    }
+
+    @Test fun cutAskedCutsOnTheBeat() {
+        val a = Analyzer.analyze(loop(124.0, 90.0, seed = 1), null)
+        val b = Analyzer.analyze(loop(122.0, 90.0, offset = 0.3, seed = 2), null)
+        val p = MixPlanner.plan(a, b, MixPlanner.Settings(style = MixPlan.Style.CUT))
+        assertEquals(MixPlan.Style.CUT, p.style)
+        // On one of A's downbeats, over two beats at most.
+        val g = a.tail!!
+        assertEquals(0.0, Math.floorMod(Math.round(g.index(p.exitA) - g.index(a.tailDown)).toInt(), 4).toDouble(), 0.0)
+        assertEquals(2 * g.period, p.length, 1e-9)
+        // A skip asked as a cut is a cut too.
+        assertEquals(MixPlan.Style.CUT, MixPlanner.planSkip(a, b, 40.0, 0.5, MixPlanner.Settings(style = MixPlan.Style.CUT)).style)
+    }
+
+    @Test fun fadeAskedIsAPlainFadeOfItsLength() {
+        val a = Analyzer.analyze(loop(124.0, 90.0, seed = 1), null)
+        val b = Analyzer.analyze(loop(122.0, 90.0, offset = 0.3, seed = 2), null)
+        val p = MixPlanner.plan(a, b, MixPlanner.Settings(style = MixPlan.Style.FADE, smoothSec = 4.0))
+        assertEquals(MixPlan.Style.FADE, p.style)
+        assertEquals(4.0, p.length, 1e-9)
+        assertEquals(1.0, p.speedB, 0.0)
+        assertEquals(MixPlan.Style.FADE, MixPlanner.planSkip(a, b, 40.0, 0.5, MixPlanner.Settings(style = MixPlan.Style.FADE)).style)
+    }
+
+    @Test fun mixLengthStaysInItsBars() {
+        val a = Analyzer.analyze(loop(124.0, 180.0, seed = 1), null)
+        val b = Analyzer.analyze(loop(122.0, 180.0, offset = 0.3, seed = 2), null)
+        val short = MixPlanner.plan(a, b, MixPlanner.Settings(lengthBias = -1, minBars = 4, maxBars = 8))
+        assertEquals(MixPlan.Style.BLEND, short.style)
+        assertTrue("short: ${short.beats / 4} bars", short.beats in 16..32)
+        val long = MixPlanner.plan(a, b, MixPlanner.Settings(maxSec = 64.0, lengthBias = 1, minBars = 12, maxBars = 32))
+        assertEquals(MixPlan.Style.BLEND, long.style)
+        assertTrue("long: ${long.beats / 4} bars", long.beats >= 48)
+        // Two songs too short for the bars asked for: a shorter blend rather than none.
+        val a2 = Analyzer.analyze(loop(124.0, 60.0, seed = 1), null)
+        val b2 = Analyzer.analyze(loop(122.0, 60.0, offset = 0.3, seed = 2), null)
+        assertEquals(MixPlan.Style.BLEND, MixPlanner.plan(a2, b2, MixPlanner.Settings(maxSec = 64.0, lengthBias = 1, minBars = 12, maxBars = 32)).style)
+    }
+
+    /** [a] with a clear [key] (the loops' own keys are too weak to count). */
+    private fun withKey(a: TrackAnalysis, key: Int) = TrackAnalysis(a.duration, a.contentStart, a.contentEnd, a.loudnessDb, key, 1.0, a.bpm,
+        a.steady, a.head, a.tail, a.beats, a.barStarts, a.barDb, a.barLowDb, a.barHighDb, a.barCentre, a.barNovelty, a.phraseOffset,
+        a.stereo, a.headDown, a.tailDown, a.note)
+
+    @Test fun harmonicMixingShortensClashingKeys() {
+        val a = withKey(Analyzer.analyze(loop(124.0, 120.0, seed = 1), null), 0)          // C major, 8B
+        val loopB = Analyzer.analyze(loop(122.0, 120.0, offset = 0.3, seed = 2), null)
+        val clash = withKey(loopB, 6)                                                       // F# major, 2B
+        assertEquals(2.0, MixPlanner.keyDistance(a, clash), 0.0)
+        val off = MixPlanner.plan(a, clash, MixPlanner.Settings(keyWeight = 0.0))
+        val on = MixPlanner.plan(a, clash, MixPlanner.Settings(keyWeight = 2.0))
+        assertTrue("on ${on.beats} off ${off.beats}", on.beats < off.beats)
+        // Keys ignored: a clash plans as a match does.
+        assertEquals(off.beats, MixPlanner.plan(a, withKey(loopB, 7), MixPlanner.Settings(keyWeight = 0.0)).beats)
     }
 }

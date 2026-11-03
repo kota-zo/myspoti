@@ -532,7 +532,7 @@ object LocalPlayer {
         if (!p.isPlaying) return false
         val next = p.nextMediaItemIndex
         val canMix = next != C.INDEX_UNSET && !LocalRepeat.loopsSong(repeat, p.mediaItemCount) && p.playWhenReady
-        if (!canMix) { if (m != null) cancelMix("no next song"); return true }
+        if (!canMix) { if (m != null) cancelMix("no next song"); whyNot(null); return true }
         val nextId = p.getMediaItemAt(next).mediaId
         // The next song changed (queue edited): the deck prepared for another one goes.
         if (m != null && (m.toIndex != next || m.toId != nextId)) cancelMix("the next song changed")
@@ -583,12 +583,23 @@ object LocalPlayer {
         return if (exit - p.currentPosition > PREPARE_LEAD_MS + RUN_UP_MS + 3_000) 1_000 else 200
     }
 
+    /** Why the next pair is not mixed, for the screens (see AutoMix.whyNot). */
+    private fun whyNot(r: com.music.spotui.automix.AutoMix.Reason?) {
+        if (com.music.spotui.automix.AutoMix.pairReason.value != r) com.music.spotui.automix.AutoMix.pairReason.value = r
+    }
+
+    /** A podcast episode or an audiobook at either end, with "Mix podcasts" off: the two are not mixed. */
+    private fun spoken(a: LocalTrack?, b: LocalTrack?): Boolean =
+        !com.music.spotui.automix.AutoMix.mixPodcasts && (a?.speech == true || b?.speech == true)
+
     /** The plan for this pair: the analysed one, else (once the end is near) a fade on the songs' lengths. */
     private fun planFor(p: ExoPlayer, next: Int, nextId: String): app.myspoti.automix.MixPlan? {
         val cur = p.currentMediaItemIndex
         planned?.takeIf { it.fromIndex == cur && it.toId == nextId }?.let { return it.plan }
         val a = tracks.getOrNull(cur) ?: return null
         val b = tracks.getOrNull(next) ?: return null
+        // Spoken word starts and ends whole (and is not analysed).
+        if (spoken(a, b)) { whyNot(com.music.spotui.automix.AutoMix.Reason.Podcast); return null }
         // Asked again whenever the songs ahead change (a queue edit): the next one and the one after it.
         val ahead = "$cur|$nextId|${p.getMediaItemAt(next).mediaId}|${if (next + 1 < p.mediaItemCount) p.getMediaItemAt(next + 1).mediaId else ""}"
         if (asking != ahead) {
@@ -598,20 +609,26 @@ object LocalPlayer {
             if (followsOnAlbum(a, b)) com.music.spotui.automix.AutoMix.journal("${a.title} → ${b.title}: next on the album, no mix")
         }
         // B right after A on their album: they run into each other as the album does (a skip still mixes).
-        if (followsOnAlbum(a, b)) return null
+        if (followsOnAlbum(a, b)) { whyNot(com.music.spotui.automix.AutoMix.Reason.Album); return null }
         val ra = com.music.spotui.automix.AutoMix.analysis(a.uri); val rb = com.music.spotui.automix.AutoMix.analysis(b.uri)
         if (ra != null && rb != null) {
             val plan = com.music.spotui.automix.AutoMix.planFor(ra, rb)
             planned = Planned(cur, nextId, plan)
+            whyNot(null)
             com.music.spotui.automix.AutoMix.journal("plan ${a.title} → ${b.title}: $plan")
             return plan
         }
-        // Not analysed yet with the end near: an equal-power fade of 6 s on the lengths.
+        // A song refused for now (mobile data, a failed analysis) says so at once; one still under way, once the end is near.
+        val refused = (if (ra == null) com.music.spotui.automix.AutoMix.missing(a.uri) else null) ?: (if (rb == null) com.music.spotui.automix.AutoMix.missing(b.uri) else null)
+        whyNot(refused)
+        // Not analysed yet with the end near: an equal-power fade on the lengths (6 s, or the smooth fade's own).
         val dur = p.duration.takeIf { it > 0 } ?: return null
         if (dur - p.currentPosition > PREPARE_LEAD_MS + RUN_UP_MS + 1000) return null
-        val len = minOf(6.0, dur / 4000.0)
+        val settings = com.music.spotui.automix.AutoMix.settings()
+        val len = minOf(if (settings.style == app.myspoti.automix.MixPlan.Style.FADE) settings.smoothSec else 6.0, dur / 4000.0)
         val plan = app.myspoti.automix.MixPlan(app.myspoti.automix.MixPlan.Style.FADE, dur / 1000.0 - len, 0.0, len, 1.0, 0, 0.5, 0.1, 1.0, 0.0, "fade: not analysed in time")
         planned = Planned(cur, nextId, plan)
+        whyNot(refused ?: if (com.music.spotui.automix.AutoMix.frugal()) com.music.spotui.automix.AutoMix.Reason.Frugal else com.music.spotui.automix.AutoMix.Reason.NotAnalyzed)
         com.music.spotui.automix.AutoMix.journal("plan ${a.title} → ${b.title}: $plan")
         return plan
     }
@@ -647,7 +664,7 @@ object LocalPlayer {
         val b = tracks.getOrNull(next)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
         // A skip may stretch more than a natural mix (12 %): it is short, and B is back to its tempo soon after.
         return app.myspoti.automix.MixPlanner.planSkip(a, b, posMs / 1000.0, (SKIP_RUN_UP_MS + startLead) / 1000.0,
-            com.music.spotui.automix.AutoMix.settings().let { app.myspoti.automix.MixPlanner.Settings(maxStretch = maxOf(it.maxStretch, 0.12), lengthBias = it.lengthBias) })
+            com.music.spotui.automix.AutoMix.settings().let { app.myspoti.automix.MixPlanner.Settings(maxStretch = maxOf(it.maxStretch, 0.12), lengthBias = it.lengthBias, style = it.style) })
     }
 
     /**
@@ -661,6 +678,7 @@ object LocalPlayer {
         mix?.let { if (it.skip || it.state >= MixState.PREROLL) return false }
         val next = p.nextMediaItemIndex
         if (next == C.INDEX_UNSET || LocalRepeat.loopsSong(repeat, p.mediaItemCount)) return false
+        if (spoken(tracks.getOrNull(p.currentMediaItemIndex), tracks.getOrNull(next))) return false
         cancelMix("skip", again = true)
         val plan = skipPlan(p, next, p.currentPosition)
         com.music.spotui.automix.AutoMix.journal("skip: $plan")
@@ -890,7 +908,7 @@ object LocalPlayer {
 
     /** A planner setting changed (length, tempo range): the next mix is planned again unless it already started. */
     fun autoMixSettingsChanged() {
-        if (mix == null) { planned = null; updateCue() }
+        if (mix == null) { planned = null; asking = null; updateCue() }
     }
 
     /** For the command line: where the mix stands. */

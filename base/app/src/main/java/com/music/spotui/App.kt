@@ -146,6 +146,8 @@ fun App() {
         else com.music.spotui.ui.navigation.PlayerOverlay(navController)
         // "Not interested" and its Undo, over the pages and the players.
         com.music.spotui.ui.components.HiddenSongUndo()
+        // A sponsor read skipped in a podcast (SponsorBlock), and its Undo.
+        com.music.spotui.podcast.SponsorSkipUndo()
     }
     }
 }

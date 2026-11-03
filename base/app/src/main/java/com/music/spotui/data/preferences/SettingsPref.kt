@@ -184,9 +184,14 @@ object CrossfadePref {
 /**
  * How the local player's songs follow each other: one choice over [CrossfadePref] and AutoMix,
  * which never run together (AutoMix on, the crossfade's length is kept for later but unused).
+ * Spotify songs, which AutoMix cannot mix (the app never has the Web Player's audio), then change
+ * with a short fade of [SPOTIFY_FADE_SECONDS] rather than with that kept length (up to 12 s).
  */
 object TransitionPref {
     enum class Mode { OFF, CROSSFADE, AUTOMIX }
+
+    /** The Spotify songs' fade while AutoMix is on, seconds. */
+    const val SPOTIFY_FADE_SECONDS = 3
 
     val mode: Mode get() = when {
         com.music.spotui.automix.AutoMix.on -> Mode.AUTOMIX
@@ -247,7 +252,8 @@ fun getCrossfadeSeconds(c: Context): Int =
 fun applyCrossfade(seconds: Int) {
     val runtime = app.myspoti.host.android.MyspotiRuntime
     if (!runtime.isStarted) return
-    runtime.spotify.player.crossfadeSeconds = seconds
+    // AutoMix on: the crossfade length is only kept for later, the Spotify songs get a short fade.
+    runtime.spotify.player.crossfadeSeconds = if (com.music.spotui.automix.AutoMix.on) TransitionPref.SPOTIFY_FADE_SECONDS else seconds
 }
 
 fun getLyricTranslateLang(c: Context): String =
