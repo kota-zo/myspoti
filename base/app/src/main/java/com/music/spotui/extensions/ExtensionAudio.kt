@@ -148,6 +148,15 @@ object ExtensionAudio {
 
     private val warming = ConcurrentHashMap.newKeySet<String>()
 
+    /** The songs whose extension answer is still awaited after Spotify started them ([playList]). */
+    private val awaited = ConcurrentHashMap.newKeySet<String>()
+
+    /** Whether the answer for [trackId] is still awaited: Spotify plays it for now, not for want of the extensions. */
+    fun awaiting(trackId: String): Boolean = trackId in awaited
+
+    /** How long a song asked right after launch waits for the extensions to finish starting. */
+    private const val START_WAIT_MS = 20_000L
+
     /** Asks that outlive a tap's wait (see [playList]). */
     private val late = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
 
@@ -266,16 +275,23 @@ object ExtensionAudio {
             // takes it back to the extension where it is ([late]), rather than the user doing so by hand.
             picking.incrementAndGet()
             val cached = known[picked.spotifyTrackId]?.takeIf { it.fresh }?.stream
+            // Right after a launch the extension may still be starting: its "none" then only means it
+            // was not asked. It is asked again once started (reported: a resume after a relaunch went to
+            // Spotify, and the song was then held there for the whole session).
+            val wasStarting = Extensions.starting()
+            val info = Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri)
             val ask = if (cached != null) null else late.async {
-                Extensions.audio(Extensions.trackInfo(picked.spotifyTrackId, picked.title, picked.singer, picked.album, picked.durationMs.toLong(), picked.coverUri), timeoutMs = Extensions.AUDIO_MS)
+                Extensions.audio(info, timeoutMs = Extensions.AUDIO_MS)
+                    ?: if (wasStarting && Extensions.awaitStarted(START_WAIT_MS)) Extensions.audio(info, timeoutMs = Extensions.AUDIO_MS) else null
             }
             val first = try {
                 cached ?: withTimeoutOrNull(Extensions.PICK_AUDIO_MS + 1_000) { ask!!.await() }
             } finally { picking.decrementAndGet() } ?: run {
                 if (ask != null && !ask.isCompleted) {
                     app.myspoti.host.android.Logbook.log("audio: no extension audio for ${picked.title} within ${(Extensions.PICK_AUDIO_MS + 1_000) / 1000} s: Spotify plays it, the extension's answer is still awaited")
+                    awaited.add(picked.spotifyTrackId)
                     late.launch {
-                        val s = runCatching { ask.await() }.getOrNull() ?: return@launch
+                        val s = try { runCatching { ask.await() }.getOrNull() } finally { awaited.remove(picked.spotifyTrackId) } ?: return@launch
                         keep(picked.spotifyTrackId, s)
                         withContext(Dispatchers.Main) { com.music.spotui.di.SongPlayer.extensionAnsweredLate(picked.spotifyTrackId) }
                     }

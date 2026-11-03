@@ -745,6 +745,12 @@ object Extensions {
         return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource())
     }
 
+    /** The extensions on at launch are still being started. */
+    fun starting(): Boolean = !started.isCompleted
+
+    /** Waits up to [ms] for the extensions on at launch to be started; true once they are. */
+    suspend fun awaitStarted(ms: Long): Boolean = started.isCompleted || withTimeoutOrNull(ms) { started.await() } != null
+
     /** An audio-source extension is turned on (running or not yet): a session of theirs goes back to them. */
     fun audioSourceOn(): Boolean = isReady && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
 

@@ -1245,7 +1245,8 @@ object SongPlayer {
             if (!played) main.post {
                 if (isLatest()) {
                     app.myspoti.host.android.Logbook.log("audio: no extension had ${song?.title ?: trackId}, Spotify plays")
-                    spotifyPlayed.add(trackId)
+                    // Not when its answer is still awaited: the song goes back to the extension then.
+                    if (!com.music.spotui.extensions.ExtensionAudio.awaiting(trackId)) spotifyPlayed.add(trackId)
                     routingState.value = null; spotifyFallbackId = trackId; fallback()
                 }
             }
