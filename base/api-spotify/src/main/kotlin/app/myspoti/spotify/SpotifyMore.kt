@@ -516,14 +516,29 @@ class SpotifyJam(private val bridge: Bridge) : Jam {
 
     override suspend fun start(): JamSession {
         if (availability() == JamAvailability.RESTRICTED) throw UnsupportedOperationException("Jam is restricted on this account")
-        val s = parse(bridge.service("SocialConnectAPI", "createSession")) ?: throw GqlException("jam", "no session")
-        _session.value = s
-        return s
+        // GET social-connect/v2/sessions/current_or_new?activate=true, as the official apps. Its answer is
+        // the short form (no members, no owner flag): the session is read again in full.
+        val created = parse(bridge.service("SocialConnectAPI", "createSession")) ?: throw GqlException("jam", "no session")
+        runCatching { refresh() }
+        return _session.value ?: created.copy(isHost = true).also { _session.value = it }
     }
 
     override suspend fun join(joinToken: String): JamSession {
-        bridge.service("SocialConnectAPI", "joinSession", JsonPrimitive(joinToken))
+        // As the page's own join dialog does (the token alone sent an incomplete join that did nothing):
+        // a link join ("deeplinking") listening here (REMOTE: listen and control); an account that may
+        // not (Spotify keeps that for Premium) joins as in the room (IN_PERSON: it controls the host's
+        // playback). POST social-connect/v3/sessions/join, each try with its own attempt id.
+        var failure: Throwable? = null
+        for (mode in listOf("REMOTE", "IN_PERSON")) {
+            val r = runCatching {
+                bridge.service("SocialConnectAPI", "joinSession", JsonPrimitive(joinToken), JsonPrimitive("deeplinking"),
+                    JsonPrimitive(mode), JsonPrimitive(java.util.UUID.randomUUID().toString()))
+            }
+            failure = r.exceptionOrNull() ?: failure
+            if (r.getOrNull().let { it != null && it !is kotlinx.serialization.json.JsonNull }) { failure = null; break }
+        }
         refresh()
+        failure?.takeIf { _session.value == null }?.let { throw it }
         return _session.value ?: throw GqlException("jam", "join failed")
     }
 
@@ -531,9 +546,11 @@ class SpotifyJam(private val bridge: Bridge) : Jam {
     override suspend fun end() { bridge.service("SocialConnectAPI", "deleteSession"); _session.value = null }
 
     override suspend fun inviteLink(): String? {
-        val id = _session.value?.id ?: return null
-        val r = bridge.service("SocialConnectAPI", "getShortInviteLink", JsonPrimitive(id))
-        return (r as? JsonPrimitive)?.content ?: r.str("shareUrl") ?: r.str("url")
+        // The page shortens a link from the join token and the session's URI (not its id: that gave nothing).
+        val token = _session.value?.joinToken ?: return null
+        val r = runCatching { bridge.service("SocialConnectAPI", "getShortInviteLink", JsonPrimitive(token), JsonPrimitive("spotify:socialsession:$token")) }.getOrNull()
+        return (r as? JsonPrimitive)?.content ?: r.str("shareableUrl") ?: r.str("shareUrl") ?: r.str("url")
+            ?: "https://open.spotify.com/socialsession/$token"
     }
 
     override suspend fun removeMember(userUri: Uri) { bridge.service("SocialConnectAPI", "removeSessionMember", JsonPrimitive(idOf(userUri))); refresh() }
