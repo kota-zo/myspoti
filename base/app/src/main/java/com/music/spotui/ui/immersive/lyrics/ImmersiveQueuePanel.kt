@@ -207,8 +207,9 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
         while (true) {
             withFrameNanos { }
             val info = listState.layoutInfo
-            val row = info.visibleItemsInfo.firstOrNull { it.key == drag.key } ?: continue
-            val y = row.offset + row.size / 2f + drag.offset
+            val row = info.visibleItemsInfo.firstOrNull { it.key == drag.key }
+            // Its slot scrolled out of sight: the finger is where it last was (the scroll moves the slot, not the finger).
+            val y = if (row != null) row.offset + row.size / 2f + drag.offset else drag.lastCenter ?: continue
             val step = QueueDragMath.edgeStep(y, info.viewportSize.height.toFloat(), edge, maxStep)
             if (step != 0f) drag.offset += listState.scrollBy(step)
         }
@@ -339,6 +340,12 @@ private class QueueDrag {
     /** The dropped row, and where it was drawn (list coordinates), until its new slot is laid out. */
     var awaitKey: String? = null
     var awaitVisual = 0f
+    /**
+     * The dragged row's centre (viewport coordinates, the finger) when last laid out. Dragged far up
+     * or down, the list scrolls and the row's own slot leaves the screen: the hover and the edge
+     * scroll go on from here instead of giving up (reported: the row went back to where it was).
+     */
+    var lastCenter: Float? = null
 }
 
 /** Where the dragged row hovers: its flat index, the gap among the other rows, and which side of the context heading. */
@@ -351,8 +358,8 @@ private fun hoverOf(listState: LazyListState, rows: List<QRow>, drag: QueueDrag)
     val from = rows.indexOfFirst { it.key == key }
     if (from < 0) return null
     val visible = listState.layoutInfo.visibleItemsInfo.associateBy { it.key }
-    val me = visible[key] ?: return null
-    val center = me.offset + me.size / 2f + drag.offset
+    val me = visible[key]
+    val center = if (me != null) (me.offset + me.size / 2f + drag.offset).also { drag.lastCenter = it } else drag.lastCenter ?: return null
     // A row out of sight is above the dragged one's centre if it comes before it in the list.
     val mids = rows.filter { it.index != from }.map { r ->
         visible[r.key]?.let { it.offset + it.size / 2f } ?: if (r.index < from) Float.NEGATIVE_INFINITY else Float.POSITIVE_INFINITY
@@ -410,6 +417,13 @@ private fun LazyListScope.queueSection(
         val item = row.item
         val rowPx = with(LocalDensity.current) { Immersive.RowHeight.toPx() }
         val dragged = key == drag.key
+        // Kept composed while dragged: scrolled out of sight, the row (and its gesture) was dropped by
+        // the list, and the drag ended with the row back in its old place.
+        val pinnable = androidx.compose.ui.layout.LocalPinnableContainer.current
+        androidx.compose.runtime.DisposableEffect(dragged, pinnable) {
+            val handle = if (dragged) pinnable?.pin() else null
+            onDispose { handle?.release() }
+        }
         // Rows the dragged one passes step aside by one slot.
         val shift = hover()?.let { h -> if (dragged) 0 else QueueDragMath.step(row.index, h.from, h.slot) } ?: 0
         val dropNow by rememberUpdatedState(onDrop)
@@ -482,7 +496,7 @@ private fun LazyListScope.queueSection(
                             .padding(8.dp)
                             .pointerInput(key) {
                                 detectDragGestures(
-                                    onDragStart = { drag.key = key; drag.offset = 0f },
+                                    onDragStart = { drag.key = key; drag.offset = 0f; drag.lastCenter = null },
                                     onDragEnd = {
                                         // Worked out while the row is still where it was dropped.
                                         if (drag.key == key) {
@@ -498,7 +512,7 @@ private fun LazyListScope.queueSection(
                                         drag.key = null
                                         drag.offset = 0f
                                     },
-                                    onDragCancel = { drag.key = null; drag.offset = 0f },
+                                    onDragCancel = { drag.key = null; drag.offset = 0f; drag.lastCenter = null },
                                     onDrag = { change, amount ->
                                         change.consume()
                                         drag.offset += amount.y
