@@ -5,6 +5,7 @@
  */
 package com.music.spotui.ui.immersive.screens
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveGlassSheet
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -53,7 +53,7 @@ internal fun libraryOrderLabel(sort: LibraryOrder.Sort): Int = when (sort) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ImmersiveLibrarySortSheet(onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Immersive.Raised) {
+    ImmersiveGlassSheet(onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
                 text = stringResource(R.string.filter_and_sort_sort_section_title),
@@ -104,11 +104,7 @@ internal fun ImmersiveAccountSheet(
     navController: NavController,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Immersive.Raised,
-    ) {
+    ImmersiveGlassSheet(onDismiss, rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

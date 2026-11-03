@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -60,7 +59,7 @@ fun ArtistOptionsSheet(artistId: String, artistName: String, artistImage: String
             app.myspoti.host.android.MyspotiRuntime.api.extras.isArtistBanned(listOf(uri)).single()
         }.getOrNull()
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = tone(0xFF282828)) {
+    LookSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = tone(0xFF282828)) {
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState())) {
             Text(
                 artistName, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold,
