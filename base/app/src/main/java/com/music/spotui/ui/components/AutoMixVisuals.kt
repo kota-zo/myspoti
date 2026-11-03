@@ -101,13 +101,17 @@ private const val RING_NS = 900_000_000L
 @Composable
 fun rememberMixPulse(cue: LocalPlayer.MixCue?): MixPulse? {
     val reduceMotion = rememberReduceMotion()
-    val on = cue != null && !reduceMotion
+    val on = cue != null && !reduceMotion && com.music.spotui.automix.AutoMix.pulseLevel > 0
     val pulse = remember(on) { if (on) MixPulse() else null }
     LaunchedEffect(pulse) {
         val p = pulse ?: return@LaunchedEffect
         while (true) {
             if (!LocalPlayer.isPlaying()) { p.step(System.nanoTime(), 0f); kotlinx.coroutines.delay(250); continue }
-            withFrameNanos { p.step(it, LocalPlayer.mixPulse()) }
+            // Still until the 8 s before the mix (see LocalPlayer.mixPulse): a check a second, no frames.
+            val c = LocalPlayer.mixCue.value
+            if (c != null && !c.mixing && LocalPlayer.position() < c.exitMs - 9_000) { p.step(System.nanoTime(), 0f); kotlinx.coroutines.delay(1_000); continue }
+            val k = if (com.music.spotui.automix.AutoMix.pulseLevel == 1) 0.55f else 1f
+            withFrameNanos { p.step(it, LocalPlayer.mixPulse() * k) }
         }
     }
     return pulse

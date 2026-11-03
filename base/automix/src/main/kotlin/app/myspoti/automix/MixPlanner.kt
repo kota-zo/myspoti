@@ -31,6 +31,8 @@ object MixPlanner {
         val maxSec: Double = 32.0,
         /** Fade length without a beat grid, seconds. */
         val fadeSec: Double = 6.0,
+        /** The listener's taste for mix length: -1 short (2 to 8 bars), 0 as scored, 1 long (12 to 16 bars). */
+        val lengthBias: Int = 0,
     )
 
     fun plan(a: TrackAnalysis, b: TrackAnalysis, s: Settings = Settings()): MixPlan {
@@ -105,6 +107,8 @@ object MixPlanner {
             var score = e.score + n.score
             // Long mixes suit songs in compatible keys with steady grids; clashing keys favour short ones.
             score += when (bars) { 16 -> 1.0; 12 -> 0.6; 8 -> 1.5; 6 -> 0.4; 4 -> 0.8; else -> 0.0 } - keyPenalty * bars / 8.0
+            // The listener's taste: a lean towards short or long mixes (strong enough to win over the defaults).
+            score += s.lengthBias * (bars - 8) / 8.0 * 1.6
             // Strong tempo changes are heard: shorter mixes then.
             score -= abs(m.speed - 1) / 0.08 * bars / 16.0
             // A's loud bars after the mix (cut short) and a long silence of A inside the mix.
@@ -121,7 +125,7 @@ object MixPlanner {
                 bestScore = score
                 val swapBar = (bars / 2.0).let { if (bars >= 4) floor(it) else it }
                 best = MixPlan(MixPlan.Style.BLEND, e.time, n.time, len, m.speed, bars * 4, swapBar / bars, 1.0 / (bars * 4),
-                    matchGain(a, b), restore(m.speed, gb.period), String.format("%s, %s, %.1f→%.1f BPM, key %s, score %.1f", e.why, n.why, ga.bpm, gb.bpm, keyText(keyPenalty), score))
+                    matchGain(a, b), restore(m.speed, gb.period), matchA = matchGainA(a, b), note = String.format("%s, %s, %.1f→%.1f BPM, key %s, score %.1f", e.why, n.why, ga.bpm, gb.bpm, keyText(keyPenalty), score))
             }
         }
         return best
@@ -147,7 +151,7 @@ object MixPlanner {
         val exit = a.barStarts.lastOrNull { it <= target && it >= target - 6 } ?: target
         val gb = b.head?.takeIf { !b.headDown.isNaN() }
         val entry = if (gb != null) firstDown(gb, b.headDown, b.contentStart - 0.08) else b.contentStart
-        return MixPlan(MixPlan.Style.FADE, exit, entry, len, 1.0, 0, 0.5, 0.1, matchGain(a, b), 0.0, "fade: $why")
+        return MixPlan(MixPlan.Style.FADE, exit, entry, len, 1.0, 0, 0.5, 0.1, matchGain(a, b), 0.0, "fade: $why", matchA = matchGainA(a, b))
     }
 
     /**
@@ -321,6 +325,12 @@ object MixPlanner {
     private fun matchGain(a: TrackAnalysis, b: TrackAnalysis): Double {
         val d = a.loudnessDb - b.loudnessDb
         return if (d < -1.5) 10.0.pow(max(d, -6.0) / 20) else 1.0
+    }
+
+    /** The other way: A louder than B is brought down towards B's level as the mix goes (no dip when A leaves). */
+    private fun matchGainA(a: TrackAnalysis, b: TrackAnalysis): Double {
+        val d = a.loudnessDb - b.loudnessDb
+        return if (d > 1.5) 10.0.pow(-min(d, 6.0) / 20) else 1.0
     }
 
     /** B's speed back to 1: about 0.3 % per beat, at least 8 beats. */

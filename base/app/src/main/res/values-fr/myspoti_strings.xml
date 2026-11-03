@@ -697,4 +697,18 @@
     <string name="settings_automix_show_detail">La portion du mix est colorée sur la barre de lecture, et la pochette s\'illumine et pulse au rythme pendant le mix.</string>
     <string name="automix_hint_next">Mix vers %1$s</string>
     <string name="automix_hint_mixing">Mix en cours vers %1$s</string>
+    <string name="settings_automix_length">Durée des mix</string>
+    <string name="settings_automix_length_short">Courte</string>
+    <string name="settings_automix_length_auto">Équilibrée</string>
+    <string name="settings_automix_length_long">Longue</string>
+    <string name="settings_automix_tempo">Calage du tempo</string>
+    <string name="settings_automix_tempo_detail">Jusqu\'où le tempo du morceau suivant peut être modifié pour tomber sur le temps. Au-delà, les morceaux changent par une coupe sur le temps.</string>
+    <string name="settings_automix_tempo_strict">Strict (4 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
+    <string name="settings_automix_tempo_wide">Large (12 %)</string>
+    <string name="settings_automix_eq">EQ DJ</string>
+    <string name="settings_automix_eq_detail">Échange des basses et filtres pendant le mix. Désactivé, seuls les volumes bougent.</string>
+    <string name="settings_automix_pulse">Animation du lecteur</string>
+    <string name="settings_automix_pulse_subtle">Légère</string>
+    <string name="settings_automix_pulse_strong">Forte</string>
 </resources>

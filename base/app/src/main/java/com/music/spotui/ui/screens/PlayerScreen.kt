@@ -1,5 +1,9 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.drawMixZone
+import com.music.spotui.ui.components.mixBeat
+import com.music.spotui.ui.components.mixHalo
+import com.music.spotui.ui.components.zoneOn
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.onSizeChanged
@@ -193,6 +197,9 @@ fun PlayerScreen(navController: NavController) {
     // this one with the fade's progress, the words and times switch once, half way.
     val blend = com.music.spotui.ui.components.rememberSongBlend()
     val outgoing = blend?.takeIf { it.outgoingWords }?.song
+    // An AutoMix mix planned or playing: its stretch on the seek bar, the cover beating with it.
+    val mixCue = com.music.spotui.ui.components.rememberMixCue()
+    val mixPulse = com.music.spotui.ui.components.rememberMixPulse(mixCue)
     // The backdrop's colour when the fade began, before this song's took over.
     val outgoingBackdrop = remember(blend) { backdropColor }
 
@@ -519,12 +526,15 @@ fun PlayerScreen(navController: NavController) {
                     GlideImage(
                         transition = CrossFade,
                         modifier = (if (immersive) Modifier.fillMaxSize()
-                            // Normal layout keeps the inset, rounded cover.
-                            else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
+                            // Normal layout keeps the inset, rounded cover (glowing and ringing with an AutoMix mix).
+                            else Modifier.padding(horizontal = coverInset).aspectRatio(1f)
+                                .then(if (page == 1) Modifier.mixHalo(mixPulse, com.music.spotui.ui.theme.AppAccent, 8.dp) else Modifier)
+                                .clip(RoundedCornerShape(8.dp)))
                             .graphicsLayer {
                                 val shown = 1f - canvasProgress.value
                                 alpha = shown
-                                val grow = 1f + (1f - shown) * 0.06f
+                                val beat = if (page == 1) 1f + 0.035f * (mixPulse?.level() ?: 0f) else 1f
+                                val grow = (1f + (1f - shown) * 0.06f) * beat
                                 scaleX = grow; scaleY = grow
                             },
                         model = app.myspoti.host.android.Covers.large(cover),
@@ -535,7 +545,8 @@ fun PlayerScreen(navController: NavController) {
                         blend,
                         (if (immersive) Modifier.fillMaxSize()
                             else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
-                            .graphicsLayer { alpha = 1f - canvasProgress.value },
+                            .graphicsLayer { alpha = 1f - canvasProgress.value }
+                            .mixBeat(mixPulse),
                     )
                 }
             }
@@ -619,6 +630,8 @@ fun PlayerScreen(navController: NavController) {
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .padding(top = 11.dp),
+                    mixZone = { mixCue?.zoneOn(duration, incomingShown = blend != null && outgoing == null) },
+                    mixPulse = { mixPulse?.level() ?: 0f },
                 )
                 Row(
                     modifier = Modifier
@@ -638,6 +651,10 @@ fun PlayerScreen(navController: NavController) {
                     )
                 }
 
+                com.music.spotui.ui.components.MixHint(
+                    mixCue, { mv.position() }, Color.White.copy(alpha = 0.8f), com.music.spotui.ui.theme.AppAccent, mixPulse,
+                    Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp),
+                )
                 PlayerFull(songPlayingState, playerViewModel, context, shuffle, repeat, queueSongs)
 
                 PlayerConnectRow(
@@ -1142,6 +1159,10 @@ fun SpotifySeekBar(
     onDrag: (Float) -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
+    /** An AutoMix mix's stretch of the bar (fractions), read in the draw; null with none. */
+    mixZone: () -> ClosedFloatingPointRange<Float>? = { null },
+    /** The mix's beat, 0..1, read in the draw. */
+    mixPulse: () -> Float = { 0f },
 ) {
     var widthPx by remember { mutableStateOf(1f) }
     val seekDescription = stringResource(R.string.playback_seek_description)
@@ -1191,6 +1212,7 @@ fun SpotifySeekBar(
         val f = fraction().coerceIn(0f, 1f)
         drawLine(Color.White.copy(alpha = 0.3f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
         drawLine(Color.White, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width * f, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
+        mixZone()?.let { drawMixZone(it, f, y, track * 1.5f, com.music.spotui.ui.theme.AppAccent, mixPulse()) }
         drawCircle(Color.White, radius = 5.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * f, y))
     }
 }

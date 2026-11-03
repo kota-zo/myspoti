@@ -541,8 +541,28 @@ private fun TransitionsRow() {
             checked = automix.mixOnNext, onChecked = automix::changeMixOnNext)
         OptionRow(stringResource(R.string.settings_automix_album_order), stringResource(R.string.settings_automix_album_order_detail),
             checked = automix.albumOrder, onChecked = automix::changeAlbumOrder)
+        OptionRow(stringResource(R.string.settings_automix_eq), stringResource(R.string.settings_automix_eq_detail),
+            checked = automix.djEq, onChecked = automix::changeDjEq)
         OptionRow(stringResource(R.string.settings_automix_show), stringResource(R.string.settings_automix_show_detail),
             checked = automix.showInPlayer, onChecked = automix::changeShowInPlayer)
+        @Composable
+        fun Choices(title: Int, detail: Int?, labels: List<Int>, selected: Int, pick: (Int) -> Unit) =
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                Text(stringResource(title), color = AppText, fontSize = 16.sp)
+                detail?.let { Text(stringResource(it), color = AppMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp)) }
+                Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+                    labels.forEachIndexed { i, l -> Chip(stringResource(l), selected == i) { pick(i) } }
+                }
+            }
+        Choices(R.string.settings_automix_length, null,
+            listOf(R.string.settings_automix_length_short, R.string.settings_automix_length_auto, R.string.settings_automix_length_long),
+            automix.mixLength, automix::changeMixLength)
+        Choices(R.string.settings_automix_tempo, R.string.settings_automix_tempo_detail,
+            listOf(R.string.settings_automix_tempo_strict, R.string.settings_automix_tempo_normal, R.string.settings_automix_tempo_wide),
+            automix.tempoRange, automix::changeTempoRange)
+        if (automix.showInPlayer) Choices(R.string.settings_automix_pulse, null,
+            listOf(R.string.settings_crossfade_off, R.string.settings_automix_pulse_subtle, R.string.settings_automix_pulse_strong),
+            automix.pulseLevel, automix::changePulseLevel)
     }
 }
 

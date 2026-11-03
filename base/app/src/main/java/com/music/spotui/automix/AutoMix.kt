@@ -50,6 +50,29 @@ object AutoMix {
     /** The mix shown in the player: its stretch on the seek bar, the cover and its glow pulsing with it. On by default. */
     var showInPlayer by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_show", true))
         private set
+    /** Mix length: 0 short, 1 as the music says, 2 long. */
+    var mixLength by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getInt("automix_length", 1).coerceIn(0, 2))
+        private set
+    fun changeMixLength(value: Int) { mixLength = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_length", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+
+    /** How far the next song's tempo may be bent to match: 0 strict (4 %), 1 normal (8 %), 2 wide (12 %). */
+    var tempoRange by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getInt("automix_tempo", 1).coerceIn(0, 2))
+        private set
+    fun changeTempoRange(value: Int) { tempoRange = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_tempo", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+
+    /** The DJ EQ: the bass swap and the filters (each player's DynamicsProcessing); off, only the volumes move. */
+    var djEq by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_eq", true))
+        private set
+    fun changeDjEq(value: Boolean) { djEq = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_eq", value).apply() }
+
+    /** How much the player moves with the mix: 0 not at all (the stretch on the bar stays), 1 subtle, 2 strong. */
+    var pulseLevel by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getInt("automix_pulse", 2).coerceIn(0, 2))
+        private set
+    fun changePulseLevel(value: Int) { pulseLevel = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_pulse", value).apply() }
+
+    /** The planner's settings from the ones above. */
+    fun settings() = MixPlanner.Settings(maxStretch = doubleArrayOf(0.04, 0.08, 0.12)[tempoRange], lengthBias = mixLength - 1)
+
     fun changeShowInPlayer(value: Boolean) { showInPlayer = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_show", value).apply() }
 
     // ── Journal (last lines, for the command line and the stats sheet) ──
@@ -83,8 +106,10 @@ object AutoMix {
      * any other song; [ready] runs on the worker when one is done.
      */
     fun request(uris: List<Uri>, ready: () -> Unit) {
-        wanted = uris.map(::key).toSet()
-        for (uri in uris) {
+        // Saving battery (the phone's saver, or under 20 % unplugged): the song playing and the next only.
+        val songs = if (frugal()) uris.take(2) else uris
+        wanted = songs.map(::key).toSet()
+        for (uri in songs) {
             val key = key(uri)
             synchronized(memory) { if (memory.containsKey(key) || key in failed || !asked.add(key)) continue }
             worker.execute {
@@ -110,7 +135,7 @@ object AutoMix {
             val cancelled = { key !in wanted }
             val pcm = TrackDecoder.decode(uri, cancelled)
             val t1 = System.currentTimeMillis()
-            val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, THREADS)
+            val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, if (frugal()) 2 else if (charging()) THREADS else minOf(THREADS, 3))
             save(key, a)
             journal(String.format("analysed %s: %.1f BPM%s, %d bars, key %d, decode %d ms, analysis %d ms", label(uri), a.bpm,
                 if (a.steady) " steady" else (if (a.tail != null) " (tail grid)" else " (no grid)"), a.bars, a.key, t1 - t0, System.currentTimeMillis() - t1) +
@@ -125,7 +150,17 @@ object AutoMix {
         }
     }
 
-    /** Cores for one analysis: all but two (the player and the screen keep theirs). */
+    private fun charging(): Boolean =
+        runCatching { Graph.app.getSystemService(android.os.BatteryManager::class.java).isCharging }.getOrDefault(false)
+
+    /** The phone saving battery: its saver on, or under 20 % and unplugged. */
+    private fun frugal(): Boolean = runCatching {
+        val power = Graph.app.getSystemService(android.os.PowerManager::class.java)
+        val battery = Graph.app.getSystemService(android.os.BatteryManager::class.java)
+        power.isPowerSaveMode || (!battery.isCharging && battery.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) in 0 until 20)
+    }.getOrDefault(false)
+
+    /** Cores for one analysis, plugged in: all but two (the player and the screen keep theirs); three on battery, two when saving it. */
     private val THREADS = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 6)
 
     private var beatThis: BeatThis? = null
@@ -145,7 +180,7 @@ object AutoMix {
 
     // ── Plans ──
 
-    fun planFor(a: TrackAnalysis, b: TrackAnalysis): MixPlan = MixPlanner.plan(a, b)
+    fun planFor(a: TrackAnalysis, b: TrackAnalysis): MixPlan = MixPlanner.plan(a, b, settings())
 
     // ── Cache ──
 

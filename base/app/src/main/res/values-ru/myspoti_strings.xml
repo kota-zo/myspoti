@@ -707,4 +707,18 @@
     <string name="automix_hint_mixing">Сведение в %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Переходы в стиле диджея между треками из расширений, загрузок и локальных файлов: каждый трек анализируется один раз (доли, такты, фразы, тональность), и следующий вступает в такт, с выровненным темпом и сменой баса. Треки, которые нельзя свести, получают склейку в такт или затухание. Потоки анализируются только в безлимитных сетях.</string>
+    <string name="settings_automix_length">Длина сведения</string>
+    <string name="settings_automix_length_short">Короткая</string>
+    <string name="settings_automix_length_auto">Сбалансированная</string>
+    <string name="settings_automix_length_long">Длинная</string>
+    <string name="settings_automix_tempo">Подгонка темпа</string>
+    <string name="settings_automix_tempo_detail">Насколько можно изменить темп следующего трека, чтобы попасть в такт. Сверх этого треки сменяются склейкой в такт.</string>
+    <string name="settings_automix_tempo_strict">Строгая (4 %)</string>
+    <string name="settings_automix_tempo_normal">Обычная (8 %)</string>
+    <string name="settings_automix_tempo_wide">Широкая (12 %)</string>
+    <string name="settings_automix_eq">DJ-эквалайзер</string>
+    <string name="settings_automix_eq_detail">Смена баса и фильтры во время сведения. Если выключено, меняется только громкость.</string>
+    <string name="settings_automix_pulse">Анимация плеера</string>
+    <string name="settings_automix_pulse_subtle">Слабая</string>
+    <string name="settings_automix_pulse_strong">Сильная</string>
 </resources>

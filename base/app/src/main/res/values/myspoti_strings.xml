@@ -698,4 +698,18 @@
     <string name="settings_automix_show_detail">The mix\'s stretch is coloured on the seek bar, and the cover glows and pulses with the beat while it plays.</string>
     <string name="automix_hint_next">Mix into %1$s</string>
     <string name="automix_hint_mixing">Mixing into %1$s</string>
+    <string name="settings_automix_length">Mix length</string>
+    <string name="settings_automix_length_short">Short</string>
+    <string name="settings_automix_length_auto">Balanced</string>
+    <string name="settings_automix_length_long">Long</string>
+    <string name="settings_automix_tempo">Tempo matching</string>
+    <string name="settings_automix_tempo_detail">How far the next song\'s tempo may be bent to land on the beat. Beyond it, the songs change with a cut on the beat.</string>
+    <string name="settings_automix_tempo_strict">Strict (4 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
+    <string name="settings_automix_tempo_wide">Wide (12 %)</string>
+    <string name="settings_automix_eq">DJ EQ</string>
+    <string name="settings_automix_eq_detail">Bass swap and filters during the mix. Off, only the volumes move.</string>
+    <string name="settings_automix_pulse">Player animation</string>
+    <string name="settings_automix_pulse_subtle">Subtle</string>
+    <string name="settings_automix_pulse_strong">Strong</string>
 </resources>

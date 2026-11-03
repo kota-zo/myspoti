@@ -692,4 +692,18 @@
     <string name="automix_hint_mixing">正在混入 %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">在扩展、下载和本地文件的歌曲之间进行 DJ 式过渡：每首歌只分析一次（节拍、小节、乐句、调性），下一首在节拍上进入，速度对齐并交换低音。无法对拍的歌曲会在节拍上切换或淡变。串流仅在不计流量的网络上分析。</string>
+    <string name="settings_automix_length">混音时长</string>
+    <string name="settings_automix_length_short">短</string>
+    <string name="settings_automix_length_auto">均衡</string>
+    <string name="settings_automix_length_long">长</string>
+    <string name="settings_automix_tempo">速度对齐</string>
+    <string name="settings_automix_tempo_detail">下一首的速度最多可调整多少以对上节拍。超出时，歌曲会在节拍上直接切换。</string>
+    <string name="settings_automix_tempo_strict">严格 (4%)</string>
+    <string name="settings_automix_tempo_normal">正常 (8%)</string>
+    <string name="settings_automix_tempo_wide">宽松 (12%)</string>
+    <string name="settings_automix_eq">DJ 均衡器</string>
+    <string name="settings_automix_eq_detail">混音时交换低音并使用滤波。关闭后只调整音量。</string>
+    <string name="settings_automix_pulse">播放器动画</string>
+    <string name="settings_automix_pulse_subtle">轻微</string>
+    <string name="settings_automix_pulse_strong">强烈</string>
 </resources>

@@ -30,6 +30,8 @@ class MixPlan(
     val matchB: Double,
     val restoreSec: Double,
     val note: String,
+    /** A's gain at the middle of the mix and on: A louder than B comes down towards B's level (1: untouched). */
+    val matchA: Double = 1.0,
 ) {
     enum class Style {
         /** Beat-matched blend over several bars with a bass swap. */
@@ -52,6 +54,14 @@ class MixPlan(
     fun levels(x: Double): Levels {
         if (x <= 0) return Levels(1.0, 0.0, 0.0, KILL, 0.0, 0.0)
         if (x >= 1) return Levels(0.0, matchB, KILL, 0.0, 0.0, 0.0)
+        val raw = rawLevels(x)
+        if (matchA >= 0.999) return raw
+        // A eased down to B's level over the first half, so the loudness holds when A leaves.
+        val down = 1 - (1 - matchA) * smooth((x / 0.5).coerceIn(0.0, 1.0))
+        return Levels(raw.gainA * down, raw.gainB, raw.lowA, raw.lowB, raw.highA, raw.highB)
+    }
+
+    private fun rawLevels(x: Double): Levels {
         return when (style) {
             Style.BLEND -> {
                 val s = swapAt

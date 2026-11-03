@@ -692,4 +692,18 @@
     <string name="automix_hint_mixing">Μίξη προς %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Μεταβάσεις σαν DJ ανάμεσα σε τραγούδια από επεκτάσεις, λήψεις και τοπικά αρχεία: κάθε τραγούδι αναλύεται μία φορά (χτύποι, μέτρα, φράσεις, τονικότητα) και το επόμενο μπαίνει στον ρυθμό, στο ίδιο τέμπο, με εναλλαγή των μπάσων. Όσα δεν συγχρονίζονται παίρνουν κόψιμο στον ρυθμό ή σβήσιμο. Οι ροές αναλύονται μόνο σε δίκτυα χωρίς χρέωση δεδομένων.</string>
+    <string name="settings_automix_length">Διάρκεια μίξης</string>
+    <string name="settings_automix_length_short">Σύντομη</string>
+    <string name="settings_automix_length_auto">Ισορροπημένη</string>
+    <string name="settings_automix_length_long">Μεγάλη</string>
+    <string name="settings_automix_tempo">Ταίριασμα τέμπο</string>
+    <string name="settings_automix_tempo_detail">Πόσο μπορεί να αλλάξει το τέμπο του επόμενου τραγουδιού για να πέσει στον ρυθμό. Πέρα από αυτό, τα τραγούδια αλλάζουν με κόψιμο στον ρυθμό.</string>
+    <string name="settings_automix_tempo_strict">Αυστηρό (4 %)</string>
+    <string name="settings_automix_tempo_normal">Κανονικό (8 %)</string>
+    <string name="settings_automix_tempo_wide">Ευρύ (12 %)</string>
+    <string name="settings_automix_eq">DJ EQ</string>
+    <string name="settings_automix_eq_detail">Εναλλαγή μπάσων και φίλτρα κατά τη μίξη. Απενεργοποιημένο, κινούνται μόνο οι εντάσεις.</string>
+    <string name="settings_automix_pulse">Κίνηση προγράμματος αναπαραγωγής</string>
+    <string name="settings_automix_pulse_subtle">Διακριτική</string>
+    <string name="settings_automix_pulse_strong">Έντονη</string>
 </resources>

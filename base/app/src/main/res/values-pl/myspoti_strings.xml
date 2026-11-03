@@ -707,4 +707,18 @@
     <string name="automix_hint_mixing">Miksowanie do %1$s</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Przejścia w stylu DJ między utworami z rozszerzeń, pobrań i plików lokalnych: każdy utwór jest analizowany raz (bity, takty, frazy, tonacja), a następny wchodzi w rytm, z dopasowanym tempem i zamianą basu. Utwory, których nie da się zgrać, dostają cięcie w rytm albo wyciszenie. Strumienie są analizowane tylko w sieciach bez limitu.</string>
+    <string name="settings_automix_length">Długość miksu</string>
+    <string name="settings_automix_length_short">Krótka</string>
+    <string name="settings_automix_length_auto">Zrównoważona</string>
+    <string name="settings_automix_length_long">Długa</string>
+    <string name="settings_automix_tempo">Dopasowanie tempa</string>
+    <string name="settings_automix_tempo_detail">Jak bardzo można zmienić tempo następnego utworu, żeby trafić w rytm. Powyżej utwory zmieniają się cięciem w rytm.</string>
+    <string name="settings_automix_tempo_strict">Ścisłe (4 %)</string>
+    <string name="settings_automix_tempo_normal">Normalne (8 %)</string>
+    <string name="settings_automix_tempo_wide">Szerokie (12 %)</string>
+    <string name="settings_automix_eq">EQ DJ</string>
+    <string name="settings_automix_eq_detail">Zamiana basu i filtry podczas miksu. Wyłączone: zmieniają się tylko głośności.</string>
+    <string name="settings_automix_pulse">Animacja odtwarzacza</string>
+    <string name="settings_automix_pulse_subtle">Delikatna</string>
+    <string name="settings_automix_pulse_strong">Mocna</string>
 </resources>

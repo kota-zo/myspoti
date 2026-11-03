@@ -406,8 +406,27 @@ private fun CrossfadePage(back: () -> Unit) {
                     onChecked = automix::changeAlbumOrder, detail = stringResource(R.string.settings_automix_album_order_detail))
             }
             row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_eq), checked = automix.djEq,
+                    onChecked = automix::changeDjEq, detail = stringResource(R.string.settings_automix_eq_detail))
+            }
+            row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_show), checked = automix.showInPlayer,
                     onChecked = automix::changeShowInPlayer, detail = stringResource(R.string.settings_automix_show_detail))
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-length", headerRes = R.string.settings_automix_length) {
+            listOf(R.string.settings_automix_length_short, R.string.settings_automix_length_auto, R.string.settings_automix_length_long).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.mixLength == i, onClick = { automix.changeMixLength(i) }) }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-tempo", headerRes = R.string.settings_automix_tempo, footerRes = R.string.settings_automix_tempo_detail) {
+            listOf(R.string.settings_automix_tempo_strict, R.string.settings_automix_tempo_normal, R.string.settings_automix_tempo_wide).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.tempoRange == i, onClick = { automix.changeTempoRange(i) }) }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX && automix.showInPlayer) immersiveGroup("automix-pulse", headerRes = R.string.settings_automix_pulse) {
+            listOf(R.string.settings_crossfade_off, R.string.settings_automix_pulse_subtle, R.string.settings_automix_pulse_strong).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.pulseLevel == i, onClick = { automix.changePulseLevel(i) }) }
             }
         }
     }
