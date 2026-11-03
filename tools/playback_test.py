@@ -153,7 +153,11 @@ class Log:
     def __init__(self):
         adb("logcat", "-c")
         self.lines = []
-        cmd = [ADB] + (["-s", SERIAL] if SERIAL else []) + ["logcat", "-v", "time", "-s", "Myspoti:*", "MspPlayer:*", "AndroidRuntime:E"]
+        # This app's lines only: the other Myspoti builds on the phone (beta, stable, side builds)
+        # log under the same tags, and a frozen one in the background failed every scenario here.
+        uid = re.search(r"uid:(\d+)", adb("shell", "pm", "list", "packages", "-U", PKG, check=False))
+        cmd = [ADB] + (["-s", SERIAL] if SERIAL else []) + ["logcat", "-v", "time"] + \
+              ([f"--uid={uid.group(1)}"] if uid else []) + ["-s", "Myspoti:*", "MspPlayer:*", "AndroidRuntime:E"]
         self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, errors="replace")
         threading.Thread(target=self._read, daemon=True).start()
 
