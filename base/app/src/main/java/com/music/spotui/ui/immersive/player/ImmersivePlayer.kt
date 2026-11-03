@@ -306,8 +306,10 @@ fun ImmersivePlayer(
 
     // The wave that leaves the cover when a mix is over, over everything.
     // Not over an open panel: the lyrics or the queue drawing in and springing back with the mix
-    // moved the lines being read (reported as particularly bad on the lyrics).
-    val mixMotion = state.mixPulse.takeIf { panel == Panel.NONE }
+    // moved the lines being read (reported as particularly bad on the lyrics). Nor over a Canvas:
+    // the clip stays full screen, so the controls sprang about over it and the wave crossed the
+    // video (reported as the end of the mix bugging on a Canvas).
+    val mixMotion = state.mixPulse.takeIf { panel == Panel.NONE && !canvasOn }
     BoxWithConstraints(modifier.fillMaxSize().background(Color.Black).mixWave(mixMotion, Color.White)) {
         // Wider than tall (a phone on its side, a tablet), or a large portrait tablet: the cover
         // beside the controls. Very wide windows (DeX, large tablets): the lyrics and the queue
