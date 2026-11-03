@@ -188,7 +188,7 @@ fun ExtensionEntryScreen(navController: NavController, id: String) {
             Text(e.changelog, color = AppText, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp))
         }
         incompatibleWith(e, registry)?.let { Text(it, color = Warning, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        ActionsList(m.asks())
+        ActionsList(m.asksShown())
         ExtDivider()
         ExtSection(R.string.extension_details)
         e.updatedAt?.let { Detail(R.string.extension_detail_updated, it.take(10)) }
@@ -239,7 +239,7 @@ fun ExtensionScreen(navController: NavController, id: String) {
         // A GitHub update that asks more than the user accepted: what it changes, Accept / Keep current.
         // Unticked actions left from before installs granted everything: paused until one OK.
         val refused = Grants.refused(e, m)
-        if (refused.isNotEmpty()) RefusedNeedsOk(m.asks().filter { it.key in refused }) {
+        if (refused.isNotEmpty()) RefusedNeedsOk(m.asksShown().filter { it.key in refused }) {
             scope.launch { Extensions.acceptAll(id); enable(id, true) }
         }
         e.pendingUpdate?.let { p -> UpdateNeedsOk(e.name, e.version, p, onAccept = { scope.launch { runCatching { ExtensionUpdates.accept(id) }.onFailure { toastError(ctx, it) } } },
@@ -280,7 +280,7 @@ fun ExtensionScreen(navController: NavController, id: String) {
         if (Extensions.hasPage(id)) OutlinedButton(onClick = { navController.navigate(extensionPageRoute(id)) }, border = BorderStroke(1.dp, AppAccent.copy(alpha = 0.6f)),
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) { Text(stringResource(R.string.ext_open_page), color = AppAccent) }
         ExtSection(R.string.actions_title)
-        Column(Modifier.padding(horizontal = 20.dp)) { m.asks().sortedByDescending { it.critical }.forEach { a -> ActionRow(a) } }
+        Column(Modifier.padding(horizontal = 20.dp)) { m.asksShown().sortedByDescending { it.critical }.forEach { a -> ActionRow(a) } }
         // Writes allowed for good from a confirmation ("Always"): each one revocable here.
         if (e.rawGrants.isNotEmpty()) {
             Text(stringResource(R.string.ext_grants_title), color = AppText, fontSize = 14.sp, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp))
@@ -429,7 +429,7 @@ private fun SettingEditor(id: String, s: Setting) {
             s.options.forEach { o ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().toggleable(value == o, role = Role.RadioButton) { save(o) }) {
                     RadioButton(selected = value == o, onClick = null)
-                    Text(o, color = AppText, modifier = Modifier.padding(start = 8.dp))
+                    Text(s.optionLabel(o), color = AppText, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

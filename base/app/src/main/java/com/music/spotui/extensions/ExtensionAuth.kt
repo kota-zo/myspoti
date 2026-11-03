@@ -172,6 +172,9 @@ private fun AuthPage(current: ExtensionAuth.Open) {
 @SuppressLint("SetJavaScriptEnabled")
 private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost: (String) -> Unit): WebView {
     val view = WebView(ctx)
+    // The sign-in page in the app's language when its site offers it (the WebView's own header
+    // follows the phone, not a language picked in Myspoti).
+    val language = mapOf("Accept-Language" to Extensions.language().let { if (it.contains('-')) "$it,${it.substringBefore('-')};q=0.9" else it } + ",en;q=0.5")
     // Before anything else touches it: this view's cookies and storage are the extension's profile.
     val profile = ExtensionAuth.profile(o.extensionId)
     ProfileStore.getInstance().getOrCreateProfile(profile)
@@ -231,7 +234,7 @@ private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost
                     if (taken) return
                     taken = true
                     probe.stopLoading()
-                    if (!reached(url) && !refused(android.net.Uri.parse(url))) view.loadUrl(url)
+                    if (!reached(url) && !refused(android.net.Uri.parse(url))) view.loadUrl(url, language)
                     probe.post { probe.destroy() }
                 }
                 override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean { take(request.url.toString()); return true }
@@ -242,6 +245,6 @@ private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost
             return true
         }
     }
-    view.loadUrl(o.request.url)
+    view.loadUrl(o.request.url, language)
     return view
 }

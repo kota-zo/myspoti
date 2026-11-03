@@ -128,6 +128,34 @@ extensions did there ("Lyrics of X from Y", "Skipped by Z") with a one-tap Turn 
 | `minAppVersion` | string | none | The oldest Myspoti it works on (`"2.0.2"`, `"2.0.2-beta.4"`), compared like semantic versions (a release is newer than its betas). An older Myspoti shows "Requires Myspoti 2.0.2 or newer" and does not install it. |
 | `changelog` | string | `""` | What changed in this version, 2000 characters at most: shown on the store page and before an update. |
 | `welcome` | object | none | `{ "message": "...", "steps": ["...", "..."] }`, shown once right after the first install (not on updates): what the extension does (600 characters at most) and what is left to do (5 steps at most, 160 characters each). Older apps ignore it. |
+| `translations` | object | `{}` | The texts people see, in other languages, by language tag (`"fr"`, `"pt-BR"`; 80 at most). Below. Older apps ignore it. |
+
+`translations` lets the store, the install prompt and the extension's page speak the user's
+language, with no action to ask. Each language may give any of `name`, `description`,
+`changelog`, `welcome`, `actions` (an action's name → its reason, 80 characters) and `settings`
+(a setting's key → `{ "label", "description", "options" }`, `options` being the labels of a
+choice's options in their order). What a language leaves out stays the manifest's own text.
+Myspoti shows the language picked in its settings (the phone's when it follows the phone): `pt-BR`
+takes `pt-BR`, then `pt`, then another `pt-…`, then the manifest's own texts. A choice's values do
+not change: `myspoti.settings.get('quality')` still gives `"lossless"` when the user ticked
+"Sans perte". The reasons the user accepted are weighed on the manifest's own `why`, so a new
+translation never asks the user again. An action or a setting the manifest does not have, or a
+number of option labels that is not the number of options, refuses the package.
+
+```json
+"translations": {
+  "fr": {
+    "description": "Des paroles synchronisées d'example.com.",
+    "actions": { "lyrics.provide": "Paroles synchronisées d'example.com" },
+    "settings": { "quality": { "label": "Qualité", "options": ["Sans perte", "Haute"] } }
+  },
+  "pt-BR": { "description": "Letras sincronizadas do example.com." }
+}
+```
+
+Texts your script makes (blocks, outcomes, `notify`, your page) follow `myspoti.locale` (section 3),
+also with no action to ask. A sign-in page opened with `myspoti.auth.open` is asked in the same
+language (`Accept-Language`), so a site that has it shows it.
 
 An action entry: `{ "name": "...", "why": "...", "hosts": [...] }`.
 

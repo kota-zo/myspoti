@@ -287,9 +287,18 @@ object Extensions {
 
     fun manifest(id: String): Manifest? = pkg(id)?.manifest
 
-    fun pkg(id: String): ExtensionPackage? = packages[id] ?: runCatching {
+    fun pkg(id: String): ExtensionPackage? = (packages[id] ?: runCatching {
         ExtensionPackage.read(File(dir, "$id/package.zip").readBytes())
-    }.getOrNull()?.let { packages.putIfAbsent(id, it) ?: it } // an install's newer package is never replaced by an older read
+    }.getOrNull()?.let { packages.putIfAbsent(id, it) ?: it }) // an install's newer package is never replaced by an older read
+        ?.let { p -> val tag = language(); if (p.manifest.shownIn == tag) p else p.localized(tag).also { packages.replace(id, p, it) } }
+
+    /**
+     * The language the app shows, as a BCP 47 tag: the one picked in the settings, else the app's
+     * configuration (the phone's, or on Android 13+ the per-app one). What `myspoti.locale` gives
+     * and what manifests are shown in ([Manifest.localized]).
+     */
+    fun language(): String = if (!::ctx.isInitialized) java.util.Locale.getDefault().toLanguageTag()
+        else com.music.spotui.data.AppLanguage.current(ctx).ifEmpty { ctx.resources.configuration.locales[0].toLanguageTag() }
 
     fun isRunning(id: String) = runtimes.containsKey(id)
 
@@ -1509,8 +1518,7 @@ object Extensions {
 
         // The language picked in the settings, else the app's configuration: the phone's, or on
         // Android 13+ the per-app one when no screen is open to answer for AppCompat.
-        override fun locale(): String = com.music.spotui.data.AppLanguage.current(ctx)
-            .ifEmpty { ctx.resources.configuration.locales[0].toLanguageTag() }
+        override fun locale(): String = language()
 
         override fun control(extensionId: String, action: String, argument: Long?): Boolean {
             if (!arbitrate(extensionId, action)) return false

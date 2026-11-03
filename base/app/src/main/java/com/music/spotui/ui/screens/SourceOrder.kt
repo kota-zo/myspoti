@@ -147,7 +147,7 @@ private fun SourceRow(
         AnimatedVisibility(open) {
             Column(Modifier.fillMaxWidth().padding(start = 86.dp, end = 20.dp, bottom = 6.dp)) {
                 Text(stringResource(R.string.sources_detail_version, e.version, e.author.ifBlank { "—" }), style = look.line)
-                pkg?.manifest?.declared()?.firstOrNull { it.name == action.key }?.why?.takeIf { it.isNotBlank() }?.let {
+                pkg?.manifest?.let { m -> m.declared().firstOrNull { it.name == action.key }?.let(m::whyShown) }?.takeIf { it.isNotBlank() }?.let {
                     Text(it, style = look.line, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
                 last?.let {

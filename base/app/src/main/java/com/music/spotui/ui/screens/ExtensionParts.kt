@@ -131,7 +131,7 @@ internal fun toastError(ctx: Context, t: Throwable) {
 
 /** Reads [zip] and opens the install prompt; a refused package says why. */
 internal fun offer(ctx: Context, zip: ByteArray, source: String, origin: app.myspoti.extensions.Origin? = null) {
-    runCatching { ExtensionPackage.read(zip) }
+    runCatching { ExtensionPackage.read(zip).localized(Extensions.language()) }
         .onSuccess { p -> pending.value = PendingInstall(zip, p, source, Extensions.plan(p), origin) }
         .onFailure { toastError(ctx, it) }
 }
@@ -221,7 +221,7 @@ internal fun InstallPrompt() {
                     else -> {
                         PromptHeader(R.string.actions_title)
                         // An update lists only what changes: what it asks anew, and what was unticked before.
-                        val asks = m.asks().filter { plan !is InstallPlan.Update || it.key in newKeys || it.key in plan.refused }.sortedByDescending { it.critical }
+                        val asks = m.asksShown().filter { plan !is InstallPlan.Update || it.key in newKeys || it.key in plan.refused }.sortedByDescending { it.critical }
                         asks.forEach { a -> ActionRow(a, new = a.key in newKeys) }
                         if (asks.any { it.critical }) Text(stringResource(R.string.actions_critical_warning), color = Warning, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
                     }
