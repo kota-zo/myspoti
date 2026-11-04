@@ -20,9 +20,7 @@ private const val KEY_CANVAS_WIFI = "canvas_wifi_only"
 enum class StreamingQuality(val level: String) {
     AUTO("auto"), LOW("low"), NORMAL("normal"), HIGH("high"),
     /** 256 kbit/s: the Web Player gives it to Premium accounts only (offered then, see StreamingQualityPicker). */
-    VERY_HIGH("very_high"),
-    /** Spotify lossless (FLAC), Premium: declared to the Web Player when chosen (see applyStreamingQuality). */
-    LOSSLESS("lossless");
+    VERY_HIGH("very_high");
 
     companion object {
         fun of(level: String?): StreamingQuality = entries.firstOrNull { it.level == level } ?: AUTO
@@ -64,9 +62,6 @@ fun applyStreamingQuality(c: Context) {
     val runtime = app.myspoti.host.android.MyspotiRuntime
     if (!runtime.isStarted) return
     val q = getStreamingQuality(c, cellular = com.music.spotui.data.DataSaver.metered)
-    // Lossless chosen for either network: the Web Player is told it may play it (a page reload
-    // when that changes); the level of the network in use then picks FLAC or not.
-    runtime.setLossless(getStreamingQuality(c, false) == StreamingQuality.LOSSLESS || getStreamingQuality(c, true) == StreamingQuality.LOSSLESS)
     runtime.scope.launch { runtime.spotify.player.setAudioQuality(q.level) }
 }
 

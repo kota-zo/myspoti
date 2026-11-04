@@ -276,8 +276,6 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             it.onDeviceRegistered = { drmAsked = true; main.removeCallbacks(drmWatch) }
             it.install()
         }
-        // Spotify lossless, when chosen: declared before the page's first script (see setLossless).
-        losslessScript = if (roots.getBoolean(LOSSLESS_KEY, false)) declareLossless(this) else null
         val webView = this
         cookies().apply {
             setAcceptCookie(true)
@@ -555,36 +553,6 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * test phone). Learnt from the last load; a language where "/" is final keeps [PLAYER_URL].
      */
     private fun playerRoot(): String = roots.getString(ROOT_KEY, null)?.takeIf { PLAYER_ROOT.matches(it) } ?: PLAYER_URL
-
-    /**
-     * Spotify lossless (FLAC, up to 24-bit/44.1 kHz) for a Premium account. The Web Player's own
-     * playback SDK plays it (format MP4_FLAC, Widevine-protected, decrypted by the phone's DRM with
-     * Spotify's licence) when its client says `lossless_playback`, which open.spotify.com never
-     * does (it passes only video_playback). The script below says it before the page's first
-     * script: the property is read from objects that do not set it, so a getter on Object's
-     * prototype answers true, whatever names Spotify's next build minifies to. Spotify still
-     * decides: it sends FLAC files only to an eligible account and a device whose Widevine is
-     * hardware-backed (the SDK's own rule), and the page plays AAC otherwise. A change reloads
-     * the page, as the device registers its capabilities when it loads.
-     */
-    fun setLossless(on: Boolean) = main.post {
-        if (roots.getBoolean(LOSSLESS_KEY, false) == on) return@post
-        roots.edit().putBoolean(LOSSLESS_KEY, on).apply()
-        losslessScript?.remove(); losslessScript = null
-        if (on) losslessScript = declareLossless(view)
-        Logbook.log("lossless ${if (on) "declared" else "withdrawn"}: the page reloads to register the device again")
-        if (pageStarts > 0) view.loadUrl(playerRoot())
-    }
-
-    private var losslessScript: androidx.webkit.ScriptHandler? = null
-
-    private fun declareLossless(v: WebView): androidx.webkit.ScriptHandler? {
-        if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            Logbook.log("lossless: this WebView runs no document-start script, not declared")
-            return null
-        }
-        return androidx.webkit.WebViewCompat.addDocumentStartJavaScript(v, LOSSLESS_SCRIPT, setOf("https://open.spotify.com"))
-    }
 
     /** The player's own URL, not the page's current one: the bridge parks the page on an empty route. */
     fun reload() = main.post {
@@ -1024,23 +992,3 @@ private class AwakeWebView(context: Context) : WebView(context) {
         super.onDetachedFromWindow()
     }
 }
-
-private const val LOSSLESS_KEY = "lossless"
-
-/**
- * Says `lossless_playback` to the Web Player's playback SDK (see [WebPlayerHost.setLossless]): a
- * getter on Object's prototype, not enumerable (no `for in`, no JSON), that an object setting the
- * property itself replaces with its own value.
- */
-private const val LOSSLESS_SCRIPT = """
-(function () {
-  try {
-    if (Object.prototype.hasOwnProperty('lossless_playback')) return;
-    Object.defineProperty(Object.prototype, 'lossless_playback', {
-      configurable: true,
-      get: function () { return true; },
-      set: function (v) { Object.defineProperty(this, 'lossless_playback', { value: v, writable: true, enumerable: true, configurable: true }); }
-    });
-  } catch (e) {}
-})();
-"""

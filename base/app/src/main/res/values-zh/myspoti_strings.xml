@@ -771,6 +771,4 @@
     <string name="settings_release_notify_detail">你关注的艺人发布新作品时发送通知，Myspoti 运行时每隔几小时检查一次</string>
     <string name="quality_streaming_very_high">极高</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s，仅限 Premium 账户</string>
-    <string name="quality_streaming_lossless">无损</string>
-    <string name="quality_streaming_lossless_detail">FLAC 最高 24 位/44.1 kHz，Premium；Spotify 只向具备硬件 DRM 的手机提供，否则播放“极高”</string>
 </resources>

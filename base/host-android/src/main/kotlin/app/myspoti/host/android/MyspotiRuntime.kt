@@ -48,9 +48,6 @@ object MyspotiRuntime {
             .build()
     }
 
-    /** Spotify lossless declared to the Web Player or not (see [WebPlayerHost.setLossless]). */
-    fun setLossless(on: Boolean) { if (::host.isInitialized) host.setLossless(on) }
-
     /** The phone moved to another network: the API's idle connections belong to the old one. Not on the main thread. */
     fun resetApiConnections() { if (::host.isInitialized) apiHttp.connectionPool.evictAll() }
 
