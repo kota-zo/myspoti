@@ -910,6 +910,9 @@ object SongPlayer {
         apiQueue = q
         // While a downloaded or local file plays, the queue shown is the local player's.
         if (q == null || LocalPlayer.active.value) return
+        // A move is under way: its steps are not shown, the order dropped stays (see [queueMove]).
+        if (queueMovesInFlight.get() > 0) return
+        if (SystemClock.elapsedRealtime() < staleUntil && order(q) in staleOrders) return
         fun items(list: List<app.myspoti.api.NowPlaying>) = list
             .filter { it.uri.startsWith("spotify:track:") || it.uri.startsWith("spotify:episode:") }
             .map { QueueItem(songOf(it), it.uri, it.uid.orEmpty(), "") }
@@ -2980,6 +2983,56 @@ object SongPlayer {
         return (up.firstOrNull { it.first.toString() == item.uid } ?: up.firstOrNull())?.first
     }
 
+    /**
+     * Queue moves sent to Spotify and not done yet. Spotify shows a move late and in steps (the song
+     * out of one part, queued at the end, then placed), and showing them took the song back to where
+     * it was before it reached the place it was dropped at. So while a move is under way its reports
+     * are held and the order the user dropped ([showQueueOrder]) stays; the last move to finish shows
+     * the queue as Spotify has it then, and for [STALE_MS] after, a late report of an order from
+     * before the moves is ignored.
+     */
+    private val queueMovesInFlight = java.util.concurrent.atomic.AtomicInteger()
+    private val staleOrders = java.util.Collections.synchronizedSet(HashSet<Pair<List<String>, List<String>>>())
+    @Volatile private var staleUntil = 0L
+    private const val STALE_MS = 1_500L
+
+    private fun order(q: app.myspoti.api.Queue) = q.queued.map { it.uri } to q.nextUp.map { it.uri }
+
+    /** Shows [queued] / [nextUp] at once: the order a drop made, kept while the move that makes it so runs. */
+    fun showQueueOrder(queued: List<QueueItem>, nextUp: List<QueueItem>) {
+        if (LocalPlayer.active.value) return
+        val shown = _queue.value
+        if (shown.queued == queued && shown.nextUp == nextUp) return
+        if (queueMovesInFlight.get() == 0) staleOrders.clear()
+        staleOrders += shown.queued.map { it.uri } to shown.nextUp.map { it.uri }
+        _queue.value = shown.copy(queued = queued, nextUp = nextUp)
+    }
+
+    /** A move of a Spotify queue row, run as [queueCommand]; see [queueMovesInFlight]. */
+    private fun queueMove(block: suspend () -> Unit) {
+        queueMovesInFlight.incrementAndGet()
+        queueCommand {
+            try {
+                block()
+            } finally {
+                if (queueMovesInFlight.decrementAndGet() == 0) {
+                    staleUntil = SystemClock.elapsedRealtime() + STALE_MS
+                    api.player.queue.value?.let { staleOrders -= order(it) }
+                    main.post { if (acceptsSessionUpdates()) applyQueue(api.player.queue.value ?: apiQueue) }
+                }
+            }
+        }
+    }
+
+    /** Whether [q] shows [uri] right before / after [target], in either part. */
+    private fun placed(q: app.myspoti.api.Queue, uri: String, target: String, after: Boolean): Boolean =
+        listOf(q.queued, q.nextUp).any { part ->
+            val uris = part.map { it.uri }
+            val i = uris.indexOf(uri)
+            val t = uris.indexOf(target)
+            i >= 0 && t >= 0 && i == (if (after) t + 1 else t - 1)
+        }
+
     /** Move [item] just before / after [target]; a Spotify row stays in its section (see [moveIntoQueue]), a local one goes into [target]'s. */
     fun reorder(item: QueueItem, target: QueueItem, after: Boolean) {
         if (item.provider == LOCAL) {
@@ -2989,12 +3042,12 @@ object SongPlayer {
             return
         }
         // Read when the edit runs, after the ones before it: never a row id that has gone stale.
-        queueCommand {
-            val a = liveItem(item) ?: return@queueCommand
-            val b = liveItem(target) ?: return@queueCommand
-            val before = api.player.queue.value
+        queueMove {
+            val a = liveItem(item) ?: return@queueMove
+            val b = liveItem(target) ?: return@queueMove
             api.player.moveInQueue(a, b, after)
-            awaitQueue { it !== before }
+            // Done once Spotify shows it in place, not at its first report: that one may still be of the old order.
+            awaitQueue { placed(it, a.uri, b.uri, after) }
         }
     }
 
@@ -3012,18 +3065,20 @@ object SongPlayer {
             LocalPlayer.moveIntoQueue(from, target?.let { localIndex(it) ?: return }, after)
             return
         }
-        queueCommand {
-            val a = liveItem(item) ?: return@queueCommand
+        queueMove {
+            val a = liveItem(item) ?: return@queueMove
             val first = apiQueue?.queued?.firstOrNull()
             api.player.removeFromQueue(listOf(a))
             awaitQueue { q -> q.nextUp.none { it.uid == a.uid } }
             api.player.addToQueue(listOf(a.uri))
-            val added = awaitQueue { q -> q.queued.any { it.uri == a.uri } }?.queued?.lastOrNull { it.uri == a.uri } ?: return@queueCommand
+            val added = awaitQueue { q -> q.queued.any { it.uri == a.uri } }?.queued?.lastOrNull { it.uri == a.uri } ?: return@queueMove
             // Queued at the end: moved to the place it was dropped (the front when no target).
-            val t = target?.let(::apiItem) ?: first?.takeIf { it.uid != added.uid } ?: return@queueCommand
-            val before = api.player.queue.value
-            api.player.moveInQueue(added, t, if (target == null) false else after)
-            awaitQueue { it !== before }
+            val t = target?.let(::apiItem) ?: first?.takeIf { it.uid != added.uid } ?: return@queueMove
+            val placeAfter = if (target == null) false else after
+            // Already there (dropped last in the queue): nothing to move.
+            if (api.player.queue.value?.let { placed(it, added.uri, t.uri, placeAfter) } == true) return@queueMove
+            api.player.moveInQueue(added, t, placeAfter)
+            awaitQueue { placed(it, added.uri, t.uri, placeAfter) }
         }
     }
 

@@ -195,4 +195,37 @@ class QueueDragMathTest {
         assertTrue(move().report(listOf("x"), listOf("y"), "other", 1) is QueueDragMath.Verdict.Drop)
     }
 
+    // ── Edge scroll pace: a clear part from 0 to 1000 px, 50 px zones, 1000 px/s at the edge ──
+
+    private fun pace(y: Float) = QueueDragMath.edgePace(y, 0f, 1000f, 50f, 1000f)
+
+    @Test fun aFingerClearOfTheZonesScrollsNothing() {
+        assertEquals(0f, pace(500f), 0f)
+        assertEquals(0f, pace(50f), 0f)
+        assertEquals(0f, pace(950f), 0f)
+    }
+
+    @Test fun thePaceStartsLowAndEasesUpToTheFullSpeedAtTheEdge() {
+        assertTrue(pace(49f) in 200f..210f)
+        assertTrue(pace(25f) < 500f)
+        assertTrue(pace(10f) > pace(30f))
+        assertEquals(1000f, pace(0f), 0.01f)
+        assertEquals(1000f, pace(1000f), 0.01f)
+        assertEquals(pace(20f), pace(980f), 0.001f)
+    }
+
+    @Test fun pastTheEdgeItGoesNoFasterAndATinyListNeverScrolls() {
+        assertEquals(1000f, pace(-300f), 0.01f)
+        assertEquals(1000f, pace(1300f), 0.01f)
+        assertEquals(0f, QueueDragMath.edgePace(10f, 0f, 80f, 50f, 1000f), 0f)
+    }
+
+    @Test fun aHeldRowScrollsBySignedPace() {
+        val speed = { top: Float -> QueueDragMath.edgeSpeed(top, top + 100f, 0f, 1000f, 50f, 1000f) }
+        assertEquals(0f, speed(450f), 0f)
+        assertEquals(-1000f, speed(0f), 0.01f)
+        assertEquals(1000f, speed(900f), 0.01f)
+        assertTrue(speed(49f) <= -200f)
+        assertEquals(0f, QueueDragMath.edgeSpeed(0f, 100f, 0f, 120f, 50f, 1000f), 0f)
+    }
 }

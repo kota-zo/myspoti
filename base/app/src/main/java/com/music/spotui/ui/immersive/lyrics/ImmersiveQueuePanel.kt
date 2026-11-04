@@ -180,13 +180,21 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     val topPad = contentPadding.calculateTopPadding() + 8.dp
     val bottomPad = contentPadding.calculateBottomPadding() + 24.dp
     // A speed, not a jump: the list's height every 100 ms was dozens of songs flying by (seen in a recording).
-    val speed = with(LocalDensity.current) { 700.dp.toPx() }
+    // It grows with how far into the edge zone the finger is (QueueDragMath.edgePace): slow at the
+    // zone's border, to stop on a row, about eight rows a second at the very edge.
+    val density = LocalDensity.current
+    val maxSpeed = with(density) { 480.dp.toPx() }
+    val edgeZone = with(density) { 72.dp.toPx() }
+    val topPadPx = with(density) { (contentPadding.calculateTopPadding() + 8.dp).toPx() }
+    val bottomPadPx = with(density) { (contentPadding.calculateBottomPadding() + 24.dp).toPx() }
     // The list scrolls toward an edge only once the finger has gone that way: a row taken near the
     // bottom of the screen made the list run at once, the finger not having moved (reported).
     val gate = remember { EdgeScrollGate() }
     gate.slop = with(LocalDensity.current) { 20.dp.toPx() }
     // A speed of 0 holds the scroll (the scroller then moves by nothing until the gate opens).
-    val scroller = rememberScroller(listState, { if (gate.allows()) speed else 0f })
+    val scroller = rememberScroller(listState, {
+        if (gate.allows()) QueueDragMath.edgePace(gate.y, topPadPx, gate.height - bottomPadPx, edgeZone, maxSpeed) else 0f
+    })
     val reorder = rememberReorderableLazyListState(
         listState,
         scrollThresholdPadding = PaddingValues(top = topPad, bottom = bottomPad),
@@ -233,6 +241,8 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
         )
         settling = false
         Logbook.log("queue order: set (${row.item.uri}: $move)")
+        // The engine shows the dropped order at once and holds Spotify's reports until the move is done.
+        SongPlayer.showQueueOrder(queuedNew.map { it.item }, nextNew.map { it.item })
         call()
     }
 

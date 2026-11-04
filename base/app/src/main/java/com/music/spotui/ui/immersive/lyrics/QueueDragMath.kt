@@ -141,4 +141,40 @@ internal object QueueDragMath {
     const val GRACE_MS = 1_500L
     /** The longest the engine is waited for. */
     const val MAX_MS = 10_000L
+
+    /** Share of the full speed the list scrolls at as the finger enters an edge zone, so it visibly moves at once. */
+    private const val EDGE_FLOOR = 0.2f
+
+    /**
+     * Pixels a second to scroll the list at for a finger at [y], in a list whose clear part spans
+     * [start]..[end] (0 when the finger is clear of both [zone]s). It starts at [EDGE_FLOOR] of
+     * [maxSpeed] at the zone's inner border and eases up (quadratic, so the first half of the zone
+     * stays slow enough to stop on a row) to the full speed at the edge, and goes no faster past it.
+     */
+    fun edgePace(y: Float, start: Float, end: Float, zone: Float, maxSpeed: Float): Float {
+        if (zone <= 0f || end - start < 2 * zone) return 0f
+        val depth = maxOf((start + zone) - y, y - (end - zone))
+        if (depth <= 0f) return 0f
+        val t = (depth / zone).coerceAtMost(1f)
+        return maxSpeed * (EDGE_FLOOR + (1f - EDGE_FLOOR) * t * t)
+    }
+
+    /**
+     * The same pace for a held row spanning [top]..[bottom] (the queue sheet, which knows where its row
+     * is drawn), signed: negative towards the start, positive towards the end. A viewport too short to
+     * hold the row clear of both zones scrolls neither way.
+     */
+    fun edgeSpeed(top: Float, bottom: Float, start: Float, end: Float, zone: Float, maxSpeed: Float): Float {
+        if (zone <= 0f || end <= start) return 0f
+        val intoStart = (start + zone) - top
+        val intoEnd = bottom - (end - zone)
+        val reach = when {
+            intoStart > 0f && intoEnd <= 0f -> -intoStart
+            intoEnd > 0f && intoStart <= 0f -> intoEnd
+            else -> return 0f
+        }
+        val t = (kotlin.math.abs(reach) / zone).coerceAtMost(1f)
+        val pace = maxSpeed * (EDGE_FLOOR + (1f - EDGE_FLOOR) * t * t)
+        return if (reach < 0f) -pace else pace
+    }
 }

@@ -624,30 +624,11 @@ private fun PillButton(label: String, onClick: () -> Unit) {
 
 private val QueueHeaderHeight = 48.dp
 
-/** Strip at each end of the list where a drag starts scrolling it. */
-private val QueueEdgeZone = 72.dp
+/** Strip at each end of the list where a held row starts scrolling it. */
+private val QueueEdgeZone = 48.dp
 
-/** Scroll distance per frame at the very edge; it fades to 0 at the zone's inner border. */
-private val QueueEdgeMaxStep = 14.dp
-
-/**
- * Pixels to scroll this frame for a drag whose row centre is at [pointerY] (viewport
- * space): negative near the top edge, positive near the bottom, 0 in the middle. The
- * speed ramps up as the row gets closer to the edge, so a song crosses a long queue fast.
- */
-internal fun queueEdgeScrollStep(
-    pointerY: Float,
-    viewportTop: Float,
-    viewportBottom: Float,
-    edgePx: Float,
-    maxStepPx: Float,
-): Float {
-    if (viewportBottom <= viewportTop || edgePx <= 0f) return 0f
-    val up = ((viewportTop + edgePx) - pointerY) / edgePx
-    if (up > 0f) return -maxStepPx * up.coerceIn(0f, 1f)
-    val down = (pointerY - (viewportBottom - edgePx)) / edgePx
-    return if (down > 0f) maxStepPx * down.coerceIn(0f, 1f) else 0f
-}
+/** Scroll speed at the very edge, a second: about six rows. See [QueueDragMath.edgeSpeed] for the curve. */
+private val QueueEdgeSpeed = 360.dp
 
 /**
  * Top of the queue block in viewport pixels (negative once scrolled past the top).
@@ -706,7 +687,7 @@ private fun QueueList(
     val rowPx = with(density) { QueueRowHeight.toPx() }
     val headerPx = with(density) { QueueHeaderHeight.toPx() }
     val edgePx = with(density) { QueueEdgeZone.toPx() }
-    val maxStepPx = with(density) { QueueEdgeMaxStep.toPx() }
+    val edgeSpeedPx = with(density) { QueueEdgeSpeed.toPx() }
 
     var queued by remember(q.queued) { mutableStateOf(q.queued) }
     var nextUp by remember(q.nextUp) { mutableStateOf(q.nextUp) }
@@ -746,15 +727,13 @@ private fun QueueList(
         )
     }
 
-    /** Pixels to scroll this frame: negative near the top edge, positive near the bottom. */
-    fun edgeScrollStep(pointerY: Float): Float {
+    /** Pixels a second to scroll for the held row's top at [rowTop]: negative near the top edge, positive near the bottom. */
+    fun edgeScrollSpeed(rowTop: Float): Float {
         val info = listState.layoutInfo
-        return queueEdgeScrollStep(
-            pointerY,
-            info.viewportStartOffset.toFloat(),
-            info.viewportEndOffset.toFloat(),
-            edgePx,
-            maxStepPx,
+        return com.music.spotui.ui.immersive.lyrics.QueueDragMath.edgeSpeed(
+            rowTop, rowTop + rowPx,
+            info.viewportStartOffset.toFloat(), info.viewportEndOffset.toFloat(),
+            edgePx, edgeSpeedPx,
         )
     }
 
@@ -767,14 +746,18 @@ private fun QueueList(
         }
     }
 
-    /** Scrolls the list once per frame while the dragged row stays in an edge zone. */
+    /** Scrolls the list, paced by the clock rather than by frames, while the dragged row stays in an edge zone. */
     fun startAutoScroll(itemIndex: Int) {
         autoScrollJob?.cancel()
         autoScrollJob = scope.launch {
+            var previous = withFrameNanos { it }
             while (isActive) {
-                val top = queueBlockTop()
-                val pointerY = top + topOf(itemIndex) + dragOffset + rowPx / 2
-                val step = edgeScrollStep(pointerY)
+                val now = withFrameNanos { it }
+                // A dropped frame paid back in full lands as a lurch, so it is not.
+                val seconds = ((now - previous) / 1_000_000_000f).coerceAtMost(1f / 30f)
+                previous = now
+                val rowTop = queueBlockTop() + topOf(itemIndex) + dragOffset
+                val step = edgeScrollSpeed(rowTop) * seconds
                 if (step != 0f) {
                     val moved = listState.scrollBy(step)
                     if (moved != 0f) {
@@ -785,7 +768,6 @@ private fun QueueList(
                         syncHoveredSlot(itemIndex)
                     }
                 }
-                withFrameNanos { }
             }
         }
     }
@@ -800,12 +782,15 @@ private fun QueueList(
         val nextHeaderMid = if (nextHeaderIndex >= 0) topOf(nextHeaderIndex) + headerPx / 2 else Float.MAX_VALUE
         // Either way across the line: a song moved up into the queue can be taken back down.
         val toQueue = centerY < nextHeaderMid
+        // A queued Spotify song cannot go back into "next from" (Spotify has no such move).
+        if (!toQueue && fromQueued && item.provider != SongPlayer.LOCAL) return
         if (toQueue) {
             val others = queued - item
             if (others.isEmpty()) {
                 if (!fromQueued) {
                     // Empty queue: becomes the first queued track.
                     nextUp = nextUp - item; queued = listOf(item)
+                    SongPlayer.showQueueOrder(queued, nextUp)
                     SongPlayer.moveToQueueFront(item)
                 }
                 return
@@ -816,8 +801,9 @@ private fun QueueList(
             if (newQueued == queued) return
             if (!fromQueued) nextUp = nextUp - item
             queued = newQueued
-            if (slot < others.size) SongPlayer.reorder(item, others[slot], after = false)
-            else SongPlayer.reorder(item, others[slot - 1], after = true)
+            SongPlayer.showQueueOrder(queued, nextUp)
+            val (target, after) = if (slot < others.size) others[slot] to false else others[slot - 1] to true
+            if (fromQueued) SongPlayer.reorder(item, target, after) else SongPlayer.moveIntoQueue(item, target, after)
         } else {
             val others = nextUp - item
             if (others.isEmpty()) return
@@ -827,6 +813,7 @@ private fun QueueList(
             if (newNext == nextUp) return
             if (fromQueued) queued = queued - item
             nextUp = newNext
+            SongPlayer.showQueueOrder(queued, nextUp)
             if (slot < others.size) SongPlayer.reorder(item, others[slot], after = false)
             else SongPlayer.reorder(item, others[slot - 1], after = true)
         }
@@ -874,6 +861,24 @@ private fun QueueList(
                 is QEntry.Row -> {
                     val item = e.item
                     val isDragged = dragging == item
+                    // The gesture below outlives this composition (keyed by the song only): it calls the
+                    // latest of these, so it works on the rows as they are now, not as at its first frame.
+                    val onDragStartNow by androidx.compose.runtime.rememberUpdatedState {
+                        dragging = item; dragOffset = 0f; lastSlot = index
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                        startAutoScroll(index)
+                    }
+                    val onDragEndNow by androidx.compose.runtime.rememberUpdatedState {
+                        stopAutoScroll()
+                        val center = topOf(index) + dragOffset + rowPx / 2
+                        drop(item, e.queued, center)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.GestureEnd)
+                        dragging = null; dragOffset = 0f
+                    }
+                    val onDragNow by androidx.compose.runtime.rememberUpdatedState { dy: Float ->
+                        dragOffset += dy
+                        syncHoveredSlot(index)
+                    }
                     Box(
                         modifier = Modifier
                             .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
@@ -906,26 +911,15 @@ private fun QueueList(
                                         .size(28.dp)
                                         .pointerInput(item.uid + item.uri) {
                                             detectDragGestures(
-                                                onDragStart = {
-                                                    dragging = item; dragOffset = 0f; lastSlot = index
-                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                                    startAutoScroll(index)
-                                                },
-                                                onDragEnd = {
-                                                    stopAutoScroll()
-                                                    val center = topOf(entries.indexOf(e)) + dragOffset + rowPx / 2
-                                                    drop(item, e.queued, center)
-                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.GestureEnd)
-                                                    dragging = null; dragOffset = 0f
-                                                },
+                                                onDragStart = { onDragStartNow() },
+                                                onDragEnd = { onDragEndNow() },
                                                 onDragCancel = {
                                                     stopAutoScroll()
                                                     dragging = null; dragOffset = 0f
                                                 },
                                             ) { change, amount ->
                                                 change.consume()
-                                                dragOffset += amount.y
-                                                syncHoveredSlot(index)
+                                                onDragNow(amount.y)
                                             }
                                         },
                                 )
