@@ -50,7 +50,7 @@ Each release carries four APKs:
 - `Myspoti-<version>-universal.apk`: both in one, larger.
 - `Myspoti-<version>-TV.apk`: Android TV and Google TV (the same app; on a TV it opens its TV screens).
 
-Betas are `Myspoti-Beta-<version>-...`. The in-app update picks the right one by itself. (The `myspoti-stable-…-arm64-v8a.apk` copies are there for the updater of 2.3 and earlier.)
+Betas are `Myspoti-Beta-<version>-...`. The in-app update picks the right one by itself.
 
 Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta app are two apps):
 - **Stable** (`app.myspoti.stable`): leave "Include prereleases" off and set the APK filter to `^Myspoti-[0-9].*-ARMv8\.apk$` (or `-ARMv7`, `-TV`).

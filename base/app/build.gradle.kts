@@ -196,15 +196,12 @@ dependencies {
  * Myspoti-2.4.0-ARMv7.apk (32-bit), Myspoti-2.4.0-universal.apk (both) and Myspoti-2.4.0-TV.apk
  * (Android TV: the universal APK, since many TVs run 32-bit apps on a 64-bit chip). Betas are
  * Myspoti-Beta-..., the optimised dev builds Myspoti-dev-...
- * -PlegacyNames: also the names the updater of 2.3.x and earlier looks for
- * (myspoti-<beta|stable>-<version>-<abi>.apk), so those apps still find their update.
  */
 tasks.register("collectApks") {
     mustRunAfter("assembleRelease")
     val version = (findProperty("appVersionName") as String?) ?: "2.3.0"
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     val app = when { findProperty("overDev") != null -> "Myspoti-dev"; beta -> "Myspoti-Beta"; else -> "Myspoti" }
-    val legacy = findProperty("legacyNames") != null
     // Copies: the configuration cache cannot keep a reference to the script's own values.
     val abis = RELEASE_ABIS.toList()
     val abiNames = ABI_NAMES.toMap()
@@ -220,7 +217,6 @@ tasks.register("collectApks") {
         }
         abis.forEach { abi ->
             copy("app-$abi-release.apk", "$app-$version-${abiNames.getValue(abi)}.apk")
-            if (legacy) copy("app-$abi-release.apk", "myspoti-${if (beta) "beta" else "stable"}-$version-$abi.apk")
         }
         copy("app-universal-release.apk", "$app-$version-universal.apk")
         copy("app-universal-release.apk", "$app-$version-TV.apk")

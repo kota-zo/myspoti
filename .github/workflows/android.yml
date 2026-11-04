@@ -113,13 +113,10 @@ jobs:
           # One build, every APK (ABI splits), same versionCode, named by :app:collectApks:
           # Myspoti-2.4.0-ARMv8.apk, -ARMv7.apk, -universal.apk, -TV.apk (betas: Myspoti-Beta-...).
           # The app's update check picks this phone's one (UpdateChecker.apkAsset).
-          # -PlegacyNames: also myspoti-<beta|stable>-<version>-<abi>.apk, the only names the
-          # updater of 2.3.x and earlier (and Obtainium filters set up for them) know.
           ./gradlew assembleRelease :app:collectApks \
             -PappVersionName="$VERSION" \
             -PappVersionCode="$((1000 + GITHUB_RUN_NUMBER))" \
-            -PupdateRepo="$GITHUB_REPOSITORY" \
-            -PlegacyNames
+            -PupdateRepo="$GITHUB_REPOSITORY"
 
       # This version's section of CHANGELOG.md becomes the release description.
       - name: Release notes

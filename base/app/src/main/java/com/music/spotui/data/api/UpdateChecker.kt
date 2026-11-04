@@ -127,8 +127,7 @@ object UpdateChecker {
      * `Myspoti-<version>-ARMv8.apk`, `-ARMv7.apk`, `-universal.apk` and `-TV.apk` (betas:
      * `Myspoti-Beta-<version>-...`), and the first of [abis] (the phone's, most preferred first)
      * that has one wins, so a 64-bit phone that also runs armeabi-v7a takes ARMv8. The names of
-     * 2.3.x and before come next: `myspoti-<beta|stable>-<version>-<abi>.apk` (still uploaded for
-     * the apps that only know them), then one APK without an ABI, `myspoti-<beta|stable>-<version>.apk`
+     * 2.3.x and before come next (older releases): `myspoti-<beta|stable>-<version>-<abi>.apk`, then one APK without an ABI, `myspoti-<beta|stable>-<version>.apk`
      * or `myspoti-<version>.apk`. Only this channel's APK: a release carrying both must not hand a
      * phone the other channel's build (a different package, it could not update this one), and a
      * name that matches none (or no APK for this phone's ABIs) gives no link.
