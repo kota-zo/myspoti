@@ -128,6 +128,8 @@ dependencies {
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
     // Third-party extensions: the sandbox (Rhino), manifests, packages and catalogues.
     implementation(project(":extensions"))
+    // The queue's drag and drop (Apache-2.0): the row carried stays in the list, auto-scroll at the edges.
+    implementation("sh.calvin.reorderable:reorderable:3.1.0")
     // Jam: scan the invite QR code (Google code scanner, no camera permission).
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     testImplementation("junit:junit:4.13.2")

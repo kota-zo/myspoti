@@ -83,6 +83,12 @@ https://github.com/chrisbanes/haze
 
 The frosted bars of the Immersive look (Gradle dependency `dev.chrisbanes.haze:haze`).
 
+## Reorderable — Apache-2.0
+
+`sh.calvin.reorderable:reorderable` 3.1.0 (https://github.com/Calvin-LL/Reorderable), Copyright Calvin Liang,
+used as a library (unmodified) for dragging the rows of the Immersive queue. Licence text in
+`base/licenses/Apache-2.0.txt`.
+
 ## Inter — SIL Open Font License 1.1
 https://github.com/rsms/inter
 

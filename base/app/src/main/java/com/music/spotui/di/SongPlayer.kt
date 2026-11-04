@@ -2924,7 +2924,8 @@ object SongPlayer {
     }
 
     fun skipTo(item: QueueItem) {
-        if (item.provider == LOCAL) { item.uid.toIntOrNull()?.let(LocalPlayer::skipTo); return }
+        // Its index found now: a row shown in a just-dragged order carries the index it had before (see localIndex).
+        if (item.provider == LOCAL) { localIndex(item)?.let(LocalPlayer::skipTo); return }
         cancelBurst()
         playedByHand = item.uri
         val id = trackIdOf(item.uri)
@@ -3000,7 +3001,9 @@ object SongPlayer {
     }
 
     fun removeFromQueue(item: QueueItem) {
-        if (item.provider == LOCAL) { item.uid.toIntOrNull()?.let(LocalPlayer::remove); return }
+        // Found now, as for skipTo: with the index the row was reported with, a swipe right after a
+        // drag removed whichever song had taken that place.
+        if (item.provider == LOCAL) { localIndex(item)?.let(LocalPlayer::remove); return }
         _queue.value = _queue.value.let { q -> q.copy(queued = q.queued - item, nextUp = q.nextUp - item) }
         queueCommand {
             val a = apiItem(item) ?: return@queueCommand

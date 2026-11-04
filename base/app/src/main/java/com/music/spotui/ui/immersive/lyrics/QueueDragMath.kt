@@ -1,71 +1,57 @@
 package com.music.spotui.ui.immersive.lyrics
 
 /**
- * The index arithmetic of dragging a queue row, kept free of Compose so it can be tested.
- * Rows are one flat list (the queued rows, then the context's); "others" is that list without
- * the dragged row, and a slot is a gap in it: 0 before the first, others.size after the last.
+ * The queue drag's rules, kept free of Compose so they can be tested. The panel's rows are one
+ * flat order of keys: the queued rows, the context's heading, then the context's rows (no heading
+ * when the context has none left). The row dragged swaps with the rows and the heading it passes
+ * (sh.calvin.reorderable), so the order on screen is always the one dropped.
  */
 internal object QueueDragMath {
-    /** The gap the dragged row's centre is in: how many of the other rows' midpoints lie above it. */
-    fun slot(center: Float, otherMidpoints: List<Float>): Int = otherMidpoints.count { it < center }
+    fun queuedPart(order: List<String>, heading: String): List<String> = order.takeWhile { it != heading }
+    fun nextPart(order: List<String>, heading: String): List<String> = order.dropWhile { it != heading }.drop(1)
 
     /**
-     * How far the row at flat [index] steps aside (-1 up, 1 down, 0 stays) while the row at
-     * [from] hovers over gap [slot] of the others.
+     * [order] with [from] moved to [to]'s place, or null when that move is not allowed: a song of
+     * Spotify's queue ([canLeaveQueue] false) cannot go back into "next from" (Spotify has no such
+     * move; it would come back to the queue's end). A local song goes anywhere.
      */
-    fun step(index: Int, from: Int, slot: Int): Int = when {
-        index == from -> 0
-        index > from && index - 1 < slot -> -1
-        index < from && index >= slot -> 1
-        else -> 0
+    fun swap(order: List<String>, from: String, to: String, heading: String, canLeaveQueue: Boolean): List<String>? {
+        val fi = order.indexOf(from); val ti = order.indexOf(to)
+        if (fi < 0 || ti < 0 || fi == ti || from == heading) return null
+        val r = order.toMutableList().apply { add(ti, removeAt(fi)) }
+        if (!canLeaveQueue && from in queuedPart(order, heading) && from !in queuedPart(r, heading)) return null
+        return r
     }
 
-    /** Where a gap lands: in the queued rows ([queueSize] others) or the context's, and at which index there. */
-    data class Place(val toQueue: Boolean, val index: Int)
-
-    /**
-     * Gap [slot] as a place. The gap between the two sections belongs to the queue when the row's
-     * centre is above the context heading's midpoint ([aboveBoundary]), else to the context.
-     */
-    fun place(slot: Int, queueSize: Int, aboveBoundary: Boolean): Place = when {
-        slot < queueSize -> Place(true, slot)
-        slot > queueSize -> Place(false, slot - queueSize)
-        aboveBoundary -> Place(true, queueSize)
-        else -> Place(false, 0)
-    }
-
-    /** [list] with the element at [from] taken out and put at [to] of the rest. */
-    fun <T> moved(list: List<T>, from: Int, to: Int): List<T> =
-        list.toMutableList().apply { add(to, removeAt(from)) }
-
-    /** Pixels to scroll this frame for a finger at [y] in a viewport of [height]: 0 outside the edge zones, growing towards the edge. */
-    fun edgeStep(y: Float, height: Float, zone: Float, maxStep: Float): Float {
-        val up = ((zone - y) / zone).coerceIn(0f, 1f)
-        val down = ((y - (height - zone)) / zone).coerceIn(0f, 1f)
-        return (down - up) * maxStep
-    }
-
-    /** Which of the section's other rows an engine call names for the drop at [index]: its position and whether to go after it; null when the section has no other row. */
-    fun target(size: Int, index: Int): Pair<Int, Boolean>? = when {
-        size == 0 -> null
-        index < size -> index to false
-        else -> size - 1 to true
-    }
-
-    /** The two sections after [dragged] (taken out of both) is dropped at [place]. */
-    fun <T> apply(queued: List<T>, next: List<T>, dragged: T, place: Place): Pair<List<T>, List<T>> {
-        val q = queued.filter { it != dragged }
-        val n = next.filter { it != dragged }
-        fun <E> List<E>.with(i: Int, e: E) = toMutableList().apply { add(i.coerceIn(0, size), e) }
-        return if (place.toQueue) q.with(place.index, dragged) to n else q to n.with(place.index, dragged)
+    /** What a drop asks of the engine. */
+    sealed interface Move {
+        data object None : Move
+        /** Out of "next from" into the queue, beside [target] (null: first in the queue). */
+        data class IntoQueue(val target: String?, val after: Boolean) : Move
+        /** Before / [after] [target], in [target]'s part (only a local song changes part this way). */
+        data class Beside(val target: String, val after: Boolean) : Move
     }
 
     /**
-     * Songs of the Spotify queue move between its two parts only one way: out of "next from" into
-     * the queue (a song added to it). A queued song cannot go back, so its drop is held in the queue.
+     * The engine call for [dragged] going from [before] to [after]: named by the row it now
+     * follows (or, first of its part, the row it now precedes), as SongPlayer's moves take it.
      */
-    fun held(place: Place, queueSize: Int, canLeaveQueue: Boolean, fromQueue: Boolean): Place =
-        if (fromQueue && !canLeaveQueue && !place.toQueue) Place(true, queueSize) else place
+    fun moveFor(before: List<String>, after: List<String>, dragged: String, heading: String): Move {
+        if (before == after) return Move.None
+        val wasQueued = dragged in queuedPart(before, heading)
+        val q = queuedPart(after, heading)
+        val nowQueued = dragged in q
+        val part = if (nowQueued) q else nextPart(after, heading)
+        val j = part.indexOf(dragged)
+        if (j < 0) return Move.None
+        val prev = part.getOrNull(j - 1); val next = part.getOrNull(j + 1)
+        return when {
+            nowQueued && !wasQueued -> if (prev != null) Move.IntoQueue(prev, true) else Move.IntoQueue(next, false)
+            prev != null -> Move.Beside(prev, true)
+            next != null -> Move.Beside(next, false)
+            else -> Move.None
+        }
+    }
 
     /** What the engine's latest report means for a [Pending] order. */
     sealed interface Verdict {

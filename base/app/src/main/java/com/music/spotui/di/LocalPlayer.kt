@@ -914,7 +914,11 @@ object LocalPlayer {
     /** A user action (skip, seek, stop) during or after the mix: the deck plays on as the song, at its own speed. */
     private fun endMix() {
         val run = mix ?: return
-        if (run.state < MixState.MIXING) return cancelMix("stopped")
+        // Before the mix the pair stays open: a seek comes through here first (seekTo → endFade), and
+        // marking it dropped (as a failed deck is) left the song to end on a plain fade, no mix and no
+        // animation (log 04/11 18:31: two seeks in "Nuit et jour", "deck dropped: stopped", then
+        // "crossfade: 2.991s out"). Prepared again from the new place if the end is still ahead.
+        if (run.state < MixState.MIXING) return cancelMix("stopped", again = true)
         mix = null
         run.eqA?.release()
         run.eq?.neutral()
