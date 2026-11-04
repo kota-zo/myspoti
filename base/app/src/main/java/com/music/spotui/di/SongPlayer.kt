@@ -746,6 +746,21 @@ object SongPlayer {
             val intended = engineIntended()
             main.post { if (!LocalPlayer.active.value && !routing) ConnectMirror.onEngine(s, moved, intended) }
         }
+        // A resume Spotify took because another device played (see resumeThroughExtensions): the
+        // song now plays on this phone, so the extensions play it, from where it is.
+        resumeAfterPull?.let { (pulledId, at) ->
+            when {
+                SystemClock.elapsedRealtime() - at > RESUME_AFTER_PULL_MS -> resumeAfterPull = null
+                !s.isPaused && !s.isBuffering && trackIdOf(uri) == pulledId && _activeDevice.value == null -> {
+                    resumeAfterPull = null
+                    main.post {
+                        if (LocalPlayer.active.value || routing || _activeDevice.value != null) return@post
+                        app.myspoti.host.android.Logbook.log("audio: $pulledId pulled back to this phone: the extensions play it again")
+                        resumeThroughExtensions()
+                    }
+                }
+            }
+        }
         val state = boundState ?: return
         val holding = SystemClock.elapsedRealtime() < shuffleWantedUntil
         if (holding && s.shuffle == shuffleWanted) shuffleWantedUntil = 0L
@@ -1490,6 +1505,8 @@ object SongPlayer {
     /** How long a song sent to Spotify for want of the extensions may take to start there. */
     private const val FALLBACK_START_MS = 10_000L
     private const val FALLBACK_LOOK_MS = 500L
+    /** How long a resume pulled from another device waits to play here before the extensions are not asked. */
+    private const val RESUME_AFTER_PULL_MS = 20_000L
     private const val MAX_FALLBACK_FAILURES = 3
 
     /** How long before its end the last song is played by Spotify, so its autoplay goes on at once. */
@@ -1581,6 +1598,9 @@ object SongPlayer {
      * mini player, the notification, headphones) is asked there first, from where it was, with
      * the engine's queue after it; Spotify resumes when they have nothing. False: Spotify resumes.
      */
+    /** A resume sent to Spotify because another device played: the song and when, until it plays here. */
+    @Volatile private var resumeAfterPull: Pair<String, Long>? = null
+
     private fun resumeThroughExtensions(restoredLocal: Boolean = false): Boolean {
         val np = _nowPlaying.value
         val id = trackIdOf(np.uri)
@@ -1599,6 +1619,10 @@ object SongPlayer {
         }
         if (why != null) {
             if (np.uri.startsWith(SPOTIFY_TRACK_PREFIX)) app.myspoti.host.android.Logbook.log("audio: resume of $id on Spotify: $why")
+            // Resumed here while another device played: Spotify brings it to this phone first, and
+            // once it plays here the extensions take it on (reported: back from a Connect device,
+            // the song stayed on Spotify; the mirror's own rule skips a move Myspoti asked for).
+            if (_activeDevice.value != null && !restoredLocal && ext.hasAudioSource()) resumeAfterPull = id to SystemClock.elapsedRealtime()
             return false
         }
         val q = _queue.value
