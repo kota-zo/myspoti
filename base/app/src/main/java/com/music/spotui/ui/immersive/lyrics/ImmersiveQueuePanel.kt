@@ -321,6 +321,10 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
 private data class QRow(val key: String, val item: SongPlayer.QueueItem, val queued: Boolean, val index: Int)
 
 private const val SLOW_REPORT_MS = 3_000L
+/** The carried row's card, opaque. */
+private val CARRIED_ROW = Color(0xFF2C2C30)
+/** How long the card stays after the drop: the row's spring back to its slot. */
+private const val LIFT_SETTLE_MS = 450L
 private const val HEADING_NEXT = "heading-next"
 
 /** The panel's flat order of keys: the queued rows, the context's heading (when it has rows), its rows. */
@@ -363,6 +367,12 @@ private fun QueueEntry(row: QRow, removed: SnapshotStateList<String>, dragging: 
             false
         }
     })
+    // Carried, and for the moment it settles after the drop: an opaque card. A see-through one let
+    // the titles of the rows it passed over show through it (seen in a recording, 04/11 19:10).
+    var lifted by remember { mutableStateOf(false) }
+    LaunchedEffect(dragging) {
+        if (dragging) lifted = true else if (lifted) { delay(LIFT_SETTLE_MS); lifted = false }
+    }
     SwipeToDismissBox(
         state = dismiss,
         enableDismissFromStartToEnd = false,
@@ -370,7 +380,7 @@ private fun QueueEntry(row: QRow, removed: SnapshotStateList<String>, dragging: 
         gesturesEnabled = !dragging,
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (dragging) Color.Black.copy(alpha = 0.45f) else Color.Transparent),
+            .background(if (lifted) CARRIED_ROW else Color.Transparent),
         backgroundContent = {
             // Drawn only while swiping: the row is transparent, so at rest this × showed
             // through behind the drag handle.

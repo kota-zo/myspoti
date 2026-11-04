@@ -2839,6 +2839,21 @@ object SongPlayer {
         }
 
     /**
+     * [item] in the page's queue, waited for when the page does not list it yet: an edit made while
+     * the page is rebuilt (just after an install or a "player never started" reload, log 04/11
+     * 19:10) found no queue and was dropped without a word, the row then going back.
+     */
+    private suspend fun liveItem(item: QueueItem): app.myspoti.api.NowPlaying? {
+        apiItem(item)?.let { return it }
+        val q = kotlinx.coroutines.withTimeoutOrNull(QUEUE_READY_MS) {
+            api.player.queue.first { q -> q != null && (q.queued + q.nextUp).any { it.uri == item.uri } }
+        } ?: return null.also { app.myspoti.host.android.Logbook.log("queue edit: ${item.uri} not in the page's queue, edit dropped") }
+        val all = q.queued + q.nextUp
+        return all.firstOrNull { it.uri == item.uri && it.uid == item.uid } ?: all.firstOrNull { it.uri == item.uri }
+    }
+    private const val QUEUE_READY_MS = 12_000L
+
+    /**
      * Queue edits, one at a time and each after Spotify has shown the one before. Sent together
      * they raced in the Web Player: "move up into the queue" (add + remove) lost its remove and
      * left the song twice, and that copy could then not be moved or taken out (reported).
@@ -2972,8 +2987,8 @@ object SongPlayer {
         }
         // Read when the edit runs, after the ones before it: never a row id that has gone stale.
         queueCommand {
-            val a = apiItem(item) ?: return@queueCommand
-            val b = apiItem(target) ?: return@queueCommand
+            val a = liveItem(item) ?: return@queueCommand
+            val b = liveItem(target) ?: return@queueCommand
             val before = api.player.queue.value
             api.player.moveInQueue(a, b, after)
             awaitQueue { it !== before }
@@ -2995,7 +3010,7 @@ object SongPlayer {
             return
         }
         queueCommand {
-            val a = apiItem(item) ?: return@queueCommand
+            val a = liveItem(item) ?: return@queueCommand
             val first = apiQueue?.queued?.firstOrNull()
             api.player.removeFromQueue(listOf(a))
             awaitQueue { q -> q.nextUp.none { it.uid == a.uid } }
@@ -3015,7 +3030,7 @@ object SongPlayer {
         if (item.provider == LOCAL) { localIndex(item)?.let(LocalPlayer::remove); return }
         _queue.value = _queue.value.let { q -> q.copy(queued = q.queued - item, nextUp = q.nextUp - item) }
         queueCommand {
-            val a = apiItem(item) ?: return@queueCommand
+            val a = liveItem(item) ?: return@queueCommand
             api.player.removeFromQueue(listOf(a))
             awaitQueue { q -> (q.queued + q.nextUp).none { it.uid == a.uid && it.uri == a.uri } }
         }
