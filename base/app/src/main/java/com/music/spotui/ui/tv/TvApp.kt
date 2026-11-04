@@ -69,10 +69,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.myspoti.engine.R
 import com.music.spotui.data.api.Api
+import com.music.spotui.data.api.Features
+import com.music.spotui.data.entity.HomeSection
 import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.ContextPageModel
 import com.music.spotui.data.entity.HomeItem
 import com.music.spotui.data.entity.LibraryEntry
+import com.music.spotui.data.entity.SearchResults
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.data.entity.withoutDj
 import com.music.spotui.di.Graph
@@ -100,19 +103,38 @@ fun TvApp() {
     var tab by remember { mutableStateOf(TvTab.Home) }
     // The tab the player was opened from, for Back.
     var from by remember { mutableStateOf(TvTab.Home) }
-    val lists = remember { mutableStateListOf<LibraryEntry>() }
+    val pages = remember { mutableStateListOf<TvPage>() }
     fun select(t: TvTab) {
         if (t == TvTab.NowPlaying && tab != TvTab.NowPlaying) from = tab
-        lists.clear()
+        pages.clear()
         tab = t
     }
-    val open: (LibraryEntry) -> Unit = { lists += it }
+    val open: (TvPage) -> Unit = { pages += it }
     val played: () -> Unit = { select(TvTab.NowPlaying) }
 
-    BackHandler(enabled = lists.isNotEmpty()) { lists.removeAt(lists.lastIndex) }
-    BackHandler(enabled = lists.isEmpty() && tab == TvTab.NowPlaying) { tab = from }
-    BackHandler(enabled = lists.isEmpty() && (tab == TvTab.Library || tab == TvTab.Search)) { tab = TvTab.Home }
+    BackHandler(enabled = pages.isNotEmpty()) { pages.removeAt(pages.lastIndex) }
+    BackHandler(enabled = pages.isEmpty() && tab == TvTab.NowPlaying) { tab = from }
+    BackHandler(enabled = pages.isEmpty() && (tab == TvTab.Library || tab == TvTab.Search)) { tab = TvTab.Home }
 
+    TvFrame(tab, ::select) {
+        when {
+            // The player's artist opens over the tab it was opened from.
+            tab == TvTab.NowPlaying -> TvNowPlaying(onArtist = { id, name -> tab = from; pages.clear(); pages += TvPage.Artist(id, name) })
+            pages.isNotEmpty() -> when (val p = pages.last()) {
+                is TvPage.Songs -> TvSongs(p.entry, played)
+                is TvPage.Artist -> TvArtist(p, open, played)
+                is TvPage.Show -> TvShow(p, played)
+            }
+            tab == TvTab.Home -> TvHome(open)
+            tab == TvTab.Library -> TvLibrary(open)
+            else -> TvSearch(open, played)
+        }
+    }
+}
+
+/** The page of [tab] under the floating bar of tabs. */
+@Composable
+internal fun TvFrame(tab: TvTab, onSelect: (TvTab) -> Unit, page: @Composable () -> Unit) {
     val labels = mapOf(
         TvTab.Home to stringResource(R.string.navigationbar_musicappitems_home_title),
         TvTab.Library to stringResource(R.string.aa_library),
@@ -121,80 +143,78 @@ fun TvApp() {
     )
     Box(Modifier.fillMaxSize().background(TvBg)) {
         // The player runs under the bar to the top of the screen; the other pages start below it.
-        Box(Modifier.fillMaxSize().padding(top = if (tab == TvTab.NowPlaying) 0.dp else 72.dp)) {
-            when {
-                tab == TvTab.NowPlaying -> TvNowPlaying()
-                lists.isNotEmpty() -> TvSongs(lists.last(), played)
-                tab == TvTab.Home -> TvHome(open, played)
-                tab == TvTab.Library -> TvLibrary(open)
-                else -> TvSearch(open, played)
-            }
-        }
-        TvTopBar(tab, labels, ::select, Modifier.align(Alignment.TopCenter))
+        Box(Modifier.fillMaxSize().padding(top = if (tab == TvTab.NowPlaying) 0.dp else 72.dp)) { page() }
+        TvTopBar(tab, labels, onSelect, Modifier.align(Alignment.TopCenter))
     }
 }
 
 /** Home: Spotify's shelves as rows of covers, the first one big. Artists and shows stay on the phone. */
 @Composable
-private fun TvHome(onOpen: (LibraryEntry) -> Unit, onPlayed: () -> Unit) {
+private fun TvHome(onOpen: (TvPage) -> Unit) {
     val vm: HomeViewModel = viewModel()
     val home by vm.home.collectAsState()
-    val context = LocalContext.current
-    val likedName = stringResource(R.string.collection_liked_songs_title)
     val feed = (home as? Response.Success)?.data
-    val sections = remember(feed) {
-        feed?.sections.orEmpty().withoutDj()
-            .map { s -> s.copy(items = s.items.filter { it.entry(likedName) != null }) }
-            .filter { it.items.isNotEmpty() }
-    }
     when {
         feed == null && home is Response.Loading -> TvShelfSkeleton()
         feed == null -> TvRetry { vm.retry() }
-        else -> {
-            val first = remember { FocusRequester() }
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 20.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(30.dp)) {
-                itemsIndexed(sections, key = { i, s -> "$i:${s.title}" }) { i, section ->
-                    val lead = i == 0
-                    Column(Modifier.fillMaxWidth()) {
-                        val title = section.title.ifBlank { feed.greeting.ifBlank { context.getString(R.string.navigationbar_musicappitems_home_title) } }
-                        Text(title, fontSize = if (lead) 24.sp else 20.sp, fontWeight = FontWeight.Bold, color = Color.White,
-                            modifier = Modifier.padding(start = 48.dp, bottom = 14.dp))
-                        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(if (lead) 20.dp else 16.dp)) {
-                            itemsIndexed(section.items, key = { j, it -> "$j:${it.name}:${it.imageUrl}" }) { j, item ->
-                                val focus = if (lead && j == 0) Modifier.focusRequester(first) else Modifier
-                                val entry = item.entry(likedName) ?: return@itemsIndexed
-                                if (lead) TvGradientCard(item.name, item.subtitleText(), item.imageUrl, 240.dp, focus) { onOpen(entry) }
-                                else TvAlbumCard(item.name, item.subtitleText(), item.imageUrl, 160.dp, modifier = focus) { onOpen(entry) }
-                            }
-                        }
-                    }
-                }
-            }
-            LaunchedEffect(sections.isNotEmpty()) { if (sections.isNotEmpty()) runCatching { delay(80); first.requestFocus() } }
-        }
+        else -> TvHomeShelves(feed.greeting, feed.sections, onOpen)
     }
 }
 
-/** The list a Home card opens, or null for what the TV does not open (artists, shows). */
-private fun HomeItem.entry(likedName: String): LibraryEntry? = when (this) {
-    is HomeItem.Album -> if (id.isBlank()) null else LibraryEntry(id, name, artists.ifBlank { subtitle }, imageUrl, isPlaylist = false, uri = "spotify:album:$id")
+/** Home's shelves, the first one in big cards; an untitled one is named [greeting]. */
+@Composable
+internal fun TvHomeShelves(greeting: String, feedSections: List<HomeSection>, onOpen: (TvPage) -> Unit) {
+    val likedName = stringResource(R.string.collection_liked_songs_title)
+    val homeName = stringResource(R.string.navigationbar_musicappitems_home_title)
+    val sections = remember(feedSections, likedName) {
+        feedSections.withoutDj()
+            .map { s -> s.copy(items = s.items.filter { it.page(likedName) != null }) }
+            .filter { it.items.isNotEmpty() }
+    }
+    val first = remember { FocusRequester() }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 20.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(30.dp)) {
+        itemsIndexed(sections, key = { i, s -> "$i:${s.title}" }) { i, section ->
+            val lead = i == 0
+            Column(Modifier.fillMaxWidth()) {
+                val title = section.title.ifBlank { greeting.ifBlank { homeName } }
+                Text(title, fontSize = if (lead) 24.sp else 20.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                    modifier = Modifier.padding(start = 48.dp, bottom = 14.dp))
+                LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(if (lead) 20.dp else 16.dp)) {
+                    itemsIndexed(section.items, key = { j, it -> "$j:${it.name}:${it.imageUrl}" }) { j, item ->
+                        val focus = if (lead && j == 0) Modifier.focusRequester(first) else Modifier
+                        val page = item.page(likedName) ?: return@itemsIndexed
+                        if (lead) TvGradientCard(item.name, item.subtitleText(), item.imageUrl, 240.dp, focus) { onOpen(page) }
+                        else TvAlbumCard(item.name, item.subtitleText(), item.imageUrl, 160.dp, round = item is HomeItem.Artist, modifier = focus) { onOpen(page) }
+                    }
+                }
+            }
+        }
+    }
+    LaunchedEffect(sections.isNotEmpty()) { if (sections.isNotEmpty()) runCatching { delay(80); first.requestFocus() } }
+}
+
+/** The page a Home card opens, or null for one the TV cannot open (a card with no id, a single episode). */
+private fun HomeItem.page(likedName: String): TvPage? = when (this) {
+    is HomeItem.Album -> if (id.isBlank()) null else TvPage.Songs(LibraryEntry(id, name, artists.ifBlank { subtitle }, imageUrl, isPlaylist = false, uri = "spotify:album:$id"))
     is HomeItem.Playlist -> when {
-        id == Api.HomeCache.LIKED_SONGS_ID -> LibraryEntry("collection", likedName, "", imageUrl, isPlaylist = true, uri = LIKED)
-        id.isNotBlank() -> LibraryEntry(id, name, subtitle, imageUrl, isPlaylist = true, uri = "spotify:playlist:$id")
+        id == Api.HomeCache.LIKED_SONGS_ID -> TvPage.Songs(LibraryEntry("collection", likedName, "", imageUrl, isPlaylist = true, uri = LIKED))
+        id.isNotBlank() -> TvPage.Songs(LibraryEntry(id, name, subtitle, imageUrl, isPlaylist = true, uri = "spotify:playlist:$id"))
         else -> null
     }
-    else -> null
+    is HomeItem.Artist -> if (id.isBlank()) null else TvPage.Artist(id, name)
+    is HomeItem.Show -> if (id.isBlank() || isEpisode || !Features.PODCASTS) null else TvPage.Show(id, name)
 }
 
 private fun HomeItem.subtitleText(): String = when (this) {
     is HomeItem.Album -> artists.ifBlank { subtitle }
     is HomeItem.Playlist -> subtitle
-    else -> ""
+    is HomeItem.Show -> subtitle
+    is HomeItem.Artist -> ""
 }
 
 /** Liked Songs, then the playlists and albums of Your Library (a folder opens its own list of them). */
 @Composable
-private fun TvLibrary(onOpen: (LibraryEntry) -> Unit) {
+private fun TvLibrary(onOpen: (TvPage) -> Unit) {
     val context = LocalContext.current
     var folder by remember { mutableStateOf<LibraryEntry?>(null) }
     var entries by remember { mutableStateOf<List<LibraryEntry>?>(null) }
@@ -217,7 +237,7 @@ private fun TvLibrary(onOpen: (LibraryEntry) -> Unit) {
     when {
         failed && list == null -> TvRetry { attempt++ }
         list == null -> TvShelfSkeleton()
-        else -> TvGrid(list) { e -> if (e.folderUri.isNotEmpty()) folder = e else onOpen(e) }
+        else -> TvGrid(list) { e -> if (e.folderUri.isNotEmpty()) folder = e else onOpen(e.page()) }
     }
 }
 
@@ -227,32 +247,29 @@ private fun TvGrid(entries: List<LibraryEntry>, modifier: Modifier = Modifier, o
     LazyVerticalGrid(GridCells.Adaptive(176.dp), modifier, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         itemsIndexed(entries, key = { _, it -> it.uri.ifEmpty { it.folderUri.ifEmpty { it.spotifyId } } }) { i, e ->
-            TvAlbumCard(e.name, e.subtitle, e.coverUri, 160.dp, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier) { onClick(e) }
+            TvAlbumCard(e.name, e.subtitle, e.coverUri, 160.dp, round = ":artist:" in e.uri, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier) { onClick(e) }
         }
     }
     LaunchedEffect(entries) { runCatching { delay(80); first.requestFocus() } }
 }
 
-/** Songs, playlists and albums matching what was typed (the TV's own keyboard opens on the field). */
+/**
+ * Search: the field (the TV's own keyboard opens on it), then the songs in two columns and shelves
+ * of artists, albums, playlists and (podcasts on) shows.
+ */
 @Composable
-private fun TvSearch(onOpen: (LibraryEntry) -> Unit, onPlayed: () -> Unit) {
+private fun TvSearch(onOpen: (TvPage) -> Unit, onPlayed: () -> Unit) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     var asked by remember { mutableStateOf("") }
-    var songs by remember { mutableStateOf<List<SongsModel>>(emptyList()) }
-    var lists by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
+    var found by remember { mutableStateOf<SearchResults?>(null) }
     var failed by remember { mutableStateOf(false) }
     val field = remember { FocusRequester() }
     LaunchedEffect(asked) {
         if (asked.isBlank()) return@LaunchedEffect
         failed = false
         when (val r = Graph.api.searchEverything(asked).first { it !is Response.Loading }) {
-            is Response.Success -> {
-                songs = r.data.songs
-                lists = r.data.playlists + r.data.albums.map {
-                    LibraryEntry(it.spotifyId, it.name, it.artists, it.coverUri, isPlaylist = false, uri = "spotify:album:${it.spotifyId}")
-                }.filter { it.spotifyId.isNotBlank() }
-            }
+            is Response.Success -> found = r.data
             else -> failed = true
         }
     }
@@ -266,21 +283,65 @@ private fun TvSearch(onOpen: (LibraryEntry) -> Unit, onPlayed: () -> Unit) {
                 focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                 focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, cursorColor = TvAccent,
             ),
-            modifier = Modifier.padding(horizontal = 48.dp).width(560.dp).focusRequester(field))
+            modifier = Modifier.padding(horizontal = 64.dp).width(560.dp).focusRequester(field))
         Spacer(Modifier.height(20.dp))
+        val f = found
         when {
-            failed -> Text(stringResource(R.string.search_failed), color = TvSubtle, fontSize = 16.sp, modifier = Modifier.padding(start = 48.dp))
-            asked.isNotBlank() && songs.isEmpty() && lists.isEmpty() ->
-                Text(context.getString(R.string.assisted_curation_search_empty_view_no_result_title, asked), color = TvSubtle, fontSize = 16.sp,
-                    modifier = Modifier.padding(start = 48.dp))
-            else -> Row(Modifier.fillMaxSize()) {
-                LazyColumn(Modifier.weight(1f).padding(start = 48.dp), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    itemsIndexed(songs, key = { i, s -> "$i:${s.url}" }) { _, s ->
-                        TvSongRow(s, null) { play(s, null, listOf(s)); onPlayed() }
+            failed -> Text(stringResource(R.string.search_failed), color = TvSubtle, fontSize = 16.sp, modifier = Modifier.padding(start = 64.dp))
+            f == null -> Unit
+            f.isEmpty() -> Text(context.getString(R.string.assisted_curation_search_empty_view_no_result_title, asked), color = TvSubtle, fontSize = 16.sp,
+                modifier = Modifier.padding(start = 64.dp))
+            else -> TvSearchResults(f, onOpen) { s -> play(s, null, listOf(s)); onPlayed() }
+        }
+    }
+}
+
+private fun SearchResults.isEmpty() = songs.isEmpty() && albums.isEmpty() && artists.isEmpty() && playlists.isEmpty() && (!Features.PODCASTS || shows.isEmpty())
+
+@Composable
+internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong: (SongsModel) -> Unit) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        if (f.songs.isNotEmpty()) item("songs") {
+            Column(Modifier.padding(horizontal = 64.dp)) {
+                TvSectionTitle(stringResource(R.string.assisted_curation_search_filter_songs), Modifier)
+                val songs = f.songs.take(8)
+                Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                    listOf(songs.take(4), songs.drop(4)).forEach { part ->
+                        Column(Modifier.weight(1f)) { part.forEach { s -> TvSongRow(s, null) { onSong(s) } } }
                     }
                 }
-                Box(Modifier.weight(1f)) {
-                    if (lists.isNotEmpty()) TvGrid(lists, onClick = onOpen)
+            }
+        }
+        val artists = f.artists.filter { it.id.isNotBlank() }
+        if (artists.isNotEmpty()) item("artists") {
+            TvShelf(stringResource(R.string.assisted_curation_search_filter_artists)) {
+                itemsIndexed(artists, key = { i, a -> "$i:${a.id}" }) { _, a ->
+                    TvAlbumCard(a.name, "", a.coverUri, 150.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
+                }
+            }
+        }
+        val albums = f.albums.filter { it.spotifyId.isNotBlank() }
+        if (albums.isNotEmpty()) item("albums") {
+            TvShelf(stringResource(R.string.assisted_curation_search_filter_albums)) {
+                itemsIndexed(albums, key = { i, a -> "$i:${a.spotifyId}" }) { _, a ->
+                    TvAlbumCard(a.name, a.artists, a.coverUri, 160.dp) {
+                        onOpen(TvPage.Songs(LibraryEntry(a.spotifyId, a.name, a.artists, a.coverUri, isPlaylist = false, uri = "spotify:album:${a.spotifyId}")))
+                    }
+                }
+            }
+        }
+        if (f.playlists.isNotEmpty()) item("playlists") {
+            TvShelf(stringResource(R.string.assisted_curation_search_filter_playlists)) {
+                itemsIndexed(f.playlists, key = { i, e -> "$i:${e.uri}" }) { _, e ->
+                    TvAlbumCard(e.name, e.subtitle, e.coverUri, 160.dp) { onOpen(TvPage.Songs(e)) }
+                }
+            }
+        }
+        val shows = if (Features.PODCASTS) f.shows.filter { it.id.isNotBlank() } else emptyList()
+        if (shows.isNotEmpty()) item("shows") {
+            TvShelf(stringResource(R.string.assisted_curation_search_filter_podcasts)) {
+                itemsIndexed(shows, key = { i, sh -> "$i:${sh.id}" }) { _, sh ->
+                    TvAlbumCard(sh.name, sh.publisher, sh.coverUri, 160.dp) { onOpen(TvPage.Show(sh.id, sh.name)) }
                 }
             }
         }
@@ -315,40 +376,42 @@ private fun TvSongs(entry: LibraryEntry, onPlayed: () -> Unit) {
     when {
         failed && p == null -> TvRetry { attempt++ }
         p == null -> TvShelfSkeleton(rows = 2)
-        else -> Row(Modifier.fillMaxSize().padding(start = 64.dp, end = 48.dp, top = 24.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
-            val playFocus = remember { FocusRequester() }
-            Column(Modifier.width(300.dp)) {
-                TvCover(p.coverUri.ifBlank { entry.coverUri }, Modifier.size(300.dp), RoundedCornerShape(12.dp))
-                Text(p.name.ifBlank { entry.name }, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 16.dp))
-                val owner = p.ownerName.ifBlank { entry.subtitle }
-                if (owner.isNotBlank()) Text(owner, color = TvAccent, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true, modifier = Modifier.focusRequester(playFocus)) {
-                        p.tracks.firstOrNull()?.let { vm.updateShuffleState(false); play(it, p.uri, p.tracks); onPlayed() }
-                    }
-                    TvPillButton(Icons.Default.Shuffle, stringResource(R.string.immersive_player_shuffle_on), filled = false) {
-                        if (p.tracks.isNotEmpty()) { vm.updateShuffleState(true); play(p.tracks.random(), p.uri, p.tracks); onPlayed() }
-                    }
-                }
+        else -> TvSongsPage(entry, p,
+            onPlay = { p.tracks.firstOrNull()?.let { vm.updateShuffleState(false); play(it, p.uri, p.tracks); onPlayed() } },
+            onShuffle = { if (p.tracks.isNotEmpty()) { vm.updateShuffleState(true); play(p.tracks.random(), p.uri, p.tracks); onPlayed() } },
+            onSong = { s -> play(s, p.uri, p.tracks); onPlayed() })
+    }
+}
+
+@Composable
+internal fun TvSongsPage(entry: LibraryEntry, p: ContextPageModel, onPlay: () -> Unit, onShuffle: () -> Unit, onSong: (SongsModel) -> Unit) {
+    Row(Modifier.fillMaxSize().padding(start = 64.dp, end = 48.dp, top = 24.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
+        val playFocus = remember { FocusRequester() }
+        Column(Modifier.width(300.dp)) {
+            TvCover(p.coverUri.ifBlank { entry.coverUri }, Modifier.size(300.dp), RoundedCornerShape(12.dp))
+            Text(p.name.ifBlank { entry.name }, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 16.dp))
+            val owner = p.ownerName.ifBlank { entry.subtitle }
+            if (owner.isNotBlank()) Text(owner, color = TvAccent, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true, modifier = Modifier.focusRequester(playFocus), onClick = onPlay)
+                TvPillButton(Icons.Default.Shuffle, stringResource(R.string.immersive_player_shuffle_on), filled = false, onClick = onShuffle)
             }
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                itemsIndexed(p.tracks, key = { i, s -> "$i:${s.url}" }) { i, s ->
-                    TvSongRow(s, i + 1) { play(s, p.uri, p.tracks); onPlayed() }
-                }
-            }
-            LaunchedEffect(p.tracks.isNotEmpty()) { if (p.tracks.isNotEmpty()) runCatching { delay(80); playFocus.requestFocus() } }
         }
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            itemsIndexed(p.tracks, key = { i, s -> "$i:${s.url}" }) { i, s -> TvSongRow(s, i + 1) { onSong(s) } }
+        }
+        LaunchedEffect(p.tracks.isNotEmpty()) { if (p.tracks.isNotEmpty()) runCatching { delay(80); playFocus.requestFocus() } }
     }
 }
 
 /** Play or Shuffle under a list's cover: the filled one in the accent. */
 @Composable
-private fun TvPillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, filled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val fg = if (filled) Color.Black else Color.White
+internal fun TvPillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, filled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val fg = Color.White
     Row(
         modifier.tvPill(RoundedCornerShape(10.dp), base = if (filled) TvAccent else Color(0x26FFFFFF),
-            focusedFill = if (filled) Color(0xFF3BE477) else Color(0x4DFFFFFF), focusedScale = 1.06f, onClick = onClick)
+            focusedFill = if (filled) Color(0xFFFF5C97) else Color(0x4DFFFFFF), focusedScale = 1.06f, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -359,7 +422,7 @@ private fun TvPillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 
 /** One song: its number (or cover), title and artist, and its length. */
 @Composable
-private fun TvSongRow(s: SongsModel, number: Int?, onClick: () -> Unit) {
+internal fun TvSongRow(s: SongsModel, number: Int?, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().tvPill(RoundedCornerShape(10.dp), focusedFill = Color(0x26FFFFFF), focusedScale = 1.02f, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -376,7 +439,7 @@ private fun TvSongRow(s: SongsModel, number: Int?, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TvRetry(onRetry: () -> Unit) {
+internal fun TvRetry(onRetry: () -> Unit) {
     val focus = remember { FocusRequester() }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(stringResource(R.string.retry_button), color = Color.White, fontSize = 18.sp,
@@ -388,8 +451,16 @@ private fun TvRetry(onRetry: () -> Unit) {
 
 private const val LIKED = "spotify:collection:tracks"
 
-/** A Library row that holds songs: a playlist or an album (artists, shows and the rest stay on the phone). */
-private fun LibraryEntry.opens() = ":playlist:" in uri || ":album:" in uri || uri == LIKED
+/** A Library row the TV opens: a playlist, an album, an artist or (podcasts on) a show. */
+private fun LibraryEntry.opens() = ":playlist:" in uri || ":album:" in uri || ":artist:" in uri || uri == LIKED ||
+    (Features.PODCASTS && ":show:" in uri)
+
+/** The page a Library row opens. */
+private fun LibraryEntry.page(): TvPage = when {
+    ":artist:" in uri -> TvPage.Artist(uri.substringAfterLast(':'), name)
+    ":show:" in uri -> TvPage.Show(uri.substringAfterLast(':'), name)
+    else -> TvPage.Songs(this)
+}
 
 internal fun formatMs(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)

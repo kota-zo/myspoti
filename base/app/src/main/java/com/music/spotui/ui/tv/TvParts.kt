@@ -66,7 +66,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 
 internal val TvBg = Color(0xFF000000)
-internal val TvAccent = Color(0xFF1ED760)
+internal val TvAccent = Color(0xFFFF2D78)
 internal val TvTitle = Color(0xFFF2F2F5)
 internal val TvSubtle = Color(0xFF8A8A8E)
 

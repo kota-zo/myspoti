@@ -6,8 +6,9 @@
  *
  * Changes: Myspoti's player state and actions (rememberImmersivePlayer), its mesh backdrop from
  * the cover instead of the beat-driven orbs, its lyrics panel; shuffle, repeat and like on the
- * transport row instead of an options menu; no motion cover, queue panel, sleep timer, live radio,
- * screensaver or full-screen lyrics.
+ * transport row instead of an options menu; Myspoti's queue panel and Connect devices beside the
+ * lyrics; the artist opens its page; no motion cover, sleep timer, live radio, screensaver or
+ * full-screen lyrics.
  */
 package com.music.spotui.ui.tv
 
@@ -36,7 +37,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -52,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
@@ -77,7 +82,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import app.myspoti.engine.R
+import com.music.spotui.ui.components.ArtistChooser
 import com.music.spotui.ui.immersive.lyrics.ImmersiveLyricsPanel
+import com.music.spotui.ui.immersive.lyrics.ImmersiveQueuePanel
 import com.music.spotui.ui.immersive.player.ImmersivePlayerActions
 import com.music.spotui.ui.immersive.player.ImmersivePlayerState
 import com.music.spotui.ui.immersive.player.ImmersiveRepeat
@@ -86,6 +93,7 @@ import com.music.spotui.ui.look.MeshGradientBackground
 import com.music.spotui.ui.look.rememberArtworkColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
@@ -98,12 +106,37 @@ private const val CHROME_HIDE_MS = 8_000L
  * synced lyrics. Idle, the controls fade and only the cover, its words and the lyrics remain.
  */
 @Composable
-internal fun TvNowPlaying() {
-    // The TV opens no album or artist page: the controller only satisfies the bridge.
+internal fun TvNowPlaying(onArtist: (id: String, name: String) -> Unit) {
+    // The TV opens its own artist page: the controller only satisfies the bridge.
     val bridge = rememberImmersivePlayer(rememberNavController())
     val state = bridge.state
-    val actions = bridge.actions
-    val palette = rememberArtworkColors(state.coverUrl.ifBlank { null })
+    var devices by remember { mutableStateOf(false) }
+    if (devices) TvDevicesDialog { devices = false }
+    val scope = rememberCoroutineScope()
+    TvPlayerScreen(
+        state, bridge.actions, rememberArtworkColors(state.coverUrl.ifBlank { null }),
+        onArtist = {
+            scope.launch {
+                val a = ArtistChooser.artistsOf(state.trackId, state.artist).firstOrNull { it.uri.isNotBlank() } ?: return@launch
+                onArtist(a.uri.substringAfterLast(':'), a.name)
+            }
+        },
+        onDevices = { devices = true },
+    ) { queue, modifier ->
+        if (queue) ImmersiveQueuePanel(modifier, PaddingValues(vertical = 8.dp)) else ImmersiveLyricsPanel(modifier, PaddingValues(vertical = 8.dp))
+    }
+}
+
+/** The player drawn from plain state; [panel] draws the lyrics, or the queue when its flag is set. */
+@Composable
+internal fun TvPlayerScreen(
+    state: ImmersivePlayerState,
+    actions: ImmersivePlayerActions,
+    palette: com.music.spotui.ui.look.MeshPalette,
+    onArtist: () -> Unit,
+    onDevices: () -> Unit,
+    panel: @Composable (queue: Boolean, Modifier) -> Unit,
+) {
 
     var chromeVisible by remember { mutableStateOf(true) }
     var lastNavMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -121,6 +154,7 @@ internal fun TvNowPlaying() {
         label = "idle",
     )
     val chromeAlpha = 1f - idle
+    var queue by remember { mutableStateOf(false) }
 
     Box(
         Modifier.fillMaxSize().background(TvBg).onPreviewKeyEvent { e ->
@@ -160,14 +194,28 @@ internal fun TvNowPlaying() {
                 }
                 Spacer(Modifier.height(18.dp))
                 TvMarquee(state.title, 26.sp, FontWeight.Bold, Color.White)
-                TvMarquee(state.artist, 18.sp, FontWeight.Medium, TvAccent)
+                // The artist opens its page (the first one of the credit on a TV, no chooser).
+                Box(Modifier.fillMaxWidth().tvPill(RoundedCornerShape(8.dp), focusedFill = Color(0x1FFFFFFF), focusedScale = 1f, onClick = onArtist)) { TvMarquee(state.artist, 18.sp, FontWeight.Medium, TvAccent) }
+                // Where the sound goes when it is not this TV (Spotify Connect).
+                state.deviceName?.let { Text(it, color = TvSubtle, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp)) }
                 Spacer(Modifier.height(18.dp))
                 TvTransport(state, actions, Modifier.graphicsLayer { alpha = chromeAlpha })
                 Spacer(Modifier.height(16.dp))
                 TvSeekBar(state, actions, Modifier.graphicsLayer { alpha = chromeAlpha })
             }
-            // Lyrics are content, not chrome: they stay when the controls hide.
-            ImmersiveLyricsPanel(Modifier.weight(1f).fillMaxHeight(), PaddingValues(vertical = 8.dp))
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                // Lyrics or queue, and where the music plays: chrome, they fade with the controls.
+                Row(Modifier.align(Alignment.End).graphicsLayer { alpha = chromeAlpha }, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TvIconButton(Icons.Default.Lyrics, stringResource(R.string.immersive_player_lyrics), size = 44.dp,
+                        tint = if (!queue) TvAccent else Color.White.copy(alpha = 0.6f)) { queue = false }
+                    TvIconButton(Icons.AutoMirrored.Filled.QueueMusic, stringResource(R.string.immersive_player_queue), size = 44.dp,
+                        tint = if (queue) TvAccent else Color.White.copy(alpha = 0.6f)) { queue = true }
+                    TvIconButton(Icons.Default.Devices, stringResource(R.string.listen_on), size = 44.dp,
+                        tint = if (state.deviceName != null) TvAccent else Color.White.copy(alpha = 0.6f), onClick = onDevices)
+                }
+                // Lyrics are content, not chrome: they stay when the controls hide; the queue fades.
+                panel(queue, Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = if (queue) chromeAlpha else 1f })
+            }
         }
     }
 }
