@@ -41,6 +41,7 @@
     <string name="lyrics_select_hint">点按歌词行以选择要分享的内容</string>
     <string name="lyrics_select_max">最多可分享 %d 行</string>
     <string name="lyrics_romanization">显示罗马音</string>
+    <string name="lyrics_romanize">罗马音</string>
     <string name="lyrics_other_source">尝试其他来源</string>
     <string name="lyrics_source_shown">当前使用</string>
     <string name="lyrics_source_words">逐字同步</string>

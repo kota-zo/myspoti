@@ -41,6 +41,7 @@
     <string name="lyrics_select_hint">Stuknij wersy, aby wybrać, co udostępnić</string>
     <string name="lyrics_select_max">Możesz udostępnić maksymalnie %d wersów</string>
     <string name="lyrics_romanization">Pokaż romanizację</string>
+    <string name="lyrics_romanize">Romanizacja</string>
     <string name="lyrics_other_source">Spróbuj innego źródła</string>
     <string name="lyrics_source_shown">Wyświetlane teraz</string>
     <string name="lyrics_source_words">Słowo po słowie</string>
