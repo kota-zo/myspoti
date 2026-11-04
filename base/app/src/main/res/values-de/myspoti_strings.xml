@@ -555,6 +555,9 @@
     <string name="settings_player_source_detail">Die Zeile, die sagt, was wie läuft. Aus: Klangqualität und Stats for nerds stehen im Menü des Players.</string>
     <string name="settings_player_capsule_title">Kapsel im Player</string>
     <string name="settings_player_capsule_detail">Die Tasten unten im Player. Aus: „Hören auf“ steht im Menü des Players.</string>
+    <string name="settings_search">Einstellungen durchsuchen</string>
+    <string name="settings_search_hint">Einstellung suchen</string>
+    <string name="settings_search_empty">Keine Einstellung passt.</string>
     <string name="settings_song_pip_title">Bild-im-Bild</string>
     <string name="settings_song_pip_detail">Beim Verlassen der App während der Wiedergabe bleibt der Song in einem kleinen Fenster: Cover, Songtext und Wiedergabetasten. Ein Musikvideo hat sein eigenes Fenster.</string>
     <string name="pip_previous">Zurück</string>

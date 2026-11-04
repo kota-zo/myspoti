@@ -62,10 +62,10 @@ object SongPip {
             .setAspectRatio(RATIO)
             .setActions(
                 listOf(
-                    action(c, 0, R.drawable.ic_skip_prev, R.string.pip_previous, "prev"),
-                    if (playing) action(c, 1, R.drawable.ic_pause, R.string.pip_pause, "toggle")
-                    else action(c, 1, R.drawable.ic_play, R.string.pip_play, "toggle"),
-                    action(c, 2, R.drawable.ic_skip_next, R.string.pip_next, "next"),
+                    action(c, 0, app.myspoti.host.android.R.drawable.msp_ic_previous, R.string.pip_previous, "prev"),
+                    if (playing) action(c, 1, app.myspoti.host.android.R.drawable.msp_ic_pause, R.string.pip_pause, "toggle")
+                    else action(c, 1, app.myspoti.host.android.R.drawable.msp_ic_play, R.string.pip_play, "toggle"),
+                    action(c, 2, app.myspoti.host.android.R.drawable.msp_ic_next, R.string.pip_next, "next"),
                 ),
             )
             .build()

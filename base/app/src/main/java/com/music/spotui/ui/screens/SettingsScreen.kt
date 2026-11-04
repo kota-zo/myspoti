@@ -7,6 +7,8 @@ import com.music.spotui.ui.theme.AppMuted
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -70,13 +73,57 @@ fun SettingsScreen(navController: NavController) {
     // A page inside Settings (Transitions and AutoMix's options): its own screen, back returns to the tab.
     var sub by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     androidx.activity.compose.BackHandler(enabled = sub != null) { sub = null }
+    // One tab per group (see below); kept up here so a search hit can open one.
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    // Settings' search: null while closed.
+    var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = query != null) { query = null }
     Column(Modifier.fillMaxSize().background(AppBackground).statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(4.dp)) {
             IconButton(onClick = { if (sub != null) sub = null else navController.popBackStack() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.accessibility_navigate_back), tint = AppText)
             }
             Text(stringResource(if (sub == SUB_TRANSITIONS) R.string.settings_transitions_title else R.string.settings_title),
-                color = AppText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                color = AppText, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            if (sub == null) IconButton(onClick = { query = if (query == null) "" else null }) {
+                Icon(androidx.compose.material.icons.Icons.Default.Search, contentDescription = stringResource(R.string.settings_search), tint = AppText)
+            }
+        }
+        // The search button: a field over the tabs, the rows of every tab it finds; a tap opens its tab.
+        query?.let { q ->
+            val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+            androidx.compose.material3.OutlinedTextField(
+                value = q, onValueChange = { query = it }, singleLine = true,
+                placeholder = { Text(stringResource(R.string.settings_search_hint), color = AppMuted) },
+                leadingIcon = { Icon(androidx.compose.material.icons.Icons.Default.Search, null, tint = AppMuted) },
+                shape = RoundedCornerShape(24.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = AppText, unfocusedTextColor = AppText, focusedBorderColor = com.music.spotui.ui.theme.AppAccent,
+                    unfocusedBorderColor = tone(0xFF3E3E3E), cursorColor = com.music.spotui.ui.theme.AppAccent,
+                ),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    .then(Modifier.focusRequester(focus)),
+            )
+            androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            if (q.isNotBlank()) {
+                val hits = SettingsSearch.search(SettingsSearch.classic, q) { ctx.getString(it) }
+                Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+                    if (hits.isEmpty()) Text(stringResource(R.string.settings_search_empty), color = AppMuted, fontSize = 14.sp,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
+                    hits.forEach { h ->
+                        Column(
+                            Modifier.fillMaxWidth().clickable {
+                                query = null
+                                if (h.place == SUB_TRANSITIONS) sub = SUB_TRANSITIONS else tab = h.place.toInt()
+                            }.padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Text(stringResource(h.title), color = AppText, fontSize = 16.sp)
+                            if (h.detail != 0) Text(stringResource(h.detail), color = AppMuted, fontSize = 12.sp)
+                        }
+                    }
+                }
+                return@Column
+            }
         }
         if (sub == SUB_TRANSITIONS) {
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
@@ -87,7 +134,6 @@ fun SettingsScreen(navController: NavController) {
         }
         // One tab per group, so the page is no longer one long list. What is changed most comes
         // first: playback, then the sources (which extension plays and downloads first).
-        var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
         val tabs = listOf(R.string.settings_section_playback, R.string.settings_sources_tab, R.string.settings_section_lyrics, R.string.settings_section_downloads,
             R.string.settings_tab_appearance, R.string.settings_tab_about, R.string.accounts_title)
         androidx.compose.material3.ScrollableTabRow(

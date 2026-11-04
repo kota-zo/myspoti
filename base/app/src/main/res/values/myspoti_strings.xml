@@ -582,6 +582,9 @@
     <string name="settings_player_source_detail">The line that says what plays and how. Off, Sound quality and Stats for nerds are in the player\'s menu.</string>
     <string name="settings_player_capsule_title">Capsule in the player</string>
     <string name="settings_player_capsule_detail">The buttons at the bottom of the player. Off, Listen on is in the player\'s menu.</string>
+    <string name="settings_search">Search settings</string>
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_empty">No setting matches.</string>
     <string name="settings_song_pip_title">Picture-in-picture</string>
     <string name="settings_song_pip_detail">Leaving the app while a song plays keeps it in a small window: cover, lyrics and playback buttons. A music video has its own window.</string>
     <string name="pip_previous">Previous</string>

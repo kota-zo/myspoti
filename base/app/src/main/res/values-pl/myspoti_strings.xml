@@ -577,6 +577,9 @@
     <string name="settings_player_source_detail">Wiersz mówiący, co gra i jak. Wyłączony: Jakość dźwięku i Stats for nerds są w menu odtwarzacza.</string>
     <string name="settings_player_capsule_title">Kapsuła w odtwarzaczu</string>
     <string name="settings_player_capsule_detail">Przyciski na dole odtwarzacza. Wyłączona: Słuchaj na jest w menu odtwarzacza.</string>
+    <string name="settings_search">Szukaj w ustawieniach</string>
+    <string name="settings_search_hint">Szukaj ustawienia</string>
+    <string name="settings_search_empty">Brak pasujących ustawień.</string>
     <string name="settings_song_pip_title">Obraz w obrazie</string>
     <string name="settings_song_pip_detail">Po wyjściu z aplikacji podczas odtwarzania utwór zostaje w małym oknie: okładka, tekst i przyciski odtwarzania. Teledysk ma własne okno.</string>
     <string name="pip_previous">Poprzedni</string>

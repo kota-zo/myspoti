@@ -566,6 +566,9 @@
     <string name="settings_player_source_detail">A linha que diz o que está tocando e como. Desativada, Qualidade do som e Stats for nerds ficam no menu do player.</string>
     <string name="settings_player_capsule_title">Cápsula no player</string>
     <string name="settings_player_capsule_detail">Os botões na parte de baixo do player. Desativada, Ouvir em fica no menu do player.</string>
+    <string name="settings_search">Pesquisar nas configurações</string>
+    <string name="settings_search_hint">Pesquisar uma configuração</string>
+    <string name="settings_search_empty">Nenhuma configuração corresponde.</string>
     <string name="settings_song_pip_title">Picture-in-picture</string>
     <string name="settings_song_pip_detail">Ao sair do app enquanto uma música toca, ela fica em uma janela pequena: capa, letra e botões de reprodução. Um videoclipe tem sua própria janela.</string>
     <string name="pip_previous">Anterior</string>

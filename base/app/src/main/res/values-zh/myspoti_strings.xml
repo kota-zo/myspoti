@@ -568,6 +568,9 @@
     <string name="settings_player_source_detail">说明正在播放什么以及如何播放的那一行。关闭后，“音质”和 Stats for nerds 在播放器菜单中。</string>
     <string name="settings_player_capsule_title">播放器中的胶囊按钮</string>
     <string name="settings_player_capsule_detail">播放器底部的按钮。关闭后，“在…上收听”在播放器菜单中。</string>
+    <string name="settings_search">搜索设置</string>
+    <string name="settings_search_hint">搜索设置</string>
+    <string name="settings_search_empty">没有匹配的设置。</string>
     <string name="settings_song_pip_title">画中画</string>
     <string name="settings_song_pip_detail">播放歌曲时离开应用，歌曲会显示在小窗口中：封面、歌词和播放按钮。音乐视频有自己的窗口。</string>
     <string name="pip_previous">上一首</string>

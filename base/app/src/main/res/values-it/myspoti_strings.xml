@@ -555,6 +555,9 @@
     <string name="settings_player_source_detail">La riga che dice cosa suona e come. Disattivata, Qualità audio e Stats for nerds sono nel menu del lettore.</string>
     <string name="settings_player_capsule_title">Capsula nel lettore</string>
     <string name="settings_player_capsule_detail">I pulsanti in fondo al lettore. Disattivata, Ascolta su è nel menu del lettore.</string>
+    <string name="settings_search">Cerca nelle impostazioni</string>
+    <string name="settings_search_hint">Cerca un\'impostazione</string>
+    <string name="settings_search_empty">Nessuna impostazione corrisponde.</string>
     <string name="settings_song_pip_title">Picture-in-picture</string>
     <string name="settings_song_pip_detail">Uscendo dall\'app mentre suona un brano, resta in una piccola finestra: copertina, testo e pulsanti di riproduzione. Un video musicale ha la sua finestra.</string>
     <string name="pip_previous">Precedente</string>

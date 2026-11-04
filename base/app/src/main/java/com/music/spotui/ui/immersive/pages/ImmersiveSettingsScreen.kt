@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
@@ -162,7 +163,43 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
     }
     val crossfade = com.music.spotui.data.preferences.CrossfadePref.seconds
     val audioLine = com.music.spotui.ui.screens.sourceLineSummary(app.myspoti.extensions.Action.AUDIO_SOURCE)
-    ImmersivePage(title = stringResource(R.string.settings_title), onBack = back) {
+    // The search button: a field over the page, the rows of every page it finds, a tap opens one.
+    var query by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(enabled = query != null) { query = null }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    ImmersivePage(
+        title = stringResource(R.string.settings_title), onBack = back,
+        actions = {
+            com.music.spotui.ui.immersive.shell.ImmersiveBarAction(
+                Icons.Rounded.Search, stringResource(R.string.settings_search), onClick = { query = if (query == null) "" else null },
+            )
+        },
+    ) {
+        query?.let { q ->
+            immersiveBlock("search") {
+                com.music.spotui.ui.immersive.components.ImmersiveSearchField(
+                    query = q, onQueryChange = { query = it }, onSubmit = {}, focusRequester = focus,
+                    placeholder = stringResource(R.string.settings_search_hint),
+                )
+                androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            }
+            if (q.isNotBlank()) {
+                val hits = com.music.spotui.ui.screens.SettingsSearch.search(com.music.spotui.ui.screens.SettingsSearch.immersive, q) { ctx.getString(it) }
+                if (hits.isEmpty()) immersiveBlock("search:none") { Text(stringResource(R.string.settings_search_empty), style = com.music.spotui.ui.immersive.Immersive.Subhead) }
+                immersiveGroup("search:hits") {
+                    hits.forEach { h ->
+                        row {
+                            ImmersiveGroupRow(
+                                stringResource(h.title), detail = if (h.detail != 0) stringResource(h.detail) else null, chevron = true,
+                                onClick = { query = null; open(SettingsPage.valueOf(h.place)) },
+                            )
+                        }
+                    }
+                }
+                return@ImmersivePage
+            }
+        }
         // What is changed most, first: playback, the order of the sources, the transitions.
         immersiveGroup("root") {
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_playback), icon = Icons.Rounded.PlayArrow, chevron = true, onClick = { open(SettingsPage.Playback) }) }

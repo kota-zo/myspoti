@@ -577,6 +577,9 @@
     <string name="settings_player_source_detail">Строка о том, что и как играет. Если выключено, «Качество звука» и Stats for nerds — в меню плеера.</string>
     <string name="settings_player_capsule_title">Капсула в плеере</string>
     <string name="settings_player_capsule_detail">Кнопки внизу плеера. Если выключено, «Слушать на» — в меню плеера.</string>
+    <string name="settings_search">Поиск в настройках</string>
+    <string name="settings_search_hint">Найти настройку</string>
+    <string name="settings_search_empty">Нет подходящих настроек.</string>
     <string name="settings_song_pip_title">Картинка в картинке</string>
     <string name="settings_song_pip_detail">Если выйти из приложения во время воспроизведения, трек останется в маленьком окне: обложка, текст и кнопки управления. У клипа своё окно.</string>
     <string name="pip_previous">Предыдущий</string>

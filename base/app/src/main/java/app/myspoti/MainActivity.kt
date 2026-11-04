@@ -308,7 +308,8 @@ class MainActivity : AppCompatActivity() {
         if (!com.music.spotui.di.SongPlayer.isPlaying() || isInPictureInPictureMode) return
         if (!com.music.spotui.data.preferences.MusicVideoPref.on || !mv.on.value || mv.player == null) {
             // No clip: the song itself, when the Picture-in-picture setting is on.
-            if (!signedIn || !com.music.spotui.ui.components.SongPip.wanted()) return
+            // Not on a TV: the app there is a full-screen player already.
+            if (tv || !signedIn || !com.music.spotui.ui.components.SongPip.wanted()) return
             pipSong = true
             if (!runCatching { enterPictureInPictureMode(com.music.spotui.ui.components.SongPip.params(this)) }.getOrDefault(false)) pipSong = false
             return

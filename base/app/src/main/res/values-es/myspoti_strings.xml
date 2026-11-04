@@ -555,6 +555,9 @@
     <string name="settings_player_source_detail">La línea que dice qué suena y cómo. Desactivada, Calidad de sonido y Stats for nerds están en el menú del reproductor.</string>
     <string name="settings_player_capsule_title">Cápsula en el reproductor</string>
     <string name="settings_player_capsule_detail">Los botones de la parte inferior del reproductor. Desactivada, Escuchar en está en el menú del reproductor.</string>
+    <string name="settings_search">Buscar en los ajustes</string>
+    <string name="settings_search_hint">Buscar un ajuste</string>
+    <string name="settings_search_empty">Ningún ajuste coincide.</string>
     <string name="settings_song_pip_title">Imagen en imagen</string>
     <string name="settings_song_pip_detail">Al salir de la app mientras suena una canción, sigue en una ventana pequeña: portada, letra y botones de reproducción. Un videoclip tiene su propia ventana.</string>
     <string name="pip_previous">Anterior</string>
