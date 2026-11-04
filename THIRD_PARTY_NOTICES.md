@@ -68,6 +68,24 @@ Code that BitChord itself carries from other projects, kept with its own header:
   (https://github.com/EchoMusicApp/Echo-Music), GPL-3.0. The lens of `shell/GlassSelectionPill.kt` and
   the minimizing chrome of `shell/ImmersiveChrome.kt` follow BitChord's `floatingtabbar/` files.
 
+## Apple Music TV — GPL-3.0
+https://github.com/JObersi10/apple-music-tv (commit `7e5c594`)
+
+By JObersi10. The Android TV look is ported from it. These files in
+`base/app/src/main/java/com/music/spotui/ui/tv/` are adapted from its
+`android/app/src/main/java/com/applemusicktv/ui/` files, stay under the GPL-3.0, and say so in
+their header:
+
+- `TvParts.kt`, from `components/TopNavBar.kt`, `AlbumCard.kt`, `SpotlightCards.kt` (GradientCard)
+  and `Skeleton.kt` (the floating tab pill, the focus scale, halo and border of the cards, the shelf skeleton)
+- `TvApp.kt`, from `AppShell.kt`, `screens/HomeScreen.kt` and `screens/PlaylistDetailScreen.kt`
+  (the shell, Home's shelves, a list's page)
+- `TvNowPlaying.kt`, from `screens/NowPlayingScreen.kt` (the full-screen player, its idle mode and
+  the D-pad seek bar)
+
+Only its UI is used: none of its playback, Widevine or network code, and none of its icons (Apple's
+SF Symbols), images or brand.
+
 ## Backdrop — Apache-2.0
 https://github.com/Kyant0/backdrop (v2.0.0, `io.github.kyant0:backdrop`), Copyright 2025 Kyant0.
 
