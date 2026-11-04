@@ -786,4 +786,6 @@
     <string name="settings_release_notify_detail">Уведомление, когда артист, на которого вы подписаны, что-то выпускает; проверка каждые несколько часов, пока Myspoti работает</string>
     <string name="quality_streaming_very_high">Очень высокое</string>
     <string name="quality_streaming_very_high_detail">256 кбит/с, только для Premium</string>
+    <string name="quality_streaming_lossless">Без потерь</string>
+    <string name="quality_streaming_lossless_detail">FLAC до 24 бит/44,1 кГц, Premium; Spotify даёт его только телефонам с аппаратным DRM, иначе играет «Очень высокое»</string>
 </resources>

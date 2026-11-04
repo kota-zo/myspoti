@@ -778,4 +778,6 @@
     <string name="settings_release_notify_detail">A notification when an artist you follow releases something, checked every few hours while Myspoti runs</string>
     <string name="quality_streaming_very_high">Very high</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, Premium accounts only</string>
+    <string name="quality_streaming_lossless">Lossless</string>
+    <string name="quality_streaming_lossless_detail">FLAC up to 24-bit/44.1 kHz, Premium; Spotify gives it only to phones with hardware DRM, otherwise Very high plays</string>
 </resources>

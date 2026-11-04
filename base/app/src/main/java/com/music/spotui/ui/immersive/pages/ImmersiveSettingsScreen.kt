@@ -82,6 +82,7 @@ private val StreamingChoices = listOf(
     Triple(StreamingQuality.HIGH, R.string.quality_streaming_high, R.string.quality_streaming_high_detail),
     // Offered with a Premium account only (see the page below).
     Triple(StreamingQuality.VERY_HIGH, R.string.quality_streaming_very_high, R.string.quality_streaming_very_high_detail),
+    Triple(StreamingQuality.LOSSLESS, R.string.quality_streaming_lossless, R.string.quality_streaming_lossless_detail),
 )
 
 private val DownloadChoices = listOf(
@@ -419,7 +420,8 @@ private fun StreamingPage(cellular: Boolean, back: () -> Unit) {
     var current by remember(cellular) { mutableStateOf(getStreamingQuality(ctx, cellular)) }
     // Very high is the Web Player's Premium level: offered with a Premium account, kept while chosen.
     val premium by app.myspoti.spotify.AccountPlan.premium.collectAsState()
-    val choices = StreamingChoices.filter { it.first != StreamingQuality.VERY_HIGH || premium == true || current == StreamingQuality.VERY_HIGH }
+    val premiumOnly = setOf(StreamingQuality.VERY_HIGH, StreamingQuality.LOSSLESS)
+    val choices = StreamingChoices.filter { it.first !in premiumOnly || premium == true || current == it.first }
     ImmersivePage(
         title = stringResource(if (cellular) R.string.quality_streaming_cell_title else R.string.quality_streaming_wifi_title),
         onBack = back,

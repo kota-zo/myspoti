@@ -64,6 +64,8 @@ fun StreamingQualityPicker(modifier: Modifier = Modifier, cellular: Boolean = fa
             Option(StreamingQuality.HIGH, R.string.quality_streaming_high, R.string.quality_streaming_high_detail),
             Option(StreamingQuality.VERY_HIGH, R.string.quality_streaming_very_high, R.string.quality_streaming_very_high_detail)
                 .takeIf { premium == true || current == StreamingQuality.VERY_HIGH },
+            Option(StreamingQuality.LOSSLESS, R.string.quality_streaming_lossless, R.string.quality_streaming_lossless_detail)
+                .takeIf { premium == true || current == StreamingQuality.LOSSLESS },
         ),
         selected = current,
         onSelect = { current = it; setStreamingQuality(ctx, it, cellular) },

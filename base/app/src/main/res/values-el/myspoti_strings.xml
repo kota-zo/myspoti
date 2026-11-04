@@ -771,4 +771,6 @@
     <string name="settings_release_notify_detail">Μια ειδοποίηση όταν ένας καλλιτέχνης που ακολουθείς κυκλοφορεί κάτι, με έλεγχο κάθε λίγες ώρες όσο τρέχει το Myspoti</string>
     <string name="quality_streaming_very_high">Πολύ υψηλή</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, μόνο για λογαριασμούς Premium</string>
+    <string name="quality_streaming_lossless">Χωρίς απώλειες</string>
+    <string name="quality_streaming_lossless_detail">FLAC έως 24 bit/44,1 kHz, Premium· το Spotify το δίνει μόνο σε τηλέφωνα με DRM υλικού, αλλιώς παίζει Πολύ υψηλή</string>
 </resources>
