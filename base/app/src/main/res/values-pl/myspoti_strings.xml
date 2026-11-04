@@ -797,4 +797,5 @@
     <string name="settings_sources_detail">Które rozszerzenie odtwarza i pobiera jako pierwsze</string>
     <string name="settings_sources_none">Żadne rozszerzenie nie odtwarza ani nie pobiera jeszcze muzyki: Spotify odtwarza wszystko. Dodaj je w Rozszerzeniach.</string>
     <string name="ext_settings_header">Ustawienia rozszerzeń</string>
+    <string name="queue_autoplay_heading">Autoodtwarzanie</string>
 </resources>

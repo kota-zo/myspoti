@@ -61,6 +61,47 @@ class QueueDragMathTest {
         assertNull(QueueDragMath.swap(order, H, "n0", H, canLeaveQueue = true))
     }
 
+    /**
+     * Spotify's reorderQueue within "next from", as seen on the test account (04/11): exact inside
+     * the context's songs (c..) and inside autoplay's (a..); asked across, a context song goes to the
+     * context's end, an autoplay song first of autoplay's.
+     */
+    private fun spotifyReorder(next: List<String>, moved: String, target: String, after: Boolean): List<String> {
+        val rest = next - moved
+        val auto = { x: String -> x.startsWith("a") }
+        val i = when {
+            auto(moved) == auto(target) -> rest.indexOf(target) + if (after) 1 else 0
+            auto(moved) -> rest.indexOfFirst(auto).let { if (it < 0) rest.size else it }
+            else -> rest.indexOfFirst(auto).let { if (it < 0) rest.size else it }
+        }
+        return rest.toMutableList().apply { add(i, moved) }
+    }
+
+    @Test fun everyDropOfASpotifySongEndsInThePanelsOrder() {
+        val block = { k: String -> if (k.startsWith("a")) 1 else 0 }
+        var checked = 0; var refused = 0
+        for (nc in 0..4) for (na in 0..4) {
+            val next = (0 until nc).map { "c$it" } + (0 until na).map { "a$it" }
+            if (next.isEmpty()) continue
+            val before = listOf(H) + next
+            for (dragged in next) for (to in next) {
+                val after = QueueDragMath.swap(before, dragged, to, H, canLeaveQueue = false, block = block)
+                if (after == null) { if (dragged != to) refused++; continue }
+                val move = QueueDragMath.moveFor(before, after, dragged, H, block)
+                assertTrue("drag $dragged to $to: $move", move is QueueDragMath.Move.Beside)
+                move as QueueDragMath.Move.Beside
+                assertEquals("drag $dragged to $to: $move", QueueDragMath.nextPart(after, H), spotifyReorder(next, dragged, move.target, move.after))
+                checked++
+            }
+        }
+        assertTrue(checked > 50 && refused > 10)
+        // The reported case: a context song under an autoplay one is not a place it can go.
+        assertNull(QueueDragMath.swap(listOf(H, "c0", "c1", "a0", "a1"), "c0", "a0", H, canLeaveQueue = false, block = block))
+        // An autoplay song moved first of autoplay's is named by the song it now precedes.
+        assertEquals(QueueDragMath.Move.Beside("a0", false),
+            QueueDragMath.moveFor(listOf(H, "c0", "a0", "a1"), listOf(H, "c0", "a1", "a0"), "a1", H, block))
+    }
+
     @Test fun theEngineCallNamesTheRowBeforeElseTheRowAfter() {
         val before = listOf("q0", "q1", H, "n0", "n1")
         val m = QueueDragMath.Move.IntoQueue("q1", true)

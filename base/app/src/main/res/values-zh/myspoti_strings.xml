@@ -782,4 +782,5 @@
     <string name="settings_sources_detail">优先播放和下载的扩展</string>
     <string name="settings_sources_none">还没有扩展播放或下载音乐：全部由 Spotify 播放。可在“扩展”中添加。</string>
     <string name="ext_settings_header">扩展设置</string>
+    <string name="queue_autoplay_heading">自动播放</string>
 </resources>

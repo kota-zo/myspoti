@@ -782,4 +782,5 @@
     <string name="settings_sources_detail">Ποια επέκταση παίζει και κατεβάζει πρώτη</string>
     <string name="settings_sources_none">Καμία επέκταση δεν παίζει ή κατεβάζει μουσική ακόμα: το Spotify παίζει τα πάντα. Πρόσθεσε μία στις Επεκτάσεις.</string>
     <string name="ext_settings_header">Ρυθμίσεις επεκτάσεων</string>
+    <string name="queue_autoplay_heading">Αυτόματη αναπαραγωγή</string>
 </resources>

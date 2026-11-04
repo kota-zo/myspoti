@@ -782,4 +782,5 @@
     <string name="settings_sources_detail">Welche Erweiterung zuerst abspielt und herunterlädt</string>
     <string name="settings_sources_none">Noch keine Erweiterung spielt oder lädt Musik: Spotify spielt alles. Füge eine unter Erweiterungen hinzu.</string>
     <string name="ext_settings_header">Einstellungen der Erweiterungen</string>
+    <string name="queue_autoplay_heading">Autoplay</string>
 </resources>
