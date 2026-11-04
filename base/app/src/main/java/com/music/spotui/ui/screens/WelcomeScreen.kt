@@ -57,6 +57,10 @@ import com.music.spotui.ui.components.pressable
 import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppBackground
 import com.music.spotui.ui.theme.AppSans
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.border
+import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -112,13 +116,22 @@ fun WelcomeScreen(onLogin: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).rise(3),
             ) {
+                // A TV remote: the button takes the focus at once and shows it (a white ring); a
+                // focus with no look left nothing on screen to say what OK would do.
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val tv = remember { com.music.spotui.ui.tv.Tv.isTv(ctx) }
+                val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+                var focused by remember { mutableStateOf(false) }
+                if (tv) LaunchedEffect(Unit) { delay(300); runCatching { focus.requestFocus() } }
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
+                        .then(if (tv) Modifier.focusRequester(focus).onFocusChanged { focused = it.isFocused } else Modifier)
                         .pressable(0.96f, onClick = onLogin)
                         .clip(RoundedCornerShape(50))
+                        .then(if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(50)) else Modifier)
                         .background(AppAccent),
                 ) {
                     Text(stringResource(R.string.welcome_login), color = Color.Black, fontFamily = AppSans,

@@ -49,6 +49,8 @@ class MyspotiApplication : Application() {
         com.music.spotui.data.NewReleaseNotifier.start(this)
         // Another account kept on the phone takes over: its own quality and extension settings.
         followAccount()
+        // A TV: what it has no screen for, off; the energy saver on when it is short of means.
+        com.music.spotui.ui.tv.TvCaps.apply(this)
     }
 
     /**
