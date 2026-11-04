@@ -577,6 +577,12 @@
     <string name="settings_player_source_detail">Wiersz mówiący, co gra i jak. Wyłączony: Jakość dźwięku i Stats for nerds są w menu odtwarzacza.</string>
     <string name="settings_player_capsule_title">Kapsuła w odtwarzaczu</string>
     <string name="settings_player_capsule_detail">Przyciski na dole odtwarzacza. Wyłączona: Słuchaj na jest w menu odtwarzacza.</string>
+    <string name="settings_song_pip_title">Obraz w obrazie</string>
+    <string name="settings_song_pip_detail">Po wyjściu z aplikacji podczas odtwarzania utwór zostaje w małym oknie: okładka, tekst i przyciski odtwarzania. Teledysk ma własne okno.</string>
+    <string name="pip_previous">Poprzedni</string>
+    <string name="pip_play">Odtwórz</string>
+    <string name="pip_pause">Pauza</string>
+    <string name="pip_next">Następny</string>
     <string name="downloads_need_source">Pobieranie wymaga rozszerzenia źródłowego. Zainstaluj je w Ustawieniach, Rozszerzenia.</string>
     <string name="downloads_source_row_title">Źródło pobierania</string>
     <string name="downloads_source_row_on">Pliki dostarcza rozszerzenie. Dotknij, aby zarządzać rozszerzeniami.</string>

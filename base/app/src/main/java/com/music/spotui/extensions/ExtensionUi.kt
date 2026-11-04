@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bolt
@@ -161,6 +162,7 @@ fun actionIcon(a: Action?): ImageVector = when (a) {
     Action.WEBVIEW_AUTH -> Icons.Rounded.Key
     Action.STORAGE -> Icons.Rounded.Save
     Action.ATTEST -> Icons.Rounded.Fingerprint
+    Action.UI_STYLE -> Icons.Rounded.Palette
     null -> Icons.Rounded.Extension
 }
 
@@ -189,6 +191,7 @@ fun actionLabel(a: Action?): Int = when (a) {
     Action.WEBVIEW_AUTH -> R.string.action_webview_auth
     Action.STORAGE -> R.string.action_storage
     Action.ATTEST -> R.string.action_attest
+    Action.UI_STYLE -> R.string.action_ui_style
     null -> R.string.action_unknown
 }
 

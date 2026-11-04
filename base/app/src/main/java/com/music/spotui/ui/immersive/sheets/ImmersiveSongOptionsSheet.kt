@@ -332,10 +332,10 @@ fun ImmersiveSongOptionsSheet(
                 tint = if (SongPlayer.sleepEndsAt.value != null) LocalImmersiveSheetTint.current.accent else null,
             ) { showSleep = true }
             // The player's source line and capsule are turned off: their sheets are here instead.
-            if (!com.music.spotui.data.preferences.PlayerSourceLinePref.on) {
+            if (!com.music.spotui.data.preferences.PlayerSourceLinePref.shown) {
                 ImmersiveSheetRow(Icons.Rounded.GraphicEq, stringResource(R.string.quality_sheet_title)) { showQuality = true }
             }
-            if (!com.music.spotui.data.preferences.PlayerCapsulePref.on) {
+            if (!com.music.spotui.data.preferences.PlayerCapsulePref.shown) {
                 ImmersiveSheetRow(Icons.Rounded.Devices, stringResource(R.string.listen_on)) { showDevices = true }
             }
             ImmersiveSheetRow(Icons.Rounded.Analytics, stringResource(R.string.nerd_title)) { showNerd = true }

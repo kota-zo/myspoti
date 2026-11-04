@@ -857,6 +857,10 @@ private fun DisplayPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
                     onChecked = { com.music.spotui.data.preferences.MusicVideoPref.set(ctx, it) }, detail = stringResource(R.string.settings_music_video_detail))
             }
             row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_song_pip_title), checked = com.music.spotui.data.preferences.SongPipPref.on,
+                    onChecked = { com.music.spotui.data.preferences.SongPipPref.set(ctx, it) }, detail = stringResource(R.string.settings_song_pip_detail))
+            }
+            row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_hide_dj_title), checked = com.music.spotui.data.preferences.HideDjPref.on,
                     onChecked = { com.music.spotui.data.preferences.HideDjPref.set(ctx, it) }, detail = stringResource(R.string.settings_hide_dj_detail))
             }

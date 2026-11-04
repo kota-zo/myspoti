@@ -1093,3 +1093,18 @@ fun LyricsOverlay(
         }
     }
 }
+
+/**
+ * The line being sung and the one after it, for the picture-in-picture window ([SongPip]): both
+ * null while the song has no synced lyrics (or none were found).
+ */
+@Composable
+internal fun rememberPipLyricLines(title: String, artist: String): Pair<String?, String?> {
+    val state = rememberLyricsState(viewModel(), title, artist)
+    val l = (state as? LyricsViewModel.State.Loaded)?.lyrics?.takeIf { it.synced } ?: return null to null
+    val position = rememberPosition(com.music.spotui.di.Graph.currentSongState.playingState.value)
+    val active by remember(l) { derivedStateOf { activeIndexFor(l, position()) } }
+    val now = l.lines.getOrNull(active)?.text?.takeIf { it.isNotBlank() }
+    val next = l.lines.drop(active + 1).firstOrNull { it.text.isNotBlank() }?.text
+    return now to next
+}

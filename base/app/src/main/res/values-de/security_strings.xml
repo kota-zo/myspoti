@@ -2,5 +2,6 @@
 <resources>
     <string name="action_playback_mirror">Hält Spotify hier lautlos am Laufen; zählt Wiedergaben auf deinem Konto</string>
     <string name="action_attest">Beweisen, dass dies Myspoti ist</string>
+    <string name="action_ui_style">Aussehen ändern</string>
     <string name="mirror_indicator">Spotify gespiegelt von %1$s</string>
 </resources>

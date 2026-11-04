@@ -239,6 +239,9 @@ object HideDjPref {
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
         private set
 
+    /** Hidden here or by an extension's look (`home.dj`). */
+    val hidden: Boolean get() = on || com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.HOME_DJ)
+
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
@@ -288,6 +291,9 @@ object PlayerLyricsCardPref {
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
 
+    /** Shown: on here and not hidden by an extension's look (`player.lyrics-card`). */
+    val shown: Boolean get() = on && !com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.PLAYER_LYRICS_CARD)
+
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
@@ -304,6 +310,9 @@ object PlayerSourceLinePref {
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
 
+    /** Shown: on here and not hidden by an extension's look (`player.source`). */
+    val shown: Boolean get() = on && !com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.PLAYER_SOURCE)
+
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
@@ -319,6 +328,9 @@ object PlayerCapsulePref {
     private const val KEY = "immersive_player_capsule"
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
+
+    /** Shown: on here and not hidden by an extension's look (`player.capsule`). */
+    val shown: Boolean get() = on && !com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.PLAYER_CAPSULE)
 
     fun set(c: Context, value: Boolean) {
         on = value
@@ -365,6 +377,23 @@ object PlayerVolumePref {
 object LyricsKeepAwakePref {
     private const val KEY = "lyrics_keep_screen_on"
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Picture-in-picture" (Settings > Display, both looks): leaving the app while a song plays opens
+ * a small window with its cover, the line being sung and previous, play/pause and next buttons
+ * ([com.music.spotui.ui.components.SongPip]). Off by default: asked for on Discord, and "keep it
+ * optional" there too. A music video keeps its own window whatever this says.
+ */
+object SongPipPref {
+    private const val KEY = "song_pip"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
         private set
 
     fun set(c: Context, value: Boolean) {

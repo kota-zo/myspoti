@@ -1,0 +1,23 @@
+{
+  "id": "app.myspoti.samples.sunsetlook",
+  "name": "Sunset look (sample)",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "author": "Myspoti",
+  "description": "A sample look-only extension: warm colours, no DJ on Home, Library first in the Classic tabs, slightly larger text and a small card on Home.",
+  "category": "look",
+  "actions": [
+    { "name": "ui.style", "why": "Warm orange colours, Library first, a little larger text" }
+  ],
+  "ui": {
+    "colors": { "accent": "#FF9E3D", "background": "#140C08", "surface": "#2A1A12" },
+    "hide": ["home.dj"],
+    "order": { "nav": ["library", "home", "search"] },
+    "styles": { "text": { "scale": 1.05 } },
+    "blocks": {
+      "home": [
+        { "type": "card", "title": "Sunset mix", "subtitle": "Your evening playlist", "open": "spotify:playlist:37i9dQZF1DX6R7QUWePReA" }
+      ]
+    }
+  }
+}

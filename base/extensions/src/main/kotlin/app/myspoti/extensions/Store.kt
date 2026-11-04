@@ -26,7 +26,7 @@ enum class Category(val key: String) {
             LIBRARY -> setOf(Action.LIBRARY_READ, Action.LIBRARY_WRITE, Action.PLAYLISTS_WRITE)
             DISCOVERY -> setOf(Action.HOME_SECTIONS, Action.SEARCH_PROVIDE, Action.SPOTIFY_CATALOG)
             STATS -> setOf(Action.PLAYBACK_EVENTS, Action.LIBRARY_READ)
-            LOOK -> Action.BLOCKS + Action.WEBVIEW_PAGE
+            LOOK -> Action.BLOCKS + Action.WEBVIEW_PAGE + Action.UI_STYLE
             SOCIAL -> setOf(Action.NETWORK, Action.LIBRARY_READ, Action.SPOTIFY_CATALOG)
             TOOLS, OTHER -> emptySet()
         }

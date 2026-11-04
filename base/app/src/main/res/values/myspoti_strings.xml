@@ -582,6 +582,12 @@
     <string name="settings_player_source_detail">The line that says what plays and how. Off, Sound quality and Stats for nerds are in the player\'s menu.</string>
     <string name="settings_player_capsule_title">Capsule in the player</string>
     <string name="settings_player_capsule_detail">The buttons at the bottom of the player. Off, Listen on is in the player\'s menu.</string>
+    <string name="settings_song_pip_title">Picture-in-picture</string>
+    <string name="settings_song_pip_detail">Leaving the app while a song plays keeps it in a small window: cover, lyrics and playback buttons. A music video has its own window.</string>
+    <string name="pip_previous">Previous</string>
+    <string name="pip_play">Play</string>
+    <string name="pip_pause">Pause</string>
+    <string name="pip_next">Next</string>
     <string name="downloads_need_source">Downloads need a source extension. Install one in Settings, Extensions.</string>
     <string name="downloads_source_row_title">Download source</string>
     <string name="downloads_source_row_on">An extension gives the files. Tap to manage extensions.</string>

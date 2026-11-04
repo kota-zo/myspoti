@@ -485,7 +485,7 @@ internal fun PlayerActionRow(
     onOpenDevices: () -> Unit,
 ) {
     val modes = com.music.spotui.data.preferences.PlayerModesPref.on
-    val capsule = com.music.spotui.data.preferences.PlayerCapsulePref.on
+    val capsule = com.music.spotui.data.preferences.PlayerCapsulePref.shown
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(if (modes) 3 else 2)
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)

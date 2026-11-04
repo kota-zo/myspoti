@@ -705,7 +705,7 @@ fun PlayerScreen(navController: NavController) {
         // artwork only, so a swipe there cannot pull a card up under the compact strip.
         if (!immersive) item {
             // T4: no lyrics card during an ad break — the song it belongs to is not what plays.
-            if (!audioBuffering && !adPlaying && com.music.spotui.data.preferences.PlayerLyricsCardPref.on) InlineLyrics(
+            if (!audioBuffering && !adPlaying && com.music.spotui.data.preferences.PlayerLyricsCardPref.shown) InlineLyrics(
                 title = songTitle,
                 artist = songSinger,
                 album = playerViewModel.currentSongAlbum.value,
@@ -1414,7 +1414,7 @@ fun PlayerConnectRow(
                 var nerd by remember { mutableStateOf(false) }
                 if (quality) com.music.spotui.ui.components.QualitySheet { quality = false }
                 if (nerd) com.music.spotui.ui.components.StatsForNerdsSheet { nerd = false }
-                if (source.isNotBlank() && com.music.spotui.data.preferences.PlayerSourceLinePref.on) Text(
+                if (source.isNotBlank() && com.music.spotui.data.preferences.PlayerSourceLinePref.shown) Text(
                     text = source,
                     color = com.music.spotui.ui.theme.AppMuted,
                     fontSize = 11.sp,

@@ -555,6 +555,12 @@
     <string name="settings_player_source_detail">A linha que diz o que toca e como. Desativada, Qualidade do som e Stats for nerds ficam no menu do leitor.</string>
     <string name="settings_player_capsule_title">Cápsula no leitor</string>
     <string name="settings_player_capsule_detail">Os botões na parte de baixo do leitor. Desativada, Ouvir em fica no menu do leitor.</string>
+    <string name="settings_song_pip_title">Imagem na imagem</string>
+    <string name="settings_song_pip_detail">Ao sair da app enquanto uma música toca, ela fica numa pequena janela: capa, letra e botões de reprodução. Um videoclipe tem a sua própria janela.</string>
+    <string name="pip_previous">Anterior</string>
+    <string name="pip_play">Reproduzir</string>
+    <string name="pip_pause">Pausa</string>
+    <string name="pip_next">Seguinte</string>
     <string name="downloads_need_source">Os downloads precisam de uma extensão de origem. Instale uma em Configurações, Extensões.</string>
     <string name="downloads_source_row_title">Origem dos downloads</string>
     <string name="downloads_source_row_on">Uma extensão fornece os arquivos. Toque para gerenciar as extensões.</string>

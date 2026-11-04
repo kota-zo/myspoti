@@ -11,6 +11,9 @@ API it unlocks; the user sees them as icons, each with your reason, before insta
 This page documents what the build ships (API version 1). Nothing here is a promise about
 anything else.
 
+Look-only extensions (colours, hidden parts, tab order, text size, fixed Home blocks, all declared
+in the manifest and applied by the app) are described in [UI-LOOKS.md](UI-LOOKS.md).
+
 Feature-gated media transforms and concurrent source resolution are described in
 [SOURCE-PIPELINES.md](SOURCE-PIPELINES.md). Providers and recording matching remain
 extension responsibilities; the host keeps its existing safe media transport.
@@ -123,10 +126,11 @@ extensions did there ("Lyrics of X from Y", "Skipped by Z") with a one-tap Turn 
 | `replaces` | string[] | `[]` | Extension ids this one takes the place of (10 at most): installing it offers to turn them off. |
 | `conflictsWith` | string[] | `[]` | Extension ids that must not run with this one (10 at most): the user picks which to keep. Either side declaring it is enough. |
 | `icon` | string | none | A `.png` at the root of the package (square, 256 px or less). Without it, `icon.png` is used if the package has one, else a tile with the name's first letter. |
-| `category` | string | `other` | Where the store files it, one of a fixed list: `lyrics` (needs `lyrics.provide` or `trackinfo.provide`), `playback` (Playback & audio: a `playback.*`, `audio.source` or `player.buttons` action), `library` (`library.read`, `library.write` or `playlists.write`), `discovery` (`home.sections`, `search.provide` or `spotify.catalog`), `stats` (`playback.events` or `library.read`), `look` (Look & feel: a blocks action or `webview.page`), `social` (`network`, `library.read` or `spotify.catalog`), `tools`, `other`. A category the actions do not fit, or an unknown one, is filed under `other` (`myspoti-ext check` says so); an extension with `download.source` is always under `tools`. `tags` are shown and found by the search, not filtered on. |
+| `category` | string | `other` | Where the store files it, one of a fixed list: `lyrics` (needs `lyrics.provide` or `trackinfo.provide`), `playback` (Playback & audio: a `playback.*`, `audio.source` or `player.buttons` action), `library` (`library.read`, `library.write` or `playlists.write`), `discovery` (`home.sections`, `search.provide` or `spotify.catalog`), `stats` (`playback.events` or `library.read`), `look` (Look & feel: a blocks action, `webview.page` or `ui.style`), `social` (`network`, `library.read` or `spotify.catalog`), `tools`, `other`. A category the actions do not fit, or an unknown one, is filed under `other` (`myspoti-ext check` says so); an extension with `download.source` is always under `tools`. `tags` are shown and found by the search, not filtered on. |
 | `tags` | string[] | `[]` | 8 at most, each 1 to 24 characters: lower case letters, digits, spaces, `-`. The store's search finds them. |
 | `minAppVersion` | string | none | The oldest Myspoti it works on (`"2.0.2"`, `"2.0.2-beta.4"`), compared like semantic versions (a release is newer than its betas). An older Myspoti shows "Requires Myspoti 2.0.2 or newer" and does not install it. |
 | `changelog` | string | `""` | What changed in this version, 2000 characters at most: shown on the store page and before an update. |
+| `ui` | object | none | The look the extension gives the app, with the `ui.style` action: see [UI-LOOKS.md](UI-LOOKS.md). Ignored without that action (and by an older app). |
 | `welcome` | object | none | `{ "message": "...", "steps": ["...", "..."] }`, shown once right after the first install (not on updates): what the extension does (600 characters at most) and what is left to do (5 steps at most, 160 characters each). Older apps ignore it. |
 | `translations` | object | `{}` | The texts people see, in other languages, by language tag (`"fr"`, `"pt-BR"`; 80 at most). Below. Older apps ignore it. |
 
@@ -756,6 +760,7 @@ until the user accepts them all with the same tick.
 | `webview.auth` | Key | Sign in on a website | **critical** | takeover | `myspoti.auth.open`, `auth` event |
 | `storage` | Save | Keep its own data | normal | shared | `myspoti.storage` (512 KB) |
 | `attest` | Fingerprint | Prove this is Myspoti | normal | shared | `myspoti.attest` (section 10) |
+| `ui.style` | Palette | Change the look | normal | takeover | manifest `ui`: colours, hidden parts, tab order, text size, Home blocks ([UI-LOOKS.md](UI-LOOKS.md)); never on a protected surface (4.3) |
 
 ### 4.1 Old manifests
 

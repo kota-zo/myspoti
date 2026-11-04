@@ -96,12 +96,20 @@ fun SpotuiTheme(
         // Bare Text() uses LocalTextStyle, which MaterialTheme does NOT derive
         // from the typography — so provide Montserrat as the global default so
         // every screen picks it up without touching each Text call.
-        androidx.compose.material3.ProvideTextStyle(
-            value = androidx.compose.material3.LocalTextStyle.current.copy(
-                fontFamily = Montserrat,
-                letterSpacing = (-0.2).sp,
-            ),
-            content = content,
-        )
+        // An extension's look may make the text a little smaller or larger (ui.styles.text.scale).
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val scale = com.music.spotui.extensions.ExtensionLook.textScale
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalDensity provides
+                if (scale == 1f) density else androidx.compose.ui.unit.Density(density.density, density.fontScale * scale),
+        ) {
+            androidx.compose.material3.ProvideTextStyle(
+                value = androidx.compose.material3.LocalTextStyle.current.copy(
+                    fontFamily = Montserrat,
+                    letterSpacing = (-0.2).sp,
+                ),
+                content = content,
+            )
+        }
     }
 }

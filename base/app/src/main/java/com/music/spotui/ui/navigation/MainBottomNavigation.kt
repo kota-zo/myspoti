@@ -169,7 +169,13 @@ fun MainBottomNavigation(navController: NavHostController) {
 }
 
 // Friend activity opens from Home's header (as in Spotify), not from a tab.
-private val TabItems = listOf(Routes.Home, Routes.Search, Routes.Library)
+/** The tabs, in the order an extension's look sets (`ui.order.nav`) or the app's own. */
+private val TabItems: List<Routes>
+    get() {
+        val tabs = mapOf("home" to Routes.Home, "search" to Routes.Search, "library" to Routes.Library)
+        return com.music.spotui.extensions.ExtensionLook.navOrder?.mapNotNull { tabs[it] }?.takeIf { it.size == tabs.size }
+            ?: listOf(Routes.Home, Routes.Search, Routes.Library)
+    }
 
 /** The tab shown (also on its sub-pages) and what a tap on a tab does; shared by the bar and the rail. */
 private class TabNavigation(private val navController: NavHostController, private val state: androidx.compose.runtime.MutableState<String>, private val currentRoute: String?) {

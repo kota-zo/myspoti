@@ -170,6 +170,7 @@ private fun check(dir: File) {
     val fieldProblems = m.settingFieldProblems()
     fieldProblems.forEach { println("✗ $it") }
     m.settingFieldWarnings().forEach { println("! $it") }
+    m.uiWarnings().forEach { println("! $it") }
     problems.forEach { println("✗ $it") }
     if (m.isLegacy) println("! old format (provides + permissions): it still installs, mapped to actions; write \"actions\" instead (docs/extensions/API.md §2)")
     val granted = m.asks().map { it.key }.toSet()

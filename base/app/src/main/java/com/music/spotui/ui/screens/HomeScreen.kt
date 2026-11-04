@@ -172,7 +172,7 @@ fun HomeFeedContent(navController: NavController, feed: HomeFeedModel, facet: St
     // not force-squeezed into the grid.
     // With podcasts off, their shows and episodes leave the feed (and a section left empty goes).
     // Kept between recompositions: a new list for every one of them would restart the rows below.
-    val hideDj = com.music.spotui.data.preferences.HideDjPref.on
+    val hideDj = com.music.spotui.data.preferences.HideDjPref.hidden
     val sections = remember(feed, hideDj) {
         val all = if (com.music.spotui.data.api.Features.PODCASTS) feed.sections
         else feed.sections.map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Show }) }.filter { it.items.isNotEmpty() }

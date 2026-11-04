@@ -201,6 +201,8 @@ object Extensions {
         watchPlayback()
         watchNetwork()
         watchStatus()
+        // Look-only extensions (ui.style): their colours, hidden parts and order, applied by the app.
+        ExtensionLook.watch()
         watchProvided()
     }
 
@@ -709,11 +711,15 @@ object Extensions {
     suspend fun blocks(hook: Hook, surface: Surface, input: String): Conflicts.Shown<String> {
         if (!isReady || guard.suspended) return Conflicts.Shown(emptyList(), emptyList())
         val providers = providing(hook)
-        if (providers.isEmpty()) return Conflicts.Shown(emptyList(), emptyList())
+        // Home blocks a look declares (ui.blocks.home): fixed, nothing to ask.
+        val declared = if (surface == Surface.HOME) ExtensionLook.applied.homeBlocks.mapNotNull { (id, json) ->
+            runCatching { id to Blocks.parse(json, surface) }.getOrNull()
+        } else emptyList()
+        if (providers.isEmpty() && declared.isEmpty()) return Conflicts.Shown(emptyList(), emptyList())
         val answers = kotlinx.coroutines.coroutineScope {
             providers.map { (id, rt) -> async { id to (callHook(id, rt, hook, input, BLOCKS_MS) { Blocks.parse(it, surface) } ?: emptyList()) } }.map { it.await() }
         }
-        return Conflicts.merge(answers, surface)
+        return Conflicts.merge(answers + declared, surface)
     }
 
     /** A block of [id] with an action was tapped on [surface]; [context]: what the place is about (JSON). */

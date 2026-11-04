@@ -562,6 +562,12 @@
     <string name="settings_player_source_detail">La ligne qui dit ce qui joue et comment. Désactivée, Qualité du son et Stats for nerds sont dans le menu du lecteur.</string>
     <string name="settings_player_capsule_title">Capsule dans le lecteur</string>
     <string name="settings_player_capsule_detail">Les boutons en bas du lecteur. Désactivée, Écouter sur est dans le menu du lecteur.</string>
+    <string name="settings_song_pip_title">Image dans l\'image</string>
+    <string name="settings_song_pip_detail">Quitter l\'app pendant la lecture garde le titre dans une petite fenêtre : pochette, paroles et boutons de lecture. Un clip a sa propre fenêtre.</string>
+    <string name="pip_previous">Précédent</string>
+    <string name="pip_play">Lecture</string>
+    <string name="pip_pause">Pause</string>
+    <string name="pip_next">Suivant</string>
     <string name="downloads_need_source">Les téléchargements ont besoin d\'une extension source. Installez-en une dans Réglages, Extensions.</string>
     <string name="downloads_source_row_title">Source des téléchargements</string>
     <string name="downloads_source_row_on">Une extension fournit les fichiers. Touchez pour gérer les extensions.</string>

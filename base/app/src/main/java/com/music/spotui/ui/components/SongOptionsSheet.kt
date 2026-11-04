@@ -351,7 +351,7 @@ fun SongOptionsSheet(
                     tint = if (active) MenuGreen else MenuIconColor,
                 ) { showSleep = true }
                 // The source line of the player is turned off: its sheet is here instead.
-                if (!com.music.spotui.data.preferences.PlayerSourceLinePref.on) {
+                if (!com.music.spotui.data.preferences.PlayerSourceLinePref.shown) {
                     MenuRow(Icons.Outlined.GraphicEq, stringResource(R.string.quality_sheet_title)) { showQuality = true }
                 }
                 MenuRow(Icons.Outlined.Analytics, stringResource(R.string.nerd_title)) { showNerd = true }

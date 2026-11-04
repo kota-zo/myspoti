@@ -365,6 +365,12 @@ fun SettingsScreen(navController: NavController) {
                 onChecked = { com.music.spotui.data.preferences.SolidNavBar.set(ctx, it) },
             )
             OptionRow(
+                label = stringResource(R.string.settings_song_pip_title),
+                detail = stringResource(R.string.settings_song_pip_detail),
+                checked = com.music.spotui.data.preferences.SongPipPref.on,
+                onChecked = { com.music.spotui.data.preferences.SongPipPref.set(ctx, it) },
+            )
+            OptionRow(
                 label = stringResource(R.string.settings_hide_dj_title),
                 detail = stringResource(R.string.settings_hide_dj_detail),
                 checked = com.music.spotui.data.preferences.HideDjPref.on,

@@ -555,6 +555,12 @@
     <string name="settings_player_source_detail">Η γραμμή που λέει τι παίζει και πώς. Απενεργοποιημένη, η Ποιότητα ήχου και το Stats for nerds είναι στο μενού.</string>
     <string name="settings_player_capsule_title">Κάψουλα στο πρόγραμμα αναπαραγωγής</string>
     <string name="settings_player_capsule_detail">Τα κουμπιά στο κάτω μέρος. Απενεργοποιημένη, το «Ακρόαση σε» είναι στο μενού.</string>
+    <string name="settings_song_pip_title">Εικόνα σε εικόνα</string>
+    <string name="settings_song_pip_detail">Όταν φεύγετε από την εφαρμογή ενώ παίζει ένα τραγούδι, μένει σε ένα μικρό παράθυρο: εξώφυλλο, στίχοι και κουμπιά αναπαραγωγής. Ένα μουσικό βίντεο έχει το δικό του παράθυρο.</string>
+    <string name="pip_previous">Προηγούμενο</string>
+    <string name="pip_play">Αναπαραγωγή</string>
+    <string name="pip_pause">Παύση</string>
+    <string name="pip_next">Επόμενο</string>
     <string name="downloads_need_source">Οι λήψεις χρειάζονται μια επέκταση πηγής. Εγκαταστήστε μία στις Ρυθμίσεις, Επεκτάσεις.</string>
     <string name="downloads_source_row_title">Πηγή λήψεων</string>
     <string name="downloads_source_row_on">Μια επέκταση παρέχει τα αρχεία. Πατήστε για διαχείριση των επεκτάσεων.</string>

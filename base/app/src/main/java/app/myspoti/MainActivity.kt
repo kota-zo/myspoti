@@ -91,8 +91,12 @@ class MainActivity : AppCompatActivity() {
     private var loginProblem by mutableStateOf(false)
     /** The one-time setup screen (permissions, battery) after signing in. */
     private var setupNeeded by mutableStateOf(false)
-    /** In the picture-in-picture window: only the music video is drawn. */
+    /** In the picture-in-picture window: only the music video (or, with [pipSong], the song card) is drawn. */
     private var inPip by mutableStateOf(false)
+    /** The window holds the song ([com.music.spotui.ui.components.SongPip]), not the music video. */
+    private var pipSong by mutableStateOf(false)
+    private var pipReceiver: android.content.BroadcastReceiver? = null
+    private var pipWatch: kotlinx.coroutines.Job? = null
     /** Debug builds: `am start ... --ez showLook true` opens the look step alone, signed in or not. */
     private var showLook by mutableStateOf(false)
     /** The "new look" popup was already shown (or the onboarding look step covered it). */
@@ -189,7 +193,9 @@ class MainActivity : AppCompatActivity() {
                                 androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomEnd))
                         // Picture-in-picture: the clip alone, over the app (which stays composed underneath,
                         // so coming back finds the same screen).
-                        if (inPip) com.music.spotui.ui.components.PipVideo()
+                        if (inPip) {
+                            if (pipSong) com.music.spotui.ui.components.PipSong() else com.music.spotui.ui.components.PipVideo()
+                        }
                     }
                 } } }
             }
@@ -299,8 +305,15 @@ class MainActivity : AppCompatActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         val mv = com.music.spotui.video.MusicVideoController
-        if (!com.music.spotui.data.preferences.MusicVideoPref.on || !mv.on.value || mv.player == null) return
         if (!com.music.spotui.di.SongPlayer.isPlaying() || isInPictureInPictureMode) return
+        if (!com.music.spotui.data.preferences.MusicVideoPref.on || !mv.on.value || mv.player == null) {
+            // No clip: the song itself, when the Picture-in-picture setting is on.
+            if (!signedIn || !com.music.spotui.ui.components.SongPip.wanted()) return
+            pipSong = true
+            if (!runCatching { enterPictureInPictureMode(com.music.spotui.ui.components.SongPip.params(this)) }.getOrDefault(false)) pipSong = false
+            return
+        }
+        pipSong = false
         val ratio = mv.aspect.floatValue.coerceIn(0.5f, 2.3f)
         runCatching {
             enterPictureInPictureMode(
@@ -314,7 +327,22 @@ class MainActivity : AppCompatActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
-        com.music.spotui.video.MusicVideoController.inPip.value = isInPictureInPictureMode
+        if (!pipSong) com.music.spotui.video.MusicVideoController.inPip.value = isInPictureInPictureMode
+        if (isInPictureInPictureMode && pipSong) {
+            if (pipReceiver == null) pipReceiver = com.music.spotui.ui.components.SongPip.listen(this)
+            // Play and pause swap on the window's middle button as the music stops and starts.
+            pipWatch?.cancel()
+            pipWatch = lifecycleScope.launch {
+                androidx.compose.runtime.snapshotFlow { com.music.spotui.di.Graph.currentSongState.playingState.value }.collect {
+                    runCatching { setPictureInPictureParams(com.music.spotui.ui.components.SongPip.params(this@MainActivity)) }
+                }
+            }
+        } else if (!isInPictureInPictureMode) {
+            pipWatch?.cancel(); pipWatch = null
+            pipReceiver?.let { runCatching { unregisterReceiver(it) } }
+            pipReceiver = null
+            pipSong = false
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -345,6 +373,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        pipReceiver?.let { runCatching { unregisterReceiver(it) } }
+        pipReceiver = null
         // The process-wide WebView lives in this activity's root while attached:
         // detach it, or view.parent -> root keeps the destroyed activity (and its
         // whole view tree) alive for the rest of the playback session.

@@ -94,6 +94,8 @@ enum class Action(
         "myspoti.auth.open({ url, callback }) → myspoti.on('auth'): a full web view with its own cookies, apart from the app's; only the callback address comes back"),
     STORAGE("storage", Level.NORMAL, null, "Save", "Keep its own data",
         "myspoti.storage get/set/remove (512 KB)"),
+    UI_STYLE("ui.style", Level.NORMAL, Area.OTHER, "Palette", "Change the look",
+        "manifest \"ui\": colours, hidden parts, tab order, text size and Home blocks, applied by the app (never on protected surfaces)", takeover = true),
     ATTEST("attest", Level.NORMAL, null, "Fingerprint", "Prove this is Myspoti",
         "myspoti.attest enroll/publicKey/sign/reset: a signing key of its own in this phone's hardware keystore, so its server can tell its requests come from a genuine Myspoti install");
 

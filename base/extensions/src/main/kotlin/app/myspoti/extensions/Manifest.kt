@@ -70,6 +70,11 @@ data class Manifest(
     /** Extensions (ids) that must not run with this one: the user is asked which to keep. */
     val conflictsWith: List<String> = emptyList(),
     /**
+     * `ui`: the look it gives the app ([UiStyle]), applied with the `ui.style` action. Ignored
+     * without it (and by an older Myspoti).
+     */
+    val ui: UiStyle? = null,
+    /**
      * The texts shown to people in other languages, by BCP 47 tag (`"fr"`, `"pt-BR"`): any of
      * `name`, `description`, `changelog`, `welcome`, an action's reason (`actions`: name → why) and
      * a setting's `label`, `description` and `options` (`settings`: key → texts; the options' labels,
@@ -275,6 +280,10 @@ data class Manifest(
         }
         if (actions.size != actions.map { it.name }.toSet().size) add("actions: an action listed twice")
         if (settings.isNotEmpty() && actions.none { it.name == Action.SETTINGS_PAGE.key }) add("settings: add the settings.page action (with its why) to have a settings page")
+        if (actions.any { it.name == Action.UI_STYLE.key }) {
+            if (ui == null) add("ui.style: describe the look in \"ui\" (colors, hide, order, styles, blocks)")
+            else addAll(ui.problems())
+        }
     }
 
     /** The rules of an old manifest, as they were: it still installs, mapped to actions. */
@@ -333,6 +342,16 @@ data class Manifest(
             s.sectionOf?.let { sec -> if (sec.action !in actionSet()) add("setting \"${s.key}\": section ${sec.key} is shown only for an extension with ${sec.action.key}, which this one does not ask") }
         }
     }
+
+    /** What is left aside in `ui`, or `ui` without the `ui.style` action, for `myspoti-ext check`: never a reason to refuse. */
+    fun uiWarnings(): List<String> = when {
+        ui == null -> emptyList()
+        !declares(Action.UI_STYLE) -> listOf("ui: ignored without the ui.style action")
+        else -> ui.warnings()
+    }
+
+    /** The look it gives the app, when it asks for it (`ui.style` and `ui`). */
+    fun look(): UiStyle? = ui?.takeIf { declares(Action.UI_STYLE) }
 
     /** Where the store files it: the declared category if its actions fit it, else [Category.OTHER]. */
     fun category(): Category = Category.of(category, actionSet())

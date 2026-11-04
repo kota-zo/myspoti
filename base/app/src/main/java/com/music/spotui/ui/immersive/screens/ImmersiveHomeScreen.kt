@@ -128,7 +128,7 @@ fun ImmersiveHomeScreen(navController: NavController) {
     }
 
     // Podcasts can be off: their shows and episodes then leave the feed.
-    val hideDj = com.music.spotui.data.preferences.HideDjPref.on
+    val hideDj = com.music.spotui.data.preferences.HideDjPref.hidden
     val sections = remember(feed, hideDj) { feed?.let { visibleSections(it) }.orEmpty().let { if (hideDj) it.withoutDj() else it } }
     // Only the untitled section the web home starts with is a shortcut grid; a titled lead
     // section is a carousel like any other.

@@ -597,7 +597,7 @@ private fun RowScope.PlayerCredits(
     // a moment after the song starts), so its arrival fades in below the title and artist
     // instead of moving them.
     val sourceLabel = com.music.spotui.ui.components.playingSourceLabel()
-    val sourceShown = com.music.spotui.data.preferences.PlayerSourceLinePref.on
+    val sourceShown = com.music.spotui.data.preferences.PlayerSourceLinePref.shown
     val hasSource = sourceLabel.isNotBlank() && !state.adPlaying
     val sourceAlpha by animateFloatAsState(if (hasSource) 1f else 0f, tween(250), label = "sourceLine")
     val lineH = if (state.adPlaying) 24.sp else 22.sp
