@@ -12,6 +12,9 @@ import com.music.spotui.di.AutoBrowser
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Starts the Spotify session, the UI singletons and the playback service bindings. */
@@ -44,6 +47,27 @@ class MyspotiApplication : Application() {
         prefetch()
         // New releases of the artists followed, said in a notification (a setting).
         com.music.spotui.data.NewReleaseNotifier.start(this)
+        // Another account kept on the phone takes over: its own quality and extension settings.
+        followAccount()
+    }
+
+    /**
+     * The quality and the extensions' settings are the account's (see ProfilePrefs): when another
+     * account becomes the active one, its streaming level goes to the player and each extension
+     * hears its settings as that account has them.
+     */
+    private fun followAccount() {
+        if (!app.myspoti.host.android.MyspotiRuntime.isStarted) return
+        val ctx = this
+        app.myspoti.host.android.MyspotiRuntime.scope.launch {
+            app.myspoti.host.android.MyspotiRuntime.host.accounts.list
+                .map { it.active }.distinctUntilChanged().drop(1)
+                .collect {
+                    app.myspoti.host.android.Logbook.log("account: settings of the account now in use (quality, extensions)")
+                    com.music.spotui.data.preferences.applyStreamingQuality(ctx)
+                    com.music.spotui.extensions.Extensions.profileChanged()
+                }
+        }
     }
 
     /**

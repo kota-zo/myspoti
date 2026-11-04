@@ -397,7 +397,7 @@ object Extensions {
     suspend fun uninstall(id: String) = withContext(Dispatchers.IO) {
         stop(id)
         update { it.remove(id) }
-        packages.remove(id); stores.remove(id); settings.remove(id); logs.remove(id)
+        packages.remove(id); stores.remove(id); settings.keys.removeAll { it.endsWith("\u0000$id") }; logs.remove(id)
         clearError(id)
         runningSha.remove(id)
         ExtensionAudio.forgetAll()
@@ -1544,7 +1544,38 @@ object Extensions {
     }
 
     private fun logOf(id: String) = logs.getOrPut(id) { ExtensionLog(File(dir, "$id/log.txt")) }
-    private fun settingsOf(id: String) = settings.getOrPut(id) { FileStore(File(dir, "$id/settings.json")) }
+    /**
+     * [id]'s settings as the Spotify account in use has them (asked: the extensions' settings follow
+     * the account): the first account's `settings.json`, another's `settings-<profile>.json`, made
+     * from the first account's at its first read so the extension goes on as it was set.
+     */
+    private fun settingsOf(id: String): FileStore {
+        val profile = com.music.spotui.data.preferences.ProfilePrefs.profile()
+        return settings.getOrPut("$profile\u0000$id") {
+            val first = File(dir, "$id/settings.json")
+            if (profile == app.myspoti.host.android.AccountList.DEFAULT_PROFILE) return@getOrPut FileStore(first)
+            val own = File(dir, "$id/settings-" + profile.filter { it.isLetterOrDigit() || it == '-' || it == '_' } + ".json")
+            if (!own.exists() && first.exists()) runCatching { first.copyTo(own) }
+            FileStore(own)
+        }
+    }
+
+    /**
+     * Another Spotify account took over: each extension on hears its settings as that account has
+     * them (as it hears a change made in its page), its status is asked again (its sign-in may
+     * differ), and who gives what is read again.
+     */
+    fun profileChanged() {
+        if (!isReady) return
+        _registry.value.extensions.filter { it.enabled }.forEach { e ->
+            val keys = settingsOf(e.id).all().keys.map { app.myspoti.extensions.Setting.baseKey(it) }.distinct()
+            if (keys.isNotEmpty()) scope.launch { keys.forEach { sendSetting(e.id, it, pressed = false) } }
+            health.forget(e.id)
+            runtimes[e.id]?.let { rt -> scope.launch { probe(e.id, rt) } }
+        }
+        _statuses.value = health.inactiveNow()
+        refreshProvided()
+    }
     private fun storeOf(id: String) = stores.getOrPut(id) { FileStore(File(dir, "$id/storage.json")) }
 
     /** Replaces [file] whole or throws, never losing the old one (see [com.music.spotui.data.writeBytesSafely]). */

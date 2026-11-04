@@ -43,7 +43,7 @@ object SessionActions {
      * Everything that follows the account leaves with it: nothing of it keeps playing or showing,
      * its caches are dropped, its downloads put aside under it (OfflineAccounts). [forget]: a sign-out
      * or a removal, its listen history goes; otherwise (a switch) it is put aside under it too.
-     * Extensions are the app's, not the account's: they keep running.
+     * Extensions are the app's and keep running; their settings and the quality are the account's (ProfilePrefs).
      */
     private fun leaveAccount(app: android.content.Context, forget: Boolean) {
         // This account's downloads go aside: the next account on the phone sees none of them.

@@ -47,13 +47,14 @@ enum class DownloadQuality {
  * Mobile data follows the Wi-Fi level until it is set on its own.
  */
 fun getStreamingQuality(c: Context, cellular: Boolean = false): StreamingQuality {
-    val wifi = prefs(c).getString(KEY_STREAMING, null)
-    return StreamingQuality.of(if (cellular) prefs(c).getString(KEY_STREAMING_CELL, null) ?: wifi else wifi)
+    // The account's own levels (see ProfilePrefs).
+    val wifi = ProfilePrefs.getString(prefs(c), KEY_STREAMING, null)
+    return StreamingQuality.of(if (cellular) ProfilePrefs.getString(prefs(c), KEY_STREAMING_CELL, null) ?: wifi else wifi)
 }
 
 /** Saves the level for that network and hands the one for the current network to the player. */
 fun setStreamingQuality(c: Context, q: StreamingQuality, cellular: Boolean = false) {
-    prefs(c).edit().putString(if (cellular) KEY_STREAMING_CELL else KEY_STREAMING, q.level).apply()
+    prefs(c).edit().putString(ProfilePrefs.key(if (cellular) KEY_STREAMING_CELL else KEY_STREAMING), q.level).apply()
     applyStreamingQuality(c)
 }
 
