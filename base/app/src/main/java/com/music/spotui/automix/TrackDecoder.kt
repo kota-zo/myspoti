@@ -176,7 +176,9 @@ object TrackDecoder {
      * plus 7.8 s decoding). A read elsewhere (a seek) starts again from there.
      */
     private class ByteSource(private val uri: Uri, private val cancelled: () -> Boolean) : MediaDataSource() {
-        private val data = OfflineCrypto.Factory(Graph.app).createDataSource()
+        // Through the media cache for an extension's song: the bytes read for the analysis are the
+        // ones the song then plays from, not asked a second time (see ExtStreamCache).
+        private val data = com.music.spotui.data.offline.ExtStreamCache.Factory(Graph.app).createDataSource()
         private var size = -1L
         private var sizeKnown = false
         /** [data] is open at 0 from [getSize], not read yet: the first read from 0 goes on from it. */

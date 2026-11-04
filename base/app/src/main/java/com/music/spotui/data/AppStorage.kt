@@ -18,9 +18,12 @@ import java.io.File
 object AppStorage {
     private const val PREFS = "myspoti_prefs"
     private const val KEY_MEDIA_MB = "media_cache_mb"
-    private const val MEDIA_DEFAULT_MB = 64
+    private const val MEDIA_DEFAULT_MB = 256
 
-    /** The sizes offered for the media cache, in MB (64 MB, the old fixed size, by default). */
+    /**
+     * The sizes offered for the media cache, in MB. 256 MB unless chosen: it holds the songs the
+     * extensions stream (the next one read whole ahead), and a lossless song is 30 to 40 MB.
+     */
     val MEDIA_CACHE_CHOICES = listOf(64, 256, 512, 1024)
 
     /** The media cache's size as chosen, in MB (Compose state). */

@@ -67,8 +67,9 @@ object LocalPlayer {
         .setAudioAttributes(audioAttributes, main && !mirrorActive)
         .setHandleAudioBecomingNoisy(main)
         // Downloaded songs are encrypted files: the player reads them through the decrypting source.
+        // An extension's songs go through the media cache (see ExtStreamCache).
         .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
-            com.music.spotui.data.offline.OfflineCrypto.Factory(Graph.app)).setLoadErrorHandlingPolicy(NoAudioNotRetried))
+            com.music.spotui.data.offline.ExtStreamCache.Factory(Graph.app)).setLoadErrorHandlingPolicy(NoAudioNotRetried))
         .build()
         // The speed and the silence skipping of the settings (the fading-out copy too: both are heard).
         .also(::tune)
@@ -249,8 +250,9 @@ object LocalPlayer {
     /**
      * Resolves the next item's audio ahead (ExtensionAudio keeps the answer for its data source),
      * and reads its start: the first bytes of a url (StreamHead), the index and first segment of a
-     * DASH answer, so a skip starts at once. Off a metered network only, apart from the answer
-     * and the DASH index; the next song changing abandons it.
+     * DASH answer, so a skip starts at once, then the song itself into the cache (ExtStreamCache).
+     * Off a metered network only, apart from the answer and the DASH index; the next song
+     * changing abandons it.
      */
     private fun prefetchNext(p: ExoPlayer) {
         ahead?.cancel()
@@ -273,6 +275,11 @@ object LocalPlayer {
                     com.music.spotui.data.offline.StreamHead.fetch(uri.lastPathSegment.orEmpty(), s.url, s.headers,
                         System.currentTimeMillis() + s.keepMs(HEAD_KEEP_MS)) { isActive }
                 }
+                // The whole next song (or its start, a long one) into the cache: it plays on if
+                // the network drops meanwhile, airplane mode included (reported: the song after
+                // skipped a few seconds into a flight).
+                if (cheap && isActive && !com.music.spotui.data.DataSaver.active)
+                    com.music.spotui.data.offline.ExtStreamCache.cacheAhead(Graph.app, uri) { isActive }
             }
         }
     }
