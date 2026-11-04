@@ -145,9 +145,14 @@ fun rememberMixPulse(cue: LocalPlayer.MixCue?): MixPulse? {
             val k = if (com.music.spotui.automix.AutoMix.pulseLevel == 1) 0.55f else 1f
             withFrameNanos { now ->
                 val cue = LocalPlayer.mixCue.value
-                // Drawn in a quarter over the 8 s before the mix, the rest along it.
+                // Drawn in a quarter over the 8 s before the mix, the rest along it. A quick mix (a cut,
+                // a skip) moves as far as its length allows: the whole draw-in and the spring back
+                // squeezed into a second or two read as a jolt. A skip has no run-up: from nothing.
                 val target = cue?.let {
-                    if (it.mixing) 0.25f + 0.75f * smooth(LocalPlayer.fadeProgress())
+                    val depth = ((it.endMs - it.exitMs) / 8_000f).coerceIn(0.3f, 1f)
+                    val from = if (it.skip) 0f else 0.25f
+                    depth * if (it.mixing) from + (1 - from) * smooth(LocalPlayer.fadeProgress())
+                    else if (it.skip) 0f
                     else 0.25f * smooth(((LocalPlayer.position() - (it.exitMs - 8_000)) / 8_000f).coerceIn(0f, 1f))
                 }
                 p.step(now, LocalPlayer.mixPulse() * k, target?.times(k))
