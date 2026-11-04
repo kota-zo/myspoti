@@ -92,3 +92,8 @@
 -keep class com.google.android.gms.net.PlayServicesCronetProvider { *; }
 -keep class com.google.android.gms.net.GmsCoreCronetProvider { *; }
 -keep class com.squareup.zstd.** { *; }
+
+# ONNX Runtime (AutoMix's beat model): its native library finds its Java classes, constructors and
+# fields by name over JNI (OnnxTensor, TensorInfo, OnnxJavaType, OrtException...). Renamed by R8,
+# the first analysis aborted the process (native crash, dev 3135, the first minified build with it).
+-keep class ai.onnxruntime.** { *; }
