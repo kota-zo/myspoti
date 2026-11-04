@@ -314,6 +314,7 @@ private fun EmptyState() {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Text(stringResource(R.string.extensions_empty_title), color = AppText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         Text(stringResource(R.string.extensions_empty_body), color = AppMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+        GuideLink(Modifier.padding(top = 10.dp)) { Text(it, color = com.music.spotui.ui.theme.AppAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -535,5 +536,14 @@ private fun InstallButtons(onRepo: (() -> Unit)?, onFile: () -> Unit, onUrl: () 
         onRepo?.let { OutlinedButton(onClick = it, border = border) { Text(stringResource(R.string.extensions_repository_add), color = AppText, fontSize = 13.sp) } }
         OutlinedButton(onClick = onFile, border = border) { Text(stringResource(R.string.extensions_install_file), color = AppText, fontSize = 13.sp) }
         OutlinedButton(onClick = onUrl, border = border) { Text(stringResource(R.string.extensions_install_url), color = AppText, fontSize = 13.sp) }
+    }
+}
+
+/** The user guide to extensions (kinds, installing, troubleshooting), in the browser. */
+@Composable
+internal fun GuideLink(modifier: Modifier = Modifier, label: @Composable (String) -> Unit) {
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    Box(modifier.clip(RoundedCornerShape(8.dp)).clickable { runCatching { uriHandler.openUri("https://github.com/kota-zo/myspoti/blob/main/docs/extensions/GUIDE.md") } }.padding(vertical = 6.dp)) {
+        label(stringResource(R.string.extensions_guide))
     }
 }

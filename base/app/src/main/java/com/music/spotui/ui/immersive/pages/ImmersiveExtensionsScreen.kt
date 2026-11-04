@@ -283,6 +283,7 @@ private fun EmptyState() {
     Column(Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.extensions_empty_title), style = Immersive.BodyStrong)
         Text(stringResource(R.string.extensions_empty_body), style = Immersive.Subhead, modifier = Modifier.padding(top = 4.dp))
+        com.music.spotui.ui.screens.GuideLink(Modifier.padding(top = 10.dp)) { Text(it, style = Immersive.BodyStrong, color = Immersive.Accent) }
     }
 }
 

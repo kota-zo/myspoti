@@ -243,4 +243,5 @@
     <string name="ext_setting_cell">%1$s · Données mobiles</string>
     <string name="why_source_ext_quality">Son réglage : %1$s (%2$s)</string>
     <string name="extensions_unreadable_file">Le fichier n\'a pas pu être lu</string>
+    <string name="extensions_guide">Comment installer des extensions</string>
 </resources>

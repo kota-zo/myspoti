@@ -246,4 +246,5 @@
     <string name="ext_setting_cell">%1$s · Mobile data</string>
     <!-- "Why this source?": the chosen extension's own quality setting; %1$s is "Quality: FLAC", %2$s the extension. -->
     <string name="why_source_ext_quality">Its setting: %1$s (%2$s)</string>
+    <string name="extensions_guide">How to install extensions</string>
 </resources>

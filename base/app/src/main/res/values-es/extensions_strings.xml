@@ -243,4 +243,5 @@
     <string name="why_source_open_ok">Abierta en %1$d ms</string>
     <string name="why_source_skipped">omitida: %1$s</string>
     <string name="why_source_title">¿Por qué esta fuente?</string>
+    <string name="extensions_guide">Cómo instalar extensiones</string>
 </resources>

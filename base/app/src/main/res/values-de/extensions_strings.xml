@@ -243,4 +243,5 @@
     <string name="why_source_open_ok">In %1$d ms geöffnet</string>
     <string name="why_source_skipped">übersprungen: %1$s</string>
     <string name="why_source_title">Warum diese Quelle?</string>
+    <string name="extensions_guide">So installierst du Erweiterungen</string>
 </resources>

@@ -243,4 +243,5 @@
     <string name="why_source_open_ok">Άνοιξε σε %1$d ms</string>
     <string name="why_source_skipped">παραλείφθηκε: %1$s</string>
     <string name="why_source_title">Γιατί αυτή η πηγή;</string>
+    <string name="extensions_guide">Πώς να εγκαταστήσεις επεκτάσεις</string>
 </resources>
