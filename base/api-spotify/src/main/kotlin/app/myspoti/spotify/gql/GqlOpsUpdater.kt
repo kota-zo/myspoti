@@ -30,8 +30,26 @@ class GqlOpsUpdater(private val http: OkHttpClient, private val cache: File) {
     /** The cached table if any, else the bundled one. */
     fun load(): GqlOps = runCatching { parse(cache.readText()) }.getOrNull() ?: GqlOps.bundled()
 
-    /** Fetches the current build; returns a new table when it changed, else null. */
-    suspend fun refresh(current: GqlOps): GqlOps? = withContext(Dispatchers.IO) {
+    /** When the build was last looked at (a file beside the table). */
+    private val checked = File(cache.path + ".checked")
+
+    /**
+     * Whether a look at the current build is due: not within [minGapMs] of the last one. Every cold
+     * start fetched open.spotify.com before (and every Spotify build its ~6 MB of bundles), next to
+     * the page loading the same; Spotify ships a build about a day.
+     */
+    fun due(now: Long = System.currentTimeMillis(), minGapMs: Long = CHECK_GAP_MS): Boolean {
+        val last = runCatching { checked.readText().trim().toLong() }.getOrNull() ?: return true
+        return now - last !in 0 until minGapMs
+    }
+
+    /**
+     * Fetches the current build; returns a new table when it changed, else null. Without
+     * [bundlesAllowed] (a metered network) a changed build is only noted: its bundles are read on
+     * the next look on Wi-Fi, the table in use meanwhile (an unknown operation falls back to the
+     * page, see BridgeGql).
+     */
+    suspend fun refresh(current: GqlOps, bundlesAllowed: Boolean = true, now: Long = System.currentTimeMillis()): GqlOps? = withContext(Dispatchers.IO) {
         val html = get("https://open.spotify.com/")
         val build = script(html, "appServerConfig")?.let { (it["buildVersion"] as? JsonPrimitive)?.content }
         val urls = LinkedHashSet<String>()
@@ -47,8 +65,12 @@ class GqlOpsUpdater(private val http: OkHttpClient, private val cache: File) {
             .joinToString("") { "%02x".format(it) }
         val cached = runCatching { Bridge.json.parseToJsonElement(cache.readText()).jsonObject }.getOrNull()
         val cachedBuild = cached?.get("buildVersion")?.jsonPrimitive?.content
-        if (build != null && build == cachedBuild) return@withContext null
-        if (build == null && bundleKey == cached?.get("bundleKey")?.jsonPrimitive?.content) return@withContext null
+        if ((build != null && build == cachedBuild) || (build == null && bundleKey == cached?.get("bundleKey")?.jsonPrimitive?.content)) {
+            markChecked(now)
+            return@withContext null
+        }
+        // A new build on mobile data: not marked checked, so the next look (on Wi-Fi) reads it.
+        if (!bundlesAllowed) return@withContext null
         val found = HashMap<String, String>()
         val gate = Semaphore(6)
         coroutineScope {
@@ -64,8 +86,11 @@ class GqlOpsUpdater(private val http: OkHttpClient, private val cache: File) {
         }
         cache.parentFile?.mkdirs()
         cache.writeText(json.toString())
+        markChecked(now)
         GqlOps(merged)
     }
+
+    private fun markChecked(now: Long) { runCatching { cache.parentFile?.mkdirs(); checked.writeText(now.toString()) } }
 
     private fun parse(text: String): GqlOps {
         val ops = Bridge.json.parseToJsonElement(text).jsonObject["operations"] as? JsonObject ?: throw GqlException("ops", "no operations in the table")
@@ -89,6 +114,9 @@ class GqlOpsUpdater(private val http: OkHttpClient, private val cache: File) {
     }
 
     companion object {
+        /** The least time between two looks at Spotify's current build. */
+        const val CHECK_GAP_MS = 6 * 3_600_000L
+
         private val BUNDLE = Regex("https://open\\.spotifycdn\\.com/cdn/build/web-player/[^\"']+?\\.js")
         private val OP = Regex("new [\\w$]+(?:\\.[\\w$]+)?\\(\"(\\w+)\",\"(query|mutation|subscription)\",\"([0-9a-f]{64})\"")
     }

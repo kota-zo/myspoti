@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import java.util.Locale
 
 /**
@@ -30,14 +31,34 @@ object MyspotiRuntime {
     val isStarted: Boolean get() = ::host.isInitialized
     val loginRequired: StateFlow<Boolean> get() = host.loginRequired
 
+    /**
+     * The client of every read the app makes itself (GraphQL, the client token, the operations
+     * update), one pool for them all. It was a bare OkHttpClient: 10 s default timeouts on a
+     * connection the mobile network had dropped while idle, and the old network's connections kept
+     * after a switch. As the relay's: 10 s to connect, 15 s without a byte (an answer of a few
+     * hundred KB comes well within), a ping on idle HTTP/2 connections, and the pool emptied when
+     * the phone changes network ([resetApiConnections]).
+     */
+    val apiHttp: okhttp3.OkHttpClient by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .pingInterval(20, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    /** The phone moved to another network: the API's idle connections belong to the old one. Not on the main thread. */
+    fun resetApiConnections() { if (::host.isInitialized) apiHttp.connectionPool.evictAll() }
+
     /** [loadPage] false (data saver on a metered network): nothing goes out until [resume]. */
     fun start(context: Context, loadPage: Boolean = true) {
         if (isStarted) return
         appContext = context.applicationContext
-        val updater = app.myspoti.spotify.gql.GqlOpsUpdater(okhttp3.OkHttpClient(), java.io.File(context.filesDir, "spotify/gql-ops.json"))
+        val updater = app.myspoti.spotify.gql.GqlOpsUpdater(apiHttp, java.io.File(context.filesDir, "spotify/gql-ops.json"))
         host = WebPlayerHost(context)
         AudioModeWatch.install(context.applicationContext)
-        spotify = SpotifyApi(host, scope, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context, host.accounts.list.value.active), userAgent = host.userAgent,
+        spotify = SpotifyApi(host, scope, http = apiHttp, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context, host.accounts.list.value.active), userAgent = host.userAgent,
             tokenStore = clientTokens(context))
         spotify.bridge.logger = { line -> Logbook.log(line) }
         host.onPageLoaded = { scope.launch { spotify.onPageLoaded() } }
@@ -127,9 +148,15 @@ object MyspotiRuntime {
         }
         if (!loadPage) return
         host.load()
-        // New Spotify build: pick up its operation hashes (public bundles, no account).
-        scope.launch {
-            runCatching { updater.refresh(spotify.opsInUse) }.getOrNull()?.let(spotify::updateOps)
+        // New Spotify build: pick up its operation hashes (public bundles, no account). Once the
+        // page is up rather than beside its load, at most every 6 h, and a new build's bundles
+        // (~6 MB) only off mobile data.
+        if (updater.due()) scope.launch {
+            kotlinx.coroutines.withTimeoutOrNull(30_000) { spotify.ready.first { it } }
+            val metered = runCatching {
+                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).isActiveNetworkMetered
+            }.getOrDefault(true)
+            runCatching { updater.refresh(spotify.opsInUse, bundlesAllowed = !metered) }.getOrNull()?.let(spotify::updateOps)
         }
     }
 

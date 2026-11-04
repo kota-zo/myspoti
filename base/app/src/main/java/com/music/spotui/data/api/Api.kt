@@ -871,20 +871,16 @@ class Api constructor(
         merged
     }.getOrNull()
 
+    private val LIKED_PAGE = 50
+
     /** The newest Liked Songs: one page of 50. */
     private suspend fun likedHead(): List<SongsModel> =
         api.library.likedTracks(0, 50).items.map { songOf(it.track).copy(addedAt = it.addedAt.orEmpty()) }
 
     private suspend fun allLiked(onPage: suspend (List<SongsModel>) -> Unit): List<SongsModel> {
-        val out = ArrayList<SongsModel>()
-        var offset = 0
-        while (true) {
-            val page = api.library.likedTracks(offset, 50)
-            out += page.items.map { songOf(it.track).copy(addedAt = it.addedAt.orEmpty()) }
-            onPage(out.toList())
-            offset = page.nextOffset ?: break
-        }
-        return out
+        fun songs(p: app.myspoti.api.Page<app.myspoti.api.SavedTrack>) = p.items.map { songOf(it.track).copy(addedAt = it.addedAt.orEmpty()) }
+        val first = api.library.likedTracks(0, LIKED_PAGE)
+        return PagedFetch.inOrder(songs(first), first.total, LIKED_PAGE, fetch = { o -> songs(api.library.likedTracks(o, LIKED_PAGE)) }, onBatch = onPage)
     }
 
     /**
@@ -1063,14 +1059,10 @@ class Api constructor(
     }
 
     private suspend fun libraryLevel(folderUri: String?, filter: LibraryFilter = LibraryFilter.ALL): List<app.myspoti.api.LibraryItem> {
-        val out = ArrayList<app.myspoti.api.LibraryItem>()
-        var offset = 0
-        repeat(40) {
-            val page = api.library.items(filter = filter, folderUri = folderUri, offset = offset, limit = 50)
-            out += page.items
-            offset = page.nextOffset ?: return out
-        }
-        return out
+        val first = api.library.items(filter = filter, folderUri = folderUri, offset = 0, limit = 50)
+        // 40 pages at most, as before (2,000 items); the rest four at a time instead of one by one.
+        return PagedFetch.inOrder(first.items, minOf(first.total, 40 * 50), 50,
+            fetch = { o -> api.library.items(filter = filter, folderUri = folderUri, offset = o, limit = 50).items })
     }
 
     /** Flat library (Android Auto, pickers): Liked Songs, playlists, then albums. */

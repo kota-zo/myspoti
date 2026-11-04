@@ -136,8 +136,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     setOnline(true)
                     // The first call names the network the app started on: nothing to drop.
                     if (was == null || was == network) return
-                    Logbook.log("network changed: the relay's idle connections dropped")
+                    Logbook.log("network changed: the relay's and the API's idle connections dropped")
                     ControlRelay.resetConnections()
+                    MyspotiRuntime.resetApiConnections()
                 }
 
                 override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
