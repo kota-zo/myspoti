@@ -83,6 +83,12 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import sh.calvin.reorderable.rememberScroller
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.components.RepeatIcons
 import com.music.spotui.ui.immersive.Immersive
@@ -175,11 +181,17 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     val bottomPad = contentPadding.calculateBottomPadding() + 24.dp
     // A speed, not a jump: the list's height every 100 ms was dozens of songs flying by (seen in a recording).
     val speed = with(LocalDensity.current) { 700.dp.toPx() }
+    // The list scrolls toward an edge only once the finger has gone that way: a row taken near the
+    // bottom of the screen made the list run at once, the finger not having moved (reported).
+    val gate = remember { EdgeScrollGate() }
+    gate.slop = with(LocalDensity.current) { 20.dp.toPx() }
+    // A speed of 0 holds the scroll (the scroller then moves by nothing until the gate opens).
+    val scroller = rememberScroller(listState, { if (gate.allows()) speed else 0f })
     val reorder = rememberReorderableLazyListState(
         listState,
         scrollThresholdPadding = PaddingValues(top = topPad, bottom = bottomPad),
         scrollThreshold = 72.dp,
-        scroller = rememberScroller(listState, pixelPerSecond = speed),
+        scroller = scroller,
     ) { from, to ->
         val o = dragOrder ?: return@rememberReorderableLazyListState
         val f = from.key as? String ?: return@rememberReorderableLazyListState
@@ -189,6 +201,7 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     }
     val onDragStarted: (String) -> Unit = { k ->
         dragStart = order; dragRows = byKey; dragOrder = order
+        gate.begin()
         Haptics.click()
     }
     val onDragStopped: (String) -> Unit = stop@{ k ->
@@ -227,6 +240,13 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     LazyColumn(
         state = listState,
         modifier = modifier
+            .onSizeChanged { gate.height = it.height.toFloat() }
+            .pointerInput(gate) {
+                // Where the finger is, seen before the rows take it (nothing is consumed).
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull()?.let { gate.y = it.position.y }
+                }
+            }
             .nestedScroll(keepScroll)
             .fadingEdges(),
         contentPadding = PaddingValues(
@@ -302,7 +322,7 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
             }
             val row = byKey[k] ?: return@rowItem
             ReorderableItem(reorder, key = k, animateItemModifier = queueMotion()) { dragging ->
-                QueueEntry(row, removed, dragging,
+                QueueEntry(row, removed, dragging, dimmed = reorder.isAnyItemDragging && !dragging,
                     handle = Modifier.draggableHandle(onDragStarted = { onDragStarted(k) }, onDragStopped = { onDragStopped(k) }))
             }
         }
@@ -333,10 +353,27 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
 private data class QRow(val key: String, val item: SongPlayer.QueueItem, val queued: Boolean, val index: Int)
 
 private const val SLOW_REPORT_MS = 3_000L
-/** The carried row's card, opaque. */
-private val CARRIED_ROW = Color(0xFF2C2C30)
-/** How long the card stays after the drop: the row's spring back to its slot. */
-private const val LIFT_SETTLE_MS = 450L
+/** The carried row's veil: light, so it reads as lifted without a dark box over the cover's colours. */
+private val CARRIED_ROW = Color.White.copy(alpha = 0.14f)
+/** While a row is carried the others fade to this: what it passes over stays faint under it. */
+private const val DIMMED_ALPHA = 0.4f
+
+/**
+ * Auto-scroll at the list's edges, held back until the finger goes toward one: from where the drag
+ * started, at least [slop] down in the lower half of the list (it then scrolls down) or up in the
+ * upper half. [y] is the finger in the list, [height] the list's.
+ */
+private class EdgeScrollGate {
+    var y = 0f
+    var height = 0f
+    var slop = 0f
+    private var startY = 0f
+    fun begin() { startY = y }
+    fun allows(): Boolean {
+        val moved = y - startY
+        return if (y > height / 2) moved > slop else moved < -slop
+    }
+}
 private const val HEADING_NEXT = "heading-next"
 
 /** Autoplay's songs (Spotify adds them after the context's) and the context's: blocks no Spotify song leaves. */
@@ -380,7 +417,7 @@ private fun shownRows(queue: SongPlayer.EngineQueue, pending: QueueDragMath.Pend
 /** One upcoming row: swiped away to remove it, dragged by its handle ([handle]) to move it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueueEntry(row: QRow, removed: SnapshotStateList<String>, dragging: Boolean, handle: Modifier) {
+private fun QueueEntry(row: QRow, removed: SnapshotStateList<String>, dragging: Boolean, dimmed: Boolean, handle: Modifier) {
     val item = row.item
     val dismiss = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
         if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -391,20 +428,20 @@ private fun QueueEntry(row: QRow, removed: SnapshotStateList<String>, dragging: 
             false
         }
     })
-    // Carried, and for the moment it settles after the drop: an opaque card. A see-through one let
-    // the titles of the rows it passed over show through it (seen in a recording, 04/11 19:10).
-    var lifted by remember { mutableStateOf(false) }
-    LaunchedEffect(dragging) {
-        if (dragging) lifted = true else if (lifted) { delay(LIFT_SETTLE_MS); lifted = false }
-    }
+    // Carried: a light veil, and the other rows faded, so the titles it passes over do not read
+    // through it (seen in a recording, 04/11 19:10). An opaque dark card instead looked like a box
+    // dragged along, and lingered after the drop (reported): both go in 160 ms.
+    val veil by animateColorAsState(if (dragging) CARRIED_ROW else Color.Transparent, tween(if (dragging) 90 else 160), label = "veil")
+    val alpha by animateFloatAsState(if (dimmed) DIMMED_ALPHA else 1f, tween(160), label = "dim")
     SwipeToDismissBox(
         state = dismiss,
         enableDismissFromStartToEnd = false,
         // No swipe while the row is carried.
         gesturesEnabled = !dragging,
         modifier = Modifier
+            .graphicsLayer { this.alpha = alpha }
             .clip(RoundedCornerShape(14.dp))
-            .background(if (lifted) CARRIED_ROW else Color.Transparent),
+            .background(veil),
         backgroundContent = {
             // Drawn only while swiping: the row is transparent, so at rest this × showed
             // through behind the drag handle.
