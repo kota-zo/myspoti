@@ -99,6 +99,8 @@ class MainActivity : AppCompatActivity() {
     private var lookOffered by mutableStateOf(true)
 
     private val prefs get() = getSharedPreferences("myspoti_prefs", Context.MODE_PRIVATE)
+    /** Android TV: the short TV version of the app (see [com.music.spotui.ui.tv.TvApp]). */
+    private val tv by lazy { com.music.spotui.ui.tv.Tv.isTv(this) }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,6 +114,8 @@ class MainActivity : AppCompatActivity() {
         signedIn = prefs.getBoolean("LoggedIn", false)
         setupNeeded = com.music.spotui.ui.screens.Setup.needed(this)
         lookOffered = com.music.spotui.data.preferences.LookPref.isOffered(this)
+        // A TV has one look of its own and no setup to go through (no battery or file prompts there).
+        if (tv) { setupNeeded = false; lookOffered = true }
         root = FrameLayout(this)
         val compose = ComposeView(this).apply {
             setContent {
@@ -131,7 +135,7 @@ class MainActivity : AppCompatActivity() {
                             signedIn && setupNeeded -> com.music.spotui.ui.screens.SetupScreen(
                                 onDone = { setupNeeded = false },
                             )
-                            signedIn -> App()
+                            signedIn -> if (tv) com.music.spotui.ui.tv.TvApp() else App()
                             connecting -> ConnectingScreen()
                             else -> WelcomeScreen(onLogin = { showLogin() })
                         }
@@ -239,7 +243,7 @@ class MainActivity : AppCompatActivity() {
      * desktop window).
      */
     private fun orientationFor(config: android.content.res.Configuration): Int {
-        val large = config.smallestScreenWidthDp >= 600 || isInMultiWindowMode || isDesktopMode(config)
+        val large = tv || config.smallestScreenWidthDp >= 600 || isInMultiWindowMode || isDesktopMode(config)
         return if (large) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             else com.music.spotui.data.preferences.OrientationPref.requested()
     }
