@@ -277,7 +277,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             it.install()
         }
         // Spotify lossless, when chosen: declared before the page's first script (see setLossless).
-        losslessScript = if (roots.getBoolean(LOSSLESS_KEY, false)) declareLossless(this) else null
+        // Read here, not through [roots]: the first view is made while the host is being built,
+        // before that lazy property below is set (dev 3138 crashed at launch on it).
+        losslessScript = if (context.getSharedPreferences("web_player", Context.MODE_PRIVATE).getBoolean(LOSSLESS_KEY, false)) declareLossless(this) else null
         val webView = this
         cookies().apply {
             setAcceptCookie(true)
