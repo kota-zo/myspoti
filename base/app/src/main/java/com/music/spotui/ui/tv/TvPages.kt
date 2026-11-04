@@ -144,7 +144,7 @@ internal fun TvArtistPage(o: ArtistOverviewModel, onOpen: (TvPage) -> Unit, onPl
         if (releases.isNotEmpty()) item("releases") {
             TvShelf(stringResource(R.string.popular_releases_section_title)) {
                 itemsIndexed(releases, key = { i, a -> "$i:${a.spotifyId}" }) { _, a ->
-                    TvAlbumCard(a.name, a.year, a.coverUri, 160.dp) {
+                    TvAlbumCard(a.name, a.year, a.coverUri, 140.dp) {
                         onOpen(TvPage.Songs(LibraryEntry(a.spotifyId, a.name, a.artists, a.coverUri, isPlaylist = false, uri = "spotify:album:${a.spotifyId}")))
                     }
                 }
@@ -154,7 +154,7 @@ internal fun TvArtistPage(o: ArtistOverviewModel, onOpen: (TvPage) -> Unit, onPl
         if (related.isNotEmpty()) item("related") {
             TvShelf(stringResource(R.string.fans_also_like_section_title)) {
                 itemsIndexed(related, key = { i, a -> "$i:${a.id}" }) { _, a ->
-                    TvAlbumCard(a.name, "", a.coverUri, 150.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
+                    TvAlbumCard(a.name, "", a.coverUri, 130.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
                 }
             }
         }

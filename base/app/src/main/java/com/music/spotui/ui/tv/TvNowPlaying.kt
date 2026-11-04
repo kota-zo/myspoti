@@ -177,7 +177,7 @@ internal fun TvPlayerScreen(
 
         TvClock(Modifier.align(Alignment.TopEnd).padding(end = 32.dp, top = 18.dp).graphicsLayer { alpha = chromeAlpha })
 
-        Row(Modifier.fillMaxSize().padding(horizontal = 72.dp, vertical = 48.dp), horizontalArrangement = Arrangement.spacedBy(64.dp)) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 72.dp, vertical = 36.dp), horizontalArrangement = Arrangement.spacedBy(64.dp)) {
             Column(
                 Modifier.width(380.dp).fillMaxHeight().graphicsLayer {
                     // Idle, the controls still hold their space: the group eases down a little so the
@@ -190,7 +190,7 @@ internal fun TvPlayerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Crossfade(state.coverUrl, animationSpec = tween(800), label = "cover") { url ->
-                    TvCover(url, Modifier.size(320.dp), RoundedCornerShape(18.dp))
+                    TvCover(url, Modifier.size(260.dp), RoundedCornerShape(18.dp))
                 }
                 Spacer(Modifier.height(18.dp))
                 TvMarquee(state.title, 26.sp, FontWeight.Bold, Color.White)

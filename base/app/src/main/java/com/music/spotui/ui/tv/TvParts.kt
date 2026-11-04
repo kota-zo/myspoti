@@ -227,8 +227,8 @@ internal fun TvShelfSkeleton(rows: Int = 3) {
     val a by t.animateFloat(0.05f, 0.16f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "a")
     val bar = Color.White.copy(alpha = a)
     Column(Modifier.fillMaxSize().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-        SkeletonRow(bar, 210.dp, 5)
-        repeat(rows) { SkeletonRow(bar, 150.dp, 7) }
+        SkeletonRow(bar, 200.dp, 5)
+        repeat(rows) { SkeletonRow(bar, 140.dp, 7) }
     }
 }
 

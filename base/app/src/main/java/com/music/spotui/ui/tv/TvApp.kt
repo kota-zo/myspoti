@@ -183,8 +183,8 @@ internal fun TvHomeShelves(greeting: String, feedSections: List<HomeSection>, on
                     itemsIndexed(section.items, key = { j, it -> "$j:${it.name}:${it.imageUrl}" }) { j, item ->
                         val focus = if (lead && j == 0) Modifier.focusRequester(first) else Modifier
                         val page = item.page(likedName) ?: return@itemsIndexed
-                        if (lead) TvGradientCard(item.name, item.subtitleText(), item.imageUrl, 240.dp, focus) { onOpen(page) }
-                        else TvAlbumCard(item.name, item.subtitleText(), item.imageUrl, 160.dp, round = item is HomeItem.Artist, modifier = focus) { onOpen(page) }
+                        if (lead) TvGradientCard(item.name, item.subtitleText(), item.imageUrl, 200.dp, focus) { onOpen(page) }
+                        else TvAlbumCard(item.name, item.subtitleText(), item.imageUrl, 140.dp, round = item is HomeItem.Artist, modifier = focus) { onOpen(page) }
                     }
                 }
             }
@@ -247,7 +247,7 @@ private fun TvGrid(entries: List<LibraryEntry>, modifier: Modifier = Modifier, o
     LazyVerticalGrid(GridCells.Adaptive(176.dp), modifier, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         itemsIndexed(entries, key = { _, it -> it.uri.ifEmpty { it.folderUri.ifEmpty { it.spotifyId } } }) { i, e ->
-            TvAlbumCard(e.name, e.subtitle, e.coverUri, 160.dp, round = ":artist:" in e.uri, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier) { onClick(e) }
+            TvAlbumCard(e.name, e.subtitle, e.coverUri, 150.dp, round = ":artist:" in e.uri, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier) { onClick(e) }
         }
     }
     LaunchedEffect(entries) { runCatching { delay(80); first.requestFocus() } }
@@ -316,7 +316,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (artists.isNotEmpty()) item("artists") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_artists)) {
                 itemsIndexed(artists, key = { i, a -> "$i:${a.id}" }) { _, a ->
-                    TvAlbumCard(a.name, "", a.coverUri, 150.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
+                    TvAlbumCard(a.name, "", a.coverUri, 130.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
                 }
             }
         }
@@ -324,7 +324,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (albums.isNotEmpty()) item("albums") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_albums)) {
                 itemsIndexed(albums, key = { i, a -> "$i:${a.spotifyId}" }) { _, a ->
-                    TvAlbumCard(a.name, a.artists, a.coverUri, 160.dp) {
+                    TvAlbumCard(a.name, a.artists, a.coverUri, 140.dp) {
                         onOpen(TvPage.Songs(LibraryEntry(a.spotifyId, a.name, a.artists, a.coverUri, isPlaylist = false, uri = "spotify:album:${a.spotifyId}")))
                     }
                 }
@@ -333,7 +333,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (f.playlists.isNotEmpty()) item("playlists") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_playlists)) {
                 itemsIndexed(f.playlists, key = { i, e -> "$i:${e.uri}" }) { _, e ->
-                    TvAlbumCard(e.name, e.subtitle, e.coverUri, 160.dp) { onOpen(TvPage.Songs(e)) }
+                    TvAlbumCard(e.name, e.subtitle, e.coverUri, 140.dp) { onOpen(TvPage.Songs(e)) }
                 }
             }
         }
@@ -341,7 +341,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (shows.isNotEmpty()) item("shows") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_podcasts)) {
                 itemsIndexed(shows, key = { i, sh -> "$i:${sh.id}" }) { _, sh ->
-                    TvAlbumCard(sh.name, sh.publisher, sh.coverUri, 160.dp) { onOpen(TvPage.Show(sh.id, sh.name)) }
+                    TvAlbumCard(sh.name, sh.publisher, sh.coverUri, 140.dp) { onOpen(TvPage.Show(sh.id, sh.name)) }
                 }
             }
         }
@@ -395,7 +395,7 @@ internal fun TvSongsPage(entry: LibraryEntry, p: ContextPageModel, onPlay: () ->
             if (owner.isNotBlank()) Text(owner, color = TvAccent, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true, modifier = Modifier.focusRequester(playFocus), onClick = onPlay)
-                TvPillButton(Icons.Default.Shuffle, stringResource(R.string.immersive_player_shuffle_on), filled = false, onClick = onShuffle)
+                TvPillButton(Icons.Default.Shuffle, stringResource(R.string.immersive_shell_shuffle), filled = false, onClick = onShuffle)
             }
         }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
