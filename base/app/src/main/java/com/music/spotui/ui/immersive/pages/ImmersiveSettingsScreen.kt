@@ -464,10 +464,6 @@ private fun CrossfadePage(back: () -> Unit) {
         }
         if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_title, footerRes = R.string.settings_automix_detail) {
             row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_on_next), checked = automix.mixOnNext,
-                    onChecked = automix::changeMixOnNext, detail = stringResource(R.string.settings_automix_on_next_detail))
-            }
-            row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_album_order), checked = automix.albumOrder,
                     onChecked = automix::changeAlbumOrder, detail = stringResource(R.string.settings_automix_album_order_detail))
             }
@@ -495,6 +491,11 @@ private fun CrossfadePage(back: () -> Unit) {
         if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-style", headerRes = R.string.settings_automix_style, footerRes = R.string.settings_automix_style_detail) {
             listOf(R.string.settings_automix_style_blend, R.string.settings_automix_style_cut, R.string.settings_automix_style_fade).forEachIndexed { i, label ->
                 row { ImmersiveChoiceRow(stringResource(label), selected = automix.style == i, onClick = { automix.changeStyle(i) }) }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-next", headerRes = R.string.settings_automix_on_next, footerRes = R.string.settings_automix_on_next_detail) {
+            listOf(R.string.settings_automix_next_cut, R.string.settings_automix_next_quick, R.string.settings_automix_next_full).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.nextStyle == i, onClick = { automix.changeNextStyle(i) }) }
             }
         }
         if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-length", headerRes = R.string.settings_automix_length, footerRes = R.string.settings_automix_length_detail) {

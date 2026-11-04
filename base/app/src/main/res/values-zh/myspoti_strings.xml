@@ -699,8 +699,11 @@
     <string name="settings_transition_automix_detail">像 DJ 一样混音：卡在节拍上、在乐句结尾、速度对齐。混音段显示在进度条上，封面随之律动。</string>
     <string name="settings_transition_crossfade_value">淡入淡出 %1$d 秒</string>
     <string name="settings_crossfade_length">时长</string>
-    <string name="settings_automix_on_next">下一首时混音</string>
-    <string name="settings_automix_on_next_detail">按“下一首”时在节拍上引入下一首，而不是直接切断。</string>
+    <string name="settings_automix_on_next">下一首时</string>
+    <string name="settings_automix_on_next_detail">快速混音让下一首从开头在下一个强拍进入。真正混音会在 4 秒内选择本曲的强拍或乐句，以及下一首的最佳入点，用 4 小节并交换低音。</string>
+    <string name="settings_automix_next_cut">直接切换</string>
+    <string name="settings_automix_next_quick">快速混音</string>
+    <string name="settings_automix_next_full">真正混音</string>
     <string name="settings_automix_album_order">保持专辑完整</string>
     <string name="settings_automix_album_order_detail">专辑中相邻的歌曲之间不混音：像唱片上一样直接衔接。</string>
     <string name="settings_automix_show">在播放器中显示混音</string>

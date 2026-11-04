@@ -714,8 +714,11 @@
     <string name="settings_transition_automix_detail">Miksuje jak DJ: w rytm, na końcu frazy, z dopasowanym tempem. Miks widać na pasku odtwarzania, a okładka pulsuje razem z nim.</string>
     <string name="settings_transition_crossfade_value">Przenikanie %1$d s</string>
     <string name="settings_crossfade_length">Długość</string>
-    <string name="settings_automix_on_next">Miksuj przy Dalej</string>
-    <string name="settings_automix_on_next_detail">Dalej wprowadza następny utwór w rytm zamiast go ucinać.</string>
+    <string name="settings_automix_on_next">Przy Dalej</string>
+    <string name="settings_automix_on_next_detail">Szybki miks wprowadza następny utwór od początku na najbliższą mocną miarę. Prawdziwy miks wybiera mocną miarę lub frazę tego utworu w ciągu 4 sekund i najlepsze wejście następnego, na 4 takty z zamianą basu.</string>
+    <string name="settings_automix_next_cut">Cięcie</string>
+    <string name="settings_automix_next_quick">Szybki miks</string>
+    <string name="settings_automix_next_full">Prawdziwy miks</string>
     <string name="settings_automix_album_order">Albumy w całości</string>
     <string name="settings_automix_album_order_detail">Bez miksu między utworami, które następują po sobie na albumie: łączą się jak na płycie.</string>
     <string name="settings_automix_show">Pokazuj miks w odtwarzaczu</string>

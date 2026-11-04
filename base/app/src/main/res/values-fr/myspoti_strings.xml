@@ -706,8 +706,11 @@
     <string name="settings_transition_automix_detail">Mixe comme un DJ : sur le temps, en fin de phrase, au même tempo. Le mix s\'affiche sur la barre de lecture et la pochette pulse avec.</string>
     <string name="settings_transition_crossfade_value">Fondu %1$d s</string>
     <string name="settings_crossfade_length">Durée</string>
-    <string name="settings_automix_on_next">Mixer sur Suivant</string>
-    <string name="settings_automix_on_next_detail">Suivant fait entrer le morceau suivant sur le temps au lieu de couper.</string>
+    <string name="settings_automix_on_next">Sur Suivant</string>
+    <string name="settings_automix_on_next_detail">Le mix rapide fait entrer le morceau suivant depuis son début sur le prochain temps fort. Le vrai mix choisit un temps fort ou une phrase de ce morceau dans les 4 secondes et la meilleure entrée du suivant, sur 4 mesures avec l\'échange des basses.</string>
+    <string name="settings_automix_next_cut">Coupe</string>
+    <string name="settings_automix_next_quick">Mix rapide</string>
+    <string name="settings_automix_next_full">Vrai mix</string>
     <string name="settings_automix_album_order">Garder les albums intacts</string>
     <string name="settings_automix_album_order_detail">Pas de mix entre deux morceaux qui se suivent sur leur album : ils s\'enchaînent comme sur le disque.</string>
     <string name="settings_automix_show">Afficher le mix dans le lecteur</string>

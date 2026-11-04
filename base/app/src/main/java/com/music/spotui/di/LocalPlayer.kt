@@ -671,8 +671,10 @@ object LocalPlayer {
         val a = tracks.getOrNull(p.currentMediaItemIndex)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
         val b = tracks.getOrNull(next)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) }
         // A skip may stretch more than a natural mix (12 %): it is short, and B is back to its tempo soon after.
-        return app.myspoti.automix.MixPlanner.planSkip(a, b, posMs / 1000.0, (SKIP_RUN_UP_MS + startLead) / 1000.0,
-            com.music.spotui.automix.AutoMix.settings().let { app.myspoti.automix.MixPlanner.Settings(maxStretch = maxOf(it.maxStretch, 0.12), lengthBias = it.lengthBias, style = it.style) })
+        val s = com.music.spotui.automix.AutoMix.settings().let { app.myspoti.automix.MixPlanner.Settings(maxStretch = maxOf(it.maxStretch, 0.12), lengthBias = it.lengthBias, style = it.style) }
+        val lead = (SKIP_RUN_UP_MS + startLead) / 1000.0
+        if (com.music.spotui.automix.AutoMix.nextStyle == 2) app.myspoti.automix.MixPlanner.planSkipFull(a, b, posMs / 1000.0, lead, s)?.let { return it }
+        return app.myspoti.automix.MixPlanner.planSkip(a, b, posMs / 1000.0, lead, s)
     }
 
     /**

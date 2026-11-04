@@ -90,6 +90,47 @@ object MixPlanner {
             if (s.style == MixPlan.Style.FADE) "skip: fade" else "skip: fade (no beat grid here)")
     }
 
+    /**
+     * Next with the real mix: A leaves on one of its downbeats within [window] s of [now] + [lead] (a
+     * phrase start preferred), B comes in at its best entry (its first downbeat or a phrase of its
+     * intro, two voices avoided), beat-matched over 4 bars (2 when a bar is long) with the bass handed
+     * over halfway; tempos too far apart: a cut on A's downbeat onto that entry. Null without both
+     * analyses and grids there: [planSkip] then.
+     */
+    fun planSkipFull(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double, s: Settings = Settings(), window: Double = 4.0): MixPlan? {
+        if (a == null || b == null || s.style == MixPlan.Style.FADE) return null
+        val from = now + lead
+        val (ga, downA) = gridAt(a, from) ?: return null
+        val gb = b.head?.takeIf { !b.headDown.isNaN() } ?: return null
+        val barA = 4 * ga.period
+        var exit = firstDown(ga, downA, from)
+        var why = "A's next downbeat"
+        var t = exit
+        while (t <= from + window && t < ga.last - 2 * ga.period) {
+            val bar = a.barAt(t + 0.05)
+            if (bar >= 0 && a.phrasePos(bar) == 0) { exit = t; why = "A's phrase"; break }
+            t += barA
+        }
+        val entries = entryCues(b, gb)
+        val m = tempoMatch(ga.bpm, gb.bpm)
+        val synced = abs(m.speed - 1) <= s.maxStretch
+        if (s.style == MixPlan.Style.BLEND && synced) {
+            val bars = if (4 * barA <= 9.0) 4 else 2
+            val len = bars * barA
+            if (exit + len <= a.contentEnd) {
+                val n = entries.filter { it.time + len * m.speed < b.contentEnd - 10 }
+                    .maxByOrNull { it.score - voiceClash(a, exit, exit + len, b, it.time, it.time + len * m.speed) * bars / 8.0 }
+                if (n != null) return MixPlan(MixPlan.Style.BLEND, exit, n.time, len, m.speed, bars * 4, 0.5, 1.0 / (bars * 4), matchGain(a, b),
+                    restore(m.speed, gb.period), matchA = matchGainA(a, b),
+                    note = String.format("skip (real mix): %d bars from %s at %.1f, %s, %.1f→%.1f BPM", bars, why, exit, n.why, ga.bpm, gb.bpm))
+            }
+        }
+        val entry = entries.maxBy { it.score }
+        val speed = if (synced) m.speed else 1.0
+        return MixPlan(MixPlan.Style.CUT, exit, entry.time, 2 * ga.period, speed, 2, 0.0, 0.5, matchGain(a, b),
+            if (synced) restore(speed, gb.period) else 0.0, String.format("skip (real mix): cut on %s at %.1f onto %s", why, exit, entry.why))
+    }
+
     /** The grid (and one of its downbeats) holding at A's time [t]: the tail's near the end, the head's near the start, the one grid of a steady song. */
     private fun gridAt(a: TrackAnalysis, t: Double): Pair<Grid, Double>? {
         val tail = a.tail?.takeIf { !a.tailDown.isNaN() && t >= max(it.first, a.contentEnd - Analyzer.TAIL_SEC) && t < it.last }

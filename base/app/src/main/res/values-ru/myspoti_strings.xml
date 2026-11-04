@@ -714,8 +714,11 @@
     <string name="settings_transition_automix_detail">Сводит как диджей: в такт, в конце фразы, с выровненным темпом. Сведение видно на полосе воспроизведения, а обложка пульсирует вместе с ним.</string>
     <string name="settings_transition_crossfade_value">Кроссфейд %1$d с</string>
     <string name="settings_crossfade_length">Длительность</string>
-    <string name="settings_automix_on_next">Сводить по «Далее»</string>
-    <string name="settings_automix_on_next_detail">«Далее» вводит следующий трек в такт, а не обрывает.</string>
+    <string name="settings_automix_on_next">При «Далее»</string>
+    <string name="settings_automix_on_next_detail">Быстрый микс запускает следующий трек с начала на ближайшую сильную долю. Настоящий микс выбирает сильную долю или фразу этого трека в пределах 4 секунд и лучший вход следующего, на 4 такта со сменой баса.</string>
+    <string name="settings_automix_next_cut">Склейка</string>
+    <string name="settings_automix_next_quick">Быстрый микс</string>
+    <string name="settings_automix_next_full">Настоящий микс</string>
     <string name="settings_automix_album_order">Альбомы целиком</string>
     <string name="settings_automix_album_order_detail">Без сведения между треками, идущими подряд на своём альбоме: они переходят друг в друга, как на пластинке.</string>
     <string name="settings_automix_show">Показывать сведение в плеере</string>

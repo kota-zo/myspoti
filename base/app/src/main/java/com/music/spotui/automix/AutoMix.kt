@@ -39,10 +39,19 @@ object AutoMix {
         journal("AutoMix ${if (value) "on" else "off"}")
     }
 
-    /** Next mixes the next song in on the beat (see LocalPlayer.mixOnSkip); off, Next cuts. On by default. */
-    var mixOnNext by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_on_next", true))
+    /**
+     * What Next does (see LocalPlayer.mixOnSkip): 0 cuts, 1 a quick mix from the next downbeat (B from
+     * its start), 2 the real mix (A out on a downbeat or phrase within 4 s, B in at its best entry,
+     * 4 bars with the bass swap). The real mix by default; "Mix on Next" turned off before stays a cut.
+     */
+    var nextStyle by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).let { p ->
+        if (p.contains("automix_next_style")) p.getInt("automix_next_style", 2).coerceIn(0, 2)
+        else if (!p.getBoolean("automix_on_next", true)) 0 else 2
+    })
         private set
-    fun changeMixOnNext(value: Boolean) { mixOnNext = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_on_next", value).apply() }
+    fun changeNextStyle(value: Int) { nextStyle = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_next_style", value).apply() }
+    /** Next mixes at all. */
+    val mixOnNext: Boolean get() = nextStyle != 0
 
     /** No mix between two songs that follow each other on their album. On by default. */
     var albumOrder by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_album_order", true))

@@ -699,8 +699,11 @@
     <string name="settings_transition_automix_detail">Μιξάρει σαν DJ: στον ρυθμό, στο τέλος μιας φράσης, στο ίδιο τέμπο. Η μίξη φαίνεται στη γραμμή αναπαραγωγής και το εξώφυλλο πάλλεται μαζί της.</string>
     <string name="settings_transition_crossfade_value">Crossfade %1$d δ</string>
     <string name="settings_crossfade_length">Διάρκεια</string>
-    <string name="settings_automix_on_next">Μίξη στο Επόμενο</string>
-    <string name="settings_automix_on_next_detail">Το Επόμενο φέρνει το επόμενο τραγούδι στον ρυθμό αντί να κόβει.</string>
+    <string name="settings_automix_on_next">Στο Επόμενο</string>
+    <string name="settings_automix_on_next_detail">Η γρήγορη μίξη φέρνει το επόμενο τραγούδι από την αρχή του στον επόμενο ισχυρό χρόνο. Η πραγματική μίξη διαλέγει έναν ισχυρό χρόνο ή φράση αυτού του τραγουδιού μέσα σε 4 δευτερόλεπτα και την καλύτερη είσοδο του επόμενου, σε 4 μέτρα με αλλαγή μπάσων.</string>
+    <string name="settings_automix_next_cut">Κόψιμο</string>
+    <string name="settings_automix_next_quick">Γρήγορη μίξη</string>
+    <string name="settings_automix_next_full">Πραγματική μίξη</string>
     <string name="settings_automix_album_order">Τα άλμπουμ ολόκληρα</string>
     <string name="settings_automix_album_order_detail">Χωρίς μίξη ανάμεσα σε τραγούδια που διαδέχονται το ένα το άλλο στο άλμπουμ τους: δένουν όπως στον δίσκο.</string>
     <string name="settings_automix_show">Η μίξη στο πρόγραμμα αναπαραγωγής</string>

@@ -598,8 +598,6 @@ private fun TransitionsRow() {
             com.music.spotui.ui.theme.AppAccent, AppText, AppMuted, Modifier.padding(top = 12.dp))
     }
     if (mode == TransitionMode.AUTOMIX) {
-        OptionRow(stringResource(R.string.settings_automix_on_next), stringResource(R.string.settings_automix_on_next_detail),
-            checked = automix.mixOnNext, onChecked = automix::changeMixOnNext)
         OptionRow(stringResource(R.string.settings_automix_album_order), stringResource(R.string.settings_automix_album_order_detail),
             checked = automix.albumOrder, onChecked = automix::changeAlbumOrder)
         OptionRow(stringResource(R.string.settings_automix_podcasts), stringResource(R.string.settings_automix_podcasts_detail),
@@ -624,6 +622,9 @@ private fun TransitionsRow() {
                     labels.forEachIndexed { i, l -> Chip(stringResource(l), selected == i) { pick(i) } }
                 }
             }
+        Choices(R.string.settings_automix_on_next, R.string.settings_automix_on_next_detail,
+            listOf(R.string.settings_automix_next_cut, R.string.settings_automix_next_quick, R.string.settings_automix_next_full),
+            automix.nextStyle, automix::changeNextStyle)
         Choices(R.string.settings_automix_style, R.string.settings_automix_style_detail,
             listOf(R.string.settings_automix_style_blend, R.string.settings_automix_style_cut, R.string.settings_automix_style_fade),
             automix.style, automix::changeStyle)

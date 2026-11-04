@@ -699,8 +699,11 @@
     <string name="settings_transition_automix_detail">Mischt wie ein DJ: im Takt, am Ende einer Phrase, im gleichen Tempo. Der Mix erscheint auf der Fortschrittsleiste und das Cover pulsiert mit.</string>
     <string name="settings_transition_crossfade_value">Überblendung %1$d s</string>
     <string name="settings_crossfade_length">Dauer</string>
-    <string name="settings_automix_on_next">Bei Weiter mischen</string>
-    <string name="settings_automix_on_next_detail">Weiter holt den nächsten Song im Takt herein, statt hart zu schneiden.</string>
+    <string name="settings_automix_on_next">Bei Weiter</string>
+    <string name="settings_automix_on_next_detail">Der schnelle Mix bringt den nächsten Song von seinem Anfang auf der nächsten Eins. Der echte Mix wählt innerhalb von 4 Sekunden eine Eins oder Phrase dieses Songs und den besten Einstieg des nächsten, über 4 Takte mit Basswechsel.</string>
+    <string name="settings_automix_next_cut">Schnitt</string>
+    <string name="settings_automix_next_quick">Schneller Mix</string>
+    <string name="settings_automix_next_full">Echter Mix</string>
     <string name="settings_automix_album_order">Alben am Stück lassen</string>
     <string name="settings_automix_album_order_detail">Kein Mix zwischen Songs, die auf ihrem Album aufeinander folgen: Sie gehen ineinander über wie auf der Platte.</string>
     <string name="settings_automix_show">Mix im Player zeigen</string>

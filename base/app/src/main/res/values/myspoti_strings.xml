@@ -708,8 +708,11 @@
     <string name="settings_transition_automix_detail">Mixes like a DJ: on the beat, at the end of a phrase, tempos matched. The mix shows on the seek bar and the cover pulses with it.</string>
     <string name="settings_transition_crossfade_value">Crossfade %1$d s</string>
     <string name="settings_crossfade_length">Length</string>
-    <string name="settings_automix_on_next">Mix on Next</string>
-    <string name="settings_automix_on_next_detail">Next brings the next song in on the beat instead of cutting.</string>
+    <string name="settings_automix_on_next">On Next</string>
+    <string name="settings_automix_on_next_detail">Quick mix brings the next song in from its start on the next downbeat. Real mix picks a downbeat or phrase of this song within 4 seconds and the best entry of the next one, over 4 bars with the bass swap.</string>
+    <string name="settings_automix_next_cut">Cut</string>
+    <string name="settings_automix_next_quick">Quick mix</string>
+    <string name="settings_automix_next_full">Real mix</string>
     <string name="settings_automix_album_order">Keep albums whole</string>
     <string name="settings_automix_album_order_detail">No mix between songs that follow each other on their album: they run into each other as on the record.</string>
     <string name="settings_automix_show">Show the mix in the player</string>

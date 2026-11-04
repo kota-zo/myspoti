@@ -125,6 +125,20 @@ class AutoMixTest {
         assertEquals(MixPlan.Style.FADE, MixPlanner.planSkip(null, null, 40.0, 0.5).style)
     }
 
+    @Test fun realSkipMixBlendsIntoBsEntryWithinTheWindow() {
+        val a = Analyzer.analyze(loop(124.0, 90.0, seed = 1), null)
+        val b = Analyzer.analyze(loop(122.0, 90.0, offset = 0.3, seed = 2), null)
+        val p = MixPlanner.planSkipFull(a, b, now = 40.0, lead = 0.5)!!
+        assertEquals(MixPlan.Style.BLEND, p.style)
+        assertTrue("after the lead", p.exitA >= 40.5)
+        assertTrue("within the window", p.exitA <= 44.5 + 4 * 60 / 124.0)
+        assertTrue("over bars, not a beat", p.beats >= 8)
+        assertTrue(p.note.startsWith("skip (real mix)"))
+        // Unknown songs or a fade asked: the quick skip handles it.
+        assertEquals(null, MixPlanner.planSkipFull(null, b, 40.0, 0.5))
+        assertEquals(null, MixPlanner.planSkipFull(a, b, 40.0, 0.5, MixPlanner.Settings(style = MixPlan.Style.FADE)))
+    }
+
     @Test fun cutAskedCutsOnTheBeat() {
         val a = Analyzer.analyze(loop(124.0, 90.0, seed = 1), null)
         val b = Analyzer.analyze(loop(122.0, 90.0, offset = 0.3, seed = 2), null)

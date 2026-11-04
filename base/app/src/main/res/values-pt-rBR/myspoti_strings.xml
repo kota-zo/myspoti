@@ -678,8 +678,11 @@
     <string name="settings_transition_automix_detail">Mixa como um DJ: no tempo, no fim de uma frase, com o andamento igualado. A mixagem aparece na barra de reprodução e a capa pulsa junto.</string>
     <string name="settings_transition_crossfade_value">Crossfade %1$d s</string>
     <string name="settings_crossfade_length">Duração</string>
-    <string name="settings_automix_on_next">Mixar no Próxima</string>
-    <string name="settings_automix_on_next_detail">Próxima traz a próxima música no tempo em vez de cortar.</string>
+    <string name="settings_automix_on_next">Ao avançar</string>
+    <string name="settings_automix_on_next_detail">O mix rápido faz a próxima música entrar desde o início no próximo tempo forte. O mix real escolhe um tempo forte ou uma frase desta música em 4 segundos e a melhor entrada da próxima, em 4 compassos com troca de graves.</string>
+    <string name="settings_automix_next_cut">Corte</string>
+    <string name="settings_automix_next_quick">Mix rápido</string>
+    <string name="settings_automix_next_full">Mix real</string>
     <string name="settings_automix_album_order">Álbuns inteiros</string>
     <string name="settings_automix_album_order_detail">Sem mixagem entre músicas que se seguem no álbum: elas se encadeiam como no disco.</string>
     <string name="settings_automix_show">Mostrar a mixagem no player</string>
