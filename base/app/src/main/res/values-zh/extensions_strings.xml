@@ -78,7 +78,6 @@
     <string name="extensions_move_up">上移</string>
     <string name="extensions_move_down">下移</string>
     <string name="extension_off">已关闭</string>
-    <string name="extension_by">作者：%1$s</string>
     <string name="extension_changelog">更新内容</string>
     <string name="extension_update_from">有可用更新：%1$s → %2$s</string>
     <string name="extension_not_listed">你的仓库中没有此扩展（或仓库仍在加载）。</string>

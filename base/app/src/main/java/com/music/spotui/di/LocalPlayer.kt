@@ -948,7 +948,6 @@ object LocalPlayer {
         val entryMs: Long,
         val resumeMs: Long,
         val style: app.myspoti.automix.MixPlan.Style,
-        val nextTitle: String,
         /** The mix is heard (the deck took over); before it, only planned or being prepared. */
         val mixing: Boolean,
         /** A mix for Next rather than at the song's end. */
@@ -984,7 +983,7 @@ object LocalPlayer {
         }
         val cue = MixCue(
             (plan.exitA * 1000).toLong(), (plan.endA * 1000).toLong(), (plan.entryB * 1000).toLong(), (plan.resumeB * 1000).toLong(),
-            plan.style, b?.title.orEmpty(), run?.state == MixState.MIXING, run?.skip == true,
+            plan.style, run?.state == MixState.MIXING, run?.skip == true,
         )
         if (cueState.value != cue) cueState.value = cue
     }

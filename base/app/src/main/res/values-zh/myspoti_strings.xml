@@ -226,14 +226,12 @@
     <string name="setup_ext_audio_title">其他音源</string>
     <string name="setup_ext_audio_detail">扩展可以从其他音源播放你的歌曲，音质由它提供。</string>
     <string name="setup_ext_download_title">下载</string>
-    <string name="setup_ext_download_detail">想离线收听，请安装下载类扩展。歌曲会加密保存在 Myspoti 中。</string>
     <string name="setup_ext_more_title">更多</string>
     <string name="setup_ext_more_detail">由作者添加的首页板块、页面和工具。</string>
     <string name="setup_ext_safe_title">一切由你掌控</string>
     <string name="setup_ext_safe_detail">安装前，它会显示可以做什么。需要更多权限时会再次询问，你也可以随时移除。</string>
     <string name="setup_ext_where">在 设置 › 扩展 中查找，来源包括 GitHub、GitLab 和 Codeberg。扩展由其作者编写，而非 Myspoti。</string>
     <string name="setup_ext_browse">查看扩展</string>
-    <string name="setup_ext_later">稍后</string>
     <string name="local_folders_button">文件夹</string>
     <string name="local_folders_title">文件夹</string>
     <string name="local_folders_detail">选择“本地文件”中显示的文件夹。通讯应用和录音文件夹默认隐藏。</string>
@@ -286,10 +284,6 @@
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">启动时检查更新</string>
     <string name="settings_auto_update_detail">关闭：应用启动时不检查。下方的手动检查仍然可用。</string>
-    <string name="settings_check_update_title">立即检查更新</string>
-    <string name="settings_check_update_detail">查找较新的版本并提示安装</string>
-    <string name="settings_update_checking">正在检查…</string>
-    <string name="settings_update_check_latest">Myspoti 已是最新版本</string>
     <!-- A25: stop the queue, keep the songs already downloaded. -->
     <string name="downloads_stop_all_title">停止所有下载</string>
     <string name="downloads_stop_all_detail">取消剩余的下载；已下载的歌曲会保留</string>

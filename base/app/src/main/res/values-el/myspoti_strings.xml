@@ -205,14 +205,12 @@
     <string name="setup_ext_audio_title">Άλλες πηγές ήχου</string>
     <string name="setup_ext_audio_detail">Μια επέκταση μπορεί να παίζει τα τραγούδια σου από άλλη πηγή, στην ποιότητα που προσφέρει.</string>
     <string name="setup_ext_download_title">Λήψεις</string>
-    <string name="setup_ext_download_detail">Για ακρόαση εκτός σύνδεσης, εγκατέστησε μια επέκταση λήψεων. Τα τραγούδια μένουν κρυπτογραφημένα στο Myspoti.</string>
     <string name="setup_ext_more_title">Και άλλα</string>
     <string name="setup_ext_more_detail">Ενότητες αρχικής, σελίδες και εργαλεία από τους δημιουργούς τους.</string>
     <string name="setup_ext_safe_title">Εσύ έχεις τον έλεγχο</string>
     <string name="setup_ext_safe_detail">Πριν την εγκατάσταση δείχνει τι μπορεί να κάνει. Για οτιδήποτε άλλο ρωτά ξανά, και μπορείς να την αφαιρέσεις όποτε θέλεις.</string>
     <string name="setup_ext_where">Θα τις βρεις στις Ρυθμίσεις, Επεκτάσεις, από GitHub, GitLab και Codeberg. Τις γράφουν οι δημιουργοί τους, όχι το Myspoti.</string>
     <string name="setup_ext_browse">Δες τις επεκτάσεις</string>
-    <string name="setup_ext_later">Αργότερα</string>
     <string name="local_folders_button">Φάκελοι</string>
     <string name="local_folders_title">Φάκελοι</string>
     <string name="local_folders_detail">Επίλεξε τους φακέλους που εμφανίζονται στα Τοπικά αρχεία. Οι εφαρμογές μηνυμάτων και οι ηχογραφήσεις ξεκινούν κρυφές.</string>
@@ -384,10 +382,6 @@
     <string name="recents_collapse">Απόκρυψη των κομματιών</string>
     <string name="settings_auto_update_title">Έλεγχος για ενημερώσεις κατά την εκκίνηση</string>
     <string name="settings_auto_update_detail">Ανενεργό: δεν γίνεται έλεγχος όταν ανοίγει η εφαρμογή. Ο χειροκίνητος έλεγχος παρακάτω εξακολουθεί να λειτουργεί.</string>
-    <string name="settings_check_update_title">Έλεγχος για ενημερώσεις τώρα</string>
-    <string name="settings_check_update_detail">Αναζητά νεότερη έκδοση και προτείνει την εγκατάστασή της</string>
-    <string name="settings_update_checking">Έλεγχος…</string>
-    <string name="settings_update_check_latest">Το Myspoti είναι ενημερωμένο</string>
     <string name="downloads_stop_all_title">Διακοπή όλων των λήψεων</string>
     <string name="downloads_stop_all_detail">Ακυρώνει ό,τι απομένει· τα τραγούδια που έχουν ήδη ληφθεί διατηρούνται</string>
     <string name="context_menu_remove_from_playlist">Αφαίρεση από αυτή την playlist</string>

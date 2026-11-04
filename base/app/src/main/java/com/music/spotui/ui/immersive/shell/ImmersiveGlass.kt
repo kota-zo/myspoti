@@ -359,12 +359,3 @@ private fun LayoutCoordinates.findRoot(): LayoutCoordinates {
     var c = this
     while (true) c = c.parentCoordinates ?: return c
 }
-
-private fun LayoutCoordinates.isAncestorOf(other: LayoutCoordinates): Boolean {
-    var c: LayoutCoordinates? = other
-    while (c != null) {
-        if (c === this) return true
-        c = c.parentCoordinates
-    }
-    return false
-}

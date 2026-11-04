@@ -13,7 +13,6 @@
     <string name="stats_this_week">На этой неделе: %1$d мин</string>
     <string name="stats_listening_stats">Статистика прослушивания</string>
     <string name="friends_title">Активность друзей</string>
-    <string name="friends_detail">Что слушают люди, на которых вы подписаны</string>
     <string name="friends_now">Сейчас</string>
     <string name="friends_empty">Пока нет активности друзей. Друзья, на которых вы подписаны и которые делятся активностью в Spotify, появятся здесь.</string>
     <string name="friends_failed">Spotify не прислал активность друзей.</string>

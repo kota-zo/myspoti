@@ -18,10 +18,6 @@ object Analyzer {
     const val HEAD_SEC = 75.0
     const val TAIL_SEC = 90.0
 
-    /** Seconds of the start and of the end that Beat This reads. */
-    const val MODEL_HEAD_SEC = 30.0
-    const val MODEL_TAIL_SEC = 40.0
-
     /**
      * [mid] and [side] (or null) at [Features.RATE] Hz. With [model], Beat This reads the song's first
      * and last seconds for the metrical level and the downbeats; without it (or when it finds no

@@ -48,8 +48,6 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
     val likeState = currentSongState.likeState
 
 
-    val playingArtist by mutableStateOf(currentSongSinger.value)
-
 
 
 
@@ -110,20 +108,6 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
     /** The song's artist page; a song by several artists asks which one first (see ArtistChooser). */
     fun goToArtist(trackId: String, fallbackName: String, navigate: (route: String) -> Unit) =
         com.music.spotui.ui.components.ArtistChooser.goForTrack(trackId, fallbackName, navigate)
-
-    /**
-     * Play the track at an absolute [index] in [queueSongs]. Used by the now-playing
-     * swipe pager, where the artwork follows the finger and settles on a chosen page.
-     * No-op if [index] is already the current track (prevents a feedback replay when
-     * the pager is merely snapping to reflect an external track change).
-     */
-    fun playSongAt(queueSongs: List<SongsModel>, index: Int, context: Context) {
-        if (index !in queueSongs.indices) return
-        val song = queueSongs[index]
-        if (song.id == currentSongId.value) return
-        updateSongState(song.coverUri, song.title, song.singer, true, song.id, index, song.album)
-        SongPlayer.playSong(song.url, context, songs = queueSongs)
-    }
 
     fun playPreviousSong(queueSongs : List<SongsModel>, context: Context) {
         SongPlayer.previous()

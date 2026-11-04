@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Przesuń w górę</string>
     <string name="extensions_move_down">Przesuń w dół</string>
     <string name="extension_off">Wyłączone</string>
-    <string name="extension_by">autor: %1$s</string>
     <string name="extension_changelog">Co nowego</string>
     <string name="extension_update_from">Dostępna aktualizacja: %1$s → %2$s</string>
     <string name="extension_not_listed">Tego rozszerzenia nie ma w Twoich repozytoriach (albo jeszcze się wczytują).</string>

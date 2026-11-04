@@ -283,16 +283,6 @@ class Api constructor(
 
     // ── Home ──
 
-    /** New releases: albums from the home feed's music shelves. */
-    suspend fun getAlbums(): Flow<Response<List<AlbumsModel>>> = flow {
-        HomeCache.albums?.let { emit(Response.Success(it)) } ?: emit(Response.Loading())
-        if (!ready()) { if (HomeCache.albums == null) emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { newReleases() }.fold(
-            onSuccess = { HomeCache.albums = it; emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getAlbums failed", it); if (HomeCache.albums == null) emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
     /**
      * New releases for the "New releases" screen: albums from artists the user follows
      * (home shelves), then Spotify's new-release editorial playlists' albums.
@@ -395,26 +385,6 @@ class Api constructor(
         return list
     }
 
-    /** The user's top artists. */
-    suspend fun getArtists(): Flow<Response<List<ArtistsModel>>> = flow {
-        HomeCache.artists?.let { emit(Response.Success(it)) } ?: emit(Response.Loading())
-        if (!ready()) { if (HomeCache.artists == null) emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { api.users.top(limit = 20).artists.map(::artistOf) }.fold(
-            onSuccess = { HomeCache.artists = it; emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getArtists failed", it); if (HomeCache.artists == null) emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** The user's top tracks. */
-    suspend fun getSongs(): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { api.users.top(limit = 50).tracks.map(::songOf) }.fold(
-            onSuccess = { emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getSongs failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
     /** [facet]: "" (all), "music-chip", "podcasts-chip", "audiobooks-chip", or a sub-chip Spotify sent (HomeSubChips). */
     suspend fun getHomeFeed(facet: String = ""): Flow<Response<HomeFeedModel>> = flow {
         val cached = if (facet.isEmpty()) HomeCache.home ?: diskHome() else HomeCache.facets[facet]
@@ -498,14 +468,6 @@ class Api constructor(
             onSuccess = { songs -> SongPlayer.registerContext(songs.map { it.url }, uri); emit(Response.Success(songs)) },
             onFailure = { Log.e("Api", "getShowEpisodes failed", it); emit(Response.Error(it.message ?: "error")) },
         )
-    }
-
-    /** Show header (name, publisher, cover). */
-    suspend fun getShow(showId: String): PodcastModel? {
-        if (!ready()) return null
-        return runCatching { api.podcasts.show("spotify:show:$showId") }.getOrNull()?.let {
-            PodcastModel(showId, it.name, it.publisher, big(it.images))
-        }
     }
 
     /**
@@ -1079,35 +1041,6 @@ class Api constructor(
         if (failed && songs.isEmpty()) emit(Response.Error(context.getString(R.string.couldnt_load, pl.name)))
     }
 
-    suspend fun getAlbumSongs(albumName: String, artist: String = ""): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (albumName.isBlank()) { emit(Response.Success(emptyList())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val id = resolveAlbumId(albumName, artist) ?: run { emit(Response.Success(emptyList())); return@flow }
-        runCatching { api.catalog.albumTracks("spotify:album:$id", 0, 50).items.map(::songOf) }.fold(
-            onSuccess = { songs -> SongPlayer.registerContext(songs.map { it.url }, "spotify:album:$id"); emit(Response.Success(songs)) },
-            onFailure = { Log.e("Api", "getAlbumSongs failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** A playlist's tracks, first page at once, then the rest. */
-    suspend fun getPlaylistSongs(playlistId: String): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (playlistId.isBlank()) { emit(Response.Success(emptyList())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val uri = "spotify:playlist:$playlistId"
-        val songs = ArrayList<SongsModel>()
-        var offset = 0
-        while (true) {
-            val page = runCatching { api.playlists.tracks(uri, offset, 100) }.getOrNull() ?: break
-            songs += withDeviceFiles(page.items.map(::songOf))
-            SongPlayer.registerContext(songs.map { it.url }, uri)
-            emit(Response.Success(songs.toList()))
-            offset = page.nextOffset ?: break
-        }
-        if (songs.isEmpty()) emit(Response.Error(context.getString(R.string.page_load_failed)))
-    }
-
     // ── Library ──
 
     private fun entryOf(item: app.myspoti.api.LibraryItem): LibraryEntry? = when (item.kind) {
@@ -1193,24 +1126,6 @@ class Api constructor(
         val map = java.util.concurrent.ConcurrentHashMap<String, Entry>()
     }
 
-    /** Liked Songs as playable songs. */
-    suspend fun getLikedSongs(): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val liked = runCatching {
-            allLiked { emit(Response.Success(it)) }
-        }
-        if (liked.exceptionOrNull() is CancellationException) throw liked.exceptionOrNull()!!
-        liked.fold(
-            onSuccess = { songs ->
-                SongPlayer.registerLikedSongs(songs.map { it.url })
-                LikedCache.tracks = songs
-                emit(Response.Success(songs))
-            },
-            onFailure = { emit(Response.Error(context.getString(R.string.couldnt_load, context.getString(R.string.collection_liked_songs_title)))) },
-        )
-    }
-
     /** The signed-in account (name, avatar, plan). Spotify does not give the e-mail to the Web Player. */
     suspend fun getAccount(): Flow<Response<com.music.spotui.data.entity.AccountModel>> = flow {
         emit(Response.Loading())
@@ -1222,22 +1137,6 @@ class Api constructor(
                 )))
             },
             onFailure = { Log.e("Api", "getAccount failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** Playlist header by id. */
-    suspend fun getPlaylist(playlistId: String): Flow<Response<AlbumsModel>> = flow {
-        emit(Response.Loading())
-        if (playlistId.isBlank()) { emit(Response.Error("missing playlist id")); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { api.playlists.playlist("spotify:playlist:$playlistId") }.fold(
-            onSuccess = { p ->
-                emit(Response.Success(AlbumsModel(
-                    id = stableId("playlist:${p.uri}"), artists = p.owner.orEmpty(), coverUri = big(p.images),
-                    name = p.name, time = stripHtml(p.description), spotifyId = playlistId,
-                )))
-            },
-            onFailure = { Log.e("Api", "getPlaylist failed", it); emit(Response.Error(it.message ?: "error")) },
         )
     }
 

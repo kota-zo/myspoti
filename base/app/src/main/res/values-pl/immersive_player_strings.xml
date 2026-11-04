@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_player_close">Zamknij odtwarzacz</string>
     <string name="immersive_player_play">Odtwarzaj</string>
     <string name="immersive_player_pause">Wstrzymaj</string>
     <string name="immersive_player_previous">Poprzedni</string>
@@ -22,7 +21,5 @@
     <string name="immersive_player_volume_down">Ciszej</string>
     <string name="immersive_player_volume_up">Głośniej</string>
     <string name="immersive_player_ad">Reklama</string>
-    <string name="immersive_player_explicit">Treści nieodpowiednie dla dzieci</string>
     <string name="immersive_player_added_to_liked">Dodano do polubionych utworów</string>
-    <string name="immersive_player_mini_player">Otwórz odtwarzacz</string>
 </resources>

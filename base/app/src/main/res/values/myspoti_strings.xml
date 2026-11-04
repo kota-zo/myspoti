@@ -237,14 +237,12 @@
     <string name="player_source_spotify">Spotify · %1$s</string>
     <string name="downloads_need_source_title">Downloads need an extension</string>
     <string name="downloads_need_source_detail">Songs are downloaded by extensions. None is installed yet: open the Extensions store and install Mornye to download.</string>
-    <string name="setup_ext_download_detail">To listen offline, install a download-source extension. Songs stay encrypted in Myspoti.</string>
     <string name="setup_ext_more_title">And more</string>
     <string name="setup_ext_more_detail">Home sections, pages and tools added by their authors.</string>
     <string name="setup_ext_safe_title">You stay in control</string>
     <string name="setup_ext_safe_detail">Before you install one, it shows what it may do. It asks again for anything more, and you can remove it at any time.</string>
     <string name="setup_ext_where">Find them in Settings, Extensions, from GitHub, GitLab and Codeberg. They are written by their authors, not by Myspoti.</string>
     <string name="setup_ext_browse">See the extensions</string>
-    <string name="setup_ext_later">Later</string>
     <string name="local_folders_button">Folders</string>
     <string name="local_folders_title">Folders</string>
     <string name="local_folders_detail">Choose the folders shown in Local Files. Messaging apps and recordings start hidden.</string>
@@ -318,10 +316,6 @@
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Check for updates at launch</string>
     <string name="settings_auto_update_detail">Off: no check when the app starts. The manual check below still works.</string>
-    <string name="settings_check_update_title">Check for updates now</string>
-    <string name="settings_check_update_detail">Looks for a newer version and offers to install it</string>
-    <string name="settings_update_checking">Checking…</string>
-    <string name="settings_update_check_latest">Myspoti is up to date</string>
     <string name="settings_update_refresh">Check for updates</string>
     <string name="settings_update_uptodate_now">Up to date (checked just now)</string>
     <string name="settings_update_last_checked">Last checked: %1$s</string>

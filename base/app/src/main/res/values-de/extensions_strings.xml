@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Nach oben</string>
     <string name="extensions_move_down">Nach unten</string>
     <string name="extension_off">Aus</string>
-    <string name="extension_by">von %1$s</string>
     <string name="extension_changelog">Neuigkeiten</string>
     <string name="extension_update_from">Update verfügbar: %1$s → %2$s</string>
     <string name="extension_not_listed">Diese Erweiterung ist in deinen Repositories nicht enthalten (oder sie werden noch geladen).</string>

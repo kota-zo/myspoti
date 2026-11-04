@@ -29,8 +29,6 @@ private val ownSans = FontFamily(sans(400), sans(500), sans(600), sans(700), san
 
 /** The app's font: Manrope, or the phone's system font when chosen in the settings (AppFontPref). */
 val AppSans: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else ownSans
-/** Headings: the same family, heavier cuts. */
-val AppSansTitle: FontFamily get() = AppSans
 
 // Kept as an alias so existing references (Theme.kt etc.) don't break.
 val Montserrat: FontFamily get() = AppSans

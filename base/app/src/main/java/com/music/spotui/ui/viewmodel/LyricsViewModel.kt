@@ -183,13 +183,6 @@ class LyricsViewModel constructor() : ViewModel() {
         translate(cur, targetLang, showWhenDone = true)
     }
 
-    fun prepareTranslation(targetLang: String) {
-        val cur = _state.value as? State.Loaded ?: return
-        if (cur.translating || cur.translationLanguage == targetLang) return
-        if (sameLanguage(cur.sourceLanguage, targetLang)) return
-        translate(cur, targetLang, showWhenDone = false)
-    }
-
     private fun translate(cur: State.Loaded, targetLang: String, showWhenDone: Boolean) {
         _state.value = cur.copy(
             translating = true,

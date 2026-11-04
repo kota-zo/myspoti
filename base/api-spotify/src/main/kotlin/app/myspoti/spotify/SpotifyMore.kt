@@ -630,6 +630,5 @@ class SpotifyJam(private val bridge: Bridge, private val http: SpotifyHttp) : Ja
     }
 
     override suspend fun removeMember(userUri: Uri) { bridge.service("SocialConnectAPI", "removeSessionMember", JsonPrimitive(idOf(userUri))); refresh() }
-    override suspend fun setQueueOnly(on: Boolean) { bridge.service("SocialConnectAPI", "setQueueOnlyMode", JsonPrimitive(on)); refresh() }
     override suspend fun setParticipantVolumeControl(on: Boolean) { bridge.service("SocialConnectAPI", "setParticipantVolumeControl", JsonPrimitive(on)) }
 }

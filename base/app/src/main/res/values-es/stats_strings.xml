@@ -13,7 +13,6 @@
     <string name="stats_this_week">Esta semana: %1$d min</string>
     <string name="stats_listening_stats">Estadísticas de escucha</string>
     <string name="friends_title">Actividad de amigos</string>
-    <string name="friends_detail">Lo que escuchan las personas a las que sigues</string>
     <string name="friends_now">Ahora</string>
     <string name="friends_empty">Aún no hay actividad de amigos. Los amigos a los que sigues y que comparten su actividad de escucha en Spotify aparecerán aquí.</string>
     <string name="friends_failed">Spotify no envió la actividad de amigos.</string>

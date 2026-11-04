@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Monter</string>
     <string name="extensions_move_down">Descendre</string>
     <string name="extension_off">Désactivée</string>
-    <string name="extension_by">par %1$s</string>
     <string name="extension_changelog">Nouveautés</string>
     <string name="extension_update_from">Mise à jour disponible : %1$s → %2$s</string>
     <string name="extension_not_listed">Cette extension n\'est pas dans vos dépôts (ou ils sont encore en chargement).</string>

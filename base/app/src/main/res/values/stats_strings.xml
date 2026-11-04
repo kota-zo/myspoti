@@ -14,7 +14,6 @@
     <string name="stats_this_week">This week: %1$d min</string>
     <string name="stats_listening_stats">Listening stats</string>
     <string name="friends_title">Friend activity</string>
-    <string name="friends_detail">What the people you follow are listening to</string>
     <string name="friends_now">Now</string>
     <string name="friends_empty">No friend activity yet. Friends you follow who share their listening activity on Spotify show up here.</string>
     <string name="friends_failed">Spotify didn\'t send the friend activity.</string>

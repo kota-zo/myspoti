@@ -306,7 +306,6 @@ interface Jam {
     suspend fun end()
     suspend fun inviteLink(): String?
     suspend fun removeMember(userUri: Uri)
-    suspend fun setQueueOnly(on: Boolean)
     suspend fun setParticipantVolumeControl(on: Boolean)
 }
 

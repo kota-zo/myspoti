@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Sposta su</string>
     <string name="extensions_move_down">Sposta giù</string>
     <string name="extension_off">Disattivata</string>
-    <string name="extension_by">di %1$s</string>
     <string name="extension_changelog">Novità</string>
     <string name="extension_update_from">Aggiornamento disponibile: %1$s → %2$s</string>
     <string name="extension_not_listed">Questa estensione non è nei tuoi repository (o sono ancora in caricamento).</string>

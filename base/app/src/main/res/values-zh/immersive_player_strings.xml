@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_player_close">关闭播放器</string>
     <string name="immersive_player_play">播放</string>
     <string name="immersive_player_pause">暂停</string>
     <string name="immersive_player_previous">上一首</string>
@@ -22,7 +21,5 @@
     <string name="immersive_player_volume_down">调低音量</string>
     <string name="immersive_player_volume_up">调高音量</string>
     <string name="immersive_player_ad">广告</string>
-    <string name="immersive_player_explicit">含不良内容</string>
     <string name="immersive_player_added_to_liked">已添加到“已点赞的歌曲”</string>
-    <string name="immersive_player_mini_player">打开播放器</string>
 </resources>

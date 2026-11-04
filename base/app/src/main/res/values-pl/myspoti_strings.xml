@@ -229,14 +229,12 @@
     <string name="setup_ext_audio_title">Inne źródła dźwięku</string>
     <string name="setup_ext_audio_detail">Rozszerzenie może odtwarzać Twoje utwory z innego źródła, w jakości, jaką oferuje.</string>
     <string name="setup_ext_download_title">Pobieranie</string>
-    <string name="setup_ext_download_detail">Aby słuchać offline, zainstaluj rozszerzenie do pobierania. Utwory zostają zaszyfrowane w Myspoti.</string>
     <string name="setup_ext_more_title">I więcej</string>
     <string name="setup_ext_more_detail">Sekcje strony głównej, strony i narzędzia dodane przez ich autorów.</string>
     <string name="setup_ext_safe_title">Ty decydujesz</string>
     <string name="setup_ext_safe_detail">Przed instalacją pokazuje, co może robić. O wszystko inne pyta ponownie, a usunąć je możesz w każdej chwili.</string>
     <string name="setup_ext_where">Znajdziesz je w Ustawienia, Rozszerzenia, z GitHub, GitLab i Codeberg. Piszą je ich autorzy, nie Myspoti.</string>
     <string name="setup_ext_browse">Zobacz rozszerzenia</string>
-    <string name="setup_ext_later">Później</string>
     <string name="local_folders_button">Foldery</string>
     <string name="local_folders_title">Foldery</string>
     <string name="local_folders_detail">Wybierz foldery pokazywane w plikach lokalnych. Komunikatory i nagrania są domyślnie ukryte.</string>
@@ -289,10 +287,6 @@
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Sprawdzaj aktualizacje przy uruchomieniu</string>
     <string name="settings_auto_update_detail">Wyłączone: bez sprawdzania przy starcie aplikacji. Ręczne sprawdzanie poniżej nadal działa.</string>
-    <string name="settings_check_update_title">Sprawdź aktualizacje teraz</string>
-    <string name="settings_check_update_detail">Szuka nowszej wersji i proponuje jej instalację</string>
-    <string name="settings_update_checking">Sprawdzanie…</string>
-    <string name="settings_update_check_latest">Myspoti jest aktualne</string>
     <!-- A25: stop the queue, keep the songs already downloaded. -->
     <string name="downloads_stop_all_title">Zatrzymaj wszystkie pobierania</string>
     <string name="downloads_stop_all_detail">Anuluje to, co zostało; już pobrane utwory zostają</string>

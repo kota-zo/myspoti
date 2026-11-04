@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Выше</string>
     <string name="extensions_move_down">Ниже</string>
     <string name="extension_off">Выключено</string>
-    <string name="extension_by">автор: %1$s</string>
     <string name="extension_changelog">Что нового</string>
     <string name="extension_update_from">Доступно обновление: %1$s → %2$s</string>
     <string name="extension_not_listed">Этого расширения нет в ваших репозиториях (или они ещё загружаются).</string>

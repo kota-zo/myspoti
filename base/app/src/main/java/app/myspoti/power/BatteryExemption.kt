@@ -37,9 +37,4 @@ object BatteryExemption {
         runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
     }
 
-    /** Asks once (onboarding, or the first launch after an update); later from Settings. */
-    fun askOnce(context: Context) {
-        val asked = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ASKED, false)
-        if (!asked && !isExempt(context)) request(context)
-    }
 }

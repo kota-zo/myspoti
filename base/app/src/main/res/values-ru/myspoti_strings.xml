@@ -229,14 +229,12 @@
     <string name="setup_ext_audio_title">Другие источники звука</string>
     <string name="setup_ext_audio_detail">Расширение может воспроизводить ваши треки из другого источника, в том качестве, которое оно предлагает.</string>
     <string name="setup_ext_download_title">Загрузки</string>
-    <string name="setup_ext_download_detail">Чтобы слушать офлайн, установите расширение для загрузок. Треки хранятся в Myspoti в зашифрованном виде.</string>
     <string name="setup_ext_more_title">И многое другое</string>
     <string name="setup_ext_more_detail">Разделы главной, страницы и инструменты от их авторов.</string>
     <string name="setup_ext_safe_title">Всё под вашим контролем</string>
     <string name="setup_ext_safe_detail">Перед установкой расширение показывает, что ему разрешено. За всё остальное оно спросит снова, а удалить его можно в любой момент.</string>
     <string name="setup_ext_where">Ищите их в Настройки, Расширения — с GitHub, GitLab и Codeberg. Их пишут авторы, а не Myspoti.</string>
     <string name="setup_ext_browse">Посмотреть расширения</string>
-    <string name="setup_ext_later">Позже</string>
     <string name="local_folders_button">Папки</string>
     <string name="local_folders_title">Папки</string>
     <string name="local_folders_detail">Выберите папки, показываемые в локальных файлах. Мессенджеры и записи изначально скрыты.</string>
@@ -289,10 +287,6 @@
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Проверять обновления при запуске</string>
     <string name="settings_auto_update_detail">Выкл.: при запуске приложения проверки нет. Ручная проверка ниже по-прежнему работает.</string>
-    <string name="settings_check_update_title">Проверить обновления сейчас</string>
-    <string name="settings_check_update_detail">Ищет новую версию и предлагает её установить</string>
-    <string name="settings_update_checking">Проверка…</string>
-    <string name="settings_update_check_latest">У вас последняя версия Myspoti</string>
     <!-- A25: stop the queue, keep the songs already downloaded. -->
     <string name="downloads_stop_all_title">Остановить все загрузки</string>
     <string name="downloads_stop_all_detail">Отменяет оставшееся; уже скачанные треки сохраняются</string>

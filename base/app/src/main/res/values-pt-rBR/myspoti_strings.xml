@@ -229,14 +229,12 @@
     <string name="player_source_spotify">Spotify · %1$s</string>
     <string name="downloads_need_source_title">Os downloads precisam de uma extensão</string>
     <string name="downloads_need_source_detail">As músicas são baixadas por extensões. Nenhuma está instalada ainda: abra a loja de Extensões e instale o Mornye para baixar.</string>
-    <string name="setup_ext_download_detail">Para ouvir offline, instale uma extensão de fonte de downloads. As músicas ficam criptografadas no Myspoti.</string>
     <string name="setup_ext_more_title">E mais</string>
     <string name="setup_ext_more_detail">Seções do Início, páginas e ferramentas adicionadas pelos autores.</string>
     <string name="setup_ext_safe_title">Você continua no controle</string>
     <string name="setup_ext_safe_detail">Antes de instalar uma, ela mostra o que pode fazer. Ela pergunta de novo para qualquer coisa a mais, e você pode removê-la a qualquer momento.</string>
     <string name="setup_ext_where">Encontre-as em Configurações, Extensões, no GitHub, GitLab e Codeberg. Elas são escritas por seus autores, não pelo Myspoti.</string>
     <string name="setup_ext_browse">Ver as extensões</string>
-    <string name="setup_ext_later">Depois</string>
     <string name="local_folders_button">Pastas</string>
     <string name="local_folders_title">Pastas</string>
     <string name="local_folders_detail">Escolha as pastas mostradas em Arquivos locais. Apps de mensagens e gravações começam ocultos.</string>
@@ -310,10 +308,6 @@
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Verificar atualizações ao abrir</string>
     <string name="settings_auto_update_detail">Desativado: nenhuma verificação quando o app inicia. A verificação manual abaixo continua funcionando.</string>
-    <string name="settings_check_update_title">Verificar atualizações agora</string>
-    <string name="settings_check_update_detail">Procura uma versão mais recente e oferece instalá-la</string>
-    <string name="settings_update_checking">Verificando…</string>
-    <string name="settings_update_check_latest">O Myspoti está atualizado</string>
     <string name="settings_update_refresh">Verificar atualizações</string>
     <string name="settings_update_uptodate_now">Atualizado (verificado agora há pouco)</string>
     <string name="settings_update_last_checked">Última verificação: %1$s</string>

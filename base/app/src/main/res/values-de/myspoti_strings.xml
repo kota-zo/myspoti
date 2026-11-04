@@ -205,14 +205,12 @@
     <string name="setup_ext_audio_title">Andere Audioquellen</string>
     <string name="setup_ext_audio_detail">Eine Erweiterung kann deine Songs aus einer anderen Quelle abspielen, in der Qualität, die sie bietet.</string>
     <string name="setup_ext_download_title">Downloads</string>
-    <string name="setup_ext_download_detail">Zum Offline-Hören installierst du eine Download-Erweiterung. Die Songs bleiben verschlüsselt in Myspoti.</string>
     <string name="setup_ext_more_title">Und mehr</string>
     <string name="setup_ext_more_detail">Startseiten-Bereiche, Seiten und Werkzeuge ihrer Autoren.</string>
     <string name="setup_ext_safe_title">Du behältst die Kontrolle</string>
     <string name="setup_ext_safe_detail">Vor der Installation zeigt sie, was sie darf. Für alles Weitere fragt sie erneut, und du kannst sie jederzeit entfernen.</string>
     <string name="setup_ext_where">Du findest sie unter Einstellungen, Erweiterungen, von GitHub, GitLab und Codeberg. Sie stammen von ihren Autoren, nicht von Myspoti.</string>
     <string name="setup_ext_browse">Erweiterungen ansehen</string>
-    <string name="setup_ext_later">Später</string>
     <string name="local_folders_button">Ordner</string>
     <string name="local_folders_title">Ordner</string>
     <string name="local_folders_detail">Wähle die Ordner aus, die in Lokale Dateien angezeigt werden. Messenger-Apps und Aufnahmen sind zunächst ausgeblendet.</string>
@@ -384,10 +382,6 @@
     <string name="recents_collapse">Titel ausblenden</string>
     <string name="settings_auto_update_title">Beim Start nach Updates suchen</string>
     <string name="settings_auto_update_detail">Aus: Beim Start der App wird nicht gesucht. Die manuelle Suche unten funktioniert weiterhin.</string>
-    <string name="settings_check_update_title">Jetzt nach Updates suchen</string>
-    <string name="settings_check_update_detail">Sucht nach einer neueren Version und bietet die Installation an</string>
-    <string name="settings_update_checking">Wird geprüft…</string>
-    <string name="settings_update_check_latest">Myspoti ist auf dem neuesten Stand</string>
     <string name="downloads_stop_all_title">Alle Downloads stoppen</string>
     <string name="downloads_stop_all_detail">Bricht ab, was noch übrig ist; bereits heruntergeladene Songs bleiben erhalten</string>
     <string name="context_menu_remove_from_playlist">Aus dieser Playlist entfernen</string>

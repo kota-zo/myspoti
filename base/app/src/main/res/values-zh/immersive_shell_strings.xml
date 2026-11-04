@@ -8,5 +8,4 @@
     <string name="immersive_shell_shuffle">随机播放</string>
     <string name="immersive_shell_see_all">查看全部</string>
     <string name="immersive_shell_now_playing">正在播放</string>
-    <string name="immersive_shell_explicit">含不良内容</string>
 </resources>

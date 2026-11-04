@@ -39,7 +39,6 @@ object ImmersiveMotion {
      * instead of writing their own numbers.
      */
     const val FADE_MS = 150
-    const val SHORT_MS = 220
     const val MEDIUM_MS = 320
     const val LONG_MS = 420
     const val TINT_MS = 600

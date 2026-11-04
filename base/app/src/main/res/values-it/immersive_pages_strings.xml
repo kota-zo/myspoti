@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_pages_songs">Brani</string>
-    <string name="immersive_pages_artists">Artisti</string>
-    <string name="immersive_pages_albums">Album</string>
-    <string name="immersive_pages_unknown_artist">Artista sconosciuto</string>
-    <string name="immersive_pages_unknown_album">Album sconosciuto</string>
     <string name="immersive_pages_name_hint">Nome</string>
-    <string name="immersive_pages_play_group">Riproduci %1$s</string>
 </resources>

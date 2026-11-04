@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_pages_songs">Τραγούδια</string>
-    <string name="immersive_pages_artists">Καλλιτέχνες</string>
-    <string name="immersive_pages_albums">Άλμπουμ</string>
-    <string name="immersive_pages_unknown_artist">Άγνωστος καλλιτέχνης</string>
-    <string name="immersive_pages_unknown_album">Άγνωστο άλμπουμ</string>
     <string name="immersive_pages_name_hint">Όνομα</string>
-    <string name="immersive_pages_play_group">Αναπαραγωγή: %1$s</string>
 </resources>

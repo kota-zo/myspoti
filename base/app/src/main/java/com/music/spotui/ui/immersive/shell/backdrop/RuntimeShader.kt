@@ -25,10 +25,6 @@ fun RuntimeShader(@Language("AGSL") shaderString: String): RuntimeShader {
     return AndroidRuntimeShader(shader)
 }
 
-fun RuntimeShader.asComposeShader(): Shader {
-    return this.asAndroidRuntimeShader()
-}
-
 fun RuntimeShader.asAndroidRuntimeShader(): android.graphics.RuntimeShader {
     return (this as AndroidRuntimeShader).shader
 }

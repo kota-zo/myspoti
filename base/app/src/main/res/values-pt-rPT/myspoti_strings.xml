@@ -199,14 +199,12 @@
     <string name="setup_ext_audio_title">Outras fontes de áudio</string>
     <string name="setup_ext_audio_detail">Uma extensão pode tocar suas músicas de outra fonte, na qualidade que ela oferece.</string>
     <string name="setup_ext_download_title">Downloads</string>
-    <string name="setup_ext_download_detail">Para ouvir offline, instale uma extensão de download. As músicas ficam criptografadas no Myspoti.</string>
     <string name="setup_ext_more_title">E mais</string>
     <string name="setup_ext_more_detail">Seções da página inicial, páginas e ferramentas adicionadas pelos autores.</string>
     <string name="setup_ext_safe_title">Você no controle</string>
     <string name="setup_ext_safe_detail">Antes de instalar, ela mostra o que pode fazer. Pede de novo para qualquer coisa a mais, e você pode removê-la quando quiser.</string>
     <string name="setup_ext_where">Encontre-as em Configurações, Extensões, no GitHub, GitLab e Codeberg. Elas são escritas pelos autores, não pelo Myspoti.</string>
     <string name="setup_ext_browse">Ver as extensões</string>
-    <string name="setup_ext_later">Depois</string>
     <string name="local_folders_button">Pastas</string>
     <string name="local_folders_title">Pastas</string>
     <string name="local_folders_detail">Escolhe as pastas mostradas em Ficheiros locais. As apps de mensagens e as gravações começam ocultas.</string>
@@ -375,10 +373,6 @@
     <string name="recents_collapse">Ocultar as músicas</string>
     <string name="settings_auto_update_title">Procurar atualizações ao arrancar</string>
     <string name="settings_auto_update_detail">Desligado: não procura ao iniciar a app. A procura manual abaixo continua a funcionar.</string>
-    <string name="settings_check_update_title">Procurar atualizações agora</string>
-    <string name="settings_check_update_detail">Procura uma versão mais recente e oferece instalá-la</string>
-    <string name="settings_update_checking">A verificar…</string>
-    <string name="settings_update_check_latest">O Myspoti está atualizado</string>
     <string name="downloads_stop_all_title">Parar todas as transferências</string>
     <string name="downloads_stop_all_detail">Cancela o que falta; as músicas já transferidas são mantidas</string>
     <string name="context_menu_remove_from_playlist">Remover desta playlist</string>

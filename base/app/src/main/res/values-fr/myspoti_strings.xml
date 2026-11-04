@@ -232,14 +232,12 @@
     <string name="setup_ext_audio_title">D\'autres sources audio</string>
     <string name="setup_ext_audio_detail">Une extension peut lire tes titres depuis une autre source, dans la qualité qu\'elle propose.</string>
     <string name="setup_ext_download_title">Téléchargements</string>
-    <string name="setup_ext_download_detail">Pour écouter hors connexion, installe une extension de téléchargement. Les titres restent chiffrés dans Myspoti.</string>
     <string name="setup_ext_more_title">Et plus</string>
     <string name="setup_ext_more_detail">Des sections d\'accueil, des pages et des outils ajoutés par leurs auteurs.</string>
     <string name="setup_ext_safe_title">Tu gardes la main</string>
     <string name="setup_ext_safe_detail">Avant l\'installation, elle montre ce qu\'elle peut faire. Elle redemande pour tout le reste, et tu peux la supprimer quand tu veux.</string>
     <string name="setup_ext_where">Tu les trouves dans Paramètres, Extensions, depuis GitHub, GitLab et Codeberg. Elles sont écrites par leurs auteurs, pas par Myspoti.</string>
     <string name="setup_ext_browse">Voir les extensions</string>
-    <string name="setup_ext_later">Plus tard</string>
     <string name="local_folders_button">Dossiers</string>
     <string name="local_folders_title">Dossiers</string>
     <string name="local_folders_detail">Choisis les dossiers affichés dans Fichiers locaux. Les applis de messagerie et les enregistrements sont masqués au départ.</string>
@@ -313,10 +311,6 @@
     <!-- A18 : la vérification automatique peut être coupée, la vérification manuelle reste. -->
     <string name="settings_auto_update_title">Vérifier les mises à jour au lancement</string>
     <string name="settings_auto_update_detail">Désactivé : aucune vérification au démarrage. La vérification manuelle ci-dessous fonctionne toujours.</string>
-    <string name="settings_check_update_title">Vérifier les mises à jour maintenant</string>
-    <string name="settings_check_update_detail">Cherche une version plus récente et propose de l\'installer</string>
-    <string name="settings_update_checking">Vérification…</string>
-    <string name="settings_update_check_latest">Myspoti est à jour</string>
     <string name="settings_update_refresh">Vérifier les mises à jour</string>
     <string name="settings_update_uptodate_now">À jour (vérifié à l\'instant)</string>
     <string name="settings_update_last_checked">Dernière vérification : %1$s</string>

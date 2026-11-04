@@ -203,8 +203,6 @@ data class EpisodeAudio(
     /** Spotify's copy format ("MP4_128", "DO_NOT_USE"…); diagnostic only. */
     val format: String,
 ) {
-    /** A clear file we can store and play ourselves. */
-    val downloadable: Boolean get() = !url.isNullOrBlank() && !passthrough.equals("NONE", ignoreCase = true)
 }
 
 data class Audiobook(

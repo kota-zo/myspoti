@@ -205,14 +205,12 @@
     <string name="setup_ext_audio_title">Altre sorgenti audio</string>
     <string name="setup_ext_audio_detail">Un\'estensione può riprodurre i tuoi brani da un\'altra sorgente, nella qualità che offre.</string>
     <string name="setup_ext_download_title">Download</string>
-    <string name="setup_ext_download_detail">Per ascoltare offline, installa un\'estensione di download. I brani restano cifrati in Myspoti.</string>
     <string name="setup_ext_more_title">E altro</string>
     <string name="setup_ext_more_detail">Sezioni della Home, pagine e strumenti aggiunti dai loro autori.</string>
     <string name="setup_ext_safe_title">Il controllo resta tuo</string>
     <string name="setup_ext_safe_detail">Prima dell\'installazione mostra cosa può fare. Chiede di nuovo per tutto il resto e puoi rimuoverla quando vuoi.</string>
     <string name="setup_ext_where">Le trovi in Impostazioni, Estensioni, da GitHub, GitLab e Codeberg. Sono scritte dai loro autori, non da Myspoti.</string>
     <string name="setup_ext_browse">Vedi le estensioni</string>
-    <string name="setup_ext_later">Più tardi</string>
     <string name="local_folders_button">Cartelle</string>
     <string name="local_folders_title">Cartelle</string>
     <string name="local_folders_detail">Scegli le cartelle mostrate nei File locali. App di messaggistica e registrazioni partono nascoste.</string>
@@ -382,10 +380,6 @@
     <string name="recents_collapse">Nascondi i brani</string>
     <string name="settings_auto_update_title">Controlla gli aggiornamenti all\'avvio</string>
     <string name="settings_auto_update_detail">Disattivato: nessun controllo all\'avvio dell\'app. Il controllo manuale qui sotto funziona comunque.</string>
-    <string name="settings_check_update_title">Controlla subito gli aggiornamenti</string>
-    <string name="settings_check_update_detail">Cerca una versione più recente e propone di installarla</string>
-    <string name="settings_update_checking">Controllo in corso…</string>
-    <string name="settings_update_check_latest">Myspoti è aggiornato</string>
     <string name="downloads_stop_all_title">Interrompi tutti i download</string>
     <string name="downloads_stop_all_detail">Annulla quelli in corso; i brani già scaricati restano</string>
     <string name="context_menu_remove_from_playlist">Rimuovi da questa playlist</string>

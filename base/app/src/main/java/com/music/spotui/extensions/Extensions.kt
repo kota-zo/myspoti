@@ -1032,9 +1032,6 @@ object Extensions {
     /** The user dismissed [id]'s sign-in notice (it comes back at its next `sign-in` answer). */
     fun dismissSignIn(id: String) { _signIns.value = _signIns.value - id }
 
-    /** Why [id] is set aside now ("rate-limited, 42 s left"), or null. */
-    fun cooldownOf(id: String): String? = cooldown.reason(id)
-
     /** [providing] without the sources set aside ([cooldown]); each one skipped is logged and added to [skipped]. */
     private fun available(hook: Hook, skipped: MutableList<PlayAttempt.Ask>? = null): List<Pair<String, ExtensionRuntime>> =
         providing(hook).filter { (id, _) ->
