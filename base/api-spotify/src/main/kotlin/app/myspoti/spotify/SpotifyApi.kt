@@ -38,9 +38,11 @@ class SpotifyApi(
     deviceId: String? = null,
     /** The browser this install presents to Spotify (see [SpotifyHttp.browserUserAgent]); null keeps the constant. */
     userAgent: String? = null,
+    /** Keeps the client token across launches (see [app.myspoti.spotify.gql.ClientTokenStore]). */
+    tokenStore: app.myspoti.spotify.gql.ClientTokenStore? = null,
 ) : MyspotiApi {
     val bridge = Bridge(host, scope)
-    val http = SpotifyHttp(http, bridge, language, userAgent, deviceId ?: java.util.UUID.randomUUID().toString())
+    val http = SpotifyHttp(http, bridge, language, userAgent, deviceId ?: java.util.UUID.randomUUID().toString(), tokenStore)
     @Volatile private var currentOps: GqlOps = ops
     /** The operation table in use; [updateOps] swaps it when Spotify ships a new build. */
     val opsInUse: GqlOps get() = currentOps

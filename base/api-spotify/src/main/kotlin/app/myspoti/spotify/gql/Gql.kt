@@ -67,6 +67,16 @@ class BridgeGql(private val bridge: Bridge, private val source: OpsSource) : Gql
 class HttpException(val code: Int, message: String) : Exception("HTTP $code: $message")
 
 /**
+ * Where the host keeps the client token across launches, per client device id (the token is
+ * minted for one): it lasts about 14 days, and minting one at every launch cost a round trip
+ * before the first fresh read, and showed Spotify a pattern no browser tab has.
+ */
+interface ClientTokenStore {
+    fun load(deviceId: String): String?
+    fun save(deviceId: String, text: String)
+}
+
+/**
  * Direct HTTP to Spotify with the Web Player's credentials: the web token from the bridge,
  * and a client token minted here and kept about 14 days.
  */
@@ -86,10 +96,12 @@ class SpotifyHttp(
      * one more device). The host passes an id kept across restarts; null keeps the old behaviour.
      */
     private var deviceId: String = java.util.UUID.randomUUID().toString(),
+    /** Keeps the client token across launches; null: minted once per launch, as before. */
+    private val tokenStore: ClientTokenStore? = null,
 ) {
     private data class WebToken(val access: String, val expiresAtMs: Long, val clientId: String, val appVersion: String, val anonymous: Boolean,
                                 val fetchedAtMs: Long = System.currentTimeMillis())
-    private data class ClientToken(val value: String, val expiresAtMs: Long)
+    private data class ClientToken(val value: String, val expiresAtMs: Long, val clientId: String = "")
 
     private val lock = Mutex()
     private var web: WebToken? = null
@@ -263,8 +275,23 @@ class SpotifyHttp(
     private suspend fun tokens(): Pair<WebToken, ClientToken> = lock.withLock {
         val now = System.currentTimeMillis()
         val w = webToken()
-        val c = client?.takeIf { it.expiresAtMs - now > 3_600_000 } ?: mintClientToken(w).also { client = it }
+        fun fresh(t: ClientToken) = t.expiresAtMs - now > 3_600_000 && (t.clientId.isEmpty() || t.clientId == w.clientId)
+        val c = client?.takeIf(::fresh)
+            ?: storedClientToken()?.takeIf(::fresh)?.also { client = it }
+            ?: mintClientToken(w).also { client = it; keepClientToken(it) }
         w to c
+    }
+
+    private fun storedClientToken(): ClientToken? = runCatching {
+        val o = Bridge.json.parseToJsonElement(tokenStore?.load(deviceId) ?: return null).jsonObject
+        ClientToken(o["token"]!!.jsonPrimitive.content, o["expiresAtMs"]!!.jsonPrimitive.long, o["clientId"]!!.jsonPrimitive.content)
+    }.getOrNull()
+
+    private fun keepClientToken(t: ClientToken) {
+        val store = tokenStore ?: return
+        runCatching {
+            store.save(deviceId, buildJsonObject { put("token", t.value); put("expiresAtMs", t.expiresAtMs); put("clientId", t.clientId) }.toString())
+        }
     }
 
     private suspend fun mintClientToken(w: WebToken): ClientToken {
@@ -294,7 +321,7 @@ class SpotifyHttp(
             ?: throw GqlException("clienttoken", "HTTP $code: ${text.take(200)}")
         val seconds = (granted["expires_after_seconds"] as? JsonPrimitive)?.long ?: 86_400
         val token = (granted["token"] as? JsonPrimitive)?.content ?: throw GqlException("clienttoken", "no token in the answer")
-        return ClientToken(token, System.currentTimeMillis() + seconds * 1000)
+        return ClientToken(token, System.currentTimeMillis() + seconds * 1000, w.clientId)
     }
 
     /** Who a raw request may go to: the account's own hosts (with its credentials) or Spotify's public CDN. */

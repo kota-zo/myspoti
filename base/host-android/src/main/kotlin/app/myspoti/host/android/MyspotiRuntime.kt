@@ -37,7 +37,8 @@ object MyspotiRuntime {
         val updater = app.myspoti.spotify.gql.GqlOpsUpdater(okhttp3.OkHttpClient(), java.io.File(context.filesDir, "spotify/gql-ops.json"))
         host = WebPlayerHost(context)
         AudioModeWatch.install(context.applicationContext)
-        spotify = SpotifyApi(host, scope, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context, host.accounts.list.value.active), userAgent = host.userAgent)
+        spotify = SpotifyApi(host, scope, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context, host.accounts.list.value.active), userAgent = host.userAgent,
+            tokenStore = clientTokens(context))
         spotify.bridge.logger = { line -> Logbook.log(line) }
         host.onPageLoaded = { scope.launch { spotify.onPageLoaded() } }
         host.onPageStarting = { spotify.onPageStarting() }
@@ -176,6 +177,16 @@ object MyspotiRuntime {
      * pair, and a fresh id at every start made the app look like a brand-new client each time.
      */
     /** The client's device id for the account kept in [profile]: the first account keeps the one it always had. */
+    /** The client token of each client device id, in the app's own files (spotify/client-token-<id>). */
+    private fun clientTokens(context: Context) = object : app.myspoti.spotify.gql.ClientTokenStore {
+        private fun file(id: String) = java.io.File(context.filesDir, "spotify/client-token-" + id.filter { it.isLetterOrDigit() || it == '-' })
+        override fun load(deviceId: String): String? = runCatching { file(deviceId).readText() }.getOrNull()
+        override fun save(deviceId: String, text: String) {
+            val f = file(deviceId)
+            runCatching { f.parentFile?.mkdirs(); val tmp = java.io.File(f.path + ".tmp"); tmp.writeText(text); tmp.renameTo(f) }
+        }
+    }
+
     private fun clientDeviceId(context: Context, profile: String): String {
         val name = if (profile == AccountList.DEFAULT_PROFILE) "device-id" else "device-id-" + profile.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
         val file = java.io.File(context.filesDir, "spotify/$name")

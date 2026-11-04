@@ -178,7 +178,20 @@ object Extensions {
             File(dir, "inbox").takeIf { it.exists() }?.deleteRecursively()
             ExtensionUpdates.readCachedBlocks()
             // One after the other, their sources asked only once all are loaded: a cold start is busy enough.
-            _registry.value.extensions.filter { it.enabled }.forEach { start(it, probe = false) }
+            // The audio sources first, then downloads and lyrics, then the rest: a song asked at launch
+            // waits for the audio sources only, not for a slow extension of another kind before them.
+            val on = _registry.value.extensions.filter { it.enabled }.sortedBy {
+                when {
+                    Action.AUDIO_SOURCE.key in it.granted -> 0
+                    Action.DOWNLOAD_SOURCE.key in it.granted -> 1
+                    Action.LYRICS_PROVIDE.key in it.granted -> 2
+                    else -> 3
+                }
+            }
+            val (audio, rest) = on.partition { Action.AUDIO_SOURCE.key in it.granted }
+            audio.forEach { start(it, probe = false) }
+            audioStarted.complete(Unit)
+            rest.forEach { start(it, probe = false) }
             started.complete(Unit)
             refreshProvided()
             probeAll()
@@ -746,18 +759,18 @@ object Extensions {
         return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource())
     }
 
-    /** The extensions on at launch are still being started. */
-    fun starting(): Boolean = !started.isCompleted
+    /** The audio-source extensions on at launch are still being started. */
+    fun starting(): Boolean = !audioStarted.isCompleted
 
-    /** Waits up to [ms] for the extensions on at launch to be started; true once they are. */
-    suspend fun awaitStarted(ms: Long): Boolean = started.isCompleted || withTimeoutOrNull(ms) { started.await() } != null
+    /** Waits up to [ms] for the audio-source extensions on at launch to be started; true once they are. */
+    suspend fun awaitStarted(ms: Long): Boolean = audioStarted.isCompleted || withTimeoutOrNull(ms) { audioStarted.await() } != null
 
     /** An audio-source extension is turned on (running or not yet): a session of theirs goes back to them. */
     fun audioSourceOn(): Boolean = isReady && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
 
     /** The app is still starting the extensions on at launch, an audio source among them. */
     private fun startingAudioSource(): Boolean =
-        !started.isCompleted && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
+        !audioStarted.isCompleted && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
 
     /**
      * Why no audio-source extension is asked for a song while some are on ("x skipped (inactive:
@@ -886,11 +899,11 @@ object Extensions {
             attempts.update(attempt) { it.copy(fallback = "Spotify: no extension had it under a minute ago, not asked again") }
             return null
         }
-        // Picked right after launch: the extensions still loading are waited for, not skipped.
-        if (!started.isCompleted) {
+        // Picked right after launch: the audio sources still loading are waited for, not skipped.
+        if (!audioStarted.isCompleted) {
             val t0 = System.currentTimeMillis()
-            val loaded = withTimeoutOrNull(START_AUDIO_MS) { started.await() } != null
-            Logbook.log("audio: extensions not loaded yet, waited ${System.currentTimeMillis() - t0} ms${if (loaded) "" else " (still loading)"}")
+            val loaded = withTimeoutOrNull(START_AUDIO_MS) { audioStarted.await() } != null
+            Logbook.log("audio: audio sources not loaded yet, waited ${System.currentTimeMillis() - t0} ms${if (loaded) "" else " (still loading)"}")
         }
         // The same song as a download asks with: its ISRC, which an extension matches recordings by.
         val withIsrc = withIsrc(track)
@@ -1174,16 +1187,22 @@ object Extensions {
     private fun probeAll() = runtimes.forEach { (id, rt) -> scope.launch { probe(id, rt) } }
 
     /**
-     * Before [hook] is asked: its extensions probed [STATUS_EVERY_MS] ago or more are probed again,
-     * together, within [STATUS_MS]. One never probed (its probe at launch is on its way) is not
-     * waited for: it is in use until a probe says otherwise.
+     * Before [hook] is asked: its extensions probed [STATUS_EVERY_MS] ago or more are probed again.
+     * Only those whose last probe said inactive are waited for (together, within [STATUS_MS]): one
+     * back on may answer this request. A live one is probed behind the request instead of before
+     * it, which held the first song after 5 min idle a whole `status` round trip (up to 5.5 s).
+     * One never probed (its probe at launch is on its way) is not waited for: it is in use until a
+     * probe says otherwise.
      */
     private suspend fun probeStale(hook: Hook) {
         val due = _registry.value.extensions.mapNotNull { e ->
             runtimes[e.id]?.takeIf { e.enabled && it.provides(hook) && health.last(e.id) != null && health.stale(e.id, STATUS_EVERY_MS) }?.let { e.id to it }
         }
         if (due.isEmpty()) return
-        withTimeoutOrNull(STATUS_MS + 500) { kotlinx.coroutines.coroutineScope { due.map { (id, rt) -> async { probe(id, rt) } }.forEach { it.await() } } }
+        val (wait, behind) = due.partition { (id, _) -> health.inactive(id) }
+        behind.forEach { (id, rt) -> scope.launch { probe(id, rt) } }
+        if (wait.isEmpty()) return
+        withTimeoutOrNull(STATUS_MS + 500) { kotlinx.coroutines.coroutineScope { wait.map { (id, rt) -> async { probe(id, rt) } }.forEach { it.await() } } }
     }
 
     /** Every minute, the probes [STATUS_EVERY_MS] old are asked again while the app is in sight or plays. */
@@ -1410,6 +1429,8 @@ object Extensions {
     private val startLocks = ConcurrentHashMap<String, Any>()
     /** The extensions on at launch have all been started (or failed to). */
     private val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+    /** The audio-source extensions on at launch have been started (they start first). */
+    private val audioStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
 
     /**
      * Starts [e] unless that very package already runs. One start of an extension at a time: an
