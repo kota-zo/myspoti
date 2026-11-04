@@ -78,6 +78,28 @@ object LastExit {
                 val main = trace.substringAfter("\"main\"", "").lineSequence().take(30).toList()
                 main.forEach { Logbook.log("  $it") }
             }
+            // A native crash's record is Android's tombstone (a protobuf): its readable strings, the
+            // abort message, the signal and the stack's libraries and functions, say where it was
+            // (dev 3135 crashed natively and the report had nothing but "native crash").
+            if (e.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) runCatching {
+                val bytes = e.traceInputStream?.use { it.readBytes() } ?: return@runCatching
+                tombstoneLines(bytes).forEach { Logbook.log("  $it") }
+            }
         }
+    }
+
+    /**
+     * The tombstone's printable strings worth reading: the abort message and signal first, then the
+     * frames' libraries and functions (de-duplicated, 40 at most). No parsing of the protobuf: its
+     * strings are stored as they are.
+     */
+    internal fun tombstoneLines(bytes: ByteArray): List<String> {
+        val strings = ArrayList<String>()
+        val cur = StringBuilder()
+        fun flush() { if (cur.length >= 6) strings += cur.toString(); cur.setLength(0) }
+        for (b in bytes) { val c = b.toInt() and 0xff; if (c in 0x20..0x7e) cur.append(c.toChar()) else flush() }
+        flush()
+        val wanted = Regex("abort|signal|SIG[A-Z]+|JNI|Exception|Error|\\.so\\b|\\.apk|java_|Java_|onnx|art::", RegexOption.IGNORE_CASE)
+        return strings.filter { wanted.containsMatchIn(it) }.distinct().take(40).map { it.take(200) }
     }
 }
