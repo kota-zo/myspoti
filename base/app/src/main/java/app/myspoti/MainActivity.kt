@@ -149,6 +149,8 @@ class MainActivity : AppCompatActivity() {
                                     else { loginProblem = false; MyspotiRuntime.host.openLogin() }
                                 })
                                 load == LoginLoad.LOADING -> ConnectingScreen()
+                                // On Spotify's page itself: a way to a diagnostic report (the settings are out of reach).
+                                else -> com.music.spotui.ui.components.LoginHelpButton()
                             }
                         }
                         // Existing users, once, right after the update: the new look, live.
@@ -637,6 +639,11 @@ private fun ConnectingScreen() {
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         androidx.compose.material3.CircularProgressIndicator(color = com.music.spotui.ui.theme.AppAccent)
+        // Reported: a loading that never ends after the sign-in. Past a long wait, a way to a report.
+        var long by androidx.compose.runtime.remember { mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(12_000); long = true }
+        if (long) com.music.spotui.ui.components.LoginReportLink(
+            Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 24.dp))
     }
 }
 
@@ -660,5 +667,6 @@ private fun LoginProblemScreen(onRetry: () -> Unit) {
             Text(stringResource(R.string.retry_button), color = Color.Black, fontFamily = com.music.spotui.ui.theme.AppSans,
                 fontWeight = FontWeight.Bold, fontSize = 17.sp)
         }
+        com.music.spotui.ui.components.LoginReportLink(Modifier.padding(top = 12.dp))
     }
 }

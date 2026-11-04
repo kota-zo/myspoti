@@ -786,4 +786,10 @@
     <string name="settings_release_notify_detail">Уведомление, когда артист, на которого вы подписаны, что-то выпускает; проверка каждые несколько часов, пока Myspoti работает</string>
     <string name="quality_streaming_very_high">Очень высокое</string>
     <string name="quality_streaming_very_high_detail">256 кбит/с, только для Premium</string>
+    <string name="login_help_button">Помощь</string>
+    <string name="login_help_title">Не получается войти?</string>
+    <string name="login_help_detail">Диагностический отчёт показывает, на каком шаге застревает вход. В нём нет ни пароля, ни e-mail.</string>
+    <string name="login_help_send">Отправить отчёт</string>
+    <string name="login_help_restart">Начать заново</string>
+    <string name="login_help_slow">Слишком долго? Отправить диагностический отчёт</string>
 </resources>

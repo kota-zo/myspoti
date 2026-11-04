@@ -771,4 +771,10 @@
     <string name="settings_release_notify_detail">你关注的艺人发布新作品时发送通知，Myspoti 运行时每隔几小时检查一次</string>
     <string name="quality_streaming_very_high">极高</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s，仅限 Premium 账户</string>
+    <string name="login_help_button">帮助</string>
+    <string name="login_help_title">登录遇到问题？</string>
+    <string name="login_help_detail">诊断报告会显示登录卡在哪一步。报告中不包含你的密码和邮箱。</string>
+    <string name="login_help_send">发送报告</string>
+    <string name="login_help_restart">重新开始</string>
+    <string name="login_help_slow">等太久了？发送诊断报告</string>
 </resources>

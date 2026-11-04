@@ -652,6 +652,26 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      */
     fun retryLogin() = main.post { beginLoginLoad(); cleanSlate { view.loadUrl(LOGIN_URL) } }
 
+    /**
+     * Before a report sent from the sign-in: what the page shows right now (its path, title, the
+     * error messages on it, which kind of step), into the log. The failed sign-ins reported
+     * ("Oops! Something went wrong", an e-mail not recognised, a page that loads for ever) came
+     * with no trail of the page itself. Typed values are never read; e-mails are masked by the log.
+     * [done] runs on the main thread, after the answer or 1.5 s.
+     */
+    fun noteLoginPage(done: () -> Unit) = main.post {
+        var finished = false
+        val finish = { if (!finished) { finished = true; done() } }
+        val url = _url.value
+        Logbook.log("report asked from the sign-in: ${Logbook.noQuery(url).take(120)} load=${_loginLoad.value} steps=$loginSteps")
+        if (!isLoginPage(url) && !LoginLoad.isSpotifyAccounts(url)) { finish(); return@post }
+        main.postDelayed({ finish() }, 1_500)
+        view.evaluateJavascript(LOGIN_PAGE_STATE_JS) { answer ->
+            Logbook.log("sign-in page now: ${answer?.take(600)}")
+            finish()
+        }
+    }
+
     private fun cleanSlate(then: () -> Unit) {
         cookies().removeAllCookies {
             main.post {
@@ -948,6 +968,22 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         private const val PURGE_RETRY_MS = 10_000L
         private const val LOAD_RETRIES = 4
         const val LOGIN_URL = "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
+
+        /**
+         * What the sign-in page shows, for [noteLoginPage]: path, title, first heading, the text of its
+         * alerts and error banners, and which fields are there (by type, never their values).
+         */
+        private const val LOGIN_PAGE_STATE_JS = """(function(){try{
+var t=function(e){return (e.innerText||'').replace(/\s+/g,' ').trim().slice(0,160)};
+var seen={},msgs=[];
+document.querySelectorAll('[role=alert],[aria-live],[data-encore-id*=anner],[class*=rror],[class*=anner],[id*=rror]').forEach(function(e){
+var s=t(e); if(s&&!seen[s]&&msgs.length<6){seen[s]=1;msgs.push(s)}});
+var f=[]; document.querySelectorAll('input').forEach(function(i){if(i.type!=='hidden')f.push(i.type+(i.autocomplete?'/'+i.autocomplete:''))});
+var h=document.querySelector('h1,h2');
+return JSON.stringify({path:location.host+location.pathname,title:document.title.slice(0,80),heading:h?t(h):null,
+messages:msgs,fields:f.slice(0,8),captcha:!!document.querySelector('iframe[src*=captcha],iframe[src*=challenge],[class*=aptcha]'),
+ready:document.readyState});
+}catch(e){return 'failed: '+e}})()"""
     }
 }
 

@@ -776,4 +776,10 @@
     <string name="settings_release_notify_detail">Une notification quand un artiste que tu suis sort quelque chose, vérifié toutes les quelques heures pendant que Myspoti tourne</string>
     <string name="quality_streaming_very_high">Très élevée</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, comptes Premium uniquement</string>
+    <string name="login_help_button">Aide</string>
+    <string name="login_help_title">Un souci pour te connecter ?</string>
+    <string name="login_help_detail">Le rapport de diagnostic montre à quelle étape la connexion bloque. Il ne contient ni ton mot de passe ni ton e-mail.</string>
+    <string name="login_help_send">Envoyer le rapport</string>
+    <string name="login_help_restart">Recommencer</string>
+    <string name="login_help_slow">Ça prend trop de temps ? Envoyer un rapport de diagnostic</string>
 </resources>

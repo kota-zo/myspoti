@@ -778,4 +778,10 @@
     <string name="settings_release_notify_detail">A notification when an artist you follow releases something, checked every few hours while Myspoti runs</string>
     <string name="quality_streaming_very_high">Very high</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, Premium accounts only</string>
+    <string name="login_help_button">Help</string>
+    <string name="login_help_title">Trouble signing in?</string>
+    <string name="login_help_detail">The diagnostic report shows at which step the sign-in gets stuck. It contains neither your password nor your e-mail.</string>
+    <string name="login_help_send">Send the report</string>
+    <string name="login_help_restart">Start over</string>
+    <string name="login_help_slow">Taking too long? Send a diagnostic report</string>
 </resources>

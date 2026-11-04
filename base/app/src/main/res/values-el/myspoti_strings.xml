@@ -771,4 +771,10 @@
     <string name="settings_release_notify_detail">Μια ειδοποίηση όταν ένας καλλιτέχνης που ακολουθείς κυκλοφορεί κάτι, με έλεγχο κάθε λίγες ώρες όσο τρέχει το Myspoti</string>
     <string name="quality_streaming_very_high">Πολύ υψηλή</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, μόνο για λογαριασμούς Premium</string>
+    <string name="login_help_button">Βοήθεια</string>
+    <string name="login_help_title">Πρόβλημα με τη σύνδεση;</string>
+    <string name="login_help_detail">Η αναφορά διάγνωσης δείχνει σε ποιο βήμα κολλάει η σύνδεση. Δεν περιέχει ούτε τον κωδικό σου ούτε το e-mail σου.</string>
+    <string name="login_help_send">Αποστολή αναφοράς</string>
+    <string name="login_help_restart">Από την αρχή</string>
+    <string name="login_help_slow">Αργεί πολύ; Στείλε αναφορά διάγνωσης</string>
 </resources>

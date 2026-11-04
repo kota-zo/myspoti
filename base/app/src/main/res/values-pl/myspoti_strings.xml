@@ -786,4 +786,10 @@
     <string name="settings_release_notify_detail">Powiadomienie, gdy obserwowany artysta coś wyda; sprawdzane co kilka godzin, gdy Myspoti działa</string>
     <string name="quality_streaming_very_high">Bardzo wysoka</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, tylko konta Premium</string>
+    <string name="login_help_button">Pomoc</string>
+    <string name="login_help_title">Problem z logowaniem?</string>
+    <string name="login_help_detail">Raport diagnostyczny pokazuje, na którym etapie logowanie się zatrzymuje. Nie zawiera ani hasła, ani adresu e-mail.</string>
+    <string name="login_help_send">Wyślij raport</string>
+    <string name="login_help_restart">Zacznij od nowa</string>
+    <string name="login_help_slow">Trwa to za długo? Wyślij raport diagnostyczny</string>
 </resources>
