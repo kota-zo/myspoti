@@ -2447,13 +2447,22 @@ object SongPlayer {
             // network coming up: a network already there (or the data saver turned off) never reports one.
             return
         }
+        // An artist unfollowed, an album or a show removed: out of the Library's list at once.
+        // Spotify's list (libraryV3) trails the write by seconds, so the artist stayed there and a
+        // reload brought it back, as if the button did nothing (reported); playlists already did this.
+        val listEdit = if (!track && !on) com.music.spotui.data.api.LibraryEdits.Remove(uri).also(com.music.spotui.data.api.LibraryEdits::begin) else null
+        if (!track && on) com.music.spotui.data.api.LibraryEdits.dropRemovals(uri)
         scope.launch {
             // One write at a time; a refused one is undone on screen if no newer tap replaced it.
             libraryLock.withLock {
                 runCatching { writeLibrary(uri, on) }.onSuccess {
                     app.myspoti.host.android.Logbook.log("library: $uri ${if (on) "saved" else "removed"} on Spotify")
                     if (track) likedChanges.value++
+                    listEdit?.let(com.music.spotui.data.api.LibraryEdits::confirm)
+                    // Followed or saved: the Library reads its list again once Spotify has it.
+                    if (!track && on) com.music.spotui.data.api.LibraryEdits.reloadSoon()
                 }.onFailure {
+                    listEdit?.let(com.music.spotui.data.api.LibraryEdits::cancel)
                     Log.w(TAG, "library change failed: ${it.message}")
                     app.myspoti.host.android.Logbook.log("library: $uri change failed: ${it.javaClass.simpleName} ${it.message}")
                     // The connection went while it was sent: kept for later, like an offline tap.

@@ -122,6 +122,11 @@ object LibraryEdits {
         scope.launch { for (wait in longArrayOf(1_500, 3_500, 7_000)) { delay(wait); _reloads.tryEmit(Unit) } }
     }
 
+    /** [uri] is back in the library (followed or saved again): an earlier removal no longer covers the list. */
+    fun dropRemovals(uri: String) {
+        if (pending.removeAll { (it.edit as? Remove)?.uri == uri }) version.value++
+    }
+
     /** The write failed: the list goes back to what it was. */
     fun cancel(edit: Edit) {
         if (pending.removeAll { it.edit === edit }) version.value++
