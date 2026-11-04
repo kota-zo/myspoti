@@ -565,8 +565,8 @@
     <string name="settings_search">Rechercher dans les réglages</string>
     <string name="settings_search_hint">Rechercher un réglage</string>
     <string name="settings_search_empty">Aucun réglage ne correspond.</string>
-    <string name="settings_song_pip_title">Image dans l\'image</string>
-    <string name="settings_song_pip_detail">Quitter l\'app pendant la lecture garde le titre dans une petite fenêtre : pochette, paroles et boutons de lecture. Un clip a sa propre fenêtre.</string>
+    <string name="settings_song_pip_title">PiP</string>
+    <string name="settings_song_pip_detail">En PiP, quitter l\'app pendant la lecture garde le titre dans une petite fenêtre : pochette, paroles et boutons de lecture. Un clip a sa propre fenêtre.</string>
     <string name="pip_previous">Précédent</string>
     <string name="pip_play">Lecture</string>
     <string name="pip_pause">Pause</string>
