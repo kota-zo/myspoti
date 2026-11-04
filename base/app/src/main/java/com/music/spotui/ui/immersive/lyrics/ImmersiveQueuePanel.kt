@@ -53,6 +53,9 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -190,39 +193,56 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
         call()
         true
     }
-    val offsetOf: (String) -> Int? = { k -> listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == k }?.offset }
+    // Positions in the list container's coordinates (where the rows are placed, as positionInParent
+    // says): an item's offset counts from the content's start, after the top padding.
+    val offsetOf: (String) -> Int? = { k ->
+        val info = listState.layoutInfo
+        info.visibleItemsInfo.firstOrNull { it.key == k }?.let { it.offset - info.viewportStartOffset }
+    }
     // After a drop the rows are where they were drawn, so none is moved again: see [QueueDrag.settling].
     LaunchedEffect(drag.settling) {
         if (!drag.settling) return@LaunchedEffect
         delay(300)
         drag.settling = false
+        // Dropped where its new slot is out of sight: nothing to walk back once it scrolls in later.
+        drag.awaitKey = null
     }
 
     // The finger near the top or bottom edge scrolls the list, the row staying under it.
     val edge = with(LocalDensity.current) { 88.dp.toPx() }
-    val maxStep = with(LocalDensity.current) { 14.dp.toPx() }
+    // A speed, not a step per frame: 14 dp a frame was 1,700 dp a second at 120 Hz, dozens of
+    // songs flying by as soon as the finger neared the edge (seen in a recording).
+    val maxSpeed = with(LocalDensity.current) { 700.dp.toPx() }
     val dragging = drag.key != null
     LaunchedEffect(dragging) {
         if (!dragging) return@LaunchedEffect
+        var last = 0L
         while (true) {
-            withFrameNanos { }
+            val now = withFrameNanos { it }
+            val dt = if (last == 0L) 0f else ((now - last) / 1e9f).coerceAtMost(0.05f)
+            last = now
             val info = listState.layoutInfo
             // The finger's place, not the row's slot: scrolling moves the slot (out of sight when far)
             // and never the finger.
             val y = drag.center ?: continue
-            val step = QueueDragMath.edgeStep(y, info.viewportSize.height.toFloat(), edge, maxStep)
+            val step = QueueDragMath.edgeStep(y, info.viewportSize.height.toFloat(), edge, maxSpeed * dt)
             if (step != 0f) drag.offset += listState.scrollBy(step)
         }
     }
+    val topPad = contentPadding.calculateTopPadding() + 8.dp
 
+    val startPad = Immersive.Gutter + contentPadding.calculateStartPadding(direction)
+    val endPad = Immersive.Gutter + contentPadding.calculateEndPadding(direction)
+    Box(modifier) {
     LazyColumn(
         state = listState,
-        modifier = modifier
+        modifier = Modifier
+            .matchParentSize()
             .nestedScroll(keepScroll)
             .fadingEdges(),
         contentPadding = PaddingValues(
-            start = Immersive.Gutter + contentPadding.calculateStartPadding(direction),
-            top = contentPadding.calculateTopPadding() + 8.dp,
+            start = startPad,
+            top = topPad,
             end = Immersive.Gutter + contentPadding.calculateEndPadding(direction),
             bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
@@ -300,6 +320,33 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
             }
         }
     }
+    // The dragged row, drawn over the list under the finger. Drawn in its own slot (translated) it
+    // vanished once the edge scroll took that slot out of sight: the list stops placing a row
+    // there, pinned or not (seen in a recording).
+    val ghostRow = drag.key?.let { k -> rows.firstOrNull { it.key == k } }
+    val ghostCenter = drag.center
+    if (ghostRow != null && ghostCenter != null) {
+        val half = with(LocalDensity.current) { Immersive.RowHeight.toPx() } / 2f
+        QueueRow(
+            title = ghostRow.item.song.title,
+            artist = ghostRow.item.song.singer,
+            cover = ghostRow.item.song.coverUri,
+            isCurrent = false,
+            explicit = ghostRow.item.song.explicit,
+            onClick = {},
+            modifier = Modifier
+                .padding(start = (startPad - 8.dp).coerceAtLeast(0.dp), end = (endPad - 8.dp).coerceAtLeast(0.dp))
+                .offset { IntOffset(0, (ghostCenter - half).roundToInt()) }
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.Black.copy(alpha = 0.45f))
+                .padding(horizontal = 8.dp),
+            handle = {
+                Icon(Icons.Rounded.DragHandle, contentDescription = null, tint = Immersive.TextSecondary,
+                    modifier = Modifier.size(40.dp).padding(8.dp))
+            },
+        )
+    }
+    }
 }
 
 /** One queue row: [index] in the flat list (queued rows, then the context's), [key] stable across moves. */
@@ -332,7 +379,7 @@ private class QueueDrag {
     var key by mutableStateOf<String?>(null)
     var offset by mutableFloatStateOf(0f)
     /**
-     * The dragged row's centre in the list's viewport: where it was taken plus how far the finger
+     * The dragged row's centre in the list container's coordinates: where it was taken plus how far the finger
      * moved since, whatever the list scrolled. Where it hovers and the edge scroll are worked out
      * from it: from the row's slot, they were lost once the slot left the screen (the list
      * scrolling under a row dragged far), and the drag ended with the row back in its old place.
@@ -358,21 +405,31 @@ private fun hoverOf(listState: LazyListState, rows: List<QRow>, drag: QueueDrag)
     val key = drag.key ?: return null
     val from = rows.indexOfFirst { it.key == key }
     if (from < 0) return null
-    val visible = listState.layoutInfo.visibleItemsInfo.associateBy { it.key }
+    val info = listState.layoutInfo
+    val visible = info.visibleItemsInfo.associateBy { it.key }
     val center = drag.center ?: return null
+    // The rows' middles in the container's coordinates, as [QueueDrag.center].
+    val shift = -info.viewportStartOffset
     // A row out of sight is above the dragged one's centre if it comes before it in the list.
     val mids = rows.filter { it.index != from }.map { r ->
-        visible[r.key]?.let { it.offset + it.size / 2f } ?: if (r.index < from) Float.NEGATIVE_INFINITY else Float.POSITIVE_INFINITY
+        visible[r.key]?.let { it.offset + shift + it.size / 2f } ?: if (r.index < from) Float.NEGATIVE_INFINITY else Float.POSITIVE_INFINITY
     }
     val heading = visible[HEADING_NEXT]
     val firstNext = rows.firstOrNull { !it.queued }
     val queuedOthers = rows.count { it.queued && it.index != from }
-    // With no queued row the heading is the queue's drop target: anywhere down to its foot counts.
-    val boundary = heading?.let { if (queuedOthers == 0) (it.offset + it.size).toFloat() else it.offset + it.size / 2f }
-        ?: firstNext?.let { visible[it.key]?.offset?.toFloat() }
+    // With no queued row the heading is the queue's drop target: the finger over the heading itself.
+    // Higher up (the song playing, the panel's header, past the list's top) it is the top of
+    // "next from": counted as the queue there, a row taken to the top of the list went into the
+    // queue instead, the engine never reported that order and the row went back (looked cancelled).
+    val boundary = heading?.let { if (queuedOthers == 0) (it.offset + shift + it.size).toFloat() else it.offset + shift + it.size / 2f }
+        ?: firstNext?.let { visible[it.key]?.let { v -> (v.offset + shift).toFloat() } }
     var slot = QueueDragMath.slot(center, mids)
-    val above = boundary == null || center < boundary
     val dragged = rows[from]
+    // A row of "next from" with no queued row: the queue only when over the heading itself. The
+    // queue's only row keeps the old rule (above the heading's foot it stays in the queue).
+    val above = if (queuedOthers == 0 && !dragged.queued) {
+        heading != null && center >= heading.offset + shift && center < heading.offset + shift + heading.size
+    } else boundary == null || center < boundary
     // A Spotify queued song cannot go back into "next from": it stays at the end of the queue.
     if (dragged.queued && dragged.item.provider != SongPlayer.LOCAL) slot = minOf(slot, queuedOthers)
     return Hover(from, slot, above || (dragged.queued && dragged.item.provider != SongPlayer.LOCAL))
@@ -460,7 +517,12 @@ private fun LazyListScope.queueSection(
                 }
                 .then(if (dragged || drag.settling) Modifier else queueMotion())
                 .zIndex(if (dragged || settling) 1f else 0f)
-                .graphicsLayer { translationY = (if (dragged) drag.offset else shift * rowPx) + settle.floatValue },
+                // While dragged the row itself is not drawn: its copy over the list is (see the
+                // panel), wherever the slot is. The row only keeps the gesture alive.
+                .graphicsLayer {
+                    translationY = (if (dragged) drag.offset else shift * rowPx) + settle.floatValue
+                    alpha = if (dragged) 0f else 1f
+                },
             backgroundContent = {
                 // Drawn only while swiping: the row is transparent, so at rest this × showed
                 // through behind the drag handle.
@@ -503,7 +565,9 @@ private fun LazyListScope.queueSection(
                                     onDragEnd = {
                                         // Worked out while the row is still where it was dropped.
                                         if (drag.key == key) {
-                                            val visual = offsetOf(key)?.let { it + drag.offset }
+                                            // Where it was drawn: under the finger (QueueDrag.center), known even
+                                            // when its old slot scrolled out of sight.
+                                            val visual = drag.center?.let { it - rowPx / 2f }
                                             val dragOffset = drag.offset
                                             // The new order, the drawn positions and the end of the drag are
                                             // one change: no frame shows the old order or a row put back.
