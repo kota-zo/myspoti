@@ -782,4 +782,5 @@
     <string name="settings_sources_detail">Quale estensione riproduce e scarica per prima</string>
     <string name="settings_sources_none">Nessuna estensione riproduce o scarica musica: Spotify riproduce tutto. Aggiungine una in Estensioni.</string>
     <string name="ext_settings_header">Impostazioni delle estensioni</string>
+    <string name="queue_autoplay_heading">Riproduzione automatica</string>
 </resources>

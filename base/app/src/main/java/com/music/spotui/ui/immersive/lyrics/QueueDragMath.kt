@@ -13,15 +13,26 @@ internal object QueueDragMath {
     /**
      * [order] with [from] moved to [to]'s place, or null when that move is not allowed: a song of
      * Spotify's queue ([canLeaveQueue] false) cannot go back into "next from" (Spotify has no such
-     * move; it would come back to the queue's end). A local song goes anywhere.
+     * move; it would come back to the queue's end). Nor can a Spotify song cross from the context's
+     * songs to autoplay's or back ([block] tells them apart): asked to, Spotify puts a context song
+     * at the context's end and an autoplay song first of autoplay's (seen on the test account,
+     * 04/11: "Brise du vent", dropped under an autoplay song, landed after the context's last, "K9").
+     * A local song goes anywhere.
      */
-    fun swap(order: List<String>, from: String, to: String, heading: String, canLeaveQueue: Boolean): List<String>? {
+    fun swap(
+        order: List<String>, from: String, to: String, heading: String, canLeaveQueue: Boolean,
+        block: (String) -> Int = { 0 },
+    ): List<String>? {
         val fi = order.indexOf(from); val ti = order.indexOf(to)
         if (fi < 0 || ti < 0 || fi == ti || from == heading) return null
         val r = order.toMutableList().apply { add(ti, removeAt(fi)) }
         if (!canLeaveQueue && from in queuedPart(order, heading) && from !in queuedPart(r, heading)) return null
+        if (!canLeaveQueue && inOrder(nextPart(order, heading), block) && !inOrder(nextPart(r, heading), block)) return null
         return r
     }
+
+    /** The context's songs, then autoplay's: never mixed. */
+    private fun inOrder(part: List<String>, block: (String) -> Int) = part.zipWithNext().all { (a, b) -> block(a) <= block(b) }
 
     /** What a drop asks of the engine. */
     sealed interface Move {
@@ -36,7 +47,7 @@ internal object QueueDragMath {
      * The engine call for [dragged] going from [before] to [after]: named by the row it now
      * follows (or, first of its part, the row it now precedes), as SongPlayer's moves take it.
      */
-    fun moveFor(before: List<String>, after: List<String>, dragged: String, heading: String): Move {
+    fun moveFor(before: List<String>, after: List<String>, dragged: String, heading: String, block: (String) -> Int = { 0 }): Move {
         if (before == after) return Move.None
         val wasQueued = dragged in queuedPart(before, heading)
         val q = queuedPart(after, heading)
@@ -47,6 +58,8 @@ internal object QueueDragMath {
         val prev = part.getOrNull(j - 1); val next = part.getOrNull(j + 1)
         return when {
             nowQueued && !wasQueued -> if (prev != null) Move.IntoQueue(prev, true) else Move.IntoQueue(next, false)
+            // First of autoplay's songs: named by the one it precedes, not by the context's last.
+            !nowQueued && prev != null && next != null && block(prev) != block(dragged) && block(next) == block(dragged) -> Move.Beside(next, false)
             prev != null -> Move.Beside(prev, true)
             next != null -> Move.Beside(next, false)
             else -> Move.None

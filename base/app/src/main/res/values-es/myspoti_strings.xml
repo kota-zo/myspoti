@@ -782,4 +782,5 @@
     <string name="settings_sources_detail">Qué extensión reproduce y descarga primero</string>
     <string name="settings_sources_none">Ninguna extensión reproduce ni descarga música todavía: Spotify lo reproduce todo. Añade una en Extensiones.</string>
     <string name="ext_settings_header">Ajustes de las extensiones</string>
+    <string name="queue_autoplay_heading">Reproducción automática</string>
 </resources>

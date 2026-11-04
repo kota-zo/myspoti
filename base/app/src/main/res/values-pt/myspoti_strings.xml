@@ -782,4 +782,5 @@
     <string name="settings_sources_detail">Qual extensão toca e baixa primeiro</string>
     <string name="settings_sources_none">Nenhuma extensão toca ou baixa música ainda: o Spotify toca tudo. Adicione uma em Extensões.</string>
     <string name="ext_settings_header">Configurações das extensões</string>
+    <string name="queue_autoplay_heading">Reprodução automática</string>
 </resources>

@@ -728,4 +728,5 @@
     <string name="settings_sources_detail">Que extensão reproduz e transfere primeiro</string>
     <string name="settings_sources_none">Nenhuma extensão reproduz ou transfere música ainda: o Spotify reproduz tudo. Adiciona uma em Extensões.</string>
     <string name="ext_settings_header">Definições das extensões</string>
+    <string name="queue_autoplay_heading">Reprodução automática</string>
 </resources>

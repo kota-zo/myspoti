@@ -789,4 +789,5 @@
     <string name="settings_sources_detail">Which extension plays and downloads first</string>
     <string name="settings_sources_none">No extension plays or downloads music yet: Spotify plays everything. Add one in Extensions.</string>
     <string name="ext_settings_header">Extension settings</string>
+    <string name="queue_autoplay_heading">Autoplay</string>
 </resources>

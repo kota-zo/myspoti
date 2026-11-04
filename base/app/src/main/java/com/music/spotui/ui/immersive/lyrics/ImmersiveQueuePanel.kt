@@ -185,7 +185,7 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
         val f = from.key as? String ?: return@rememberReorderableLazyListState
         val t = to.key as? String ?: return@rememberReorderableLazyListState
         val row = dragRows[f] ?: return@rememberReorderableLazyListState
-        QueueDragMath.swap(o, f, t, HEADING_NEXT, canLeaveQueue = row.item.provider == SongPlayer.LOCAL)?.let { dragOrder = it }
+        QueueDragMath.swap(o, f, t, HEADING_NEXT, canLeaveQueue = row.item.provider == SongPlayer.LOCAL, block = blockOf(dragRows))?.let { dragOrder = it }
     }
     val onDragStarted: (String) -> Unit = { k ->
         dragStart = order; dragRows = byKey; dragOrder = order
@@ -197,7 +197,7 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
         val known = dragRows
         dragOrder = null
         val row = known[k] ?: return@stop
-        val move = QueueDragMath.moveFor(start, after, k, HEADING_NEXT)
+        val move = QueueDragMath.moveFor(start, after, k, HEADING_NEXT, blockOf(known))
         val call: () -> Unit = when (move) {
             QueueDragMath.Move.None -> return@stop
             is QueueDragMath.Move.IntoQueue -> {
@@ -286,8 +286,10 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
             }
         }
         // The queued rows, the context's heading and its rows: one list, so a row passing the
-        // heading only changes places with it (and so changes part).
-        items(order, key = { it }) { k ->
+        // heading only changes places with it (and so changes part). Autoplay's songs come under a
+        // heading of their own, a plain item: no Spotify song crosses it (QueueDragMath.swap).
+        val autoAt = autoplayStart(order, byKey)
+        val rowItem: @Composable LazyItemScope.(String) -> Unit = rowItem@{ k ->
             if (k == HEADING_NEXT) {
                 // A place the dragged row swaps with (it then changes part), never dragged itself.
                 ReorderableItem(reorder, key = k, animateItemModifier = queueMotion()) {
@@ -296,13 +298,23 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
                         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
                     )
                 }
-                return@items
+                return@rowItem
             }
-            val row = byKey[k] ?: return@items
+            val row = byKey[k] ?: return@rowItem
             ReorderableItem(reorder, key = k, animateItemModifier = queueMotion()) { dragging ->
                 QueueEntry(row, removed, dragging,
                     handle = Modifier.draggableHandle(onDragStarted = { onDragStarted(k) }, onDragStopped = { onDragStopped(k) }))
             }
+        }
+        items(if (autoAt < 0) order else order.subList(0, autoAt), key = { it }) { k -> rowItem(k) }
+        if (autoAt >= 0) {
+            item(key = "heading-autoplay") {
+                QueueHeading(
+                    title = stringResource(R.string.queue_autoplay_heading),
+                    modifier = Modifier.padding(top = 16.dp, bottom = 6.dp).then(queueMotion()),
+                )
+            }
+            items(order.subList(autoAt, order.size), key = { it }) { k -> rowItem(k) }
         }
         if (!hasCurrent && order.isEmpty()) {
             item(key = "empty") {
@@ -326,6 +338,18 @@ private val CARRIED_ROW = Color(0xFF2C2C30)
 /** How long the card stays after the drop: the row's spring back to its slot. */
 private const val LIFT_SETTLE_MS = 450L
 private const val HEADING_NEXT = "heading-next"
+
+/** Autoplay's songs (Spotify adds them after the context's) and the context's: blocks no Spotify song leaves. */
+private fun blockOf(rows: Map<String, QRow>): (String) -> Int = { k -> if (rows[k]?.item?.provider == AUTOPLAY) 1 else 0 }
+
+/** Where autoplay's songs start in [order]'s "next from" part, or -1. */
+private fun autoplayStart(order: List<String>, rows: Map<String, QRow>): Int {
+    val h = order.indexOf(HEADING_NEXT)
+    if (h < 0) return -1
+    return (h + 1 until order.size).firstOrNull { rows[order[it]]?.item?.provider == AUTOPLAY } ?: -1
+}
+
+private const val AUTOPLAY = "autoplay"
 
 /** The panel's flat order of keys: the queued rows, the context's heading (when it has rows), its rows. */
 private fun flatOrder(rows: List<QRow>): List<String> {
