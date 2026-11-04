@@ -2,6 +2,18 @@
 
 Each release on GitHub shows its section below. The app shows it too when it offers the update. Every detail: [docs/CHANGELOG-full.md](docs/CHANGELOG-full.md).
 
+## Unreleased
+
+- 🎧 **AutoMix**: two decks and a whole-song analysis mix the next song in on the beat (a blend with a bass swap, a cut on the beat or a smooth fade), in both players; Next can do a real mix too (Settings: Cut, Quick mix or Real mix). Faster analysis, a gentler tempo lock, and the speed coming back to normal slowly.
+- 📺 **Android TV**: Myspoti is in the TV launcher, with a short version for the remote (Library, Liked Songs, Search and the player).
+- 🔔 **New releases** of the artists you follow in a notification (Settings, on by default).
+- ⏭️ **The next song kept ready**: songs from audio-source extensions go through the media cache (256 MB by default) and the next one is read whole ahead off mobile data, so it plays through a dropped network.
+- 👥 **Several Spotify accounts**, a **Friends** tab, **Jam** joined by link or QR, **Live Radio**, voice search, SponsorBlock for podcasts, spatial audio, and your own playlists reordered by hand.
+- 💿 **Share an album** from its menu; a guide to extensions linked from the Extensions page.
+- ⚡ **Faster**: the client token kept across launches, lists read four pages at a time, a source's status checked behind the song instead of before it, the audio sources started first at launch, and covers that wait for slow networks.
+- 🛠️ **Fixes**: seeking in the Immersive player after a song change no longer skips to the next song; shuffle on a long extension list no longer freezes the app; a song stuck at 0:10 on a stale token reloads instead of retrying for minutes; resuming with Tidal or another source after a relaunch; Podcasts and Documentaries no longer empty; Home refreshed; the birth month at sign-up; a soundbar's volume left alone (#159); the dark search field (#157); playlists picker no longer loading for a minute (#145); Android Auto and Bluetooth controls (#142, #151); and the bugs reported on Discord and Reddit.
+- 🌍 Translations of everything new.
+
 ## 2.3.0
 
 - 🔁 **Repeat the song for good** is back, with Repeat once as a fourth mode.
