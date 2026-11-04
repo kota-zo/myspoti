@@ -600,6 +600,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
     }
     val tint by androidx.compose.animation.animateColorAsState(tintTarget, androidx.compose.animation.core.tween(350), label = "tint")
     var menuSong by remember { mutableStateOf<SongsModel?>(null) }
+    var savedInSong by remember { mutableStateOf<SongsModel?>(null) }
     // "Find in Liked Songs / in playlist".
     var find by remember { mutableStateOf("") }
     // A song tapped in the found rows puts the keyboard away; the search and the list stay as they are.
@@ -698,6 +699,9 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
             }
         },
     )
+    savedInSong?.let { sel ->
+        com.music.spotui.ui.components.SavedInSheet(song = sel, context = context, onDismiss = { savedInSong = null })
+    }
     menuSong?.let { sel ->
         val inPlaylist = p.type == "playlist"
         val canRemove = inPlaylist && vm.editableContext.value
@@ -1080,6 +1084,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                 addedBy = vm.adders.value.let { a -> a["row:" + song.rowUid] ?: a["song:" + song.spotifyTrackId] },
                 onClick = { dismissKeyboard(); if (SmartShuffle.on.value == p.uri) vm.playSmart(p, song) else vm.play(p, song, sort) },
                 onMore = { menuSong = song },
+                onSaved = { savedInSong = song },
                 handle = if (reordering) drag.handle(song.rowUid) else null,
             ) }
         }
@@ -1338,6 +1343,8 @@ private fun TrackRow(
     offline: com.music.spotui.data.offline.OfflineStatus?,
     onClick: () -> Unit,
     onMore: () -> Unit,
+    /** The green check tapped: where the song is saved, to take it out (as in the official app). */
+    onSaved: () -> Unit = {},
     addedBy: app.myspoti.api.PlaylistMember? = null,
     /** The song can be moved: a drag on this handle carries it. */
     handle: Modifier? = null,
@@ -1408,13 +1415,19 @@ private fun TrackRow(
             Spacer(Modifier.width(14.dp))
         }
         if (saved) {
+            // A 40 dp target around the 20 dp disc: the disc alone was too small to hit (reported).
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(20.dp).clip(CircleShape).background(SpotifyGreen),
+                modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onSaved),
             ) {
-                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.liked_song), tint = Color.Black, modifier = Modifier.size(14.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(20.dp).clip(CircleShape).background(SpotifyGreen),
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = stringResource(R.string.liked_song), tint = Color.Black, modifier = Modifier.size(14.dp))
+                }
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(6.dp))
         }
         Icon(
             Icons.Default.MoreVert,
