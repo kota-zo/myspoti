@@ -70,6 +70,15 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     val licenseLimitedUntil: StateFlow<Long> = _licenseLimitedUntil
     fun licenseLimited(): Boolean = android.os.SystemClock.elapsedRealtime() < _licenseLimitedUntil.value
 
+    /**
+     * When Spotify last refused this page an audio licence (403 and the like, not a 429 limit). The
+     * page then skips the song by itself, and on to the next one, a second or so each: those moves are
+     * not the user's (see ConnectMirror).
+     */
+    @Volatile private var licenceRefusedAt = 0L
+    fun licenceRefusedWithin(ms: Long): Boolean =
+        licenceRefusedAt != 0L && android.os.SystemClock.elapsedRealtime() - licenceRefusedAt < ms
+
     private fun onLicenseLimited() = synchronized(license429) {
         val now = android.os.SystemClock.elapsedRealtime()
         license429.addLast(now)
@@ -395,6 +404,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     loginFailed("http ${response.statusCode}")
                 if (request.url.path?.contains("widevine-license") == true) {
                     if (response.statusCode == 429) onLicenseLimited()
+                    else if (response.statusCode in 400..499) licenceRefusedAt = android.os.SystemClock.elapsedRealtime()
                     response.responseHeaders.entries.firstOrNull { it.key.equals("retry-after", true) }
                         ?.let { app.myspoti.spotify.report.Refusal402.licenceRetryAfter(it.value) }
                     // A refused licence (403 seen on a new sign-in, 429 on others) says why in its

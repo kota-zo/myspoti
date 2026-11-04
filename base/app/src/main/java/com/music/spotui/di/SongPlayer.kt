@@ -321,6 +321,9 @@ object SongPlayer {
                     // The same when it refuses the account its licences (#134): the ad it is stuck on
                     // stays out of the screens, the toast said why nothing plays.
                     while (MyspotiRuntime.host.licenseLimited() || MyspotiRuntime.spotify.player.licencesHeld) kotlinx.coroutines.delay(1_000)
+                    // The local player plays (an extension's or a downloaded song): the ad is on the unheard
+                    // page that mirrors it, not what is heard. Shown, the song on screen became the ad (reported).
+                    if (LocalPlayer.active.value) return@collectLatest
                 }
                 onAdPlaying(on)
             }

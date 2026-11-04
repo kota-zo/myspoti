@@ -33,6 +33,10 @@ import kotlinx.coroutines.sync.withLock
  * Everything runs on the main thread, on the two players' own events (and one slow drift check).
  */
 object ConnectMirror {
+    /** How long after a refused licence the page's own song changes are not followed. */
+    private const val LICENCE_SKIP_MS = 10_000L
+    private var ignoredLicenceSkips = 0
+
     private const val SPOTIFY_TRACK_PREFIX = "spotify:track:"
     /** A play is answered within that (the page loads the song, then reports it). */
     private const val PLAY_ECHO_MS = 6_000L
@@ -264,7 +268,15 @@ object ConnectMirror {
         // Recovering from an ad or a reload: a song other than the asked one is the player's own play, sent back.
         val sure = landed && SystemClock.elapsedRealtime() >= recoverUntil
         val repeats = LocalPlayer.repeatsCurrent()
-        when (val f = MirrorRules.onWeb(web, w, local, quiet, sure, predicted, previousUri, gap, wantAt, wantLength, recentUris(), repeats)) {
+        val f = MirrorRules.onWeb(web, w, local, quiet, sure, predicted, previousUri, gap, wantAt, wantLength, recentUris(), repeats)
+        // A song refused its licence makes the page skip on by itself, a song a second or so: taken for
+        // picks on another device, the local player followed and its songs switched at random (reported,
+        // free account, 403 ×42). Those moves stay the page's; the local song plays on.
+        if (MirrorRules.movesSong(f) && MyspotiRuntime.host.licenceRefusedWithin(LICENCE_SKIP_MS)) {
+            if (ignoredLicenceSkips++ % 10 == 0) log("the page went to ${web.uri} after a refused licence: not followed")
+            return
+        }
+        when (f) {
             Follow.Nothing -> {}
             // A play waits already (coalescing, backing off): not another one.
             Follow.Retry -> if (pendingContext != null) Unit else if (retries++ < MAX_RETRIES) {

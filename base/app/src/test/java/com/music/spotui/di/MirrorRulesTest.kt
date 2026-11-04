@@ -307,4 +307,12 @@ class MirrorRulesTest {
         assertTrue(MirrorRules.followsRemote(activeElsewhere = false))
         assertFalse(MirrorRules.followsRemote(activeElsewhere = true))
     }
+
+    @Test fun onlyPicksNextsAndPreviousesMoveTheLocalSong() {
+        assertTrue(MirrorRules.movesSong(MirrorRules.Follow.Play("spotify:track:x", 0)))
+        assertTrue(MirrorRules.movesSong(MirrorRules.Follow.Next))
+        assertTrue(MirrorRules.movesSong(MirrorRules.Follow.Previous))
+        for (f in listOf(MirrorRules.Follow.Pause, MirrorRules.Follow.Resume, MirrorRules.Follow.Nothing, MirrorRules.Follow.Back, MirrorRules.Follow.Retry))
+            assertTrue(!MirrorRules.movesSong(f))
+    }
 }
