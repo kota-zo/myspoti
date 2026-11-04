@@ -1176,6 +1176,7 @@ object SongPlayer {
         song: String, context: Context? = null, contextUri: String? = null, order: List<String>? = null, positionMs: Long? = null,
         songs: List<SongsModel>? = null, askExtensions: Boolean = true, alone: Boolean = false,
     ) {
+        userActed()
         // Data saver on mobile data: Spotify can't stream, only downloads and Local Files play.
         if (com.music.spotui.data.DataSaver.active) {
             main.post {
@@ -1301,15 +1302,31 @@ object SongPlayer {
      */
     private fun watchFallback(id: String, title: String) {
         fallbackWatch?.cancel()
+        val armedAt = android.os.SystemClock.elapsedRealtime()
+        val before = trackIdOf(_nowPlaying.value.uri)
+        // Looked at twice a second (the scope is the main thread's): the song seen playing once is
+        // a success. Only one never seen playing within the time, with nobody else having moved
+        // on, is skipped. Looked at once at the end, it took a song played then skipped or paused
+        // by the user for a refused one: it skipped again and played on after a pause (dev 3136).
         fallbackWatch = scope.launch {
-            kotlinx.coroutines.delay(FALLBACK_START_MS)
-            main.post {
-                if (spotifyFallbackId != id || LocalPlayer.active.value) return@post
-                if (playing && trackIdOf(_nowPlaying.value.uri) == id) { fallbackFailures = 0; return@post }
-                fallbackFailed(id, title)
+            while (true) {
+                kotlinx.coroutines.delay(FALLBACK_LOOK_MS)
+                if (spotifyFallbackId != id || LocalPlayer.active.value) return@launch
+                val now = trackIdOf(_nowPlaying.value.uri)
+                if (playing && now == id) { fallbackFailures = 0; return@launch }
+                // The user skipped, went back, paused or picked something: theirs from now on.
+                if (userActedAt > armedAt) return@launch
+                // The player moved on to another song by itself (Spotify's own queue): not ours to judge.
+                if (now.isNotBlank() && now != id && now != before) return@launch
+                if (android.os.SystemClock.elapsedRealtime() - armedAt >= FALLBACK_START_MS) break
             }
+            fallbackFailed(id, title)
         }
     }
+
+    /** When the user last skipped, went back, paused, played or picked a song (elapsedRealtime). */
+    @Volatile private var userActedAt = 0L
+    private fun userActed() { userActedAt = android.os.SystemClock.elapsedRealtime() }
 
     private var fallbackWatch: kotlinx.coroutines.Job? = null
     /** Songs skipped in a row because neither the extensions nor Spotify played them. */
@@ -1472,6 +1489,7 @@ object SongPlayer {
 
     /** How long a song sent to Spotify for want of the extensions may take to start there. */
     private const val FALLBACK_START_MS = 10_000L
+    private const val FALLBACK_LOOK_MS = 500L
     private const val MAX_FALLBACK_FAILURES = 3
 
     /** How long before its end the last song is played by Spotify, so its autoplay goes on at once. */
@@ -1664,6 +1682,7 @@ object SongPlayer {
     /** [by]: who asked, for the diagnostic (the app's screens, the media session, an extension...). */
     fun play(by: String = "user") {
         app.myspoti.host.android.Logbook.log("play asked by $by")
+        userActed()
         if (routing) return // the song asked for starts by itself
         if (LocalPlayer.active.value) { Haptics.click(); if (!playDueOnSpotify()) LocalPlayer.resume(); return }
         val wasLocal = restoredLocal
@@ -1701,6 +1720,7 @@ object SongPlayer {
 
     fun pause(by: String = "user") {
         app.myspoti.host.android.Logbook.log("pause asked by $by")
+        userActed()
         Haptics.click(); cancelBurst(); pauseSilently()
     }
 
@@ -1745,6 +1765,7 @@ object SongPlayer {
     fun next(by: String = "user") {
         Log.d(TAG, "next tapped")
         app.myspoti.host.android.Logbook.log("next asked by $by")
+        userActed()
         Haptics.click()
         if (LocalPlayer.active.value) { LocalPlayer.next(); return }
         cancelRepeatOnce("next")
@@ -1948,6 +1969,7 @@ object SongPlayer {
 
     fun previous(by: String = "user") {
         app.myspoti.host.android.Logbook.log("previous asked by $by")
+        userActed()
         Haptics.click()
         if (LocalPlayer.active.value) { LocalPlayer.previous(); return }
         cancelRepeatOnce("previous")

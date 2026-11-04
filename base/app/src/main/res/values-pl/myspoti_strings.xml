@@ -268,7 +268,7 @@
     <string name="setup_quality_title">Jakość dźwięku</string>
     <string name="setup_quality_subtitle">Wybierz, jak Myspoti odtwarza i zapisuje Twoją muzykę. Możesz to zmienić później w Ustawieniach.</string>
     <string name="downloads_off_toast">Pobieranie jest wyłączone. Włącz je w Ustawieniach.</string>
-    <string name="quality_streaming_high_detail">160 kbit/s, najlepszy dźwięk</string>
+    <string name="quality_streaming_high_detail">160 kbit/s</string>
     <string name="quality_download_small">Najmniejsza</string>
     <string name="quality_download_small_detail">Mały plik źródłowy lub AAC 96 kbit/s po konwersji; rozmiar może się różnić</string>
     <string name="settings_solid_nav_title">Pełny dolny pasek</string>
@@ -784,4 +784,6 @@
     <string name="notify_release_title">Nowość od %1$s</string>
     <string name="settings_release_notify">Powiadomienia o nowościach</string>
     <string name="settings_release_notify_detail">Powiadomienie, gdy obserwowany artysta coś wyda; sprawdzane co kilka godzin, gdy Myspoti działa</string>
+    <string name="quality_streaming_very_high">Bardzo wysoka</string>
+    <string name="quality_streaming_very_high_detail">256 kbit/s, tylko konta Premium</string>
 </resources>

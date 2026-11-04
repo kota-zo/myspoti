@@ -315,6 +315,7 @@ internal fun streamingLabel(q: com.music.spotui.data.preferences.StreamingQualit
     com.music.spotui.data.preferences.StreamingQuality.LOW -> R.string.quality_streaming_low
     com.music.spotui.data.preferences.StreamingQuality.NORMAL -> R.string.quality_streaming_normal
     com.music.spotui.data.preferences.StreamingQuality.HIGH -> R.string.quality_streaming_high
+    com.music.spotui.data.preferences.StreamingQuality.VERY_HIGH -> R.string.quality_streaming_very_high
 }
 
 /** The sound quality page: what plays now (codec and bitrate, the downloaded file, or what an extension announced), and the setting. */

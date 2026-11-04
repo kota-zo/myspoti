@@ -265,7 +265,7 @@
     <string name="setup_quality_title">音质</string>
     <string name="setup_quality_subtitle">选择 Myspoti 播放和保存音乐的方式。之后可在“设置”中更改。</string>
     <string name="downloads_off_toast">下载已关闭。请在“设置”中开启。</string>
-    <string name="quality_streaming_high_detail">160 kbit/s，最佳音质</string>
+    <string name="quality_streaming_high_detail">160 kbit/s</string>
     <string name="quality_download_small">最小</string>
     <string name="quality_download_small_detail">保留来源的小文件，或转换为 AAC 96 kbit/s；大小因来源而异</string>
     <string name="settings_solid_nav_title">纯色底部栏</string>
@@ -769,4 +769,6 @@
     <string name="notify_release_title">%1$s 的新作品</string>
     <string name="settings_release_notify">新发行通知</string>
     <string name="settings_release_notify_detail">你关注的艺人发布新作品时发送通知，Myspoti 运行时每隔几小时检查一次</string>
+    <string name="quality_streaming_very_high">极高</string>
+    <string name="quality_streaming_very_high_detail">256 kbit/s，仅限 Premium 账户</string>
 </resources>

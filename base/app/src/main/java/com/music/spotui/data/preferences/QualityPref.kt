@@ -18,7 +18,9 @@ private const val KEY_CANVAS_WIFI = "canvas_wifi_only"
  * 160 kbit/s. Only the levels a free account gets; "very_high" (320) is Premium's.
  */
 enum class StreamingQuality(val level: String) {
-    AUTO("auto"), LOW("low"), NORMAL("normal"), HIGH("high");
+    AUTO("auto"), LOW("low"), NORMAL("normal"), HIGH("high"),
+    /** 256 kbit/s: the Web Player gives it to Premium accounts only (offered then, see StreamingQualityPicker). */
+    VERY_HIGH("very_high");
 
     companion object {
         fun of(level: String?): StreamingQuality = entries.firstOrNull { it.level == level } ?: AUTO

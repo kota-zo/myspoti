@@ -297,7 +297,7 @@
     <string name="look_demo_podcasts">Podcasts</string>
     <string name="look_demo_section">Made for you</string>
     <string name="downloads_off_toast">Downloads are off. Turn them on in Settings.</string>
-    <string name="quality_streaming_high_detail">160 kbit/s, the best sound</string>
+    <string name="quality_streaming_high_detail">160 kbit/s</string>
     <string name="quality_download_small">Smallest</string>
     <string name="quality_download_small_detail">Small source file, or AAC 96 kbit/s when converted; size varies</string>
     <string name="settings_solid_nav_title">Solid bottom bar</string>
@@ -776,4 +776,6 @@
     <string name="notify_release_title">New from %1$s</string>
     <string name="settings_release_notify">New release notifications</string>
     <string name="settings_release_notify_detail">A notification when an artist you follow releases something, checked every few hours while Myspoti runs</string>
+    <string name="quality_streaming_very_high">Very high</string>
+    <string name="quality_streaming_very_high_detail">256 kbit/s, Premium accounts only</string>
 </resources>

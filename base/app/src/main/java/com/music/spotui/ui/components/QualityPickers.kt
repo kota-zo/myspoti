@@ -23,6 +23,7 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,14 +50,20 @@ import com.music.spotui.data.preferences.setStreamingQuality
 fun StreamingQualityPicker(modifier: Modifier = Modifier, cellular: Boolean = false, title: Int = R.string.quality_streaming_title) {
     val ctx = LocalContext.current
     var current by remember(cellular) { mutableStateOf(getStreamingQuality(ctx, cellular)) }
+    // Very high (256 kbit/s) is the Web Player's level for Premium accounts: offered once the plan
+    // read says Premium (reported: no higher quality with a Premium account), and kept in the
+    // list while chosen (another account of the phone may be the free one).
+    val premium by app.myspoti.spotify.AccountPlan.premium.collectAsState()
     QualityGroup(
         title = stringResource(title),
         detail = stringResource(R.string.quality_streaming_detail),
-        options = listOf(
+        options = listOfNotNull(
             Option(StreamingQuality.AUTO, R.string.quality_streaming_auto, R.string.quality_streaming_auto_detail),
             Option(StreamingQuality.LOW, R.string.quality_streaming_low, R.string.quality_streaming_low_detail),
             Option(StreamingQuality.NORMAL, R.string.quality_streaming_normal, R.string.quality_streaming_normal_detail),
             Option(StreamingQuality.HIGH, R.string.quality_streaming_high, R.string.quality_streaming_high_detail),
+            Option(StreamingQuality.VERY_HIGH, R.string.quality_streaming_very_high, R.string.quality_streaming_very_high_detail)
+                .takeIf { premium == true || current == StreamingQuality.VERY_HIGH },
         ),
         selected = current,
         onSelect = { current = it; setStreamingQuality(ctx, it, cellular) },

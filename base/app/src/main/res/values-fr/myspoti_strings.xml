@@ -292,7 +292,7 @@
     <string name="look_demo_podcasts">Podcasts</string>
     <string name="look_demo_section">Pour vous</string>
     <string name="downloads_off_toast">Les téléchargements sont désactivés. Activez-les dans les Réglages.</string>
-    <string name="quality_streaming_high_detail">160 kbit/s, le meilleur son</string>
+    <string name="quality_streaming_high_detail">160 kbit/s</string>
     <string name="quality_download_small">La plus légère</string>
     <string name="quality_download_small_detail">Petit fichier de la source, ou AAC 96 kbit/s après conversion ; taille variable</string>
     <string name="settings_solid_nav_title">Barre du bas opaque</string>
@@ -774,4 +774,6 @@
     <string name="notify_release_title">Nouveau de %1$s</string>
     <string name="settings_release_notify">Notifications des nouveautés</string>
     <string name="settings_release_notify_detail">Une notification quand un artiste que tu suis sort quelque chose, vérifié toutes les quelques heures pendant que Myspoti tourne</string>
+    <string name="quality_streaming_very_high">Très élevée</string>
+    <string name="quality_streaming_very_high_detail">256 kbit/s, comptes Premium uniquement</string>
 </resources>

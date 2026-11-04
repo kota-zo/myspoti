@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +80,8 @@ private val StreamingChoices = listOf(
     Triple(StreamingQuality.LOW, R.string.quality_streaming_low, R.string.quality_streaming_low_detail),
     Triple(StreamingQuality.NORMAL, R.string.quality_streaming_normal, R.string.quality_streaming_normal_detail),
     Triple(StreamingQuality.HIGH, R.string.quality_streaming_high, R.string.quality_streaming_high_detail),
+    // Offered with a Premium account only (see the page below).
+    Triple(StreamingQuality.VERY_HIGH, R.string.quality_streaming_very_high, R.string.quality_streaming_very_high_detail),
 )
 
 private val DownloadChoices = listOf(
@@ -414,12 +417,15 @@ private fun LyricsPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
 private fun StreamingPage(cellular: Boolean, back: () -> Unit) {
     val ctx = LocalContext.current
     var current by remember(cellular) { mutableStateOf(getStreamingQuality(ctx, cellular)) }
+    // Very high is the Web Player's Premium level: offered with a Premium account, kept while chosen.
+    val premium by app.myspoti.spotify.AccountPlan.premium.collectAsState()
+    val choices = StreamingChoices.filter { it.first != StreamingQuality.VERY_HIGH || premium == true || current == StreamingQuality.VERY_HIGH }
     ImmersivePage(
         title = stringResource(if (cellular) R.string.quality_streaming_cell_title else R.string.quality_streaming_wifi_title),
         onBack = back,
     ) {
         immersiveGroup("choices", footerRes = R.string.quality_streaming_detail) {
-            StreamingChoices.forEach { (value, label, detail) ->
+            choices.forEach { (value, label, detail) ->
                 row {
                     ImmersiveChoiceRow(stringResource(label), selected = current == value, detail = stringResource(detail),
                         onClick = { current = value; setStreamingQuality(ctx, value, cellular) })
