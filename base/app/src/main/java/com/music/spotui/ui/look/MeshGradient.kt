@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
+import kotlinx.coroutines.launch
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
@@ -246,12 +247,20 @@ fun rememberArtworkColors(imageUrl: String?): MeshPalette {
     // so a song change goes straight from one palette to the next, not through the stock purple.
     var palette by remember { mutableStateOf(MeshPalette(FallbackColors)) }
 
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     DisposableEffect(imageUrl) {
         if (imageUrl == null) palette = MeshPalette(FallbackColors)
+        var job: kotlinx.coroutines.Job? = null
         val target = if (imageUrl == null) null else loadArtwork(context, imageUrl) { bitmap ->
-            palette = MeshPalette(artworkMeshColors(bitmap))
+            // The quantising off the main thread (it held it ~160 ms at each song change), on a
+            // small copy of its own: Glide may recycle its bitmap once the target is cleared.
+            val small = Bitmap.createScaledBitmap(bitmap, PALETTE_PX, PALETTE_PX, true)
+            job = scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                val colors = artworkMeshColors(small)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { palette = MeshPalette(colors) }
+            }
         }
-        onDispose { target?.let { Glide.with(context.applicationContext).clear(it) } }
+        onDispose { job?.cancel(); target?.let { Glide.with(context.applicationContext).clear(it) } }
     }
     return palette
 }
@@ -272,6 +281,9 @@ private fun loadArtwork(context: Context, imageUrl: String, onLoaded: (Bitmap) -
  * that the backdrop visibly reacts to a track change, short of a full orbit
  * that would land the blobs back where they started.
  */
+/** The side of the copy the colours are taken from (Palette scales to about this anyway). */
+private const val PALETTE_PX = 112
+
 private const val DRIFT_RADIANS = (PI * 0.45f).toFloat()
 
 /**

@@ -97,6 +97,9 @@ object MixPlanner {
      * over halfway; tempos too far apart: a cut on A's downbeat onto that entry. Null without both
      * analyses and grids there: [planSkip] then.
      */
+    /** The longest a skip's cut waits for A's phrase. */
+    private const val CUT_WAIT_SEC = 2.0
+
     fun planSkipFull(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double, s: Settings = Settings(), window: Double = 4.0): MixPlan? {
         if (a == null || b == null || s.style == MixPlan.Style.FADE) return null
         val from = now + lead
@@ -127,6 +130,8 @@ object MixPlanner {
         }
         val entry = entries.maxBy { it.score }
         val speed = if (synced) m.speed else 1.0
+        // A cut is over at once: a phrase is worth a short wait only, after that A's next downbeat.
+        if (exit > from + CUT_WAIT_SEC) { exit = firstDown(ga, downA, from); why = "A's next downbeat" }
         return MixPlan(MixPlan.Style.CUT, exit, entry.time, 2 * ga.period, speed, 2, 0.0, 0.5, matchGain(a, b),
             if (synced) restore(speed, gb.period) else 0.0, String.format("skip (real mix): cut on %s at %.1f onto %s", why, exit, entry.why))
     }
