@@ -792,4 +792,8 @@
     <string name="login_help_send">Отправить отчёт</string>
     <string name="login_help_restart">Начать заново</string>
     <string name="login_help_slow">Слишком долго? Отправить диагностический отчёт</string>
+    <string name="settings_sources_tab">Источники</string>
+    <string name="settings_sources_detail">Какое расширение воспроизводит и скачивает первым</string>
+    <string name="settings_sources_none">Пока ни одно расширение не воспроизводит и не скачивает музыку: всё играет Spotify. Добавьте его в разделе «Расширения».</string>
+    <string name="ext_settings_header">Настройки расширений</string>
 </resources>

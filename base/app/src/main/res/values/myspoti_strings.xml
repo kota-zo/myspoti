@@ -784,4 +784,8 @@
     <string name="login_help_send">Send the report</string>
     <string name="login_help_restart">Start over</string>
     <string name="login_help_slow">Taking too long? Send a diagnostic report</string>
+    <string name="settings_sources_tab">Sources</string>
+    <string name="settings_sources_detail">Which extension plays and downloads first</string>
+    <string name="settings_sources_none">No extension plays or downloads music yet: Spotify plays everything. Add one in Extensions.</string>
+    <string name="ext_settings_header">Extension settings</string>
 </resources>

@@ -777,4 +777,8 @@
     <string name="login_help_send">Bericht senden</string>
     <string name="login_help_restart">Neu beginnen</string>
     <string name="login_help_slow">Dauert es zu lange? Diagnosebericht senden</string>
+    <string name="settings_sources_tab">Quellen</string>
+    <string name="settings_sources_detail">Welche Erweiterung zuerst abspielt und herunterlädt</string>
+    <string name="settings_sources_none">Noch keine Erweiterung spielt oder lädt Musik: Spotify spielt alles. Füge eine unter Erweiterungen hinzu.</string>
+    <string name="ext_settings_header">Einstellungen der Erweiterungen</string>
 </resources>

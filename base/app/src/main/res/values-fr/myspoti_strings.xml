@@ -782,4 +782,8 @@
     <string name="login_help_send">Envoyer le rapport</string>
     <string name="login_help_restart">Recommencer</string>
     <string name="login_help_slow">Ça prend trop de temps ? Envoyer un rapport de diagnostic</string>
+    <string name="settings_sources_tab">Sources</string>
+    <string name="settings_sources_detail">Quelle extension lit et télécharge en premier</string>
+    <string name="settings_sources_none">Aucune extension ne lit ni ne télécharge encore : Spotify lit tout. Ajoutes-en une dans Extensions.</string>
+    <string name="ext_settings_header">Réglages des extensions</string>
 </resources>

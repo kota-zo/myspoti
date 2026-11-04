@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -73,7 +74,7 @@ import com.music.spotui.ui.screens.shareDiagnosticReport
 import kotlinx.coroutines.launch
 
 /** Where the Immersive Settings are: the list of categories, one category, or a choice inside it. */
-private enum class SettingsPage { Root, Playback, Lyrics, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts }
+private enum class SettingsPage { Root, Playback, Sources, Lyrics, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts }
 
 private val StreamingChoices = listOf(
     Triple(StreamingQuality.AUTO, R.string.quality_streaming_auto, R.string.quality_streaming_auto_detail),
@@ -133,6 +134,7 @@ fun ImmersiveSettingsScreen(navController: NavController) {
         when (p) {
             SettingsPage.Root -> SettingsRoot(navController, open, back)
             SettingsPage.Playback -> PlaybackPage(navController, open, back)
+            SettingsPage.Sources -> SourcesPage(navController, back)
             SettingsPage.Lyrics -> LyricsPage(open, back)
             SettingsPage.StreamingWifi -> StreamingPage(cellular = false, back)
             SettingsPage.StreamingCell -> StreamingPage(cellular = true, back)
@@ -158,14 +160,29 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
     val withSettings = registry.extensions.mapNotNull { e ->
         com.music.spotui.extensions.Extensions.manifest(e.id)?.settings?.takeIf { it.isNotEmpty() }?.let { e to it }
     }
+    val crossfade = com.music.spotui.data.preferences.CrossfadePref.seconds
+    val audioLine = com.music.spotui.ui.screens.sourceLineSummary(app.myspoti.extensions.Action.AUDIO_SOURCE)
     ImmersivePage(title = stringResource(R.string.settings_title), onBack = back) {
+        // What is changed most, first: playback, the order of the sources, the transitions.
         immersiveGroup("root") {
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_playback), icon = Icons.Rounded.PlayArrow, chevron = true, onClick = { open(SettingsPage.Playback) }) }
-            row { ImmersiveGroupRow(stringResource(R.string.settings_section_lyrics), icon = Icons.Rounded.Lyrics, chevron = true, onClick = { open(SettingsPage.Lyrics) }) }
+            row {
+                ImmersiveGroupRow(stringResource(R.string.settings_sources_tab), icon = Icons.Rounded.Extension, chevron = true,
+                    detail = audioLine ?: stringResource(R.string.settings_sources_detail), onClick = { open(SettingsPage.Sources) })
+            }
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.settings_transitions_title), icon = Icons.Rounded.GraphicEq, chevron = true,
+                    value = transitionValue(crossfade), onClick = { open(SettingsPage.Crossfade) },
+                )
+            }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_downloads), icon = Icons.Rounded.Download, chevron = true, onClick = { open(SettingsPage.Downloads) }) }
-            row { ImmersiveGroupRow(stringResource(R.string.settings_section_storage), icon = Icons.Rounded.Storage, chevron = true, onClick = { open(SettingsPage.Storage) }) }
-            row { ImmersiveGroupRow(stringResource(R.string.settings_section_data), icon = Icons.Rounded.SignalCellularAlt, chevron = true, onClick = { open(SettingsPage.Data) }) }
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_lyrics), icon = Icons.Rounded.Lyrics, chevron = true, onClick = { open(SettingsPage.Lyrics) }) }
+        }
+        immersiveGroup("more") {
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_display), icon = Icons.Rounded.Palette, chevron = true, onClick = { open(SettingsPage.Display) }) }
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_data), icon = Icons.Rounded.SignalCellularAlt, chevron = true, onClick = { open(SettingsPage.Data) }) }
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_storage), icon = Icons.Rounded.Storage, chevron = true, onClick = { open(SettingsPage.Storage) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_app), icon = Icons.Rounded.Info, chevron = true, onClick = { open(SettingsPage.App) }) }
         }
         immersiveGroup("accounts") {
@@ -176,17 +193,35 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
                 )
             }
         }
-        immersiveGroup("extensions") {
-            row {
-                ImmersiveGroupRow(
-                    stringResource(R.string.extensions_title), detail = stringResource(R.string.extensions_row_detail),
-                    icon = Icons.Rounded.Extension, chevron = true,
-                    onClick = { navController.navigate(Routes.Extensions.route) },
-                )
-            }
-        }
+    }
+}
+
+/** Off, a crossfade of N s or AutoMix: the value of the Transitions rows. */
+@Composable
+private fun transitionValue(crossfade: Int): String = when (com.music.spotui.data.preferences.TransitionPref.mode) {
+    com.music.spotui.data.preferences.TransitionPref.Mode.AUTOMIX -> stringResource(R.string.settings_automix_title)
+    com.music.spotui.data.preferences.TransitionPref.Mode.CROSSFADE -> stringResource(R.string.settings_transition_crossfade_value, crossfade)
+    com.music.spotui.data.preferences.TransitionPref.Mode.OFF -> stringResource(R.string.settings_crossfade_off)
+}
+
+/**
+ * The sources, on a page of their own (they were at the bottom of Playback and of Downloads):
+ * which extension plays first and which downloads first, the extensions' own settings, and
+ * the list of extensions.
+ */
+@Composable
+private fun SourcesPage(navController: NavController, back: () -> Unit) {
+    val registry by com.music.spotui.extensions.Extensions.registry.collectAsStateWithLifecycle()
+    val withSettings = registry.extensions.mapNotNull { e ->
+        com.music.spotui.extensions.Extensions.manifest(e.id)?.settings?.takeIf { it.isNotEmpty() }?.let { e to it }
+    }
+    val none = com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isEmpty() &&
+        com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isEmpty()
+    ImmersivePage(title = stringResource(R.string.settings_sources_tab), onBack = back) {
+        sourcesGroup(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
+        sourcesGroup(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, navController)
         // The installed extensions that declare settings, each opening its page.
-        immersiveGroup("extension-settings", headerRes = if (withSettings.isEmpty()) null else R.string.extensions_title) {
+        immersiveGroup("extension-settings", headerRes = if (withSettings.isEmpty()) null else R.string.ext_settings_header) {
             withSettings.forEach { (e, settings) ->
                 row {
                     ImmersiveGroupRow(
@@ -194,6 +229,15 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
                         onClick = { navController.navigate(installedRoute(e.id)) },
                     )
                 }
+            }
+        }
+        immersiveGroup("extensions", footerRes = if (none) R.string.settings_sources_none else null) {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.extensions_title), detail = stringResource(R.string.extensions_row_detail),
+                    icon = Icons.Rounded.Extension, chevron = true,
+                    onClick = { navController.navigate(Routes.Extensions.route) },
+                )
             }
         }
     }
@@ -215,6 +259,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sourcesGroup(action: 
             com.music.spotui.ui.screens.SourceOrderList(action, spotifyLast = audio, look = ImmersiveSourceLook,
                 onOpen = { navController.navigate(com.music.spotui.ui.screens.installedRoute(it)) },
                 rowPadding = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        }
+    }
+}
+
+/** Where the order of [action] is now: one row, with that order in a line, to the Sources page. */
+private fun androidx.compose.foundation.lazy.LazyListScope.sourcesLink(action: app.myspoti.extensions.Action, open: (SettingsPage) -> Unit) {
+    if (com.music.spotui.extensions.Extensions.sources(action).isEmpty()) return
+    immersiveGroup("sources-link:${action.key}") {
+        row {
+            ImmersiveGroupRow(
+                stringResource(if (action == app.myspoti.extensions.Action.AUDIO_SOURCE) R.string.sources_audio_title else R.string.sources_download_title),
+                detail = com.music.spotui.ui.screens.sourceLineSummary(action), chevron = true, onClick = { open(SettingsPage.Sources) },
+            )
         }
     }
 }
@@ -269,11 +326,7 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             row {
                 ImmersiveGroupRow(
                     stringResource(R.string.settings_transitions_title), detail = stringResource(R.string.settings_transitions_detail),
-                    value = when (com.music.spotui.data.preferences.TransitionPref.mode) {
-                        com.music.spotui.data.preferences.TransitionPref.Mode.AUTOMIX -> stringResource(R.string.settings_automix_title)
-                        com.music.spotui.data.preferences.TransitionPref.Mode.CROSSFADE -> stringResource(R.string.settings_transition_crossfade_value, crossfade)
-                        com.music.spotui.data.preferences.TransitionPref.Mode.OFF -> stringResource(R.string.settings_crossfade_off)
-                    },
+                    value = transitionValue(crossfade),
                     chevron = true, onClick = { open(SettingsPage.Crossfade) },
                 )
             }
@@ -342,7 +395,7 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                 )
             }
         }
-        sourcesGroup(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
+        sourcesLink(app.myspoti.extensions.Action.AUDIO_SOURCE, open)
         // Podcasts: SponsorBlock (SponsorBlockGroup.kt).
         sponsorBlockGroup()
     }
@@ -579,7 +632,7 @@ private fun DownloadsPage(navController: NavController, open: (SettingsPage) -> 
         }
         if (ext != null && extHeader != null) extensionSectionGroup(ext, extHeader)
         // Where downloads come from: the download-source extensions, in the order they are asked.
-        sourcesGroup(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, navController)
+        sourcesLink(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, open)
         if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isEmpty()) immersiveGroup("source") {
             row {
                 ImmersiveGroupRow(

@@ -777,4 +777,8 @@
     <string name="login_help_send">发送报告</string>
     <string name="login_help_restart">重新开始</string>
     <string name="login_help_slow">等太久了？发送诊断报告</string>
+    <string name="settings_sources_tab">来源</string>
+    <string name="settings_sources_detail">优先播放和下载的扩展</string>
+    <string name="settings_sources_none">还没有扩展播放或下载音乐：全部由 Spotify 播放。可在“扩展”中添加。</string>
+    <string name="ext_settings_header">扩展设置</string>
 </resources>

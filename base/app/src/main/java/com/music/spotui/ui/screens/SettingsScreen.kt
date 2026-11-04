@@ -30,6 +30,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.HorizontalDivider
@@ -66,17 +67,29 @@ import com.music.spotui.ui.theme.AppBackground
 fun SettingsScreen(navController: NavController) {
     val energy by app.myspoti.power.EnergySettings.state.collectAsStateWithLifecycle()
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    // A page inside Settings (Transitions and AutoMix's options): its own screen, back returns to the tab.
+    var sub by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = sub != null) { sub = null }
     Column(Modifier.fillMaxSize().background(AppBackground).statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(4.dp)) {
-            IconButton(onClick = { navController.popBackStack() }) {
+            IconButton(onClick = { if (sub != null) sub = null else navController.popBackStack() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.accessibility_navigate_back), tint = AppText)
             }
-            Text(stringResource(R.string.settings_title), color = AppText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(if (sub == SUB_TRANSITIONS) R.string.settings_transitions_title else R.string.settings_title),
+                color = AppText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
-        // One tab per group, so the page is no longer one long list.
+        if (sub == SUB_TRANSITIONS) {
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+                TransitionsRow()
+                Spacer(Modifier.height(com.music.spotui.ui.components.bottomBarsSpace()))
+            }
+            return@Column
+        }
+        // One tab per group, so the page is no longer one long list. What is changed most comes
+        // first: playback, then the sources (which extension plays and downloads first).
         var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
-        val tabs = listOf(R.string.settings_section_playback, R.string.settings_section_lyrics, R.string.settings_section_downloads, R.string.settings_tab_appearance,
-            R.string.extensions_title, R.string.settings_tab_about, R.string.accounts_title)
+        val tabs = listOf(R.string.settings_section_playback, R.string.settings_sources_tab, R.string.settings_section_lyrics, R.string.settings_section_downloads,
+            R.string.settings_tab_appearance, R.string.settings_tab_about, R.string.accounts_title)
         androidx.compose.material3.ScrollableTabRow(
             selectedTabIndex = tab, containerColor = Color.Transparent, contentColor = AppText, edgePadding = 12.dp,
             indicator = { positions ->
@@ -125,7 +138,7 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.AppShufflePref.on,
                 onChecked = { com.music.spotui.data.preferences.AppShufflePref.set(ctx, it) },
             )
-            TransitionsRow()
+            TransitionsLink(onOpen = { sub = SUB_TRANSITIONS })
             // The local player's equalizer, speed and silence skipping (never Spotify's own songs).
             Column(
                 Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.Equalizer.route) }
@@ -183,8 +196,6 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.hidden_songs_title), color = AppText, fontSize = 16.sp)
                 Text(stringResource(R.string.hidden_songs_detail), color = AppMuted, fontSize = 12.sp)
             }
-            Divider()
-            SourcesBlock(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
             // Podcasts: SponsorBlock (SponsorBlockSettings.kt).
             SponsorBlockSettings()
 
@@ -224,7 +235,7 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.background_playback_samsung), color = AppMuted, fontSize = 12.sp)
             }
             }
-            if (tab == 1) {
+            if (tab == TAB_LYRICS) {
             // Lyrics: word by word (karaoke) first, or line by line with Spotify's first.
             Section(R.string.settings_section_lyrics)
             var wordSync by remember { mutableStateOf(com.music.spotui.data.preferences.isLyricsWordSync(ctx)) }
@@ -268,15 +279,19 @@ fun SettingsScreen(navController: NavController) {
             )
             LyricsTranslationRow()
             }
-            if (tab == 2) {
+            if (tab == TAB_DOWNLOADS) {
             Section(R.string.settings_section_downloads)
             // Its role quality takes the place of the app's (kept, and still passed to every extension as `quality`).
             val ext = remember(registry) { com.music.spotui.extensions.Extensions.sectionPlacement(app.myspoti.extensions.SettingSection.DOWNLOADS) }
             if (ext?.hidesAppQuality != true) DownloadQualityPicker()
             ext?.let { ExtensionSectionSettings(it) }
             // Where downloads come from: the download-source extensions, in the order they are asked.
-            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isNotEmpty())
-                SourcesBlock(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, navController)
+            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isNotEmpty()) Column(
+                Modifier.fillMaxWidth().clickable { tab = TAB_SOURCES }.padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(stringResource(R.string.sources_download_title), color = AppText, fontSize = 16.sp)
+                Text(sourceLineSummary(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).orEmpty(), color = AppMuted, fontSize = 12.sp)
+            }
             else Column(
                 Modifier.fillMaxWidth().clickable { navController.navigate(com.music.spotui.ui.navigation.Routes.Extensions.route) }
                     .padding(horizontal = 20.dp, vertical = 10.dp),
@@ -302,7 +317,7 @@ fun SettingsScreen(navController: NavController) {
             StorageRows()
             if (com.music.spotui.data.offline.OfflineStore.tracks.isNotEmpty()) RemoveDownloadsRow()
             }
-            if (tab == 3) {
+            if (tab == TAB_LOOK) {
 
             Section(R.string.settings_section_display)
             OptionRow(
@@ -373,7 +388,15 @@ fun SettingsScreen(navController: NavController) {
             OrientationRow()
             LanguageRow()
             }
-            if (tab == 4) {
+            if (tab == TAB_SOURCES) {
+            val anySource = com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty() ||
+                com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isNotEmpty()
+            if (!anySource) Text(stringResource(R.string.settings_sources_none), color = AppMuted, fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
+            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty())
+                SourcesBlock(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
+            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.DOWNLOAD_SOURCE).isNotEmpty())
+                SourcesBlock(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, navController)
             ExtensionSettingsRows(navController)
             // Third-party extensions: lyrics, a song's audio, scripts reacting to the music.
             Column(
@@ -542,6 +565,34 @@ private fun AccentRow(look: com.music.spotui.data.preferences.Look) {
  * songs never overlap (the page plays one media element), so this is a fade, not a true
  * crossfade. The default is 0: off, as before.
  */
+private const val SUB_TRANSITIONS = "transitions"
+private const val TAB_SOURCES = 1
+private const val TAB_LYRICS = 2
+private const val TAB_DOWNLOADS = 3
+private const val TAB_LOOK = 4
+
+/** Transitions in the Playback tab: what is on, one line; its choices and AutoMix's options on their own page. */
+@Composable
+private fun TransitionsLink(onOpen: () -> Unit) {
+    val seconds = com.music.spotui.data.preferences.CrossfadePref.seconds
+    Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 20.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.settings_transitions_title), color = AppText, fontSize = 16.sp)
+            Text(stringResource(R.string.settings_transitions_detail), color = AppMuted, fontSize = 12.sp)
+        }
+        Text(
+            when (com.music.spotui.data.preferences.TransitionPref.mode) {
+                TransitionMode.AUTOMIX -> stringResource(R.string.settings_automix_title)
+                TransitionMode.CROSSFADE -> stringResource(R.string.settings_transition_crossfade_value, seconds)
+                TransitionMode.OFF -> stringResource(R.string.settings_crossfade_off)
+            },
+            color = com.music.spotui.ui.theme.AppAccent, fontSize = 14.sp, modifier = Modifier.padding(start = 12.dp),
+        )
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = AppMuted)
+    }
+}
+
 /**
  * Transitions: off, a crossfade (its length under it) or AutoMix (its options under it), with
  * what the choice does in one line.

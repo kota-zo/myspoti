@@ -792,4 +792,8 @@
     <string name="login_help_send">Wyślij raport</string>
     <string name="login_help_restart">Zacznij od nowa</string>
     <string name="login_help_slow">Trwa to za długo? Wyślij raport diagnostyczny</string>
+    <string name="settings_sources_tab">Źródła</string>
+    <string name="settings_sources_detail">Które rozszerzenie odtwarza i pobiera jako pierwsze</string>
+    <string name="settings_sources_none">Żadne rozszerzenie nie odtwarza ani nie pobiera jeszcze muzyki: Spotify odtwarza wszystko. Dodaj je w Rozszerzeniach.</string>
+    <string name="ext_settings_header">Ustawienia rozszerzeń</string>
 </resources>

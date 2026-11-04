@@ -777,4 +777,8 @@
     <string name="login_help_send">Invia il rapporto</string>
     <string name="login_help_restart">Ricomincia</string>
     <string name="login_help_slow">Ci vuole troppo? Invia un rapporto di diagnostica</string>
+    <string name="settings_sources_tab">Sorgenti</string>
+    <string name="settings_sources_detail">Quale estensione riproduce e scarica per prima</string>
+    <string name="settings_sources_none">Nessuna estensione riproduce o scarica musica: Spotify riproduce tutto. Aggiungine una in Estensioni.</string>
+    <string name="ext_settings_header">Impostazioni delle estensioni</string>
 </resources>

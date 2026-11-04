@@ -723,4 +723,8 @@
     <string name="login_help_send">Enviar o relatório</string>
     <string name="login_help_restart">Recomeçar</string>
     <string name="login_help_slow">Está a demorar? Enviar um relatório de diagnóstico</string>
+    <string name="settings_sources_tab">Fontes</string>
+    <string name="settings_sources_detail">Que extensão reproduz e transfere primeiro</string>
+    <string name="settings_sources_none">Nenhuma extensão reproduz ou transfere música ainda: o Spotify reproduz tudo. Adiciona uma em Extensões.</string>
+    <string name="ext_settings_header">Definições das extensões</string>
 </resources>

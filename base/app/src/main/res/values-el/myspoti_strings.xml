@@ -777,4 +777,8 @@
     <string name="login_help_send">Αποστολή αναφοράς</string>
     <string name="login_help_restart">Από την αρχή</string>
     <string name="login_help_slow">Αργεί πολύ; Στείλε αναφορά διάγνωσης</string>
+    <string name="settings_sources_tab">Πηγές</string>
+    <string name="settings_sources_detail">Ποια επέκταση παίζει και κατεβάζει πρώτη</string>
+    <string name="settings_sources_none">Καμία επέκταση δεν παίζει ή κατεβάζει μουσική ακόμα: το Spotify παίζει τα πάντα. Πρόσθεσε μία στις Επεκτάσεις.</string>
+    <string name="ext_settings_header">Ρυθμίσεις επεκτάσεων</string>
 </resources>

@@ -777,4 +777,8 @@
     <string name="login_help_send">Enviar o relatório</string>
     <string name="login_help_restart">Começar de novo</string>
     <string name="login_help_slow">Demorando demais? Enviar um relatório de diagnóstico</string>
+    <string name="settings_sources_tab">Fontes</string>
+    <string name="settings_sources_detail">Qual extensão toca e baixa primeiro</string>
+    <string name="settings_sources_none">Nenhuma extensão toca ou baixa música ainda: o Spotify toca tudo. Adicione uma em Extensões.</string>
+    <string name="ext_settings_header">Configurações das extensões</string>
 </resources>
