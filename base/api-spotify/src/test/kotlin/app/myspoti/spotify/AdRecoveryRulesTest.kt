@@ -67,4 +67,11 @@ class AdRecoveryRulesTest {
         assertEquals(listOf("t:c"), AdRecoveryRules.requeued(q, playing = "t:a", has = setOf("t:b")))
         assertEquals(emptyList<String>(), AdRecoveryRules.requeued(q, playing = "t:c", has = emptySet()))
     }
+
+    @Test fun aRestoredOccurrenceDoesNotRemoveEveryDuplicateFromTheQueue() {
+        val q = listOf("t:a", "t:b", "t:b", "t:c")
+        assertEquals(listOf("t:b", "t:c"), AdRecoveryRules.requeued(q, playing = "t:a", has = listOf("t:b")))
+        assertEquals(listOf("t:c"), AdRecoveryRules.requeued(q, playing = "t:a", has = listOf("t:b", "t:b")))
+        assertEquals(listOf("t:b", "t:b", "t:c"), AdRecoveryRules.requeued(q, playing = "t:a", has = emptyList()))
+    }
 }

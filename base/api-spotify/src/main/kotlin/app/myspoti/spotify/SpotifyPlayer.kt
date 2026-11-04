@@ -590,7 +590,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // The queue the page reports after the song it plays on.
         delay(REQUEUE_WAIT_MS)
         val playing = _state.value?.item?.uri
-        val has = _queue.value?.queued.orEmpty().map { it.uri }.toSet()
+        val has = _queue.value?.queued.orEmpty().map { it.uri }
         val missing = AdRecoveryRules.requeued(queued.map { it.uri }, playing, has)
         if (missing.isEmpty()) return
         bridge.logger?.invoke("page back after a reload: ${missing.size} queued songs added to the queue again")
@@ -1589,12 +1589,16 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val asked = lastPlay
         if (asked == null || System.currentTimeMillis() - asked.third > LATE_REFUSED_WINDOW_MS ||
             (if (asked.second != null) s?.item?.uri == asked.second else s?.contextUri == asked.first)) refusalStep = 0
+        // A transient empty report at the loop must not erase the song that just ended.
+        val repeatBefore = lastTrackState ?: lastSong?.takeIf {
+            System.currentTimeMillis() - lastSongUntil in 0..UNLOAD_NULL_MS
+        }
         if (s?.item != null) lastSong = s
         else if (lastTrackState?.item != null) lastSongUntil = System.currentTimeMillis()
         // Another song: the stall was the last one's (the watcher judges this one on its next tick).
         if (s?.item?.uri != lastTrackState?.item?.uri) _stalled.value = false
         noteTrackChange(lastTrackState, s, adJustEnded)
-        val shown = s?.let { followRepeat(it) }
+        val shown = s?.let { followRepeat(it, repeatBefore) }
         lastTrackState = shown
         _state.value = shown
         // A song plays, the user's pause over: nothing left to play on from after a paused ad.
@@ -2307,7 +2311,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
      * device), and never set from here while another device plays. [s] is returned as it is shown:
      * with the chosen repeat while the page is being told it.
      */
-    private fun followRepeat(s: PlayerState): PlayerState {
+    private fun followRepeat(s: PlayerState, before: PlayerState?): PlayerState {
         repeatUnread = null
         val want = wantedRepeat ?: return s
         if (s.item == null || s.repeat == want) return s
@@ -2315,7 +2319,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         val afterPlay = now < repeatRestoreUntil
         val elsewhere = elsewhere()
         val how = RepeatRules.onReport(want, s.repeat, held = now < repeatHeldUntil, afterOwnPlay = afterPlay,
-            atLoop = RepeatRules.atLoop(want, lastTrackState, s, now), elsewhere = elsewhere, mirrored = mirroring)
+            atLoop = RepeatRules.atLoop(want, before, s, now), elsewhere = elsewhere, mirrored = mirroring)
         when (how) {
             RepeatRules.Report.SET_AGAIN -> {
                 repeatRestoreUntil = 0L

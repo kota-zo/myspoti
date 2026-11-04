@@ -346,7 +346,7 @@ class MainActivity : AppCompatActivity() {
         // The process-wide WebView lives in this activity's root while attached:
         // detach it, or view.parent -> root keeps the destroyed activity (and its
         // whole view tree) alive for the rest of the playback session.
-        MyspotiRuntime.host.detach()
+        MyspotiRuntime.host.detach(root)
         super.onDestroy()
     }
 

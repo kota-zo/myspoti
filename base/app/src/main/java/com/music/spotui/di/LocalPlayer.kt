@@ -450,7 +450,12 @@ object LocalPlayer {
         applyRepeat(p)
         // Paused before it loads: a player left playing by a song before never starts this one.
         if (paused) p.pause()
+        // Timed (on the main thread, as Media3 wants): a long list's timeline is built here, the
+        // hotspot of a 2.3.0 ANR (an audit asked for the measure before any change to it).
+        val built = android.os.SystemClock.elapsedRealtime()
         p.setMediaItems(order.map(::item), if (whole) 0 else start, startMs.coerceAtLeast(0L))
+        val took = android.os.SystemClock.elapsedRealtime() - built
+        if (took >= 50) log("setMediaItems: ${order.size} songs in $took ms")
         p.prepare()
         if (shuffle && !whole) setShuffle(true)
         if (!paused) p.play()

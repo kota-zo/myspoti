@@ -186,4 +186,21 @@ class RepeatOneTest {
         waitFor("repeat set again", ms = 10_000) { called("player.setRepeat") > 0 }
         assertEquals(1, called("player.setRepeat"))
     }
+
+    @Test fun `a transient null at the loop does not discard repeat one`() = runBlocking {
+        readyWithRepeatOne()
+        waitFor("element read", ms = 10_000) { called("media.state") > 0 }
+        // The ordinary loop occurs long after the 20 s restore window and the 5 s set hold.
+        for (name in listOf("repeatRestoreUntil", "repeatHeldUntil")) {
+            SpotifyPlayer::class.java.getDeclaredField(name).apply { isAccessible = true }.setLong(player, 0L)
+        }
+        host.post(state(track("A"), positionMs = 199_000))
+        waitFor("A at its end") { player.state.value?.positionMs == 199_000L }
+        host.post("""{"type":"state","state":null}""")
+        waitFor("transient empty state") { player.state.value == null }
+        val sets = called("player.setRepeat")
+        host.post(state(track("A"), repeat = 0, positionMs = 500))
+        waitFor("repeat restored across the empty state") { called("player.setRepeat") > sets }
+        assertEquals(Repeat.TRACK, player.state.value?.repeat)
+    }
 }
