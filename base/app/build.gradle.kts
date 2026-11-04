@@ -14,6 +14,10 @@ val keystoreProperties = Properties().apply {
 }
 
 
+/** The ABIs a release has an APK for, and how they are named in it (UpdateChecker reads the same names). */
+val RELEASE_ABIS = listOf("arm64-v8a", "armeabi-v7a")
+val ABI_NAMES = mapOf("arm64-v8a" to "ARMv8", "armeabi-v7a" to "ARMv7")
+
 android {
     namespace = "app.myspoti.engine"
     compileSdk = 37
@@ -38,10 +42,8 @@ android {
         // GitHub "owner/repo" whose releases the app checks for updates; empty = off
         // (local builds). CI sets it to the repository it builds.
         buildConfigField("String", "UPDATE_REPO", "\"${(findProperty("updateRepo") as String?) ?: System.getenv("MYSPOTI_UPDATE_REPO") ?: ""}\"")
-        ndk {
-            // -Pabis=arm64-v8a: a smaller test APK for one phone.
-            abiFilters += (findProperty("abis") as String?)?.split(",") ?: listOf("arm64-v8a", "armeabi-v7a")
-        }
+        // -Pabis=arm64-v8a: one APK for one phone (the test builds). Without it, the ABI splits below.
+        (findProperty("abis") as String?)?.let { ndk { abiFilters += it.split(",") } }
         // On-device tests (codecs): ./gradlew connectedDebugAndroidTest
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -102,6 +104,17 @@ android {
             if (!beta) proguardFiles("proguard-strip-logs.pro")
         }
     }
+    // One build, every APK a release carries (named by collectApks below): one per ABI, and the
+    // universal one (both ABIs). x86 is left out: no phone or TV Myspoti targets runs it.
+    splits {
+        abi {
+            isEnable = findProperty("abis") == null
+            reset()
+            include(*RELEASE_ABIS.toTypedArray())
+            isUniversalApk = true
+        }
+    }
+    packaging { jniLibs { excludes += listOf("lib/x86/**", "lib/x86_64/**") } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -176,4 +189,41 @@ dependencies {
 
 
 
+}
+/**
+ * `./gradlew :app:collectApks` after assembleRelease: the APKs under clear names in
+ * build/release-apks/: Myspoti-2.4.0-ARMv8.apk (64-bit phones, almost all of them),
+ * Myspoti-2.4.0-ARMv7.apk (32-bit), Myspoti-2.4.0-universal.apk (both) and Myspoti-2.4.0-TV.apk
+ * (Android TV: the universal APK, since many TVs run 32-bit apps on a 64-bit chip). Betas are
+ * Myspoti-Beta-..., the optimised dev builds Myspoti-dev-...
+ * -PlegacyNames: also the names the updater of 2.3.x and earlier looks for
+ * (myspoti-<beta|stable>-<version>-<abi>.apk), so those apps still find their update.
+ */
+tasks.register("collectApks") {
+    mustRunAfter("assembleRelease")
+    val version = (findProperty("appVersionName") as String?) ?: "2.3.0"
+    val beta = findProperty("appVersionName") == null || version.contains("-beta")
+    val app = when { findProperty("overDev") != null -> "Myspoti-dev"; beta -> "Myspoti-Beta"; else -> "Myspoti" }
+    val legacy = findProperty("legacyNames") != null
+    // Copies: the configuration cache cannot keep a reference to the script's own values.
+    val abis = RELEASE_ABIS.toList()
+    val abiNames = ABI_NAMES.toMap()
+    val from = layout.buildDirectory.dir("outputs/apk/release")
+    val into = layout.buildDirectory.dir("release-apks")
+    doLast {
+        val src = from.get().asFile
+        val dst = into.get().asFile.apply { deleteRecursively(); mkdirs() }
+        fun copy(name: String, to: String) {
+            val f = src.resolve(name)
+            if (!f.exists()) throw GradleException("$name missing: run assembleRelease without -Pabis first")
+            f.copyTo(dst.resolve(to), overwrite = true)
+        }
+        abis.forEach { abi ->
+            copy("app-$abi-release.apk", "$app-$version-${abiNames.getValue(abi)}.apk")
+            if (legacy) copy("app-$abi-release.apk", "myspoti-${if (beta) "beta" else "stable"}-$version-$abi.apk")
+        }
+        copy("app-universal-release.apk", "$app-$version-universal.apk")
+        copy("app-universal-release.apk", "$app-$version-TV.apk")
+        dst.listFiles()?.sorted()?.forEach { println("${it.name}  ${it.length() / 1024 / 1024} MB") }
+    }
 }

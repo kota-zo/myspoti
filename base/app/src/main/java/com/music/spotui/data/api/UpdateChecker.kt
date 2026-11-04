@@ -119,25 +119,29 @@ object UpdateChecker {
         return Release(version, url, prefs.getString("notes", null).orEmpty(), prefs.getString("apk", null).orEmpty()).takeIf { isNewer(version, BuildConfig.VERSION_NAME) }
     }
 
-    /** The ABIs a release carries one APK for (`myspoti-<channel>-<version>-<abi>.apk`): no x86, no universal APK. */
-    internal val RELEASE_ABIS = listOf("arm64-v8a", "armeabi-v7a")
+    /** The ABIs a release carries one APK for, and their names in it (as app/build.gradle.kts `collectApks`). */
+    internal val RELEASE_ABIS = mapOf("arm64-v8a" to "ARMv8", "armeabi-v7a" to "ARMv7")
 
     /**
-     * The release's APK download link for this app's channel and this phone: the CI uploads one
-     * `myspoti-<beta|stable>-<version>-<abi>.apk` per ABI of [RELEASE_ABIS], and the first of [abis]
-     * (the phone's, most preferred first) that has one wins, so a 64-bit phone that also runs
-     * armeabi-v7a takes arm64-v8a. Older releases carry one APK without an ABI,
-     * `myspoti-<beta|stable>-<version>.apk` or `myspoti-<version>.apk` (the app's own channel, since [fetch]
-     * only offers a release of it), taken as before. Only this channel's APK: a release carrying both
-     * must not hand a phone the other channel's build (a different package, it could not update this one),
-     * and a name that matches none (or no APK for this phone's ABIs) gives no link.
+     * The release's APK download link for this app's channel and this phone. A release carries
+     * `Myspoti-<version>-ARMv8.apk`, `-ARMv7.apk`, `-universal.apk` and `-TV.apk` (betas:
+     * `Myspoti-Beta-<version>-...`), and the first of [abis] (the phone's, most preferred first)
+     * that has one wins, so a 64-bit phone that also runs armeabi-v7a takes ARMv8. The names of
+     * 2.3.x and before come next: `myspoti-<beta|stable>-<version>-<abi>.apk` (still uploaded for
+     * the apps that only know them), then one APK without an ABI, `myspoti-<beta|stable>-<version>.apk`
+     * or `myspoti-<version>.apk`. Only this channel's APK: a release carrying both must not hand a
+     * phone the other channel's build (a different package, it could not update this one), and a
+     * name that matches none (or no APK for this phone's ABIs) gives no link.
      */
     internal fun apkAsset(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis): String {
         val assets = release.optJSONArray("assets") ?: return ""
         val version = release.optString("tag_name").removePrefix("v")
+        val named = "${if (beta) "Myspoti-Beta" else "Myspoti"}-$version"
         val channel = "myspoti-${if (beta) "beta" else "stable"}-$version"
         val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.optString("name") }
-        val want = abis.filter { it in RELEASE_ABIS }.map { "$channel-$it.apk" } + listOf("$channel.apk", "myspoti-$version.apk")
+        val ours = abis.filter { it in RELEASE_ABIS }
+        val want = ours.map { "$named-${RELEASE_ABIS.getValue(it)}.apk" } + ours.map { "$channel-$it.apk" } +
+            listOf("$channel.apk", "myspoti-$version.apk")
         return want.firstNotNullOfOrNull { byName[it] }?.optString("browser_download_url").orEmpty()
     }
 

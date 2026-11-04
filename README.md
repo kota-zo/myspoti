@@ -44,11 +44,17 @@ Under the hood, the official Spotify Web Player plays the music, hidden inside t
 
 New versions are offered inside the app: one tap downloads and installs them.
 
-Each release carries one APK per architecture: `arm64-v8a` for almost every phone from the last ten years, `armeabi-v7a` for older or entry-level 32-bit phones (an app such as CPU-Z or Device Info shows which one yours is; when in doubt, take `arm64-v8a`, and if it refuses to install, `armeabi-v7a`). The in-app update picks the right one by itself.
+Each release carries four APKs:
+- `Myspoti-<version>-ARMv8.apk`: almost every phone from the last ten years (64-bit). When in doubt, take this one.
+- `Myspoti-<version>-ARMv7.apk`: older or entry-level 32-bit phones (an app such as CPU-Z or Device Info shows which one yours is; if ARMv8 refuses to install, take this one).
+- `Myspoti-<version>-universal.apk`: both in one, larger.
+- `Myspoti-<version>-TV.apk`: Android TV and Google TV (the same app; on a TV it opens its TV screens).
 
-Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta app are two apps and each release carries their APKs named for the channel and the architecture):
-- **Stable** (`app.myspoti.stable`): leave "Include prereleases" off and set the APK filter to `^myspoti-stable-.*-arm64-v8a\.apk$` (or `-armeabi-v7a` on a 32-bit phone).
-- **Beta** (`app.myspoti`): turn "Include prereleases" on and set the APK filter to `^myspoti-beta-.*-arm64-v8a\.apk$` (or `-armeabi-v7a` on a 32-bit phone).
+Betas are `Myspoti-Beta-<version>-...`. The in-app update picks the right one by itself. (The `myspoti-stable-…-arm64-v8a.apk` copies are there for the updater of 2.3 and earlier.)
+
+Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta app are two apps):
+- **Stable** (`app.myspoti.stable`): leave "Include prereleases" off and set the APK filter to `^Myspoti-[0-9].*-ARMv8\.apk$` (or `-ARMv7`, `-TV`).
+- **Beta** (`app.myspoti`): turn "Include prereleases" on and set the APK filter to `^Myspoti-Beta-.*-ARMv8\.apk$` (or `-ARMv7`, `-TV`).
 - Betas are named `<next version>-beta.<n>` (`2.2.1-beta.1`, then `2.2.1-beta.2`...), marked prerelease on GitHub, and always newer than the last stable.
 
 ## What you get
