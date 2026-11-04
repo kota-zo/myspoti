@@ -185,6 +185,32 @@ object TrackDecoder {
 
         /** Time the decoder waited for bytes (ns), the bytes read, and the reads elsewhere (each starts again). */
         var readNs = 0L; var readBytes = 0L; var restarts = 0
+        /**
+         * The last bytes handed to the decoder, by their offset: an MP4's extractor goes back a few
+         * hundred KB at each fragment (to its samples after the box saying where they are), and each
+         * of those went to the network again (39 to 75 times a song, ~0.2 s each).
+         */
+        private val history = ArrayDeque<Pair<Long, ByteArray>>()
+        private var historyBytes = 0L
+
+        private fun remember(start: Long, c: ByteArray) {
+            history.addLast(start to c); historyBytes += c.size
+            while (historyBytes > HISTORY_BYTES && history.size > 1) historyBytes -= history.removeFirst().second.size
+        }
+
+        /** Bytes at [position] (before [until]) from [history], or -1 when they are not there. */
+        private fun fromHistory(position: Long, until: Long, buffer: ByteArray, offset: Int, length: Int): Int {
+            for (i in history.indices.reversed()) {
+                val (start, c) = history[i]
+                if (position < start || position >= start + c.size) continue
+                val from = (position - start).toInt()
+                val n = minOf(length.toLong(), c.size - from.toLong(), until - position).toInt()
+                if (n <= 0) return -1
+                System.arraycopy(c, from, buffer, offset, n)
+                return n
+            }
+            return -1
+        }
 
         @Synchronized override fun readAt(position: Long, buffer: ByteArray, offset: Int, length: Int): Int {
             if (cancelled()) throw IOException("cancelled")
@@ -194,6 +220,11 @@ object TrackDecoder {
             val t0 = System.nanoTime()
             try {
                 var a = ahead
+                // A little back (the extractor going back to a fragment's samples): from memory.
+                if (a != null && position < a.pos) {
+                    val n = fromHistory(position, a.pos, buffer, offset, length)
+                    if (n > 0) { readBytes += n; return n }
+                }
                 // A little further on (the extractor skipping a box): taken from the bytes read ahead.
                 if (a != null && position > a.pos && position - a.pos <= SKIP_BYTES) a.skip(position - a.pos)
                 if (a == null || a.pos != position) {
@@ -275,6 +306,7 @@ object TrackDecoder {
                         return -1
                     }
                     c = next; chunk = c; at = 0
+                    remember(pos, c)
                 }
                 val n = minOf(length, c.size - at)
                 System.arraycopy(c, at, buffer, offset, n)
@@ -305,6 +337,7 @@ object TrackDecoder {
             private const val CHUNK = 256 * 1024
             private const val AHEAD_BYTES = 16 * 1024 * 1024
             private const val SKIP_BYTES = 4L * 1024 * 1024
+            private const val HISTORY_BYTES = 4L * 1024 * 1024
             private val END = ByteArray(0)
         }
     }
