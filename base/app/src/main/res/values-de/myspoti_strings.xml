@@ -765,4 +765,8 @@
     <string name="automix_reason_mobile_data">Gerade kein Mix: Der nächste Stream wird über mobile Daten nicht analysiert und daher übergeblendet.</string>
     <string name="automix_reason_frugal">Gerade kein Mix: Der nächste Song wurde im Energiesparmodus nicht rechtzeitig analysiert und wird übergeblendet.</string>
     <string name="automix_reason_not_analyzed">Gerade kein Mix: Der nächste Song konnte nicht rechtzeitig analysiert werden und wird übergeblendet.</string>
+    <string name="notify_releases_channel">Neuerscheinungen</string>
+    <string name="notify_release_title">Neu von %1$s</string>
+    <string name="settings_release_notify">Benachrichtigungen für Neuerscheinungen</string>
+    <string name="settings_release_notify_detail">Eine Benachrichtigung, wenn ein Künstler, dem du folgst, etwas veröffentlicht; alle paar Stunden geprüft, solange Myspoti läuft</string>
 </resources>

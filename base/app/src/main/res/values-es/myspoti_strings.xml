@@ -765,4 +765,8 @@
     <string name="automix_reason_mobile_data">Sin mezcla ahora: la siguiente transmisión no se analiza con datos móviles, así que cambia con un fundido.</string>
     <string name="automix_reason_frugal">Sin mezcla ahora: la siguiente canción no se analizó a tiempo por el ahorro de energía, así que cambia con un fundido.</string>
     <string name="automix_reason_not_analyzed">Sin mezcla ahora: la siguiente canción no se pudo analizar a tiempo, así que cambia con un fundido.</string>
+    <string name="notify_releases_channel">Novedades</string>
+    <string name="notify_release_title">Nuevo de %1$s</string>
+    <string name="settings_release_notify">Notificaciones de novedades</string>
+    <string name="settings_release_notify_detail">Una notificación cuando un artista que sigues publica algo, comprobado cada pocas horas mientras Myspoti está abierto</string>
 </resources>

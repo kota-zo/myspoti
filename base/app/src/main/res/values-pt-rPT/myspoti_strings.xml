@@ -711,4 +711,8 @@
     <string name="automix_reason_mobile_data">Sem mistura agora: a próxima emissão não é analisada com dados móveis, por isso muda com um desvanecimento.</string>
     <string name="automix_reason_frugal">Sem mistura agora: a próxima música não foi analisada a tempo por causa da poupança de energia, por isso muda com um desvanecimento.</string>
     <string name="automix_reason_not_analyzed">Sem mistura agora: a próxima música não pôde ser analisada a tempo, por isso muda com um desvanecimento.</string>
+    <string name="notify_releases_channel">Novidades</string>
+    <string name="notify_release_title">Novo de %1$s</string>
+    <string name="settings_release_notify">Notificações de novidades</string>
+    <string name="settings_release_notify_detail">Uma notificação quando um artista que segues lança algo, verificado a cada poucas horas enquanto o Myspoti está aberto</string>
 </resources>

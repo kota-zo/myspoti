@@ -780,4 +780,8 @@
     <string name="automix_reason_mobile_data">Teraz bez miksu: następny strumień nie jest analizowany przez dane komórkowe, więc zmieni się z przejściem.</string>
     <string name="automix_reason_frugal">Teraz bez miksu: następny utwór nie został przeanalizowany na czas w trybie oszczędzania energii, więc zmieni się z przejściem.</string>
     <string name="automix_reason_not_analyzed">Teraz bez miksu: następnego utworu nie udało się przeanalizować na czas, więc zmieni się z przejściem.</string>
+    <string name="notify_releases_channel">Nowości</string>
+    <string name="notify_release_title">Nowość od %1$s</string>
+    <string name="settings_release_notify">Powiadomienia o nowościach</string>
+    <string name="settings_release_notify_detail">Powiadomienie, gdy obserwowany artysta coś wyda; sprawdzane co kilka godzin, gdy Myspoti działa</string>
 </resources>

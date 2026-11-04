@@ -765,4 +765,8 @@
     <string name="automix_reason_mobile_data">Nessun mix ora: lo stream successivo non viene analizzato con i dati mobili, quindi cambia in dissolvenza.</string>
     <string name="automix_reason_frugal">Nessun mix ora: il brano successivo non è stato analizzato in tempo per il risparmio energetico, quindi cambia in dissolvenza.</string>
     <string name="automix_reason_not_analyzed">Nessun mix ora: il brano successivo non è stato analizzato in tempo, quindi cambia in dissolvenza.</string>
+    <string name="notify_releases_channel">Nuove uscite</string>
+    <string name="notify_release_title">Novità da %1$s</string>
+    <string name="settings_release_notify">Notifiche delle nuove uscite</string>
+    <string name="settings_release_notify_detail">Una notifica quando un artista che segui pubblica qualcosa, controllato ogni poche ore mentre Myspoti è attivo</string>
 </resources>

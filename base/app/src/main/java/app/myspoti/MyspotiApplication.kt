@@ -42,6 +42,8 @@ class MyspotiApplication : Application() {
                 com.music.spotui.extensions.Extensions.attempts.last().map { "play attempt" to it.summary() }
         }
         prefetch()
+        // New releases of the artists followed, said in a notification (a setting).
+        com.music.spotui.data.NewReleaseNotifier.start(this)
     }
 
     /**

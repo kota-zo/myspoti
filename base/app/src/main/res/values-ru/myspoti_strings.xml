@@ -780,4 +780,8 @@
     <string name="automix_reason_mobile_data">Сейчас без сведения: следующий поток не анализируется по мобильной сети, поэтому сменится плавным переходом.</string>
     <string name="automix_reason_frugal">Сейчас без сведения: следующий трек не успел проанализироваться из-за энергосбережения, поэтому сменится плавным переходом.</string>
     <string name="automix_reason_not_analyzed">Сейчас без сведения: следующий трек не удалось проанализировать вовремя, поэтому сменится плавным переходом.</string>
+    <string name="notify_releases_channel">Новинки</string>
+    <string name="notify_release_title">Новое от %1$s</string>
+    <string name="settings_release_notify">Уведомления о новинках</string>
+    <string name="settings_release_notify_detail">Уведомление, когда артист, на которого вы подписаны, что-то выпускает; проверка каждые несколько часов, пока Myspoti работает</string>
 </resources>

@@ -765,4 +765,8 @@
     <string name="automix_reason_mobile_data">Καμία μίξη τώρα: η επόμενη ροή δεν αναλύεται με δεδομένα κινητής, οπότε αλλάζει με σβήσιμο.</string>
     <string name="automix_reason_frugal">Καμία μίξη τώρα: το επόμενο τραγούδι δεν αναλύθηκε εγκαίρως λόγω εξοικονόμησης ενέργειας, οπότε αλλάζει με σβήσιμο.</string>
     <string name="automix_reason_not_analyzed">Καμία μίξη τώρα: το επόμενο τραγούδι δεν αναλύθηκε εγκαίρως, οπότε αλλάζει με σβήσιμο.</string>
+    <string name="notify_releases_channel">Νέες κυκλοφορίες</string>
+    <string name="notify_release_title">Νέο από %1$s</string>
+    <string name="settings_release_notify">Ειδοποιήσεις νέων κυκλοφοριών</string>
+    <string name="settings_release_notify_detail">Μια ειδοποίηση όταν ένας καλλιτέχνης που ακολουθείς κυκλοφορεί κάτι, με έλεγχο κάθε λίγες ώρες όσο τρέχει το Myspoti</string>
 </resources>

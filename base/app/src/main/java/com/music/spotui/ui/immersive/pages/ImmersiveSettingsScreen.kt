@@ -249,6 +249,14 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             }
             row {
                 ImmersiveSwitchRow(
+                    stringResource(R.string.settings_release_notify),
+                    checked = com.music.spotui.data.NewReleaseNotifier.on,
+                    onChecked = { com.music.spotui.data.NewReleaseNotifier.setOn(ctx, it) },
+                    detail = stringResource(R.string.settings_release_notify_detail),
+                )
+            }
+            row {
+                ImmersiveSwitchRow(
                     stringResource(R.string.myspoti_shuffle_title),
                     checked = com.music.spotui.data.preferences.AppShufflePref.on,
                     onChecked = { com.music.spotui.data.preferences.AppShufflePref.set(ctx, it) },
