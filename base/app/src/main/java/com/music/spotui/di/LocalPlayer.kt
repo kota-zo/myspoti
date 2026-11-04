@@ -1357,13 +1357,35 @@ object LocalPlayer {
         // The player reports each single move: the queue shown would flicker through half-moved orders.
         arranging = true
         try {
-            for (k in target.indices) {
-                val j = (k until tracks.size).firstOrNull { tracks[it] === target[k] } ?: continue
-                if (j != k) { p.moveMediaItem(j, k); tracks.add(k, tracks.removeAt(j)) }
+            val cur = p.currentMediaItemIndex
+            val playing = tracks.getOrNull(cur)
+            val at = target.indexOfFirst { it === playing }
+            val moved = target.indices.count { k -> tracks.getOrNull(k) !== target[k] }
+            if (moved > FEW_MOVES && playing != null && at >= 0 && target.size == tracks.size && p.mediaItemCount == tracks.size) {
+                // A whole list reordered (shuffle on or off): every move rebuilt the player's whole
+                // timeline, thousands of them on the main thread for a long list, until the GC held
+                // it past the ANR (2.3.0, retraced: setShuffle > arrange > moveMediaItem >
+                // PlaylistTimeline). The songs around the one playing go and come back in their
+                // new order instead: four changes, the song playing untouched.
+                if (cur + 1 < p.mediaItemCount) p.removeMediaItems(cur + 1, p.mediaItemCount)
+                if (cur > 0) p.removeMediaItems(0, cur)
+                if (at > 0) p.addMediaItems(0, target.subList(0, at).map(::item))
+                if (at + 1 < target.size) p.addMediaItems(at + 1, target.subList(at + 1, target.size).map(::item))
+                tracks.clear(); tracks.addAll(target)
+            } else {
+                // A few songs moved (a reorder in the queue): moved one by one, the next song's
+                // buffer kept.
+                for (k in target.indices) {
+                    val j = (k until tracks.size).firstOrNull { tracks[it] === target[k] } ?: continue
+                    if (j != k) { p.moveMediaItem(j, k); tracks.add(k, tracks.removeAt(j)) }
+                }
             }
         } finally { arranging = false }
         publish()
     }
+
+    /** Up to this many songs out of place, a reorder moves them one by one (see [arrange]). */
+    private const val FEW_MOVES = 16
 
     // ── After the last song ──
     /** The extensions play the queue: it goes on after its last song (files of the device never do). */
