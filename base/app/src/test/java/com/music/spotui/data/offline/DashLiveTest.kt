@@ -36,6 +36,14 @@ class DashLiveTest {
         assertEquals(400, b.int); assertEquals(20, b.int)
     }
 
+    @Test fun twoReadersAtDifferentPlacesDoNotFetchTheSameSegmentsAgain() {
+        val fetched = ArrayList<String>()
+        val live = DashLive(byteArrayOf(), listOf("s1", "s2", "s3"), longArrayOf(4, 4, 4)) { fetched += it; ByteArray(4) }
+        val b = ByteArray(1)
+        for (i in 0 until 4) { live.read(i.toLong(), b, 0, 1); live.read(8L + i, b, 0, 1) }
+        assertEquals(listOf("s1", "s3"), fetched)
+    }
+
     @Test fun theLiveFileReadsAcrossSegmentsAndFromAnyPosition() {
         val segs = mapOf("s1" to ByteArray(5) { (10 + it).toByte() }, "s2" to ByteArray(3) { (20 + it).toByte() })
         val fetched = mutableListOf<String>()
