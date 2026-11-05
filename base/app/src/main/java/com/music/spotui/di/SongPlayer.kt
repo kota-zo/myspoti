@@ -616,7 +616,9 @@ object SongPlayer {
             playing = isPlaying() && !ad,
             buffering = isBuffering && !ad,
             liked = !ad && liked,
-            shuffle = st?.shuffle?.value == true,
+            // The car and the lock screen flip what they read here: the local queue's own on an
+            // extension's song, or their shuffle button could only ever turn it on (reported).
+            shuffle = isShuffleOn(),
             episode = !ad && isEpisode,
         ))
         com.music.spotui.widget.NowPlayingWidget.show(Graph.app,
@@ -2142,9 +2144,10 @@ object SongPlayer {
 
     fun setShuffle(on: Boolean) {
         Haptics.toggle(on)
-        if (LocalPlayer.active.value) { LocalPlayer.setShuffle(on); return }
-        if (AppShuffle.toggle(on)) return
-        setPageShuffle(on)
+        // Neither of these has a page state to bring the news to the media session.
+        if (LocalPlayer.active.value) LocalPlayer.setShuffle(on)
+        else if (!AppShuffle.toggle(on)) { setPageShuffle(on); return }
+        pushNotification(null, boundState?.likeState?.value ?: false)
     }
 
     /** Spotify's own shuffle, set on the page (Myspoti's, [AppShuffle], keeps it off). */
