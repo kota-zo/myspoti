@@ -18,6 +18,7 @@ import app.myspoti.extensions.Manifest
 import app.myspoti.extensions.MemoryStorage
 import app.myspoti.extensions.Outcome
 import app.myspoti.extensions.PlaybackEvent
+import app.myspoti.extensions.Romanize
 import app.myspoti.extensions.Storage
 import app.myspoti.extensions.TrackInfo
 import kotlinx.serialization.json.Json
@@ -39,8 +40,14 @@ import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.UnknownHostException
 
-/** The input the app gives [hook] for [track] ([opts]: `quality`, `ahead`, `query`, `kind`, `data`, `action`); null: `tap` without an action. */
+/**
+ * The input the app gives [hook] for [track] ([opts]: `quality`, `ahead`, `query`, `kind`, `data`,
+ * `action`, and for lyrics-romanize `text`, the song's lines one per row, and `language`); null:
+ * `tap` without an action, lyrics-romanize without its lines.
+ */
 internal fun hookInput(hook: Hook, track: TrackInfo, opts: Map<String, String>): String? = when (hook) {
+    // The lines the app would send: the ones in another script than Latin, by their index in the song.
+    Hook.LYRICS_ROMANIZE -> opts["text"]?.let { text -> Romanize.request(track, opts["language"], Romanize.wanted(text.lines(), { it }, { false })) }
     Hook.DOWNLOAD_SOURCE -> DownloadQuery.toJson(track, opts["quality"] ?: "cd")
     Hook.AUDIO_SOURCE -> AudioQuery.toJson(track, opts["ahead"] == "true")
     Hook.SEARCH -> buildJsonObject { put("query", opts["query"] ?: track.title) }.toString()
@@ -66,6 +73,7 @@ internal fun classify(hook: Hook, raw: String?, name: String): Outcome = try {
             Hook.AUDIO_SOURCE -> if (AudioStream.parse(raw) != null) Outcome.Found else Outcome.NotFound
             Hook.DOWNLOAD_SOURCE -> if (DownloadFile.parseList(raw).isNotEmpty()) Outcome.Found else Outcome.NotFound
             Hook.LYRICS -> if (LyricsResult.parse(raw, name) != null) Outcome.Found else Outcome.NotFound
+            Hook.LYRICS_ROMANIZE -> if (Romanize.parse(raw).isNotEmpty()) Outcome.Found else Outcome.NotFound
             else -> Outcome.Found
         }
     }
@@ -242,8 +250,11 @@ class ScenarioRunner(
                 val opts = buildMap {
                     str("quality")?.let { put("quality", it) }; str("ahead")?.let { put("ahead", it) }
                     s["data"]?.let { put("data", it.toString()) }; str("action")?.let { put("action", it) }; str("query")?.let { put("query", it) }
+                    str("language")?.let { put("language", it) }
+                    (s["lines"] as? JsonArray)?.let { a -> put("text", a.joinToString("\n") { (it as? JsonPrimitive)?.contentOrNull.orEmpty() }) }
                 }
-                val input = s["input"]?.toString() ?: hookInput(hook, track, opts) ?: return StepResult(index, "hook $name", null, 0, listOf("tap needs \"action\""))
+                val input = s["input"]?.toString() ?: hookInput(hook, track, opts)
+                    ?: return StepResult(index, "hook $name", null, 0, listOf(if (hook == Hook.TAP) "tap needs \"action\"" else "$name needs \"lines\" (or \"input\")"))
                 val cancelAt = (s["cancelAtMs"] as? JsonPrimitive)?.longOrNull
                 val budget = HookBudgets.of(hook).let { b -> cancelAt?.coerceAtMost(b) ?: b }
                 if (hook == Hook.STATUS) {

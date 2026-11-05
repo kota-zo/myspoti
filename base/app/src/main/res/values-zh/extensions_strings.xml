@@ -95,6 +95,7 @@
     <string name="action_playback_queue">编辑播放队列</string>
     <string name="action_playback_events">获知你在播放什么</string>
     <string name="action_lyrics_provide">提供歌词</string>
+    <string name="action_lyrics_romanize">罗马化歌词</string>
     <string name="action_trackinfo_provide">添加歌曲详情</string>
     <string name="action_audio_source">从其他来源播放音频</string>
     <string name="action_download_source">提供下载</string>

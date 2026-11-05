@@ -216,7 +216,7 @@ class SandboxTest {
     }
 
     @Test fun featuresNameWhatThisAppUnderstands() {
-        assertEquals("""{"v":"audio.manifest,audio.expires,audio.quality,audio.source,audio.ahead,http.all,status,raw.base64,results,download.transform,audio.transform,sources.race,settings.section,util.sleep"}""", eval("return myspoti.features.join(',');"))
+        assertEquals("""{"v":"audio.manifest,audio.expires,audio.quality,audio.source,audio.ahead,http.all,status,raw.base64,results,download.transform,audio.transform,sources.race,settings.section,util.sleep,lyrics.romanize"}""", eval("return myspoti.features.join(',');"))
     }
 
     @Test fun sleepCapsBackoffWithoutNeedingPermissions() {

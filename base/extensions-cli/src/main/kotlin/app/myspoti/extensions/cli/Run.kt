@@ -22,6 +22,7 @@ import app.myspoti.extensions.SpotifyDispatcher
 import app.myspoti.extensions.SpotifyRaw
 import app.myspoti.extensions.DownloadFile
 import app.myspoti.extensions.PlaybackEvent
+import app.myspoti.extensions.Romanize
 import app.myspoti.extensions.Storage
 import app.myspoti.extensions.TrackInfo
 import app.myspoti.host.cdp.CdpHost
@@ -54,6 +55,8 @@ private const val USAGE = """myspoti-ext: build and try Myspoti extensions on a 
                                      yes or no on this terminal first
       --quality hi-res|cd|small      download-source only: the quality asked (default cd)
       --ahead true                   audio-source only: asked before the song plays (ahead: true)
+      --lines FILE [--language L]    lyrics-romanize only: the song's lines, one per row (the ones in another
+                                     script than Latin are sent, by index), and their language (ja, ko, ru...)
   run <folder|zip> track [options]   delivers the "track" event (same options, and --origin, --provider)
   run <folder|zip> playback [options] delivers a play of the song: start, a progress every 10 s,
       [--played MS] [--leave skip|end|stop] [--context URI] [--shuffle true] [--source local|spotify]
@@ -67,8 +70,8 @@ private const val USAGE = """myspoti-ext: build and try Myspoti extensions on a 
   pack <folder> [out-folder]         builds <id>-<version>.zip and prints its index entry
   index <folder-of-zips> <name>      writes index.json for a repository of packages
 
-Hooks: lyrics, audio-source, download-source, trackinfo, home, search (--query Q), menu (--kind track|album|
-playlist|artist), player, page, message (--data JSON), tap (--action ID), status (live or not). Each hook gets the
+Hooks: lyrics, lyrics-romanize (--lines FILE), audio-source, download-source, trackinfo, home, search (--query Q),
+menu (--kind track|album|playlist|artist), player, page, message (--data JSON), tap (--action ID), status (live or not). Each hook gets the
 app's own time limit (HookBudgets). Everything the manifest asks is granted here. Without --cdp,
 myspoti.spotify has no account and its calls fail."""
 
@@ -217,6 +220,7 @@ private fun run(path: File, hookName: String, rest: List<String>) {
         if (k == "set") settings[v.substringBefore('=')] = v.substringAfter('=') else opts[k] = v
         i += 2
     }
+    opts["lines"]?.let { opts["text"] = File(it).readText() }
     val artist = opts["artist"] ?: ""
     val track = TrackInfo(
         id = opts["id"] ?: "", uri = opts["id"]?.let { "spotify:track:$it" } ?: "", title = opts["title"] ?: usage(),
@@ -240,6 +244,8 @@ private fun runScript(rt: ExtensionRuntime, m: Manifest, hookName: String, track
     if (!rt.provides(hook)) throw ExtensionException("this extension does not provide $hookName (or its action is not in the manifest)")
     val started = System.currentTimeMillis()
     val input = hookInput(hook, track, opts) ?: usage()
+    // The app asks only when a line needs it: a song all in Latin letters is never sent.
+    if (hook == Hook.LYRICS_ROMANIZE && Romanize.asked(input).isEmpty()) { println("— nothing to romanize: no line in another script than Latin"); return }
     if (hook == Hook.STATUS) {
         // As the app asks it: only live: false is inactive; a failure or a late answer proves nothing.
         val s = ExtensionStatus.probe(rt, HookBudgets.STATUS)
@@ -292,6 +298,16 @@ private fun runScript(rt: ExtensionRuntime, m: Manifest, hookName: String, track
             }
         }
         Hook.PAGE -> PageContent.parse(out, m.name).let { println("✓ page \"${it.title}\" ($ms ms)\n${it.html.take(2_000)}") }
+        Hook.LYRICS_ROMANIZE -> {
+            // As the app keeps them: only the lines it asked for, each line next to its romanization.
+            val asked = Romanize.asked(input)
+            val got = Romanize.parse(out).filterKeys { it in asked }
+            if (got.isEmpty()) println("— no romanization ($ms ms)")
+            else {
+                println("✓ ${got.size} of ${asked.size} line(s) romanized ($ms ms)")
+                asked.forEach { (i, text) -> println("  [$i] $text  | ${got[i] ?: "—"}") }
+            }
+        }
         else -> println("✓ $out ($ms ms)")
     }
 }

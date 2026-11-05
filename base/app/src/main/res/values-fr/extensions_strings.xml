@@ -95,6 +95,7 @@
     <string name="action_playback_queue">Modifier la file d\'attente</string>
     <string name="action_playback_events">Savoir ce que vous écoutez</string>
     <string name="action_lyrics_provide">Fournir des paroles</string>
+    <string name="action_lyrics_romanize">Romaniser les paroles</string>
     <string name="action_trackinfo_provide">Ajouter des infos sur le titre</string>
     <string name="action_audio_source">Lire l\'audio d\'ailleurs</string>
     <string name="action_download_source">Fournir les téléchargements</string>

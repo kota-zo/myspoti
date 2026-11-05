@@ -58,6 +58,8 @@ enum class Action(
         "myspoti.player.current(); myspoti.on('track' | 'playback'); spotify.player state, queue, volume"),
     LYRICS_PROVIDE("lyrics.provide", Level.NORMAL, Area.LYRICS, "Lyrics", "Provide lyrics",
         "myspoti.provide('lyrics', fn(track) → lyrics)", takeover = true),
+    LYRICS_ROMANIZE("lyrics.romanize", Level.NORMAL, Area.LYRICS, "Abc", "Romanize lyrics",
+        "myspoti.provide('lyrics-romanize', fn({ track, language, lines }) → { lines: [{ index, romanization }] }), for the lines in another script than Latin their source left without one", takeover = true),
     TRACKINFO_PROVIDE("trackinfo.provide", Level.NORMAL, Area.LYRICS, "Info", "Add song details",
         "myspoti.provide('trackinfo', fn(track) → blocks), shown in the song's credits sheet", takeover = true),
     AUDIO_SOURCE("audio.source", Level.CRITICAL, Area.AUDIO, "Headphones", "Play audio from elsewhere",

@@ -95,6 +95,7 @@
     <string name="action_playback_queue">Edytować kolejkę</string>
     <string name="action_playback_events">Wiedzieć, czego słuchasz</string>
     <string name="action_lyrics_provide">Dostarczać teksty</string>
+    <string name="action_lyrics_romanize">Latynizować teksty</string>
     <string name="action_trackinfo_provide">Dodawać szczegóły utworów</string>
     <string name="action_audio_source">Odtwarzać dźwięk z innego źródła</string>
     <string name="action_download_source">Dostarczać pliki do pobrania</string>
