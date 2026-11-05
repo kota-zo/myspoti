@@ -20,14 +20,23 @@ data class EditablePlaylist(
 }
 
 object EditablePlaylists {
-    /** Ids of the playlists this account can change, read at most every [IDS_TTL_MS]. */
+    /** Ids of the playlists this account can change, read at most every [CACHE_TTL_MS]. */
     @Volatile private var ids: Set<String>? = null
     @Volatile private var idsAt = 0L
-    private const val IDS_TTL_MS = 5 * 60_000L
+
+    /** The pickers' playlists with covers, kept for [CACHE_TTL_MS]: walking a big library took a minute on every save. */
+    @Volatile private var picker: List<EditablePlaylist>? = null
+    @Volatile private var pickerAt = 0L
+
+    /** The library's first level (folders and playlists), the "Saved in" sheet's list. */
+    @Volatile private var rootLevel: List<EditablePlaylist>? = null
+    @Volatile private var rootLevelAt = 0L
+
+    private const val CACHE_TTL_MS = 5 * 60_000L
 
     suspend fun ids(): Set<String> {
         val now = System.currentTimeMillis()
-        ids?.takeIf { now - idsAt < IDS_TTL_MS }?.let { return it }
+        ids?.takeIf { now - idsAt < CACHE_TTL_MS }?.let { return it }
         return runCatching { load().mapTo(HashSet()) { it.id } }.getOrNull()?.also { ids = it; idsAt = now } ?: ids.orEmpty()
     }
 
@@ -41,12 +50,45 @@ object EditablePlaylists {
      * [load] for the pickers that show covers. Reported: "Add to another playlist" showed grey
      * squares. Spotify's playlist list has no cover for a playlist without one of its own (the
      * mosaic of its albums); the library has it, so those are read from there, folders walked.
+     *
+     * The result is kept for [CACHE_TTL_MS], so opening the picker for the next song does not
+     * read the whole library again (reported as a minute's wait on every save). A playlist made,
+     * renamed, deleted or given a new cover in the app drops it ([invalidate]); a song added or
+     * removed only moves that row's count ([trackCountChanged]).
      */
     suspend fun loadWithCovers(): List<EditablePlaylist> {
+        val now = System.currentTimeMillis()
+        picker?.takeIf { now - pickerAt < CACHE_TTL_MS }?.let { return it }
         val list = load()
-        if (list.all { it.imageUrl != null }) return list
-        val covers = libraryCovers()
-        return list.map { if (it.imageUrl != null) it else it.copy(imageUrl = covers["spotify:playlist:${it.id}"]) }
+        val withCovers = if (list.all { it.imageUrl != null }) list else {
+            val covers = libraryCovers()
+            list.map { if (it.imageUrl != null) it else it.copy(imageUrl = covers["spotify:playlist:${it.id}"]) }
+        }
+        // An empty list is also what a failed read looks like: kept out, so the next open tries again.
+        if (withCovers.isNotEmpty()) {
+            picker = withCovers
+            pickerAt = System.currentTimeMillis()
+        }
+        return withCovers
+    }
+
+    /** A playlist of the pickers changed (made, renamed, deleted, given a new cover, or a whole list added): read them again next time. */
+    fun invalidate() {
+        ids = null
+        idsAt = 0L
+        picker = null
+        pickerAt = 0L
+        rootLevel = null
+        rootLevelAt = 0L
+    }
+
+    /** A song went into or out of [id]: the pickers' counts follow without reading the library again. */
+    fun trackCountChanged(id: String, delta: Int) {
+        fun List<EditablePlaylist>.countChanged() = map {
+            if (it.id == id) it.copy(trackCount = (it.trackCount + delta).coerceAtLeast(0)) else it
+        }
+        picker = picker?.countChanged()
+        rootLevel = rootLevel?.countChanged()
     }
 
     /** Playlist uri → cover, as the library shows them, folders included. */
@@ -75,8 +117,23 @@ object EditablePlaylists {
      * One level of the library as Spotify shows it: its folders, then the playlists the user
      * can change, with their covers (Spotify's playlist list has none for mosaic covers;
      * the library has them). Falls back to [load] when the library cannot be read.
+     *
+     * The first level is kept for [CACHE_TTL_MS] like [loadWithCovers], so "Saved in" opens at
+     * once the next time; a playlist made, renamed or deleted drops it ([invalidate]).
      */
     suspend fun level(folderUri: String?): List<EditablePlaylist> {
+        val now = System.currentTimeMillis()
+        if (folderUri == null) rootLevel?.takeIf { now - rootLevelAt < CACHE_TTL_MS }?.let { return it }
+        val result = readLevel(folderUri)
+        // As in [loadWithCovers]: an empty list may be a failed read, and is not kept.
+        if (folderUri == null && result.isNotEmpty()) {
+            rootLevel = result
+            rootLevelAt = System.currentTimeMillis()
+        }
+        return result
+    }
+
+    private suspend fun readLevel(folderUri: String?): List<EditablePlaylist> {
         val api = MyspotiRuntime.api
         val editable = runCatching { api.playlists.editable() }.getOrNull()?.associateBy { it.uri } ?: return load()
         val items = ArrayList<app.myspoti.api.LibraryItem>()

@@ -249,13 +249,17 @@ fun PlaylistOptionsSheet(
         val renamed = if (name != page.name) com.music.spotui.data.api.LibraryEdits.Rename(page.uri, name) else null
         onDismiss()
         com.music.spotui.data.api.LibraryEdits.run(context, renamed, write = {
-            if (name != page.name) MyspotiRuntime.api.playlists.rename(page.uri, name)
+            if (name != page.name) {
+                MyspotiRuntime.api.playlists.rename(page.uri, name)
+                com.music.spotui.data.api.EditablePlaylists.invalidate()
+            }
             if (description != page.description) MyspotiRuntime.api.playlists.setDescription(page.uri, description)
             when (cover) {
                 is CoverChange.New -> MyspotiRuntime.api.playlists.setCover(page.uri, cover.jpeg)
                 CoverChange.Remove -> MyspotiRuntime.api.playlists.setCover(page.uri, null)
                 CoverChange.Keep -> {}
             }
+            if (cover != CoverChange.Keep) com.music.spotui.data.api.EditablePlaylists.invalidate()
         }, onDone = { ok ->
             if (ok) android.widget.Toast.makeText(context, R.string.playlist_saved, android.widget.Toast.LENGTH_SHORT).show()
             // Refused: the page goes back to what Spotify has; a new cover shows only once it is read again.
@@ -323,7 +327,10 @@ fun PlaylistOptionsSheet(
                 leavingPlaylist = false
                 // The page closes now (as in the Web Player); a refusal says so, and the library is read again.
                 com.music.spotui.data.api.LibraryEdits.run(context, null,
-                    write = { MyspotiRuntime.api.playlists.leave(page.uri) },
+                    write = {
+                        MyspotiRuntime.api.playlists.leave(page.uri)
+                        com.music.spotui.data.api.EditablePlaylists.invalidate()
+                    },
                     onDone = { ok -> if (ok) com.music.spotui.data.api.LibraryEdits.reloadSoon() })
                 onDismiss(); onDeleted()
             }) { Text(stringResource(R.string.playlist_leave_button), color = AppDestructive) }
@@ -340,7 +347,10 @@ fun PlaylistOptionsSheet(
                 deleting = false
                 // The playlist leaves the library and the page closes now; a refusal brings it back.
                 com.music.spotui.data.api.LibraryEdits.run(context, com.music.spotui.data.api.LibraryEdits.Remove(page.uri),
-                    write = { MyspotiRuntime.api.playlists.delete(page.uri) })
+                    write = {
+                        MyspotiRuntime.api.playlists.delete(page.uri)
+                        com.music.spotui.data.api.EditablePlaylists.invalidate()
+                    })
                 onDismiss(); onDeleted()
             }) { Text(stringResource(R.string.actions_picker_delete), color = AppDestructive) }
         },

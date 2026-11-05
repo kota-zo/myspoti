@@ -40,7 +40,11 @@ object SpotifySync {
         scope.launch {
             val ok = runCatching { api.playlists.addTracks("spotify:playlist:$playlistId", listOf("spotify:track:$trackId")) }
                 .onFailure { Log.w(TAG, "add $trackId to $playlistId failed: ${it.message}") }.isSuccess
-            if (ok) { membershipCache[playlistId]?.add(trackId); Api.invalidatePlaylist(playlistId) }
+            if (ok) {
+                membershipCache[playlistId]?.add(trackId)
+                Api.invalidatePlaylist(playlistId)
+                EditablePlaylists.trackCountChanged(playlistId, 1)
+            }
             if (ok) com.music.spotui.data.offline.OfflineCollections.refreshOne(context.applicationContext, "spotify:playlist:$playlistId")
             onDone(ok)
         }
@@ -58,6 +62,7 @@ object SpotifySync {
                 .onFailure { Log.w(TAG, "add ${uris.size} songs to $playlistId failed: ${it.message}") }.isSuccess
             // Part of it may be in even when refused: read the playlist again when asked.
             membershipCache.remove(playlistId); Api.invalidatePlaylist(playlistId)
+            EditablePlaylists.invalidate()
             com.music.spotui.data.offline.OfflineCollections.refreshOne(context.applicationContext, "spotify:playlist:$playlistId")
             onDone(ok)
         }
@@ -78,7 +83,11 @@ object SpotifySync {
                 api.playlists.removeTracks(uri, listOf(uid))
             }.onFailure { Log.w(TAG, "remove row $rowUid ($trackId) from $playlistId failed: ${it.message}") }.isSuccess
             // The song may still be in the playlist through another row: read it again when asked.
-            if (ok) { membershipCache.remove(playlistId); Api.invalidatePlaylist(playlistId) }
+            if (ok) {
+                membershipCache.remove(playlistId)
+                Api.invalidatePlaylist(playlistId)
+                EditablePlaylists.trackCountChanged(playlistId, -1)
+            }
             onDone(ok)
         }
     }
@@ -96,7 +105,11 @@ object SpotifySync {
                 check(uids.isNotEmpty()) { "track not in playlist" }
                 api.playlists.removeTracks(uri, uids)
             }.onFailure { Log.w(TAG, "remove $trackId from $playlistId failed: ${it.message}") }.isSuccess
-            if (ok) { membershipCache[playlistId]?.remove(trackId); Api.invalidatePlaylist(playlistId) }
+            if (ok) {
+                membershipCache[playlistId]?.remove(trackId)
+                Api.invalidatePlaylist(playlistId)
+                EditablePlaylists.invalidate()
+            }
             onDone(ok)
         }
     }
@@ -158,6 +171,7 @@ object SpotifySync {
         var trackAdded = true
         LibraryEdits.run(context, edit, write = {
             val uri = api.playlists.create(title, folderUri)
+            EditablePlaylists.invalidate()
             LibraryEdits.resolve(edit, edit.entry.copy(spotifyId = uri.substringAfterLast(':'), uri = uri))
             Api.HomeCache.libraryRoot = null
             folderUri?.let { Api.HomeCache.folders.remove(it) }
