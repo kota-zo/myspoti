@@ -31,7 +31,7 @@ class ActionsTest {
     // ── The catalogue ──
 
     @Test fun theCatalogueIsClosedAndComplete() {
-        assertEquals(25, Action.entries.size)
+        assertEquals(26, Action.entries.size)
         assertEquals(Action.entries.size, Action.entries.map { it.key }.toSet().size)
         assertEquals(
             setOf("audio.source", "download.source", "library.write", "playlists.write", "spotify.raw", "webview.page", "webview.auth", "playback.mirror"),

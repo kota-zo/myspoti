@@ -145,10 +145,6 @@ fun MyNavHost(
 
         // New releases and episodes of what the account follows (the bell on Home).
         page(Routes.WhatsNew.route) {
-            LaunchedEffect(playerState) {
-                bottomBarState.value = true
-                bottomBarPlayerState.value = playerState != ""
-            }
             if (isImmersive()) com.music.spotui.ui.immersive.pages.ImmersiveWhatsNewScreen(navHostController) else com.music.spotui.ui.screens.WhatsNewScreen(navHostController)
         }
 
