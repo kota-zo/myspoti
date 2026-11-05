@@ -6,6 +6,9 @@ import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 
+/** Distance of measured beats from a grid: its median and 95th percentile, microseconds. */
+data class PhaseStats(val medianUs: Long, val p95Us: Long)
+
 /**
  * What AutoMix knows of a song. Times in seconds of the song's own timeline.
  *
@@ -47,8 +50,21 @@ class TrackAnalysis(
      * model: centred instruments may also score. Mono is uncertain rather than assumed voice-free.
      */
     val barVocalRisk: FloatArray = FloatArray(barStarts.size),
+    /** SHA-256 of the decoded analysis signal: what identifies the audio, whatever its source. */
+    val audioKey: String = "",
+    /** Level (dB) per bar of the band where two bass lines mask each other. */
+    val barBassDb: FloatArray = barLowDb,
+    /** How far the model's beats sit from the [head] and [tail] grids; null when too few could be measured. */
+    val headPhase: PhaseStats? = null,
+    val tailPhase: PhaseStats? = null,
+    /** How clearly the downbeats' votes chose one phase on each grid, 0..1 (0: no evidence). */
+    val headMetre: Float = 0f,
+    val tailMetre: Float = 0f,
 ) {
     val bars get() = barStarts.size
+    /** Identify the grids a plan relies on: a new analysis with another grid invalidates the plan. */
+    val headGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { head?.let { gridKey(it, headDown) } }
+    val tailGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { tail?.let { gridKey(it, tailDown) } }
     private val sections by lazy(LazyThreadSafetyMode.PUBLICATION) { Sections.detect(barNovelty) }
 
     /** Strong local structural changes in bars; no named verse/chorus labels are inferred. */
@@ -86,11 +102,14 @@ class TrackAnalysis(
         for (a in listOf(barDb, barLowDb, barHighDb, barCentre, barNovelty)) a.forEach(o::writeFloat)
         o.writeInt(phraseOffset); o.writeBoolean(stereo); o.writeDouble(headDown); o.writeDouble(tailDown); o.writeUTF(note.take(2000))
         for (bar in 0 until bars) o.writeFloat(barVocalRisk.getOrElse(bar) { 0f })
+        o.writeUTF(audioKey)
+        for (bar in 0 until bars) o.writeFloat(barBassDb.getOrElse(bar) { -60f })
+        writePhase(o, headPhase); writePhase(o, tailPhase); o.writeFloat(headMetre); o.writeFloat(tailMetre)
         o.flush()
     }
 
     companion object {
-        const val VERSION = 4_08
+        const val VERSION = 4_09
 
         fun read(input: InputStream): TrackAnalysis? {
             val i = DataInputStream(input)
@@ -104,9 +123,23 @@ class TrackAnalysis(
             val arrays = List(5) { FloatArray(n) { i.readFloat() } }
             val phrase = i.readInt(); val stereo = i.readBoolean(); val headDown = i.readDouble(); val tailDown = i.readDouble(); val note = i.readUTF()
             val vocal = FloatArray(n) { i.readFloat() }
+            val audioKey = i.readUTF()
+            val bass = FloatArray(n) { i.readFloat() }
+            val headPhase = readPhase(i); val tailPhase = readPhase(i); val headMetre = i.readFloat(); val tailMetre = i.readFloat()
             return TrackAnalysis(duration, cs, ce, loud, key, ks, bpm, steady, head, tail, beats, starts,
-                arrays[0], arrays[1], arrays[2], arrays[3], arrays[4], phrase, stereo, headDown, tailDown, note, vocal)
+                arrays[0], arrays[1], arrays[2], arrays[3], arrays[4], phrase, stereo, headDown, tailDown, note, vocal,
+                audioKey, bass, headPhase, tailPhase, headMetre, tailMetre)
         }
+
+        private fun gridKey(g: Grid, down: Double): String = app.myspoti.automix.segue.SegueCodec.hex(
+            "${Math.round(g.first * 1e6)}|${Math.round(g.period * 1e9)}|${g.count}|${if (down.isNaN()) "-" else Math.round(down * 1e6).toString()}".toByteArray())
+
+        private fun writePhase(o: DataOutputStream, p: PhaseStats?) {
+            o.writeBoolean(p != null)
+            if (p != null) { o.writeLong(p.medianUs); o.writeLong(p.p95Us) }
+        }
+
+        private fun readPhase(i: DataInputStream): PhaseStats? = if (!i.readBoolean()) null else PhaseStats(i.readLong(), i.readLong())
 
         private fun writeGrid(o: DataOutputStream, g: Grid?) {
             o.writeBoolean(g != null)

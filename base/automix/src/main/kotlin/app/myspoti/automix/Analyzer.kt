@@ -118,7 +118,7 @@ object Analyzer {
         val barStarts = starts.toDoubleArray()
         val bars = barStarts.size
         val barDb = FloatArray(bars); val barLow = FloatArray(bars); val barHigh = FloatArray(bars); val barMid = FloatArray(bars)
-        val barOnset = FloatArray(bars); val barCentre = FloatArray(bars); val absoluteCentre = FloatArray(bars)
+        val barOnset = FloatArray(bars); val barCentre = FloatArray(bars); val absoluteCentre = FloatArray(bars); val barBass = FloatArray(bars)
         val barChroma = Array(bars) { FloatArray(12) }
         val centreMedian = if (f.stereo) percentile(f.centre, 0.5) else 0f
         for (i in 0 until bars) {
@@ -126,7 +126,7 @@ object Analyzer {
             val b = if (i + 1 < bars) barStarts[i + 1] else min(contentEnd, a + 4 * 60 / bpm)
             val fa = (a * FPS).toInt().coerceIn(0, n - 1); val fb = (b * FPS).toInt().coerceIn(fa + 1, n)
             barDb[i] = powerMean(f.rmsDb, fa, fb); barLow[i] = powerMean(f.lowDb, fa, fb)
-            barHigh[i] = powerMean(f.highDb, fa, fb); barMid[i] = powerMean(f.midDb, fa, fb)
+            barHigh[i] = powerMean(f.highDb, fa, fb); barMid[i] = powerMean(f.midDb, fa, fb); barBass[i] = powerMean(f.bassDb, fa, fb)
             var o = 0.0; for (j in fa until fb) o += env[j]; barOnset[i] = (o / (fb - fa)).toFloat()
             val ca = (a * Features.CHROMA_FPS).toInt().coerceIn(0, f.chroma.size - 1)
             val cb = (b * Features.CHROMA_FPS).toInt().coerceIn(ca + 1, f.chroma.size)
@@ -150,13 +150,48 @@ object Analyzer {
             return g.beat(Math.round(g.index(bar)).toInt())
         }
         val headDown = downOn(head, headSpan); val tailDown = downOn(tail, tailSpan)
+        // How clearly those votes chose one phase: 0 for four equal phases or no vote, 1 for a single one.
+        fun metre(g: Grid?, span: Pair<Double, Double>): Float {
+            if (g == null) return 0f
+            val vote = DoubleArray(4)
+            for ((t, v) in modelDowns) if (t in max(span.first, g.first - g.period)..min(span.second, g.last + g.period)) {
+                val k = Math.round(g.index(t)).toInt()
+                if (abs(g.beat(k) - t) < g.period * 0.3) vote[Math.floorMod(k, 4)] += max(0f, v).toDouble()
+            }
+            val sum = vote.sum()
+            return if (sum <= 0) 0f else (((vote.max() / sum) - 0.25) / 0.75).toFloat().coerceIn(0f, 1f)
+        }
         val novelty = novelty(arrayOf(barDb, barLow, barMid, barHigh, barOnset), barChroma)
         val phraseOffset = phraseOffset(novelty)
         val vocalRisk = VocalRisk.estimate(barDb, barMid, absoluteCentre, barCentre, f.stereo)
         val (key, keyStrength) = key(f, level, gate)
         val loud = loudness(f.rmsDb, peak - 20f)
         return TrackAnalysis(f.durationSec, contentStart, contentEnd, loud, key, keyStrength, bpm, steady, head, tail,
-            beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'), vocalRisk)
+            beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'), vocalRisk,
+            signalKey(mid, side), barBass, phaseStats(head, mb, headSpan), phaseStats(tail, mb, tailSpan), metre(head, headSpan), metre(tail, tailSpan))
+    }
+
+    /** The model's beats against a grid: median and 95th percentile of their distance; null with too few to tell. */
+    private fun phaseStats(g: Grid?, modelBeats: DoubleArray, span: Pair<Double, Double>): PhaseStats? {
+        if (g == null) return null
+        val gaps = modelBeats.filter { it in max(span.first, g.first - g.period / 2)..min(span.second, g.last + g.period / 2) }
+            .map { t -> abs(t - g.beat(Math.round(g.index(t)).toInt())) }.filter { it < g.period * 0.25 }.sorted()
+        if (gaps.size < 8) return null
+        return PhaseStats(Math.round(gaps[gaps.size / 2] * 1e6), Math.round(gaps[(gaps.size * 0.95).toInt().coerceAtMost(gaps.size - 1)] * 1e6))
+    }
+
+    /** SHA-256 of the signal the analysis read. */
+    private fun signalKey(mid: FloatArray, side: FloatArray?): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val bytes = java.nio.ByteBuffer.allocate(64 * 1024).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (signal in listOfNotNull(mid, side)) {
+            for (v in signal) {
+                bytes.putFloat(v)
+                if (!bytes.hasRemaining()) { digest.update(bytes.array(), 0, bytes.position()); bytes.clear() }
+            }
+        }
+        digest.update(bytes.array(), 0, bytes.position())
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /**

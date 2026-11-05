@@ -110,3 +110,81 @@ alone, `against` also needs the current analyses:
 
 `null` has a meaning for all of today's targets, so that rule rejects nothing yet: each new target
 must state its own in `Target`.
+
+## Analysis the policy reads
+
+Each quantity carries a reliability: an uncertain measure weighs less, it is not treated as an average.
+
+| Quantity | Role | Reliability |
+|---|---|---|
+| Tempo and stability (`Grid`) | Whether alignment is possible; half and double time are explicit in `tempoMatch` | The grid's `steadiness` |
+| Beats and metre | An alignment one beat off sounds wrong | `headMetre`/`tailMetre`: how clearly the downbeat votes chose one phase |
+| Phase (`PhaseStats`) | Expected double attack: median and 95th percentile distance of the model's beats from the grid | Absent with too few beats, and then a locked candidate is refused |
+| Structure and phrases | A change is expected at the end of a phrase | `sectionStrength`, or `reliabilityPhraseFallback` where only the fallback phrase grid speaks |
+| Energy per bar | Avoids sudden drops or jumps | Direct measurement: 1 |
+| Voice-like activity | Two voices together are hard to follow | `reliabilityVocalStereo`/`Mono`: a heuristic, not vocal separation, at bar resolution (about 2 s), which makes a limit of 1 s coarse |
+| Key | Reduces clashes; fragile to detect. The engine time-stretches and keeps the pitch, so speed does not move the key | `keyStrength`, 0 when unknown |
+| Spectrum (`barBassDb`, 20–150 Hz) | Two bass lines mask and interfere | Direct measurement |
+
+`audioKey` hashes the decoded analysis signal. A different decoder may give a different hash: the
+plan is then recomputed, which costs nothing but a calculation.
+
+## Policy
+
+Order: generate candidates, reject by guards, score, keep the best if it clears its class's
+threshold, otherwise go to the next level. A crossed guard can never be bought back by good notes.
+Choosing a pair is joint: pairs (exit, entry) are evaluated, at most `candidatesPerSide` per side,
+and the same request always gives the same plan.
+
+| Level | Class | Requires |
+|---|---|---|
+| `LOCKED_LONG` | locked | Reachable tempos, reliable grids, phrases on both sides, the longest length |
+| `LOCKED_SHORT` | locked | The same, shorter |
+| `LOCKED_BEAT` | locked | Any shared downbeat, and only if the bass is managed |
+| `FILTERED` | filtered | No alignment; filtered exit, limited overlap, progressive entry, without two voices |
+| `HARD` | hard | Clear boundaries, close loudness, on a downbeat; an anti-click fade alone |
+| `SIMPLE_FADE` | fade | A short fade from a safe point |
+| `NORMAL` | none | Plain playback. Not a failure: no effect beats a bad effect |
+
+Each level left behind records its cause in `SegueDecision.attempts`, outside the fingerprint.
+
+The score is `Σ weight × reliability × note − Σ penalty × defect`. Notes and defects run from 0 to 1.
+Scores compare only within a class; between classes the fallback order decides.
+
+| Term | Kind | Role | Form |
+|---|---|---|---|
+| Rhythm | Note, strong | Makes the passage forgettable | Falls from `rhythmFullUs` to `phaseMedianMaxUs` |
+| Phrase | Note, strong | Makes the sections coincide | 0.5 per side on a boundary |
+| Energy | Note, medium | Avoids holes in the tension | Gaussian on the level gap, `energySigmaDb` |
+| Exit | Note, medium | Leaves at the end of a phrase or on a calm section | Share without voice in the window's second half |
+| Entry | Note, medium | Avoids entering mid-phrase | 1 on the first attack, less on a later section, less with the time skipped |
+| Key | Note, weak | Reduces clashes | Distance on the wheel of fifths |
+| Speed | Defect, medium | Prefers the least alteration | Rises from `rateCostFreePpm` to the guard |
+| Voice | Defect, strong | Goes beyond the guard | Overlap weighted by audibility, over `voiceOverlapMaxUs` |
+| Bass | Defect, medium | Limits masking | Common energy over total energy, 20–150 Hz, after levels and shelves |
+| Lost | Defect, weak to medium | Prefers keeping the music | Seconds removed over `contentCutMaxUs` |
+| Sobriety | Defect, weak | Avoids gratuitous effects | Effect lanes over `sobrietyFullEffects` |
+
+`SegueTuning.kt` documents each parameter, with its label and range, and is the only place for them.
+
+### Parameters that were not in the design's tables
+
+These had no value or only a word, and were added as proposals to measure. All are `[I]` unless
+marked `[R]`, reused from this repository.
+
+| Parameter | Value | Why it is needed |
+|---|---|---|
+| Strong, medium, weak, weak to medium | 1.0, 0.5, 0.2, 0.35 | The design names the weights qualitatively |
+| `gridMinBeats`, `gridMinSteadiness`, `gridMaxDriftMs` | 16, 0.6, 30 ms `[R]` | The design leaves the grid's reliability floor to measurement; these are the existing `Grid.reliable` |
+| `thresholdLocked` | 0.5 `[R]` | The earlier blend floor, on a different scale |
+| `thresholdFiltered`, `thresholdHard` | 0.25 | Each class needs a threshold |
+| `contentCutMaxUs` | 60 s | The design caps the cut in seconds without a value |
+| `gaplessMaxSilenceUs` | 300 ms | What counts as a junction without silence |
+| `entryNoteSection`, `entryNoteOther` | 0.6, 0.3 | A later entry must score below the first attack |
+| `sobrietyFullEffects`, `bassSampleSteps`, `curveKnots` | 3, 32, 16 | Normalisation and sampling |
+| `reliabilityPhraseFallback`, `reliabilityVocalStereo`, `reliabilityVocalMono` | 0.3, 0.6, 0.2 | Measures with no confidence of their own |
+| `reliabilityForLong`, `reliabilityForMiddle` | 0.8, 0.6 | The lower the reliability, the shorter the window |
+| `filteredMiddleUs` | 8 s | Between the design's 4 and 12 s |
+| `simpleFadeUs`, `entryZoneUs`, `halfDoubleMaxBars` | 6 s, 40 s, 8 bars `[R]` | Values the player already uses |
+| Lane shapes (`bassKillDb`, `outgoingTopDb`, `incomingBedGain`…) | see `SegueTuning` `[R]` | The curves the player already plays |
+| `sweepClosedHz`, `sweepPeakRatio` | 400 Hz, 1.2 | The design asks for a filtered exit without values |

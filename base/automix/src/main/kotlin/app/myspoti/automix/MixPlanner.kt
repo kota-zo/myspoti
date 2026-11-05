@@ -197,7 +197,7 @@ object MixPlanner {
     }
 
     /** Bass changes on a shared downbeat, near a local arrival when one exists, otherwise halfway. */
-    private fun bassSwapBar(b: TrackAnalysis, sb: Summary, gb: Grid, entry: Double, bars: Int, barA: Double, speed: Double): Double {
+    internal fun bassSwapBar(b: TrackAnalysis, sb: Summary, gb: Grid, entry: Double, bars: Int, barA: Double, speed: Double): Double {
         var chosen = if (bars >= 4) floor(bars / 2.0) else bars / 2.0
         var score = 0.0
         for (k in max(1, ceil(bars * 0.25).toInt())..floor(bars * 0.75).toInt()) {
@@ -359,7 +359,7 @@ object MixPlanner {
      * Cheap per-song quantities, once per immutable analysis: no sorting, powers, whole-song scans
      * or level windows in the candidate loop. Values do not reference the weak map's key.
      */
-    private class Summary(a: TrackAnalysis) {
+    internal class Summary(a: TrackAnalysis) {
         val loud = a.barDb.sortedArray().let { if (it.isEmpty()) -20.0 else it[(it.size * 0.7).toInt()].toDouble() }
         private val level = prefix(a.barDb)
         private val low = prefix(a.barLowDb)
@@ -419,7 +419,7 @@ object MixPlanner {
         }
     }
     private val summaries = WeakHashMap<TrackAnalysis, Summary>()
-    private fun summary(a: TrackAnalysis): Summary = synchronized(summaries) { summaries.getOrPut(a) { Summary(a) } }
+    internal fun summary(a: TrackAnalysis): Summary = synchronized(summaries) { summaries.getOrPut(a) { Summary(a) } }
 
     private fun nearestBar(a: TrackAnalysis, t: Double): Int {
         val i = a.barAt(t)

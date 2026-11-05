@@ -35,6 +35,8 @@ class MixPlan(
     val matchA: Double = 1.0,
     /** A FADE between tempos too far apart: B without its bass until a hand-over at [swapAt], A's top end closing. */
     val filtered: Boolean = false,
+    /** The data plan this timing was read from; when set, the engine plays its lanes, not [levels]. */
+    val segue: app.myspoti.automix.segue.SeguePlan? = null,
 ) {
     enum class Style {
         /** Beat-matched blend over several bars with a bass swap. */
