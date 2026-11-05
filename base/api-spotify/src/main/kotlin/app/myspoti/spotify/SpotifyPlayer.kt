@@ -2202,9 +2202,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // steps onto an ad that way stays on it (its audio refused). Going to the next song by name
         // gets past it within a second (measured 20/10, desktop), as at the end of the song.
         // Played as a skip within the queue now, not a new play (that reshuffles; see [skipPastAd]).
+        // Another device plays: a play by name pulls the sound back to the phone (reported), only the
+        // plain skip reaches that device, however long it takes to report the next song.
+        val elsewhere = remoteActive
         val due = app.myspoti.spotify.bridge.AdBlock.ahead.value
         val ctx = _state.value?.contextUri
-        if (due != null && ctx != null && adDueFor(due, _state.value?.item)) {
+        if (!elsewhere && due != null && ctx != null && adDueFor(due, _state.value?.item)) {
             app.myspoti.spotify.bridge.AdBlock.ahead.compareAndSet(due, null)
             bridge.logger?.invoke("next with an ad due: ${due.nextUri} skipped to instead of a plain skip")
             if (!skipPastAd(due)) playNow(ctx, trackUri = due.nextUri, order = lastOrder?.takeIf { it.first == ctx }?.second, origin = "next, an ad due")
@@ -2213,8 +2216,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         // Remembered: should the page go into an ad break instead, this song comes after it.
         val base = lastWithSong()
         val after = base?.next?.takeIf { it.kind == ItemKind.TRACK || it.kind == ItemKind.EPISODE }
-        if (after != null && base.item?.kind != ItemKind.AD) intent = Intent(base.contextUri, after, base.item?.uri, System.currentTimeMillis())
-        val sent = intent
+        if (!elsewhere && after != null && base.item?.kind != ItemKind.AD) intent = Intent(base.contextUri, after, base.item?.uri, System.currentTimeMillis())
+        val sent = intent.takeUnless { elsewhere }
         runCatching { withFade { command("player.next") } }.onFailure { e ->
             if (!heldError(e, base?.restrictions?.canSkipNext != false)) throw e
             stepIntent(1)
@@ -2226,7 +2229,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         if (sent != null) scope.launch {
             delay(NEXT_LOST_MS)
             val i = liveIntent()
-            if (i == null || i !== sent || skipsHeld || pausedByUser) return@launch
+            if (i == null || i !== sent || skipsHeld || pausedByUser || remoteActive) return@launch
             val now = lastTrackState?.item?.uri
             if (now != null && now == i.from) {
                 bridge.logger?.invoke("skip lost by the page: playing ${i.item.name}")
