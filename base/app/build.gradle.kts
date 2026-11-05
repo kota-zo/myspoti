@@ -171,7 +171,7 @@ dependencies {
     // Native UI (ported from Spotui, GPL-3.0)
     implementation("androidx.navigation:navigation-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
-    implementation("com.github.bumptech.glide:compose:1.0.0-beta01")
+    implementation("com.github.bumptech.glide:compose:1.0.0-beta10")
     implementation("androidx.palette:palette-ktx:1.0.0")
     // Frosted (blurred) bars of the Immersive look. Apache-2.0.
     implementation("dev.chrisbanes.haze:haze:1.3.1")
