@@ -195,7 +195,7 @@ object LocalPlayer {
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
             // Anything but the transition the fade itself makes (a skip, a tap in the queue) ends the fade.
             if (!startingFade) endFade()
-            planned = null; preparationFailures = 0; planningPair = null
+            planned = null; preparationFailures = 0; planningPair = null; segueWork = null
             // From a station to a song or back: a station's repeat is off (see applyRepeat).
             applyRepeat(p)
             // The song kept from fading out is left behind: the next one fades as usual.
@@ -697,7 +697,8 @@ object LocalPlayer {
         if (segue && ra != null && rb != null && preparationFailures < 2 && noMixFor?.first === ra && noMixFor?.second === rb) return null
         if (ra != null && rb != null && preparationFailures < 2) {
             val earliest = (p.currentPosition + RUN_UP_MS + startLead + 500) / 1000.0
-            choosePlan(a, b, ra, rb, earliest).also { if (it == null && segue) { noMixFor = ra to rb; planned = null; whyNot(null); return null } }?.let { plan ->
+            if (!segueDecided(a, b, ra, rb, earliest)) return null
+            choosePlan(ra, rb, earliest).also { if (it == null && segue) { noMixFor = ra to rb; planned = null; whyNot(null); return null } }?.let { plan ->
                 planned = Planned(cur, nextId, plan, ra, rb)
                 whyNot(null)
                 com.music.spotui.automix.AutoMix.journal("plan ${a.title} → ${b.title}: $plan")
@@ -719,16 +720,45 @@ object LocalPlayer {
         return plan
     }
 
-    /** The plan for two analysed songs. With the data plans on, null means the policy chose plain playback. */
-    private fun choosePlan(a: LocalTrack, b: LocalTrack, ra: app.myspoti.automix.TrackAnalysis, rb: app.myspoti.automix.TrackAnalysis, earliest: Double): app.myspoti.automix.MixPlan? {
-        if (!com.music.spotui.automix.AutoMix.segueActive) return com.music.spotui.automix.AutoMix.planAfter(ra, rb, earliest)
+    /** A data plan being worked out away from the main thread: weighing the candidates takes long enough to be felt there. */
+    private class SegueWork(val ra: app.myspoti.automix.TrackAnalysis, val rb: app.myspoti.automix.TrackAnalysis) {
+        @Volatile var done = false
+        var plan: app.myspoti.automix.MixPlan? = null
+        var note = ""
+    }
+    private val segueWorker by lazy { java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "segue-plan").apply { isDaemon = true } } }
+    private var segueWork: SegueWork? = null
+
+    /** Whether [choosePlan] has its answer for this pair; asked for the first time, it starts the work. */
+    private fun segueDecided(a: LocalTrack, b: LocalTrack, ra: app.myspoti.automix.TrackAnalysis, rb: app.myspoti.automix.TrackAnalysis, earliest: Double): Boolean {
+        if (!com.music.spotui.automix.AutoMix.segueActive) return true
+        segueWork?.takeIf { it.ra === ra && it.rb === rb }?.let { return it.done }
         val album = a.album.trim()
         val sameAlbum = com.music.spotui.automix.AutoMix.albumOrder && album.isNotEmpty() && !album.equals("<unknown>", true) && album.equals(b.album.trim(), true)
         // Its lanes must be armed before the audio chain, ahead of the player, reaches the cue.
         val chainAheadMs = exo?.let { p -> segueStages[p]?.takeIf { it.marked }?.let { (it.positionUs / 1000 - p.currentPosition).coerceAtLeast(0) } } ?: 0L
-        val d = com.music.spotui.automix.AutoMix.decide(ra, rb, earliest + (chainAheadMs + MixPreparation.SEGUE_ARM_LEAD_MS) / 1000.0, sameAlbum, rate())
-        com.music.spotui.automix.AutoMix.journal("segue ${d.level} ${d.fingerprint?.take(12) ?: ""}${if (d.attempts.isEmpty()) "" else ": ${d.why}"}")
-        return app.myspoti.automix.segue.SeguePolicy.timing(d)
+        val from = earliest + (chainAheadMs + MixPreparation.SEGUE_ARM_LEAD_MS) / 1000.0
+        val listener = rate()
+        val work = SegueWork(ra, rb)
+        segueWork = work
+        segueWorker.execute {
+            runCatching {
+                val d = com.music.spotui.automix.AutoMix.decide(ra, rb, from, sameAlbum, listener)
+                work.note = "segue ${d.level} ${d.shape ?: ""} ${d.fingerprint?.take(12) ?: ""}${if (d.attempts.isEmpty()) "" else ": ${d.why}"}"
+                work.plan = app.myspoti.automix.segue.SeguePolicy.timing(d)
+            }.onFailure { work.note = "segue failed: $it"; work.plan = null }
+            work.done = true
+        }
+        return false
+    }
+
+    /** The plan for two analysed songs, once [segueDecided]. With the data plans on, null means the policy chose plain playback. */
+    private fun choosePlan(ra: app.myspoti.automix.TrackAnalysis, rb: app.myspoti.automix.TrackAnalysis, earliest: Double): app.myspoti.automix.MixPlan? {
+        if (!com.music.spotui.automix.AutoMix.segueActive) return com.music.spotui.automix.AutoMix.planAfter(ra, rb, earliest)
+        val work = segueWork ?: return null
+        segueWork = null
+        com.music.spotui.automix.AutoMix.journal(work.note)
+        return work.plan
     }
 
     /**
@@ -763,11 +793,13 @@ object LocalPlayer {
         if (preparationFailures >= 2) return
         val a = tracks.getOrNull(p.currentMediaItemIndex)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) } ?: return
         val b = tracks.getOrNull(next)?.let { com.music.spotui.automix.AutoMix.analysis(it.uri) } ?: return
-        // Once per completed analysis pair, including pairs with no future musical cue.
-        planned = Planned(p.currentMediaItemIndex, nextId, run.plan, a, b)
         val trackA = tracks.getOrNull(p.currentMediaItemIndex) ?: return
         val trackB = tracks.getOrNull(next) ?: return
-        val plan = choosePlan(trackA, trackB, a, b, (p.currentPosition + RUN_UP_MS + startLead + 500) / 1000.0)
+        val earliest = (p.currentPosition + RUN_UP_MS + startLead + 500) / 1000.0
+        if (!segueDecided(trackA, trackB, a, b, earliest)) return
+        // Once per completed analysis pair, including pairs with no future musical cue.
+        planned = Planned(p.currentMediaItemIndex, nextId, run.plan, a, b)
+        val plan = choosePlan(a, b, earliest)
         if (plan == null) {
             // The policy says no effect: the prepared fade goes too.
             if (com.music.spotui.automix.AutoMix.segueActive) { noMixFor = a to b; cancelMix("no mix for this pair", again = true) }
@@ -1072,7 +1104,7 @@ object LocalPlayer {
 
     /** The user moved in the song before the mix: the deck goes (prepared again if the end is still ahead). */
     private fun mixMoved() {
-        planned = null; preparationFailures = 0; retryDeckAt = 0; noMixFor = null
+        planned = null; preparationFailures = 0; retryDeckAt = 0; noMixFor = null; segueWork = null
         val run = mix ?: return
         if (run.state < MixState.MIXING) cancelMix("seek", again = true)
     }

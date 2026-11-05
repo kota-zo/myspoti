@@ -159,6 +159,44 @@ Each quantity carries a reliability: an uncertain measure weighs less, it is not
 `audioKey` hashes the decoded analysis signal. A different decoder may give a different hash: the
 plan is then recomputed, which costs nothing but a calculation.
 
+## Stretches
+
+A mix needs one good run of bars, not a good song. Locked candidates are therefore judged on their
+own beats (`SegueStretch.kt`), not on a grid fitted to the song's whole ending: a tempo that wanders
+elsewhere, or a bridge without drums, no longer rules out the part that holds.
+
+A stretch is a whole number of bars. It needs most of its beats from the model, a straight line
+through them that they stay close to, bars that do not slide off that line, and downbeats the model
+is sure of. The line gives the stretch its own tempo and start. Only the incoming song changes speed:
+the rate is the ratio of the two stretches' lengths in time, so their bar lines meet at both ends, and
+between half and double tempos one has half as many bars as the other.
+
+The expected phase error is no longer a mix of two songs' averages: the beats of the sparser stretch
+are measured against the nearest beats of the denser one, at the rate the plan will use. Plans carry
+`beatKey`, which covers the bars and the model's beats, so a new analysis of them invalidates the plan.
+
+## Shapes
+
+How a transition sounds is its lanes, so the engine has nothing to know of a shape (`SegueShape`).
+
+| Shape | Class | What is heard |
+|---|---|---|
+| `BASS_SWAP` | locked | The bass changes hands at one point, over level ramps |
+| `THREE_BAND` | locked | Bass, then middle, then top change hands |
+| `CUT_ON_BEAT` | locked | One song, then the other, on a shared downbeat |
+| `FILTER_OPEN` | locked | The incoming song opens from a closed filter up to the bass hand-over |
+| `SWEEP_OUT` | filtered | The outgoing song filtered away while the incoming one rises |
+| `EVEN_FADE` | filtered | Both levels equal-power, the bass handed over |
+| `QUICK_OUT` | filtered | The outgoing song leaves early, for a voice in its way |
+| `LATE_OUT` | filtered | The incoming song is up early, for a voice coming in it |
+
+What the music asks for comes first: two voices in a short window meet on a cut, and a cut is refused
+across a loudness jump. Otherwise the shape comes from a hash of the two audio keys and the anchors,
+so a pair always sounds the same and a playlist does not repeat one effect.
+
+A fade's length starts from the longest that stays clear of both songs' voices, instead of always
+the longest allowed.
+
 ## Policy
 
 Order: generate candidates, reject by guards, score, keep the best if it clears its class's
@@ -170,7 +208,7 @@ and the same request always gives the same plan.
 |---|---|---|
 | `LOCKED_LONG` | locked | Reachable tempos, reliable grids, phrases on both sides, the longest length |
 | `LOCKED_SHORT` | locked | The same, shorter |
-| `LOCKED_BEAT` | locked | Any shared downbeat, and only if the bass is managed |
+| `LOCKED_BEAT` | locked | Any shared downbeat, 4 or 2 bars, and only if the bass is managed |
 | `FILTERED` | filtered | No alignment; filtered exit, limited overlap, progressive entry, without two voices |
 | `HARD` | hard | Clear boundaries, close loudness, on a downbeat; an anti-click fade alone |
 | `SIMPLE_FADE` | fade | A short fade from a safe point |
@@ -185,13 +223,14 @@ Scores compare only within a class; between classes the fallback order decides.
 | Term | Kind | Role | Form |
 |---|---|---|---|
 | Rhythm | Note, strong | Makes the passage forgettable | Falls from `rhythmFullUs` to `phaseMedianMaxUs` |
-| Phrase | Note, strong | Makes the sections coincide | 0.5 per side on a boundary |
+| Phrase | Note, strong | Makes the sections coincide | 0.5 per side on a boundary at the start, `phraseNoteInside` at the middle or end |
 | Energy | Note, medium | Avoids holes in the tension | Gaussian on the level gap, `energySigmaDb` |
 | Exit | Note, medium | Leaves at the end of a phrase or on a calm section | Share without voice in the window's second half |
 | Entry | Note, medium | Avoids entering mid-phrase | 1 on the first attack, less on a later section, less with the time skipped |
 | Key | Note, weak | Reduces clashes | Distance on the wheel of fifths |
 | Speed | Defect, medium | Prefers the least alteration | Rises from `rateCostFreePpm` to the guard |
 | Voice | Defect, strong | Goes beyond the guard | Overlap weighted by audibility, over `voiceOverlapMaxUs` |
+| Voice cut | Defect, medium | Leaves no voice unheard | A's voice after the window and B's before the entry, as shares of each song's |
 | Bass | Defect, medium | Limits masking | Common energy over total energy, 20–150 Hz, after levels and shelves |
 | Lost | Defect, weak to medium | Prefers keeping the music | Seconds removed over `contentCutMaxUs` |
 | Sobriety | Defect, weak | Avoids gratuitous effects | Effect lanes over `sobrietyFullEffects` |
@@ -243,6 +282,10 @@ marked `[R]`, reused from this repository.
 | `simpleFadeUs`, `entryZoneUs`, `halfDoubleMaxBars` | 6 s, 40 s, 8 bars `[R]` | Values the player already uses |
 | Lane shapes (`bassKillDb`, `outgoingTopDb`, `incomingBedGain`…) | see `SegueTuning` `[R]` | The curves the player already plays |
 | `sweepClosedHz`, `sweepPeakRatio` | 400 Hz, 1.2 | The design asks for a filtered exit without values |
+| `stretchMinBeatShare`, `stretchMinDownConfidence` | 0.85, 0.5 | What a stretch must have to be relied on |
+| `penaltyVoiceCut`, `phraseNoteInside` | 0.5, 0.25 | The two score terms added with stretches |
+| `voiceBarRisk`, `lockedTinyBars` | 0.6 `[R]`, 2 | A bar counted as sung; the shortest locked length |
+| `coreOutDb`, `coreInDb`, `topInDb`, `cutBeatShare` | −24, −12, −12 dB, 0.25 | The three-band and cut shapes |
 | `blockFrames`, `shelfLowHz`, `shelfHighHz`, `holdRampUs` | 64, 180 Hz, 2.5 kHz, 400 ms `[R]` | Values the player and the render already use |
 | `shelfQ`, `coreQ` | 0.707 `[U]`, 0.5 | The slope of a shelf, and a bell wide enough to span the middle band |
 | `echoDelayUs`, `echoFeedback`, `sendTailUs` | 375 ms, 0.35, 3 s | The sends need a sound; the policy does not use them yet |

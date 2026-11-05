@@ -197,12 +197,12 @@ object MixPlanner {
     }
 
     /** Bass changes on a shared downbeat, near a local arrival when one exists, otherwise halfway. */
-    internal fun bassSwapBar(b: TrackAnalysis, sb: Summary, gb: Grid, entry: Double, bars: Int, barA: Double, speed: Double): Double {
+    internal fun bassSwapBar(b: TrackAnalysis, sb: Summary, gb: Grid, entry: Double, bars: Int, barA: Double, speed: Double, down: Double = b.headDown): Double {
         var chosen = if (bars >= 4) floor(bars / 2.0) else bars / 2.0
         var score = 0.0
         for (k in max(1, ceil(bars * 0.25).toInt())..floor(bars * 0.75).toInt()) {
             val t = entry + k * barA * speed
-            if (abs(firstDown(gb, b.headDown, t - 0.1 * gb.period) - t) > 0.1 * gb.period) continue
+            if (abs(firstDown(gb, down, t - 0.1 * gb.period) - t) > 0.1 * gb.period) continue
             val value = sb.dropAt(b, t) * 1.5 + b.sectionStrength(b.barAt(t + 0.05)) - abs(k.toDouble() / bars - 0.5) * 0.35
             if (value > score) { score = value; chosen = k.toDouble() }
         }

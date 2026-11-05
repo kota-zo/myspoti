@@ -2,6 +2,7 @@
 package app.myspoti.automix
 
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -15,6 +16,8 @@ object Analyzer {
 
     private const val FPS = Features.FPS
     /** Seconds of the song's start and end the head and tail grids are fitted on. */
+    /** How near a bar start the model's downbeat must be to speak for it [I]. */
+    private const val DOWN_NEAR_SEC = 0.07
     const val HEAD_SEC = 75.0
     const val TAIL_SEC = 90.0
 
@@ -161,6 +164,12 @@ object Analyzer {
             val sum = vote.sum()
             return if (sum <= 0) 0f else (((vote.max() / sum) - 0.25) / 0.75).toFloat().coerceIn(0f, 1f)
         }
+        // The model's word on each bar start: its logit as a probability, 0 when it placed no downbeat there.
+        val barDownConfidence = if (act == null) FloatArray(0) else FloatArray(bars) { i ->
+            var best = 0f
+            for ((t, v) in modelDowns) if (abs(t - barStarts[i]) <= DOWN_NEAR_SEC) best = max(best, 1f / (1f + exp(-v)))
+            best
+        }
         val novelty = novelty(arrayOf(barDb, barLow, barMid, barHigh, barOnset), barChroma)
         val phraseOffset = phraseOffset(novelty)
         val vocalRisk = VocalRisk.estimate(barDb, barMid, absoluteCentre, barCentre, f.stereo)
@@ -168,7 +177,8 @@ object Analyzer {
         val loud = loudness(f.rmsDb, peak - 20f)
         return TrackAnalysis(f.durationSec, contentStart, contentEnd, loud, key, keyStrength, bpm, steady, head, tail,
             beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'), vocalRisk,
-            signalKey(mid, side), barBass, phaseStats(head, mb, headSpan), phaseStats(tail, mb, tailSpan), metre(head, headSpan), metre(tail, tailSpan))
+            signalKey(mid, side), barBass, phaseStats(head, mb, headSpan), phaseStats(tail, mb, tailSpan), metre(head, headSpan), metre(tail, tailSpan),
+            mb, barDownConfidence)
     }
 
     /** The model's beats against a grid: median and 95th percentile of their distance; null with too few to tell. */

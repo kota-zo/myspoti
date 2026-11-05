@@ -60,11 +60,22 @@ class TrackAnalysis(
     /** How clearly the downbeats' votes chose one phase on each grid, 0..1 (0: no evidence). */
     val headMetre: Float = 0f,
     val tailMetre: Float = 0f,
+    /** The beat model's own beats, seconds; empty without the model. Stretches of bars are judged on these. */
+    val modelBeats: DoubleArray = DoubleArray(0),
+    /** How sure the model is of a downbeat at each bar start, 0..1; empty without the model. */
+    val barDownConfidence: FloatArray = FloatArray(0),
 ) {
     val bars get() = barStarts.size
     /** Identify the grids a plan relies on: a new analysis with another grid invalidates the plan. */
     val headGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { head?.let { gridKey(it, headDown) } }
     val tailGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { tail?.let { gridKey(it, tailDown) } }
+    /** Identifies the beats and bars a plan was placed on: another analysis of them invalidates the plan. */
+    val beatKey: String by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val text = StringBuilder()
+        for (t in barStarts) text.append(Math.round(t * 1e4)).append(',')
+        for (t in modelBeats) text.append(Math.round(t * 1e4)).append(',')
+        app.myspoti.automix.segue.SegueCodec.hex(text.toString().toByteArray())
+    }
     private val sections by lazy(LazyThreadSafetyMode.PUBLICATION) { Sections.detect(barNovelty) }
 
     /** Strong local structural changes in bars; no named verse/chorus labels are inferred. */
@@ -105,11 +116,13 @@ class TrackAnalysis(
         o.writeUTF(audioKey)
         for (bar in 0 until bars) o.writeFloat(barBassDb.getOrElse(bar) { -60f })
         writePhase(o, headPhase); writePhase(o, tailPhase); o.writeFloat(headMetre); o.writeFloat(tailMetre)
+        o.writeInt(modelBeats.size); modelBeats.forEach(o::writeDouble)
+        o.writeInt(barDownConfidence.size); barDownConfidence.forEach(o::writeFloat)
         o.flush()
     }
 
     companion object {
-        const val VERSION = 4_09
+        const val VERSION = 4_10
 
         fun read(input: InputStream): TrackAnalysis? {
             val i = DataInputStream(input)
@@ -126,9 +139,11 @@ class TrackAnalysis(
             val audioKey = i.readUTF()
             val bass = FloatArray(n) { i.readFloat() }
             val headPhase = readPhase(i); val tailPhase = readPhase(i); val headMetre = i.readFloat(); val tailMetre = i.readFloat()
+            val modelBeats = DoubleArray(i.readInt()) { i.readDouble() }
+            val barDown = FloatArray(i.readInt()) { i.readFloat() }
             return TrackAnalysis(duration, cs, ce, loud, key, ks, bpm, steady, head, tail, beats, starts,
                 arrays[0], arrays[1], arrays[2], arrays[3], arrays[4], phrase, stereo, headDown, tailDown, note, vocal,
-                audioKey, bass, headPhase, tailPhase, headMetre, tailMetre)
+                audioKey, bass, headPhase, tailPhase, headMetre, tailMetre, modelBeats, barDown)
         }
 
         private fun gridKey(g: Grid, down: Double): String = app.myspoti.automix.segue.SegueCodec.hex(

@@ -43,6 +43,8 @@ class SegueDecision(
     val swapShare: Double = 0.5,
     /** Seconds the incoming song takes to return to its own tempo. */
     val restoreSec: Double = 0.0,
+    /** How the transition sounds, for the journal: the plan's lanes are what plays. */
+    val shape: SegueShape? = null,
 ) {
     val why: String get() = attempts.joinToString("; ")
     val fingerprint: String? get() = plan?.let(SegueCodec::fingerprint)
@@ -69,7 +71,7 @@ class SegueRequest(
  * otherwise moves to the next level. Deterministic: the same request gives the same plan.
  */
 object SeguePolicy {
-    val ORIGIN = SeguePlan.Origin("myspoti-segue-1", "uncalibrated")
+    val ORIGIN = SeguePlan.Origin("myspoti-segue-2", "uncalibrated")
 
     fun decide(r: SegueRequest): SegueDecision = Run(r).decide()
 
@@ -85,7 +87,7 @@ object SeguePolicy {
         val beats = if (p.span.unitKind == UnitKind.BAR) (p.span.musicalUnits ?: 0) * 4 else p.span.musicalUnits ?: 0
         return MixPlan(style, p.outgoing.anchorUs / 1e6, p.incoming.anchorUs / 1e6, p.span.lengthUs / 1e6, rate, beats,
             d.swapShare, if (beats > 0) 1.0 / beats else 0.1, 1.0, d.restoreSec,
-            "segue ${d.level}" + (d.score?.let { String.format(java.util.Locale.ROOT, " score %.2f", it) } ?: "") +
+            "segue ${d.level}" + (d.shape?.let { " $it" } ?: "") + (d.score?.let { String.format(java.util.Locale.ROOT, " score %.2f", it) } ?: "") +
                 (if (d.attempts.isEmpty()) "" else " | ${d.why}"),
             filtered = d.level == SegueLevel.FILTERED, segue = p)
     }
@@ -97,13 +99,13 @@ object SeguePolicy {
     }
 
     internal fun facts(a: TrackAnalysis, b: TrackAnalysis) =
-        SegueSideFacts(a.audioKey, a.tailGridKey, us(a.duration)) to SegueSideFacts(b.audioKey, b.headGridKey, us(b.duration))
+        SegueSideFacts(a.audioKey, a.beatKey, us(a.duration)) to SegueSideFacts(b.audioKey, b.beatKey, us(b.duration))
 
     private fun us(seconds: Double): Long = (seconds * 1e6).roundToLong()
 
     private class Point(val us: Long, val bar: Int, val rank: Double, val boundary: Boolean)
 
-    private class Found(val plan: SeguePlan, val score: Double, val swap: Double)
+    private class Found(val plan: SeguePlan, val score: Double, val swap: Double, val shape: SegueShape? = null, val restoreSec: Double = 0.0)
 
     private class Run(val r: SegueRequest) {
         val a = r.a; val b = r.b; val t = r.tuning
@@ -125,8 +127,7 @@ object SeguePolicy {
                 val found = attempt(level) ?: continue
                 val problems = SegueValidator.against(found.plan, facts(a, b).first, facts(a, b).second)
                 if (problems.isNotEmpty()) { attempts += SegueAttempt(level, SegueCause.INVALID_PLAN, problems.joinToString(",")); continue }
-                return SegueDecision(level, found.plan, attempts.toList(), found.score, found.swap,
-                    if (level.cls == SegueClass.LOCKED) restore(found.plan.incoming.ratePpm, gb!!.period) else 0.0)
+                return SegueDecision(level, found.plan, attempts.toList(), found.score, found.swap, found.restoreSec, found.shape)
             }
             return SegueDecision(SegueLevel.NORMAL, null, attempts.toList())
         }
@@ -144,7 +145,7 @@ object SeguePolicy {
         private fun attempt(level: SegueLevel): Found? = when (level) {
             SegueLevel.LOCKED_LONG -> locked(level, listOf(t.lockedLongBars), phrases = true)
             SegueLevel.LOCKED_SHORT -> locked(level, listOf(t.lockedMiddleBars, t.lockedShortBars), phrases = true)
-            SegueLevel.LOCKED_BEAT -> if (!r.eq) fail(level, SegueCause.BASS_NOT_MANAGED) else locked(level, listOf(t.lockedShortBars), phrases = false)
+            SegueLevel.LOCKED_BEAT -> if (!r.eq) fail(level, SegueCause.BASS_NOT_MANAGED) else locked(level, listOf(t.lockedShortBars, t.lockedTinyBars), phrases = false)
             SegueLevel.FILTERED -> filtered(level)
             SegueLevel.HARD -> hard(level)
             SegueLevel.SIMPLE_FADE -> simple(level)
@@ -215,44 +216,155 @@ object SeguePolicy {
 
         // ── Levels ──
         private fun locked(level: SegueLevel, barsAsked: List<Int>, phrases: Boolean): Found? {
-            if (ga == null || gb == null) return fail(level, SegueCause.NO_GRID, if (ga == null) "outgoing" else "incoming")
-            val m = MixPlanner.tempoMatch(ga.bpm, gb.bpm)
-            val ratePpm = (m.speed * SegueFormat.RATE_NOMINAL).roundToLong()
-            val deviation = abs(ratePpm - SegueFormat.RATE_NOMINAL)
+            val allowed = barsAsked.filter { it <= (r.maxBars ?: Int.MAX_VALUE) }
+            if (allowed.isEmpty()) return fail(level, SegueCause.LENGTH_NOT_ALLOWED)
             val limit = min(t.maxRateDeviationPpm, r.maxRatePpm ?: Long.MAX_VALUE)
-            if (deviation > limit) return fail(level, SegueCause.TEMPO_OUT_OF_REACH, String.format(java.util.Locale.ROOT, "%.1f %%", deviation / 1e4))
-            // The lower the reliability, the shorter the window.
-            val rel = pulseReliability()
-            val cap = if (rel >= t.reliabilityForLong) t.lockedLongBars else if (rel >= t.reliabilityForMiddle) t.lockedMiddleBars else t.lockedShortBars
-            val allowed = barsAsked.filter { it <= cap && it <= (r.maxBars ?: Int.MAX_VALUE) && (m.beatsPerB == 1.0 || it <= t.halfDoubleMaxBars) }
-            if (allowed.isEmpty()) return fail(level, SegueCause.LENGTH_NOT_ALLOWED, "reliability ${"%.2f".format(java.util.Locale.ROOT, rel)}")
-            val barA = 4 * ga.period
-            val phaseMedian = phase(a.tailPhase?.medianUs, b.headPhase?.medianUs)
-            val phaseP95 = phase(a.tailPhase?.p95Us, b.headPhase?.p95Us)
-            val drift = hypot(ga.driftMs, gb.driftMs) / 1000 / ga.period
             val tally = Tally()
             var best: Found? = null
+            var closestPpm = Long.MAX_VALUE
+            var tooLong = false
+            var stretches = false
             for (bars in allowed) {
-                val lengthUs = us(bars * barA)
-                val spanUs = lengthUs * ratePpm / SegueFormat.RATE_NOMINAL
-                val outs = exits(gridTimes(ga, a.tailDown, max(a.contentStart, ga.first), min(sa.musicEnd, ga.last)), lengthUs, min(us(a.contentEnd), us(ga.last + ga.period)), phrases)
-                val ins = entries(gb, spanUs, phrases)
-                for (e in outs) for (n in ins) {
-                    tally.seen++
-                    val base = measures(e, n, lengthUs, spanUs).copy(rateDeviationPpm = deviation, phaseMedianUs = phaseMedian, phaseP95Us = phaseP95,
-                        driftBeats = drift, gridReliable = reliable(ga) && reliable(gb))
-                    if (tally.refused(SegueGuards.crossed(SegueClass.LOCKED, base, t))) continue
-                    val swap = MixPlanner.bassSwapBar(b, sb, gb, n.us / 1e6, bars, barA, m.speed) / bars
-                    val beatShare = 1.0 / (bars * 4)
-                    val lanes = compiler.locked(swap, beatShare, matchA(), matchB(), r.eq)
-                    val plan = plan(e.us, n.us, ga, gb, ratePpm, lengthUs, bars, PulseState.LOCKED, us60(ga), phaseMedian, lanes)
-                    val score = score(e, n, lengthUs, spanUs, phaseMedian, deviation, lanes)
-                    if (best == null || score.total > best.score) best = Found(plan, score.total, swap)
+                val outs = stretchExits(bars, phrases, tally)
+                stretches = stretches || outs.isNotEmpty()
+                // The incoming bars of the same length of time: as many, or half or twice as many between half and double tempos.
+                for ((barsB, m) in listOf(bars to 1.0, bars / 2 to 2.0, bars * 2 to 0.5)) {
+                    if (m != 1.0 && (bars > t.halfDoubleMaxBars || barsB < t.lockedTinyBars || barsB * 2 != bars * (if (m == 2.0) 1 else 4))) continue
+                    val ins = stretchEntries(barsB, phrases, tally)
+                    for (e in outs) for (n in ins) {
+                        val rate = n.stretch.lengthSec / e.stretch.lengthSec
+                        val ratePpm = (rate * SegueFormat.RATE_NOMINAL).roundToLong()
+                        val deviation = abs(ratePpm - SegueFormat.RATE_NOMINAL)
+                        closestPpm = min(closestPpm, deviation)
+                        if (deviation > limit) continue
+                        // The lower the reliability, the shorter the window.
+                        val pulse = min(e.stretch.reliability, n.stretch.reliability)
+                        val cap = if (pulse >= t.reliabilityForLong) t.lockedLongBars else if (pulse >= t.reliabilityForMiddle) t.lockedMiddleBars else t.lockedShortBars
+                        if (bars > cap) { tooLong = true; continue }
+                        tally.seen++
+                        val lengthUs = us(e.stretch.lengthSec)
+                        val spanUs = us(n.stretch.lengthSec)
+                        val (phaseMedian, phaseP95) = Stretches.phase(e.stretch, n.stretch, rate) ?: (null to null)
+                        val ga = e.stretch.grid; val gb = n.stretch.grid
+                        val base = measures(e.point, n.point, lengthUs, spanUs).copy(rateDeviationPpm = deviation, phaseMedianUs = phaseMedian, phaseP95Us = phaseP95,
+                            driftBeats = hypot(ga.driftMs, gb.driftMs) / 1000 / ga.period)
+                        if (tally.refused(SegueGuards.crossed(SegueClass.LOCKED, base, t))) continue
+                        val swap = MixPlanner.bassSwapBar(b, sb, gb, n.stretch.start, bars, 4 * ga.period, rate, gb.first) / bars
+                        val beatShare = 1.0 / (bars * 4)
+                        val shape = lockedShape(e.point, n.point, bars, barsB, swap, lengthUs, spanUs)
+                        val lanes = compiler.locked(shape, swap, beatShare, matchA(), matchB(), r.eq)
+                        val plan = plan(e.stretch.startUs, n.stretch.startUs, ga, gb, ratePpm, lengthUs, bars, PulseState.LOCKED, us60(ga), phaseMedian, lanes)
+                        val score = score(e.point, n.point, lengthUs, spanUs, phaseMedian, deviation, lanes, pulse, bars, barsB)
+                        if (best == null || score.total > best.score) best = Found(plan, score.total, swap, shape, restore(ratePpm, gb.period))
+                    }
                 }
                 // The longest length that works: shorter only when it has to be.
                 if (best != null && best.score >= t.thresholdLocked) break
             }
+            if (tally.seen == 0) return when {
+                !stretches -> fail(level, SegueCause.NO_GRID, tally.toString())
+                tooLong -> fail(level, SegueCause.LENGTH_NOT_ALLOWED, "reliability")
+                closestPpm == Long.MAX_VALUE -> fail(level, SegueCause.NO_CANDIDATE, tally.toString())
+                else -> fail(level, SegueCause.TEMPO_OUT_OF_REACH, String.format(java.util.Locale.ROOT, "%.1f %%", closestPpm / 1e4))
+            }
             return settle(level, tally, best, t.thresholdLocked)
+        }
+
+        /** A stretch and its place among the candidates. */
+        private inner class Placed(val stretch: Stretch, val point: Point)
+
+        private val outgoingStretches = HashMap<Long, Stretch?>()
+        private val incomingStretches = HashMap<Long, Stretch?>()
+
+        private fun cached(cache: HashMap<Long, Stretch?>, s: TrackAnalysis, bar: Int, bars: Int, metre: Double): Stretch? =
+            cache.getOrPut(bar.toLong() * 1000 + bars) { Stretches.measure(s, bar, bars, metre, t) }
+
+        /** A's stretches where a window fits, instrumental endings first. */
+        private fun stretchExits(bars: Int, phrases: Boolean, tally: Tally): List<Placed> {
+            val zone = max(zoneStartUs, r.earliestExitUs)
+            val limit = us(a.contentEnd)
+            val out = ArrayList<Placed>()
+            for (bar in 0 until a.bars) {
+                val start = us(a.barStarts[bar])
+                if (start < zone - 50_000) continue
+                val on = boundary(a, bar)
+                if (phrases && !on) continue
+                val s = cached(outgoingStretches, a, bar, bars, a.tailMetre.toDouble())
+                if (s == null) { if (bar + bars < a.bars) tally.refused(listOf(SegueGuard.GRID_RELIABILITY)); continue }
+                if (s.startUs < zone || us(s.end) > limit) continue
+                out += Placed(s, Point(s.startUs, bar, instrumentalAfter(bar) + s.startUs.toDouble() / max(1L, limit) * 1e-3, on))
+            }
+            return out.sortedByDescending { it.point.rank }.take(t.candidatesPerSide)
+        }
+
+        /** B's stretches from its useful attack; leaving out a start must be worth its note. */
+        private fun stretchEntries(bars: Int, phrases: Boolean, tally: Tally): List<Placed> {
+            val startUs = us(b.contentStart)
+            val zone = min(startUs + t.entryZoneUs, us(b.contentEnd) / 3)
+            val firstBar = (0 until b.bars).firstOrNull { b.barStarts[it] >= b.contentStart - 0.08 } ?: return emptyList()
+            val out = ArrayList<Placed>()
+            for (bar in firstBar until b.bars) {
+                val at = us(b.barStarts[bar])
+                if (bar != firstBar && at >= zone) break
+                val on = boundary(b, bar)
+                if (phrases && !on && bar != firstBar) continue
+                val s = cached(incomingStretches, b, bar, bars, b.headMetre.toDouble())
+                if (s == null) { if (bar + bars < b.bars) tally.refused(listOf(SegueGuard.GRID_RELIABILITY)); continue }
+                val rank = if (bar == firstBar) 1.0
+                    else (if (b.sectionStrength(bar) > 0) t.entryNoteSection else t.entryNoteOther) * (1 - (at - startUs).toDouble() / t.entryZoneUs)
+                out += Placed(s, Point(s.startUs, bar, rank, on || bar == firstBar))
+            }
+            return out.sortedByDescending { it.point.rank }.take(t.candidatesPerSide)
+        }
+
+        // ── Shapes: what the music asks for first, then a choice that stays the same for the same pair ──
+        private fun seeded(options: List<SegueShape>, exitUs: Long, entryUs: Long): SegueShape {
+            var h = -3750763034362895579L
+            for (c in "${a.audioKey}|${b.audioKey}|$exitUs|$entryUs") { h = (h xor c.code.toLong()) * 1099511628211L }
+            return options[Math.floorMod(h, options.size.toLong()).toInt()]
+        }
+
+        private fun lockedShape(e: Point, n: Point, bars: Int, barsB: Int, swap: Double, lengthUs: Long, spanUs: Long): SegueShape {
+            // A cut is only as good as what is on both sides of it: a much louder or quieter song is heard as a jump.
+            val barA = e.bar + (bars * swap).toInt(); val barB = n.bar + (barsB * swap).toInt()
+            val cuts = abs(sa.levelBars(max(0, barA - 2), barA) - sb.levelBars(barB, barB + 2)) <= t.loudnessJumpMaxDb
+            if (!cuts) return seeded(if (r.eq && bars > t.lockedTinyBars) listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND) else listOf(SegueShape.BASS_SWAP), e.us, n.us)
+            if (!r.eq) return seeded(listOf(SegueShape.BASS_SWAP, SegueShape.CUT_ON_BEAT), e.us, n.us)
+            // Two voices in the window: they must not meet, so one takes over from the other.
+            val overlap = sa.maxVoice != 0f && sb.maxVoice != 0f &&
+                MixPlanner.coVocal(a, e.us / 1e6, (e.us + lengthUs) / 1e6, b, n.us / 1e6, (n.us + spanUs) / 1e6).total > 0
+            if (overlap && bars <= t.lockedMiddleBars) return SegueShape.CUT_ON_BEAT
+            return seeded(when {
+                bars <= t.lockedTinyBars -> listOf(SegueShape.CUT_ON_BEAT, SegueShape.BASS_SWAP)
+                bars <= t.lockedShortBars -> listOf(SegueShape.BASS_SWAP, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN)
+                bars <= t.lockedMiddleBars -> listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN)
+                else -> listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.FILTER_OPEN)
+            }, e.us, n.us)
+        }
+
+        private fun filteredShape(e: Point, n: Point, lengthUs: Long): SegueShape {
+            val all = listOf(SegueShape.SWEEP_OUT, SegueShape.EVEN_FADE, SegueShape.QUICK_OUT, SegueShape.LATE_OUT)
+            // A voice still there late in the window leaves early; one coming early in the incoming song gets in clear.
+            val endBar = a.barAt((e.us + lengthUs) / 1e6)
+            val lateVoice = ((e.bar + endBar + 1) / 2..endBar).any { a.barVocalRisk.getOrElse(it) { 0f } >= t.voiceBarRisk }
+            val earlyVoice = (n.bar until b.barAt((n.us + lengthUs / 2) / 1e6) + 1).any { b.barVocalRisk.getOrElse(it) { 0f } >= t.voiceBarRisk }
+            return when {
+                lateVoice -> SegueShape.QUICK_OUT
+                earlyVoice -> SegueShape.LATE_OUT
+                else -> seeded(all, e.us, n.us)
+            }
+        }
+
+        /** The lengths to try: the longest that stays clear of both voices, then the others from the longest. */
+        private fun fadeLengths(lengths: List<Long>): List<Long> {
+            if (lengths.size < 2 || sa.maxVoice == 0f || sb.maxVoice == 0f) return lengths
+            val lastA = (a.bars - 1 downTo 0).firstOrNull { a.barVocalRisk.getOrElse(it) { 0f } >= t.voiceBarRisk }
+            val firstB = (0 until b.bars).firstOrNull { b.barVocalRisk.getOrElse(it) { 0f } >= t.voiceBarRisk }
+            val freeA = lastA?.let { us(sa.musicEnd) - us(a.barEnd(it)) } ?: Long.MAX_VALUE
+            val freeB = firstB?.let { us(b.barStarts[it]) - us(b.contentStart) } ?: Long.MAX_VALUE
+            val free = max(0L, min(freeA, freeB))
+            val fit = lengths.filter { it <= free }.maxOrNull() ?: lengths.min()
+            return listOf(fit) + lengths.filter { it != fit }
         }
 
         private fun filtered(level: SegueLevel): Found? {
@@ -264,16 +376,17 @@ object SeguePolicy {
             }
             val tally = Tally()
             var best: Found? = null
-            for (lengthUs in lengths) {
+            for (lengthUs in fadeLengths(lengths)) {
                 val outs = exits(a.barStarts.asSequence(), lengthUs, us(a.contentEnd), phrases = false)
                 val ins = entries(gb, lengthUs, phrases = false)
                 for (e in outs) for (n in ins) {
                     tally.seen++
                     if (tally.refused(SegueGuards.crossed(SegueClass.FILTERED, measures(e, n, lengthUs, lengthUs), t))) continue
-                    val lanes = compiler.filtered(t.filteredSwapShare, min(1.0, 0.4 * 1e6 / lengthUs), matchA(), matchB(), r.eq)
+                    val shape = filteredShape(e, n, lengthUs)
+                    val lanes = compiler.filtered(shape, min(1.0, 0.4 * 1e6 / lengthUs), matchA(), matchB(), r.eq)
                     val plan = plan(e.us, n.us, ga, gb, SegueFormat.RATE_NOMINAL, lengthUs, null, PulseState.FREE, null, null, lanes)
                     val score = score(e, n, lengthUs, lengthUs, null, 0, lanes)
-                    if (best == null || score.total > best.score) best = Found(plan, score.total, t.filteredSwapShare)
+                    if (best == null || score.total > best.score) best = Found(plan, score.total, compiler.swapOf(shape), shape)
                 }
                 if (best != null && best.score >= t.thresholdFiltered) break
             }
@@ -346,14 +459,15 @@ object SeguePolicy {
                 contentCutShare = if (musicUs > 0) cutUs.toDouble() / musicUs else 1.0, playedUs = e.us - us(a.contentStart))
         }
 
-        private fun score(e: Point, n: Point, lengthUs: Long, spanUs: Long, phaseUs: Long?, deviationPpm: Long, lanes: List<SeguePlan.Lane>): SegueScore {
+        private fun score(e: Point, n: Point, lengthUs: Long, spanUs: Long, phaseUs: Long?, deviationPpm: Long, lanes: List<SeguePlan.Lane>,
+                          pulse: Double = pulseReliability(), barsA: Int? = null, barsB: Int? = null): SegueScore {
             val a0 = e.us / 1e6; val a1 = (e.us + lengthUs) / 1e6; val b0 = n.us / 1e6; val b1 = (n.us + spanUs) / 1e6
             val endBar = a.barAt(a1)
             val energy = abs(sa.levelBars(max(0, endBar - 3), endBar + 1) - sb.levelBars(max(0, n.bar), max(0, n.bar) + 4))
             val rhythm = phaseUs?.let { SegueScore.fallingFrom(it.toDouble(), t.rhythmFullUs.toDouble(), t.phaseMedianMaxUs.toDouble()) } ?: 0.0
-            val phrase = (if (e.boundary) 0.5 else 0.0) + if (n.boundary) 0.5 else 0.0
+            val phrase = phraseNote(a, e, barsA) + phraseNote(b, n, barsB)
             val notes = listOf(
-                SegueNote("rhythm", t.weightRhythm, pulseReliability(), rhythm),
+                SegueNote("rhythm", t.weightRhythm, pulse, rhythm),
                 SegueNote("phrase", t.weightPhrase, min(structureReliability(a, e.bar), structureReliability(b, n.bar)), phrase),
                 SegueNote("energy", t.weightEnergy, 1.0, SegueScore.gaussian(energy, t.energySigmaDb)),
                 SegueNote("exit", t.weightExit, vocalReliability(), exitQuality(e, endBar)),
@@ -365,11 +479,31 @@ object SeguePolicy {
             val defects = listOf(
                 SegueDefect("speed", t.penaltySpeed, SegueScore.risingFrom(deviationPpm.toDouble(), t.rateCostFreePpm.toDouble(), t.maxRateDeviationPpm.toDouble())),
                 SegueDefect("voice", t.penaltyVoice, overlap * lengthUs / t.voiceOverlapMaxUs),
+                SegueDefect("voice cut", t.penaltyVoiceCut, voiceCut(endBar, n.bar)),
                 SegueDefect("bass", t.penaltyBass, commonBass(e.us, n.us, lengthUs, spanUs, lanes)),
                 SegueDefect("lost", t.penaltyLost, max(0L, us(sa.musicEnd) - (e.us + lengthUs)).toDouble() / t.contentCutMaxUs),
                 SegueDefect("sobriety", t.penaltySobriety, effects.toDouble() / t.sobrietyFullEffects),
             )
             return SegueScore(notes, defects)
+        }
+
+        /** A boundary at the start of the window, or less at its middle or end, where the mix's hand-over can land. */
+        private fun phraseNote(s: TrackAnalysis, p: Point, bars: Int?): Double = when {
+            p.boundary -> 0.5
+            bars != null && p.bar >= 0 && (s.sectionStrength(p.bar + bars / 2) > 0 || s.sectionStrength(p.bar + bars) > 0) -> t.phraseNoteInside
+            else -> 0.0
+        }
+
+        /** The share of each song's voice nobody hears: A's after the window, B's before the entry. */
+        private fun voiceCut(endBar: Int, entryBar: Int): Double {
+            fun share(x: FloatArray, range: IntRange): Double {
+                val total = x.sumOf { it.toDouble() }
+                if (total <= 0) return 0.0
+                var part = 0.0
+                for (i in range) part += x.getOrElse(i) { 0f }
+                return part / total
+            }
+            return share(a.barVocalRisk, (endBar + 1) until a.bars) + share(b.barVocalRisk, 0 until entryBar)
         }
 
         /** The voice is over, or dies early in the window: leaving on it is what the listener hears. */
@@ -403,8 +537,8 @@ object SeguePolicy {
 
         private fun plan(exitUs: Long, entryUs: Long, g: Grid?, h: Grid?, ratePpm: Long, lengthUs: Long, bars: Int?, state: PulseState, tempo: Long?, residual: Long?, lanes: List<SeguePlan.Lane>) =
             SeguePlan(ORIGIN,
-                SeguePlan.Side(a.audioKey, if (g != null) a.tailGridKey else null, exitUs, SegueFormat.RATE_NOMINAL, r.listenerRate),
-                SeguePlan.Side(b.audioKey, if (h != null) b.headGridKey else null, entryUs, ratePpm, r.listenerRate),
+                SeguePlan.Side(a.audioKey, if (g != null) a.beatKey else null, exitUs, SegueFormat.RATE_NOMINAL, r.listenerRate),
+                SeguePlan.Side(b.audioKey, if (h != null) b.beatKey else null, entryUs, ratePpm, r.listenerRate),
                 SeguePlan.Span(lengthUs, bars, UnitKind.BAR, Clock.ELAPSED),
                 SeguePlan.Pulse(state, tempo, residual), lanes)
 

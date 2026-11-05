@@ -86,7 +86,7 @@ object SegueBench {
         val causes = HashMap<String, Int>(); val refused = HashMap<String, Int>()
         val ms = ArrayList<Double>(); var unstable = 0; var invalid = 0
         val lengths = ArrayList<Double>(); val cuts = ArrayList<Double>()
-        println("pair\tlevel\tseconds\texit\tentry\trate\tscore\tms\twhy")
+        println("pair\tlevel\tseconds\texit\tentry\trate\tscore\tms\tshape\twhy")
         for ((x, y) in pairs(names, null)) {
             val a = songs.getValue(x); val b = songs.getValue(y)
             val t0 = System.nanoTime()
@@ -104,8 +104,8 @@ object SegueBench {
                 cuts += max(0.0, app.myspoti.automix.MixPlanner.musicEnd(a) - (p.outgoing.anchorUs + p.span.lengthUs) / 1e6)
             }
             val p = d.plan
-            println(String.format(L, "%s,%s\t%s\t%.3f\t%.3f\t%.3f\t%d\t%s\t%.2f\t%s", x, y, d.level, (p?.span?.lengthUs ?: 0) / 1e6, (p?.outgoing?.anchorUs ?: 0) / 1e6,
-                (p?.incoming?.anchorUs ?: 0) / 1e6, p?.incoming?.ratePpm ?: 0, d.score?.let { String.format(L, "%.3f", it) } ?: "-", ms.last(), d.why))
+            println(String.format(L, "%s,%s\t%s\t%.3f\t%.3f\t%.3f\t%d\t%s\t%.2f\t%s\t%s", x, y, d.level, (p?.span?.lengthUs ?: 0) / 1e6, (p?.outgoing?.anchorUs ?: 0) / 1e6,
+                (p?.incoming?.anchorUs ?: 0) / 1e6, p?.incoming?.ratePpm ?: 0, d.score?.let { String.format(L, "%.3f", it) } ?: "-", ms.last(), d.shape ?: "-", d.why))
         }
         ms.sort(); lengths.sort(); cuts.sort()
         println("summary\tpairs=${ms.size}\t" + levels.entries.joinToString("\t") { "${it.key}=${it.value}" } + "\tnot_reproducible=$unstable\tinvalid=$invalid")

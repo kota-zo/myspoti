@@ -35,15 +35,17 @@ class SeguePolicyTest {
         barDb: Float = -10f,
         down: Double = 0.0,
         risk: (Int) -> Float = { 0f },
+        modelBeats: DoubleArray? = null,
     ): TrackAnalysis {
         val beat = 60 / bpm
-        val n = if (bars) (duration / 2).toInt() else 0
+        val n = if (bars) (duration / (4 * beat)).toInt() else 0
         val g = Grid(0.0, beat, (duration / beat).toInt(), steadiness, 0.0, 1.0)
         return TrackAnalysis(duration, contentStart, contentEnd, loudness, musicKey, 1.0, bpm, grid,
-            if (grid) g else null, if (grid) tail ?: g else null, DoubleArray(0), DoubleArray(n) { it * 2.0 },
+            if (grid) g else null, if (grid) tail ?: g else null, if (grid && bars) DoubleArray(g.count) { g.beat(it) } else DoubleArray(0), DoubleArray(n) { it * 4 * beat },
             FloatArray(n) { barDb }, FloatArray(n) { -16f }, FloatArray(n) { -20f }, FloatArray(n), FloatArray(n), 0, stereo,
             if (grid) down else Double.NaN, if (grid) tail?.first ?: 0.0 else Double.NaN, barVocalRisk = FloatArray(n, risk),
-            audioKey = key, barBassDb = FloatArray(n) { -18f }, headPhase = phase, tailPhase = phase, headMetre = metre, tailMetre = metre)
+            audioKey = key, barBassDb = FloatArray(n) { -18f }, headPhase = phase, tailPhase = phase, headMetre = metre, tailMetre = metre,
+            modelBeats = modelBeats ?: DoubleArray(0))
     }
 
     private fun decide(a: TrackAnalysis, b: TrackAnalysis, earliest: Long = 0, sameAlbum: Boolean = false, eq: Boolean = true, tuning: SegueTuning = SegueTuning()) =
@@ -137,18 +139,16 @@ class SeguePolicyTest {
     }
 
     @Test fun level3LockedOnADownbeatWhenNoPhraseBoundaryFits() {
-        // Phrase boundaries fall at 176 s and 192 s; this checked grid lies strictly between them.
-        val tail = Grid(178.0, 0.5, 26, 1.0, 0.0, 1.0)
-        val d = decide(song("a", duration = 200.0, tail = tail), song("b"))
+        // Phrase boundaries fall at 176 s and 192 s; the only beats to rely on lie strictly between them.
+        val d = decide(song("a", duration = 200.0, modelBeats = DoubleArray(26) { 178.0 + it * 0.5 }), song("b"))
         assertEquals(d.why, SegueLevel.LOCKED_BEAT, d.level)
-        assertCause(d, SegueLevel.LOCKED_LONG, SegueCause.NO_CANDIDATE)
-        assertCause(d, SegueLevel.LOCKED_SHORT, SegueCause.NO_CANDIDATE)
+        assertCause(d, SegueLevel.LOCKED_LONG, SegueCause.NO_GRID)
+        assertCause(d, SegueLevel.LOCKED_SHORT, SegueCause.NO_GRID)
         assertEquals(t.lockedShortBars, d.plan!!.span.musicalUnits)
     }
 
     @Test fun level3NeedsTheBassManaged() {
-        val tail = Grid(178.0, 0.5, 26, 1.0, 0.0, 1.0)
-        val d = decide(song("a", duration = 200.0, tail = tail), song("b"), eq = false)
+        val d = decide(song("a", duration = 200.0, modelBeats = DoubleArray(26) { 178.0 + it * 0.5 }), song("b"), eq = false)
         assertCause(d, SegueLevel.LOCKED_BEAT, SegueCause.BASS_NOT_MANAGED)
     }
 
@@ -160,7 +160,7 @@ class SeguePolicyTest {
         assertEquals(PulseState.FREE, p.pulse.state)
         assertEquals(SegueFormat.RATE_NOMINAL, p.incoming.ratePpm)
         assertTrue(p.span.lengthUs in t.filteredShortUs..t.filteredLongUs)
-        assertTrue(p.lanes.any { it.target == Target.SWEEP_HZ && it.side == LaneSide.OUTGOING })
+        assertTrue(p.lanes.any { it.target == Target.LEVEL && it.side == LaneSide.OUTGOING })
     }
 
     @Test fun level5HardWhenAnyOverlapWouldHaveTwoVoices() {
@@ -227,10 +227,10 @@ class SeguePolicyTest {
     }
 
     @Test fun anEntryIsNeverBeforeTheSongsStart() {
-        // The grid's downbeats fall at -0.05 s, 1.95 s...: the first one in the song is the one to use.
-        val d = decide(song("a"), song("b", down = 1.95))
+        // The bars start at 0 s, 2 s...: the first one once the song has begun is the one to use.
+        val d = decide(song("a"), song("b", contentStart = 1.95))
         assertEquals(d.why, SegueLevel.LOCKED_LONG, d.level)
-        assertEquals(1_950_000L, d.plan!!.incoming.anchorUs)
+        assertEquals(2_000_000L, d.plan!!.incoming.anchorUs)
         val far = decide(song("a"), song("b", bpm = 100.0, down = 2.35))
         assertEquals(far.why, SegueLevel.FILTERED, far.level)
         assertTrue(far.plan!!.incoming.anchorUs >= 0)
@@ -337,7 +337,7 @@ class SeguePolicyTest {
         assertEquals(emptyList<SegueViolation>(), SeguePolicy.stale(p, a, b))
         assertEquals(listOf(SegueViolation.STALE_OUTGOING_AUDIO), SeguePolicy.stale(p, song("other"), b))
         assertEquals(listOf(SegueViolation.STALE_INCOMING_AUDIO), SeguePolicy.stale(p, a, song("other")))
-        val moved = song("a", tail = Grid(0.01, 0.5, 480, 1.0, 0.0, 1.0))
+        val moved = song("a", modelBeats = DoubleArray(480) { it * 0.5 + 0.01 })
         assertEquals(listOf(SegueViolation.STALE_OUTGOING_GRID), SeguePolicy.stale(p, moved, b))
         assertNotEquals(p.outgoing.gridKey, decide(moved, b).plan!!.outgoing.gridKey)
     }

@@ -10,8 +10,8 @@ package app.myspoti.automix.segue
  */
 data class SegueTuning(
     // ── Guards: one crossing rejects a candidate, whatever its score ──
-    /** Largest speed change in the locked class, ppm. [U] range 4–8 %; a semitone is about 6 %. */
-    val maxRateDeviationPpm: Long = 40_000,
+    /** Largest speed change in the locked class, ppm. [U] range 4–8 %, the top of it: the stretch keeps the pitch, and the bench lost most pairs to this guard. */
+    val maxRateDeviationPpm: Long = 80_000,
     /** Expected phase error: median [U], against double attacks. */
     val phaseMedianMaxUs: Long = 20_000,
     /** Expected phase error: 95th percentile [U]. */
@@ -22,6 +22,10 @@ data class SegueTuning(
     val gridMinBeats: Int = 16,
     val gridMinSteadiness: Double = 0.6,
     val gridMaxDriftMs: Double = 30.0,
+    /** A stretch of bars must have this share of its beats from the model [I]. */
+    val stretchMinBeatShare: Double = 0.85,
+    /** And the model must be this sure of its downbeats, on average [I]. */
+    val stretchMinDownConfidence: Double = 0.5,
     /** Two voices at comparable levels, tolerated total [I] range 1–2 s. */
     val voiceOverlapMaxUs: Long = 1_000_000,
     /** Content removed at the end of a song: share of it [I] range 20–30 %, and a cap [I]. */
@@ -40,6 +44,8 @@ data class SegueTuning(
     val penaltySpeed: Double = 0.5,
     val weightEnergy: Double = 0.5,
     val penaltyVoice: Double = 1.0,
+    /** Voice left unheard: after the window on the way out, before the entry on the way in [I]. */
+    val penaltyVoiceCut: Double = 0.5,
     val weightExit: Double = 0.5,
     val weightEntry: Double = 0.5,
     val penaltyBass: Double = 0.5,
@@ -57,6 +63,10 @@ data class SegueTuning(
     /** Entry note on a later section, and anywhere else [I]; the first attack scores 1. */
     val entryNoteSection: Double = 0.6,
     val entryNoteOther: Double = 0.3,
+    /** Phrase note per side for a boundary at the middle or end of a stretch, against 0.5 at its start [I]. */
+    val phraseNoteInside: Double = 0.25,
+    /** Per-bar voice-like risk from which a bar counts as sung or rapped [R]. */
+    val voiceBarRisk: Double = 0.6,
     /** Effects at which the sobriety defect is full [I]. */
     val sobrietyFullEffects: Int = 3,
     /** Points sampled along the window for the common bass energy [I]. */
@@ -85,6 +95,7 @@ data class SegueTuning(
     val lockedLongBars: Int = 16,
     val lockedMiddleBars: Int = 8,
     val lockedShortBars: Int = 4,
+    val lockedTinyBars: Int = 2,
     /** Half or double time: two grooves meeting every other beat, kept short [R]. */
     val halfDoubleMaxBars: Int = 8,
     /** Filtered fade lengths [U] range 4–12 s; the middle one is [I]. */
@@ -121,6 +132,13 @@ data class SegueTuning(
     /** Filtered: the outgoing song's filter closes to this cutoff [I] with this accent [I]. */
     val sweepClosedHz: Double = 400.0,
     val sweepPeakRatio: Double = 1.2,
+    /** Middle band handed over in a three-band shape: outgoing down to, incoming up from [I]. */
+    val coreOutDb: Double = -24.0,
+    val coreInDb: Double = -12.0,
+    /** Top band of the incoming song held back in a three-band shape [I]. */
+    val topInDb: Double = -12.0,
+    /** A cut on the beat lasts this share of a beat [I]: quick, without a click. */
+    val cutBeatShare: Double = 0.25,
     /** Knots per equal-power curve [I]: enough that the steps between them are not heard. */
     val curveKnots: Int = 16,
     /** Loudness gap left alone, and the largest one corrected, dB [R]. */

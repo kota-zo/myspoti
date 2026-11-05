@@ -9,6 +9,26 @@ import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/** How a transition sounds: each is lanes in the plan, so the engine has nothing to know of them. */
+enum class SegueShape {
+    /** Locked: the bass changes hands at one point, over level ramps. */
+    BASS_SWAP,
+    /** Locked: bass, then middle, then top change hands one after the other. */
+    THREE_BAND,
+    /** Locked: one song, then the other, cut on a shared downbeat. */
+    CUT_ON_BEAT,
+    /** Locked: the incoming song opens from a closed filter up to the bass hand-over. */
+    FILTER_OPEN,
+    /** Fade: the outgoing song filtered away while the incoming one rises. */
+    SWEEP_OUT,
+    /** Fade: both levels equal-power over the window, the bass handed over. */
+    EVEN_FADE,
+    /** Fade: the outgoing song leaves early, for a voice in its way. */
+    QUICK_OUT,
+    /** Fade: the incoming song is up early and the outgoing one stays until late. */
+    LATE_OUT,
+}
+
 /** Writes each class's treatment as lanes: every curve the engine plays is data in the plan. */
 internal class SegueCompiler(private val t: SegueTuning) {
     private fun knot(x: Double, value: Double?, form: KnotForm = KnotForm.Ramp) = SeguePlan.Knot(
@@ -47,8 +67,17 @@ internal class SegueCompiler(private val t: SegueTuning) {
         return a * down to b * up
     }
 
+    fun locked(shape: SegueShape, swap: Double, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> = when (shape) {
+        SegueShape.THREE_BAND -> threeBand(swap, beatShare, matchA, matchB, eq)
+        SegueShape.CUT_ON_BEAT -> cutOnBeat(swap, beatShare, matchA, matchB)
+        SegueShape.FILTER_OPEN -> bassSwap(swap, beatShare, matchA, matchB, eq).let { lanes ->
+            if (eq) lanes + lane(LaneSide.INCOMING, Target.SWEEP_HZ, listOf(knot(0.0, t.sweepClosedHz), knot(swap, null, KnotForm.Octave), knot(1.0, null))) else lanes
+        }
+        else -> bassSwap(swap, beatShare, matchA, matchB, eq)
+    }
+
     /** Bass swapped at one point, level ramps; the top ends hand over too. */
-    fun locked(swap: Double, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> {
+    private fun bassSwap(swap: Double, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> {
         val out = ArrayList(levels(positions(swap)) { x ->
             val after = ((x - swap) / (1 - swap)).coerceIn(0.0, 1.0)
             val ga = if (x < swap) 1.0 else cos(PI / 2 * after)
@@ -64,13 +93,68 @@ internal class SegueCompiler(private val t: SegueTuning) {
         return out
     }
 
+    /** Each band leaves the outgoing song as it arrives from the incoming one, lowest first at the swap. */
+    private fun threeBand(swap: Double, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> {
+        val out = ArrayList(levels(positions(swap)) { x ->
+            val ga = cos(PI / 2 * ((x - swap) / (1 - swap)).coerceIn(0.0, 1.0))
+            val gb = sin(PI / 2 * (x / swap).coerceIn(0.0, 1.0))
+            matched(x, swap, matchA, matchB, ga, gb)
+        })
+        if (eq) {
+            out += bassHandOver(swap, (swap + beatShare * t.bassSwapBeats).coerceAtMost(1.0))
+            val coreFrom = swap * 0.8; val coreTo = swap + (1 - swap) * 0.5
+            out += lane(LaneSide.OUTGOING, Target.BAND_CORE, listOf(knot(0.0, 0.0), knot(coreFrom, 0.0), knot(coreTo, t.coreOutDb), knot(1.0, t.coreOutDb)))
+            out += lane(LaneSide.INCOMING, Target.BAND_CORE, listOf(knot(0.0, t.coreInDb), knot(coreFrom, t.coreInDb), knot(coreTo, 0.0), knot(1.0, 0.0)))
+            out += lane(LaneSide.OUTGOING, Target.SHELF_TOP, listOf(knot(0.0, 0.0), knot(coreTo, 0.0), knot(1.0, t.outgoingTopDb)))
+            out += lane(LaneSide.INCOMING, Target.SHELF_TOP, listOf(knot(0.0, t.topInDb), knot(swap, 0.0), knot(1.0, 0.0)))
+        }
+        return out
+    }
+
+    /** One song, then the other: the cut sits on the swap's downbeat, and the incoming song comes back to its level after. */
+    private fun cutOnBeat(swap: Double, beatShare: Double, matchA: Double, matchB: Double): List<SeguePlan.Lane> {
+        val end = (swap + beatShare * t.cutBeatShare).coerceAtMost(1.0)
+        return listOf(
+            lane(LaneSide.OUTGOING, Target.LEVEL, listOf(knot(0.0, db(matchA)), knot(swap, db(matchA)), knot(end, null), knot(1.0, null))),
+            lane(LaneSide.INCOMING, Target.LEVEL, listOf(knot(0.0, null), knot(swap, null), knot(end, db(matchB)), knot(1.0, 0.0))),
+        )
+    }
+
     private fun bassHandOver(from: Double, to: Double): List<SeguePlan.Lane> = listOf(
         lane(LaneSide.OUTGOING, Target.SHELF_BOTTOM, listOf(knot(0.0, 0.0), knot(from, 0.0), knot(to, t.bassKillDb), knot(1.0, t.bassKillDb))),
         lane(LaneSide.INCOMING, Target.SHELF_BOTTOM, listOf(knot(0.0, t.bassKillDb), knot(from, t.bassKillDb), knot(to, 0.0), knot(1.0, 0.0))),
     )
 
+    /** Where a fade's bass hand-over sits, 0..1 of the window. */
+    fun swapOf(shape: SegueShape): Double = when (shape) {
+        SegueShape.QUICK_OUT -> t.filteredSwapShare * 0.5
+        SegueShape.LATE_OUT -> (t.filteredSwapShare + 1) / 2
+        else -> t.filteredSwapShare
+    }
+
+    fun filtered(shape: SegueShape, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> {
+        val swap = swapOf(shape)
+        if (shape == SegueShape.SWEEP_OUT) return sweepOut(swap, beatShare, matchA, matchB, eq)
+        // The outgoing song leaves by here and the incoming one is up by there.
+        val (outFrom, outTo, inTo) = when (shape) {
+            SegueShape.QUICK_OUT -> Triple(0.0, swap * 2, 0.85)
+            SegueShape.LATE_OUT -> Triple(swap - 0.2, 1.0, swap)
+            else -> Triple(0.0, 1.0, 1.0)
+        }
+        val out = ArrayList(levels(positions(swap)) { x ->
+            val ga = cos(PI / 2 * ((x - outFrom) / (outTo - outFrom)).coerceIn(0.0, 1.0))
+            val gb = sin(PI / 2 * (x / inTo).coerceIn(0.0, 1.0))
+            matched(x, swap, matchA, matchB, ga, gb)
+        })
+        if (eq) {
+            out += bassHandOver(swap, (swap + beatShare * t.bassSwapBeats).coerceAtMost(1.0))
+            out += lane(LaneSide.INCOMING, Target.SHELF_TOP, listOf(knot(0.0, t.filteredIncomingTopDb), knot(swap, 0.0), knot(1.0, 0.0)))
+        }
+        return out
+    }
+
     /** The outgoing song filtered away, a limited overlap, the incoming one rising without its bass. */
-    fun filtered(swap: Double, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> {
+    private fun sweepOut(swap: Double, beatShare: Double, matchA: Double, matchB: Double, eq: Boolean): List<SeguePlan.Lane> {
         val out = ArrayList(levels(positions(swap)) { x ->
             val after = ((x - swap) / (1 - swap)).coerceIn(0.0, 1.0)
             val ga = if (x < swap) 1.0 else cos(PI / 2 * after)
