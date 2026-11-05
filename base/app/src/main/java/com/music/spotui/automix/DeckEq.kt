@@ -32,7 +32,8 @@ class DeckEq private constructor(private val dp: DynamicsProcessing) {
         fun attach(sessionId: Int): DeckEq? {
             if (sessionId <= 0) return null
             return try {
-                val cfg = DynamicsProcessing.Config.Builder(DynamicsProcessing.VARIANT_FAVOR_TIME_RESOLUTION, 2,
+                // The only variant Android creates: the other was refused on every session, so no mix ever had its EQ.
+                val cfg = DynamicsProcessing.Config.Builder(DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION, 2,
                     true, 3, false, 0, false, 0, false)
                     .setPreferredFrameDuration(10f)
                     .build()
