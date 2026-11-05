@@ -337,7 +337,8 @@ object SeguePolicy {
             // A cut is only as good as what is on both sides of it: a much louder or quieter song is heard as a jump.
             val barA = e.bar + (bars * swap).toInt(); val barB = n.bar + (barsB * swap).toInt()
             val cuts = abs(sa.levelBars(max(0, barA - 2), barA) - sb.levelBars(barB, barB + 2)) <= t.loudnessJumpMaxDb
-            if (!cuts) return seeded(if (r.eq && bars > t.lockedTinyBars) listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND) else listOf(SegueShape.BASS_SWAP), e.us, n.us)
+            val longEnough = r.eq && bars > t.lockedTinyBars
+            if (!cuts) return seeded(if (longEnough) listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.RISE_OUT) + (if (rings(e.us, lengthUs)) listOf(SegueShape.ECHO_TAIL) else emptyList()) else listOf(SegueShape.BASS_SWAP), e.us, n.us)
             if (!r.eq) return seeded(listOf(SegueShape.BASS_SWAP, SegueShape.CUT_ON_BEAT), e.us, n.us)
             // Two voices in the window: they must not meet, so one takes over from the other.
             val overlap = sa.maxVoice != 0f && sb.maxVoice != 0f &&
