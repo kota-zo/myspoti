@@ -126,7 +126,7 @@ object AutoMix {
     )
 
     /** The data-plan transitions (the Mix Lab's test of them), in place of the planner; only for the beat blend style. */
-    var segue by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_segue", false))
+    var segue by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_segue", app.myspoti.engine.BuildConfig.AUTOMIX_LAB))
         private set
     fun changeSegue(value: Boolean) { segue = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_segue", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
     val segueActive: Boolean get() = app.myspoti.engine.BuildConfig.AUTOMIX_LAB && segue && style == 0

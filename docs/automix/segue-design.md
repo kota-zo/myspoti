@@ -305,3 +305,13 @@ The level a pair reaches is still judged on `score`, but the candidate within a 
 ## Voices from lyrics
 
 The spectral estimate in `barVocalRisk` mostly sees that a bar could hold a voice: on the bench corpus, checked against the songs' timed lyrics, it finds about a third of the sung bars at the threshold the policy uses, and lowering the threshold only approaches "every bar". When a song's timed lyrics are already on the device, `withSung` replaces it for that decision and nothing is fetched for it. On the corpus, with both songs' lyrics known, locked mixes where two voices meet for over 2 s fall from 53 % to under 1 %, windows get shorter by themselves, and the share of pairs reaching a locked level goes from 25 % to 19 %: these are the mixes that could not avoid a clash. The numbers are not an independent test, since the lyrics that judge are also the ones used, and a song without lyrics gets the estimate as before. The journal says which was used.
+
+A song without lyrics gets `VocalRisk.learned` instead of the raw estimate: a small logistic model over the bar measurements, fitted on bars labelled from timed lyrics and checked on songs left out, where it ranks bars at 0.86 against 0.71. Judged on the corpus's lyrics with no lyrics given to the policy, locked mixes where voices meet for over 2 s fall from 53 % to 17 %, and fewer pairs lock. The weights come from the same corpus, mostly rap and pop, so a very different catalogue may do worse; the worst this does is a shorter, plainer transition.
+
+## The last levels
+
+A cut that skips more than `hardLostMaxUs` of music, both songs together, is refused: a short fade costs less. `SIMPLE_FADE` stays at its usual length when it can; over a voice it is `simpleVoiceFadeUs` at the very end, without the voice guard. Nothing falls to plain playback any more on the bench corpus. A fade's candidates include one that ends with the music, not on a bar.
+
+## Small speed changes
+
+Keeping the pitch while changing speed costs artefacts on music. A plan within 1 % goes by resampling alone (`mixParameters`), which moves the pitch by under 17 cents until it returns to the song's own speed.

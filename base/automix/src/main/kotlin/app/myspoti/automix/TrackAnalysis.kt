@@ -72,6 +72,12 @@ class TrackAnalysis(
 ) {
     val bars get() = barStarts.size
 
+    /** This analysis with its voices judged by [VocalRisk.learned], for a song without timed lyrics. Kept out of the stored analysis so no song is analysed again. */
+    fun withLearnedVoices(): TrackAnalysis = TrackAnalysis(duration, contentStart, contentEnd, loudnessDb, key, keyStrength, bpm, steady, head, tail, beats, barStarts,
+        barDb, barLowDb, barHighDb, barCentre, barNovelty, phraseOffset, stereo, headDown, tailDown, note,
+        VocalRisk.learned(barVocalRisk, barDb, barLowDb, barHighDb, barCentre, barNovelty), audioKey, barBassDb,
+        headPhase, tailPhase, headMetre, tailMetre, modelBeats, barDownConfidence)
+
     /** This analysis with its voices taken from [spans], seconds from the song's start where it is known to be sung. */
     fun withSung(spans: List<Pair<Double, Double>>): TrackAnalysis {
         val sorted = spans.filter { it.second > it.first }.sortedBy { it.first }

@@ -31,6 +31,15 @@ class SungSpansTest {
         assertEquals(6, spans.size)
     }
 
+    @Test fun theLearnedVoicesStayARiskAndFollowTheVoiceBand() {
+        val quiet = FloatArray(8) { -30f }; val zero = FloatArray(8)
+        val risk = FloatArray(8) { if (it < 4) 0.9f else 0f }
+        val out = VocalRisk.learned(risk, quiet, quiet, quiet, zero, zero)
+        assertEquals(8, out.size)
+        out.forEach { assert(it in 0f..1f) }
+        assert(out[0] > out[7])
+    }
+
     @Test fun tooFewLinesOrLinesPastTheEndAreNotTrusted() {
         assertNull(SungSpans.of(five.take(4), 180.0))
         assertNull(SungSpans.of(five + line(200_000), 180.0))

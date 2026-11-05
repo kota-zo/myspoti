@@ -164,13 +164,21 @@ class SeguePolicyTest {
     }
 
     @Test fun level5HardWhenAnyOverlapWouldHaveTwoVoices() {
-        val d = decide(song("a", risk = { 1f }), song("b", risk = { 1f }))
+        val d = decide(song("a", risk = { 1f }), song("b", risk = { 1f }), tuning = SegueTuning(hardLostMaxUs = 60_000_000))
         assertEquals(d.why, SegueLevel.HARD, d.level)
         assertCause(d, SegueLevel.FILTERED, SegueCause.GUARDS)
         val p = d.plan!!
         assertEquals(t.microFadeUs, p.span.lengthUs)
         assertEquals(PulseState.LOOSE, p.pulse.state)
         assertEquals(2, p.lanes.size)
+    }
+
+    @Test fun aCutThatSkipsTooMuchLeavesItToAShortFadeAtTheEnd() {
+        val d = decide(song("a", risk = { 1f }), song("b", risk = { 1f }))
+        assertEquals(d.why, SegueLevel.SIMPLE_FADE, d.level)
+        val p = d.plan!!
+        assertEquals(t.simpleVoiceFadeUs, p.span.lengthUs)
+        assertEquals(240_000_000 - t.simpleVoiceFadeUs, p.outgoing.anchorUs)
     }
 
     @Test fun hardNeedsCloseLoudness() {
@@ -312,7 +320,7 @@ class SeguePolicyTest {
         assertEquals(120.0 / 118.0, m.speedB, 1e-6)
         assertTrue(m.restoreSec > 0)
         assertEquals(p, m.segue)
-        assertEquals(MixPlan.Style.CUT, SeguePolicy.timing(decide(song("a", risk = { 1f }), song("b", risk = { 1f })))!!.style)
+        assertEquals(MixPlan.Style.CUT, SeguePolicy.timing(decide(song("a", risk = { 1f }), song("b", risk = { 1f }), tuning = SegueTuning(hardLostMaxUs = 60_000_000)))!!.style)
         val filtered = SeguePolicy.timing(decide(song("a"), song("b", bpm = 100.0)))!!
         assertEquals(MixPlan.Style.FADE, filtered.style); assertTrue(filtered.filtered)
     }

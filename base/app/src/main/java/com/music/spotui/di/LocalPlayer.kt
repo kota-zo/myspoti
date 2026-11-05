@@ -754,13 +754,22 @@ object LocalPlayer {
         return false
     }
 
+    /**
+     * A plan's speed as player parameters. Keeping the pitch costs artefacts on music; a change this small
+     * is below what is heard as out of tune, so it goes by resampling alone.
+     */
+    private fun mixParameters(plan: app.myspoti.automix.MixPlan, speed: Float): androidx.media3.common.PlaybackParameters {
+        val tiny = plan.segue != null && kotlin.math.abs(plan.speedB - 1) <= 0.01
+        return if (tiny) androidx.media3.common.PlaybackParameters(speed, speed / rate()) else androidx.media3.common.PlaybackParameters(speed)
+    }
+
     /** [analysis] with its voices from the song's timed lyrics, when they are already here. On the plan's thread. */
     private fun sung(t: LocalTrack, analysis: app.myspoti.automix.TrackAnalysis): app.myspoti.automix.TrackAnalysis {
-        val lyrics = com.music.spotui.data.api.LyricsApi.known(com.music.spotui.data.api.LyricsApi.Track(spotifyId(t), t.title, t.artist, t.album, t.durationMs)) ?: return analysis
+        val lyrics = com.music.spotui.data.api.LyricsApi.known(com.music.spotui.data.api.LyricsApi.Track(spotifyId(t), t.title, t.artist, t.album, t.durationMs)) ?: return analysis.withLearnedVoices()
         val lines = lyrics.lines.map { l ->
             app.myspoti.automix.SungSpans.Line(l.timeMs, l.words?.lastOrNull()?.endMs?.takeIf { it > 0 }, l.text.isNotBlank())
         }
-        return app.myspoti.automix.SungSpans.of(lines, analysis.duration)?.let(analysis::withSung) ?: analysis
+        return app.myspoti.automix.SungSpans.of(lines, analysis.duration)?.let(analysis::withSung) ?: analysis.withLearnedVoices()
     }
 
     /** The plan for two analysed songs, once [segueDecided]. With the data plans on, null means the policy chose plain playback. */
@@ -819,7 +828,7 @@ object LocalPlayer {
         run.plan = plan
         plan.segue?.let { s -> run.eq?.neutral(); segueStages[run.deck]?.arm(s, app.myspoti.automix.segue.LaneSide.INCOMING) }
         run.startMs = (plan.entryB * 1000 - minOf(plan.entryB * 1000, RUN_UP_MS * plan.speedB)).toLong().coerceAtLeast(0L)
-        run.deck.playbackParameters = androidx.media3.common.PlaybackParameters((plan.speedB * rate()).toFloat())
+        run.deck.playbackParameters = mixParameters(plan, (plan.speedB * rate()).toFloat())
         run.lastSpeed = run.deck.playbackParameters.speed
         run.deck.seekTo(run.startMs)
         run.state = if (run.deck.playbackState == Player.STATE_READY) MixState.READY else MixState.PREPARING
@@ -887,7 +896,7 @@ object LocalPlayer {
         val deck = build(false, deck = true)
         deck.volume = 0f
         deck.skipSilenceEnabled = false
-        deck.playbackParameters = androidx.media3.common.PlaybackParameters((plan.speedB * rate()).toFloat())
+        deck.playbackParameters = mixParameters(plan, (plan.speedB * rate()).toFloat())
         val runUpB = minOf(plan.entryB * 1000, (if (skip) SKIP_RUN_UP_MS else RUN_UP_MS) * plan.speedB)
         val start = (plan.entryB * 1000 - runUpB).toLong().coerceAtLeast(0L)
         // A data plan's lanes play in the audio chain, on no effect of the player's session.
@@ -974,7 +983,7 @@ object LocalPlayer {
         if (run.lastTickAt > 0 && run.lastSpeed > 0) run.corrected += (run.lastSpeed / base - 1) * (android.os.SystemClock.uptimeMillis() - run.lastTickAt) * plan.speedB
         run.lastTickAt = android.os.SystemClock.uptimeMillis()
         if (kotlin.math.abs(speed - run.lastSpeed) > 0.0005f) {
-            d.playbackParameters = androidx.media3.common.PlaybackParameters(speed)
+            d.playbackParameters = mixParameters(run.plan, speed)
             run.lastSpeed = speed
         }
         // Once a second in the journal: how far the deck is from its place.
@@ -1090,7 +1099,7 @@ object LocalPlayer {
         run.eq?.set(0.0, 0.0)
         d.volume = plan.gainAfter(tB).toFloat()
         val speed = (plan.speedAfter(tB) * rate()).toFloat()
-        if (kotlin.math.abs(speed - run.lastSpeed) > 0.0005f) { d.playbackParameters = androidx.media3.common.PlaybackParameters(speed); run.lastSpeed = speed }
+        if (kotlin.math.abs(speed - run.lastSpeed) > 0.0005f) { d.playbackParameters = mixParameters(run.plan, speed); run.lastSpeed = speed }
         if (plan.speedAfter(tB) == 1.0 && plan.gainAfter(tB) >= 0.999) {
             mix = null
             d.volume = 1f

@@ -413,7 +413,9 @@ object SeguePolicy {
             val tally = Tally()
             var best: Found? = null
             for (lengthUs in fadeLengths(lengths)) {
-                val outs = exits(a.barStarts.asSequence(), lengthUs, us(a.contentEnd), phrases = false)
+                // A fade need not start on a bar: the one that ends with the music keeps the most of the song.
+                val ending = if (a.bars > 0) sequenceOf((us(a.contentEnd) - lengthUs) / 1e6) else emptySequence()
+                val outs = exits(a.barStarts.asSequence() + ending, lengthUs, us(a.contentEnd), phrases = false)
                 val ins = entries(gb, lengthUs, phrases = false)
                 for (e in outs) for (n in ins) {
                     tally.seen++
@@ -448,7 +450,11 @@ object SeguePolicy {
                 val lanes = compiler.hard()
                 val plan = plan(e.us, n.us, ga, gb, SegueFormat.RATE_NOMINAL, t.microFadeUs, null, PulseState.LOOSE, us60(ga), residual, lanes)
                 val score = score(e, n, t.microFadeUs, t.microFadeUs, null, 0, lanes)
-                if (best == null || score.total > best.score) best = Found(plan, score.total, 0.0)
+                val lost = skipped(e, n, t.microFadeUs)
+                // A cut that gives up this much of the songs is worse than a short fade over a voice.
+                if (lost * t.lostFullUs > t.hardLostMaxUs) continue
+                val pick = score.total - t.lostPickFade * lost
+                if (best == null || pick > best.pick) best = Found(plan, score.total, 0.0, pick = pick)
             }
             return settle(level, tally, best, t.thresholdHard)
         }
@@ -457,6 +463,8 @@ object SeguePolicy {
         private fun simple(level: SegueLevel): Found? {
             val endUs = min(us(sa.musicEnd), us(a.contentEnd))
             val lengthUs = min(t.simpleFadeUs, endUs - r.earliestExitUs)
+            // Over a voice it stays short, at the very end, and is allowed: that is what a crossfade is.
+            val short = min(lengthUs, t.simpleVoiceFadeUs)
             if (lengthUs <= 0 || us(b.contentEnd) - us(b.contentStart) < lengthUs) return fail(level, SegueCause.NO_CANDIDATE)
             val targetUs = max(r.earliestExitUs, endUs - lengthUs)
             val bar = a.barStarts.lastOrNull { us(it) in r.earliestExitUs..targetUs && targetUs - us(it) <= t.simpleFadeUs }
@@ -465,7 +473,13 @@ object SeguePolicy {
             val e = Point(exitUs, a.barAt(exitUs / 1e6 + 0.05), 1.0, true)
             val n = Point(us(entryTime), b.barAt(entryTime + 0.05), 1.0, true)
             val tally = Tally().also { it.seen = 1 }
-            if (tally.refused(SegueGuards.crossed(SegueClass.FADE, measures(e, n, lengthUs, lengthUs), t))) return settle(level, tally, null, 0.0)
+            if (tally.refused(SegueGuards.crossed(SegueClass.FADE, measures(e, n, lengthUs, lengthUs), t))) {
+                if (short <= 0) return settle(level, tally, null, 0.0)
+                val late = max(r.earliestExitUs, endUs - short)
+                val m = measures(Point(late, a.barAt(late / 1e6 + 0.05), 1.0, false), n, short, short)
+                if (SegueGuards.crossed(SegueClass.FADE, m.copy(voiceOverlapUs = 0), t).isNotEmpty()) return settle(level, tally, null, 0.0)
+                return Found(plan(late, n.us, ga, gb, SegueFormat.RATE_NOMINAL, short, null, PulseState.FREE, null, null, compiler.fade()), 0.0, 0.5)
+            }
             return Found(plan(exitUs, n.us, ga, gb, SegueFormat.RATE_NOMINAL, lengthUs, null, PulseState.FREE, null, null, compiler.fade()), 0.0, 0.5)
         }
 

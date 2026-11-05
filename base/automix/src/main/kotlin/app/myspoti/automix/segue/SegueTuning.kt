@@ -55,6 +55,10 @@ data class SegueTuning(
     val lostFullUs: Long = 20_000_000,
     val lostPickLocked: Double = 0.4,
     val lostPickFade: Double = 1.0,
+    /** A cut skipping more than this, both songs together, is left to the short fade [I]. */
+    val hardLostMaxUs: Long = 12_000_000,
+    /** The last resort over a voice: a fade this short at the very end [I]. */
+    val simpleVoiceFadeUs: Long = 2_500_000,
     val penaltySobriety: Double = 0.2,
 
     // ── Shapes of the score's terms ──
@@ -143,6 +147,8 @@ data class SegueTuning(
     /** Send levels at their height [I]: echo, room. */
     val echoSend: Double = 0.5,
     val roomSend: Double = 1.5,
+    /** How much of a room send comes back out at its loudest, against the fader's bound [M]. */
+    val roomWetShare: Double = 0.25,
     /** Where in a fade the outgoing song is thrown into the echo [I]: late, so the repeats have the end of the window to themselves. */
     val echoThrowShare: Double = 0.72,
     /** An echo's delay stays between these [I]: shorter is a flam, longer loses the pulse. */

@@ -61,7 +61,7 @@ object SegueBench {
     private var sung = false
 
     private fun analysis(dir: File, name: String, fresh: Boolean = false): TrackAnalysis {
-        val a = BenchCache.analysis(dir, name, fresh).analysis
+        val a = BenchCache.analysis(dir, name, fresh).analysis.withLearnedVoices()
         val spans = File(dir, "sung/$name.tsv").takeIf { sung && it.exists() } ?: return a
         return a.withSung(spans.readLines().filter { it.isNotBlank() }.map { l -> l.split('\t').let { it[0].toDouble() to it[1].toDouble() } })
     }
@@ -129,7 +129,8 @@ object SegueBench {
     private fun voices(dir: File, fold: String?) {
         val names = names(dir, fold)
         for ((name, s) in analyses(dir, names, false)) for (i in 0 until s.bars)
-            println(String.format(L, "%s\t%.3f\t%.3f\t%.3f", name, s.barStarts[i], s.barEnd(i), s.barVocalRisk.getOrElse(i) { 0f }))
+            println(String.format(L, "%s\t%.3f\t%.3f\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f", name, s.barStarts[i], s.barEnd(i), s.barVocalRisk.getOrElse(i) { 0f },
+                s.barDb[i], s.barLowDb[i], s.barHighDb[i], s.barCentre[i], s.barNovelty[i]))
     }
 
     /** Each song's tempo as the grid has it, at both ends. */

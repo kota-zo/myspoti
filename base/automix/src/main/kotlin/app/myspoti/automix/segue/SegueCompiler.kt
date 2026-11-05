@@ -55,13 +55,13 @@ internal class SegueCompiler(private val t: SegueTuning) {
     private fun smooth(x: Double): Double { val u = x.coerceIn(0.0, 1.0); return u * u * (3 - 2 * u) }
 
     /** Both level lanes from gains, with the summed squared gains bounded by one. */
-    private fun levels(positions: List<Double>, gains: (Double) -> Pair<Double, Double>): List<SeguePlan.Lane> {
+    private fun levels(positions: List<Double>, reserve: (Double) -> Double = { 0.0 }, gains: (Double) -> Pair<Double, Double>): List<SeguePlan.Lane> {
         val a = ArrayList<SeguePlan.Knot>(); val b = ArrayList<SeguePlan.Knot>()
         for (x in positions.distinct().sorted()) {
             val (ga, gb) = gains(x)
             val power = ga * ga + gb * gb
             // Equal power for songs that do not add up, a bound on the sum for the peaks that do: two loud masters land on one beat.
-            val scale = min(if (power > 1) 1 / sqrt(power) else 1.0, if (ga + gb > t.overlapMaxSum) t.overlapMaxSum / (ga + gb) else 1.0)
+            val scale = min(if (power > 1) 1 / sqrt(power) else 1.0, if (ga + gb + reserve(x) > t.overlapMaxSum) t.overlapMaxSum / (ga + gb + reserve(x)) else 1.0)
             a += knot(x, db(ga * scale)); b += knot(x, db(gb * scale))
         }
         return listOf(lane(LaneSide.OUTGOING, Target.LEVEL, a), lane(LaneSide.INCOMING, Target.LEVEL, b))
@@ -115,7 +115,9 @@ internal class SegueCompiler(private val t: SegueTuning) {
         val closed = (1 - beatShare).coerceAtLeast(swap + 0.01)
         val opens = (closed - 2 * beatShare).coerceAtLeast(swap)
         val closes = (closed + beatShare).coerceAtMost(1.0)
-        val out = ArrayList(levels(positions(swap, opens, closed)) { x ->
+        // The incoming song makes room for the repeats: a send adds to the sum and no fader can take it back.
+        val send = { x: Double -> if (x < opens || x > closes) 0.0 else t.echoSend * (if (x < closed) (x - opens) / (closed - opens) else (closes - x) / (closes - closed)) }
+        val out = ArrayList(levels(positions(swap, opens, closed, closes), send) { x ->
             val after = ((x - swap) / (closed - swap)).coerceIn(0.0, 1.0)
             val ga = if (x < swap) 1.0 else cos(PI / 2 * after)
             val gb = if (x < swap) t.incomingBedGain * sin(PI / 2 * (x / swap)) else t.incomingBedGain + (1 - t.incomingBedGain) * ((x - swap) / (1 - swap)).coerceIn(0.0, 1.0)
@@ -226,7 +228,8 @@ internal class SegueCompiler(private val t: SegueTuning) {
     /** The outgoing song loses its low end, then its level, into a room; the incoming one takes the bass at the swap. */
     private fun washOut(swap: Double, beatShare: Double, matchA: Double, matchB: Double): List<SeguePlan.Lane> {
         val from = swap * 0.5
-        val out = ArrayList(levels(positions(swap)) { x ->
+        val wet = { x: Double -> if (x < from) 0.0 else t.roomWetShare * t.roomSend * (if (x < 0.9) (x - from) / (0.9 - from) else (1 - x) / 0.1) }
+        val out = ArrayList(levels(positions(swap, from), wet) { x ->
             val ga = cos(PI / 2 * ((x - swap) / (1 - swap)).coerceIn(0.0, 1.0))
             val gb = sin(PI / 2 * (x / swap).coerceIn(0.0, 1.0))
             matched(x, swap, matchA, matchB, ga, gb)
