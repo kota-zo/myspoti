@@ -139,6 +139,8 @@ data class SegueTuning(
     val topInDb: Double = -12.0,
     /** A cut on the beat lasts this share of a beat [I]: quick, without a click. */
     val cutBeatShare: Double = 0.25,
+    /** The two faders' largest sum [I]: 1 can never clip two peaks that meet, and dips by 3 dB at equal gains. */
+    val overlapMaxSum: Double = 1.25,
     /** Knots per equal-power curve [I]: enough that the steps between them are not heard. */
     val curveKnots: Int = 16,
     /** Loudness gap left alone, and the largest one corrected, dB [R]. */

@@ -4,6 +4,7 @@ package app.myspoti.automix.segue
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.log10
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.math.sin
@@ -51,7 +52,8 @@ internal class SegueCompiler(private val t: SegueTuning) {
         for (x in positions.distinct().sorted()) {
             val (ga, gb) = gains(x)
             val power = ga * ga + gb * gb
-            val scale = if (power > 1) 1 / sqrt(power) else 1.0
+            // Equal power for songs that do not add up, a bound on the sum for the peaks that do: two loud masters land on one beat.
+            val scale = min(if (power > 1) 1 / sqrt(power) else 1.0, if (ga + gb > t.overlapMaxSum) t.overlapMaxSum / (ga + gb) else 1.0)
             a += knot(x, db(ga * scale)); b += knot(x, db(gb * scale))
         }
         return listOf(lane(LaneSide.OUTGOING, Target.LEVEL, a), lane(LaneSide.INCOMING, Target.LEVEL, b))

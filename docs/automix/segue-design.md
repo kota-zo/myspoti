@@ -285,6 +285,7 @@ marked `[R]`, reused from this repository.
 | `stretchMinBeatShare`, `stretchMinDownConfidence` | 0.85, 0.5 | What a stretch must have to be relied on |
 | `penaltyVoiceCut`, `phraseNoteInside` | 0.5, 0.25 | The two score terms added with stretches |
 | `voiceBarRisk`, `lockedTinyBars` | 0.6 `[R]`, 2 | A bar counted as sung; the shortest locked length |
+| `overlapMaxSum` | 1.25 | Two masters' peaks add up on a shared beat; 1 never clips but dips by 3 dB. Bench, 120 locked renders: unbounded 63 clipped, 1.25 46, 1.0 7 |
 | `coreOutDb`, `coreInDb`, `topInDb`, `cutBeatShare` | −24, −12, −12 dB, 0.25 | The three-band and cut shapes |
 | `blockFrames`, `shelfLowHz`, `shelfHighHz`, `holdRampUs` | 64, 180 Hz, 2.5 kHz, 400 ms `[R]` | Values the player and the render already use |
 | `shelfQ`, `coreQ` | 0.707 `[U]`, 0.5 | The slope of a shelf, and a bell wide enough to span the middle band |
