@@ -243,6 +243,7 @@ object AutoMix {
                     if (cached != null) { synchronized(memory) { memory[k] = cached; refused -= requestId(uri) }; ready() }
                     else pending += uri
                 }
+                if (pending.isNotEmpty()) waitForThePage()
                 for (uri in pending) {
                     val id = requestId(uri)
                     if (epoch != cacheEpoch || id !in wanted) continue
@@ -255,6 +256,21 @@ object AutoMix {
             } finally { synchronized(memory) { jobs.forEach { asked -= requestId(it) } } }
         }
     }
+
+    @Volatile private var pageWaited = false
+
+    /**
+     * A cold start: the player's page loads first. A mix is planned long before it is needed, and two
+     * songs decoded at once with it took the page from about 3 s to about 20 s on the test phone.
+     */
+    private fun waitForThePage() {
+        if (pageWaited) return
+        val end = android.os.SystemClock.elapsedRealtime() + PAGE_WAIT_MS
+        while (android.os.SystemClock.elapsedRealtime() < end && !runCatching { app.myspoti.host.android.MyspotiRuntime.api.ready.value }.getOrDefault(false)) Thread.sleep(250)
+        pageWaited = true
+    }
+
+    private const val PAGE_WAIT_MS = 25_000L
 
     private fun analyse(uri: Uri, epoch: Long): Pair<String, TrackAnalysis>? {
         val id = requestId(uri)
