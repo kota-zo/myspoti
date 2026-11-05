@@ -55,6 +55,8 @@ object LocalPlayer {
      * pause it again when it ends.
      */
     @Volatile private var mirrorActive = false
+    /** This player answers calls by itself through the audio focus. */
+    val holdsFocus: Boolean get() = active.value && !mirrorActive
     fun setMirrorFocus(on: Boolean) {
         mirrorActive = on
         android.os.Handler(android.os.Looper.getMainLooper()).post { exo?.setAudioAttributes(audioAttributes, !on) }

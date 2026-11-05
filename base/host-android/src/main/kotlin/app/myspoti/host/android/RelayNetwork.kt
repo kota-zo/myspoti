@@ -85,6 +85,11 @@ internal object NetworkReport {
     }
 }
 
+/** Told when the phone starts or stops ringing or being in a call (Android 12+), on a thread of its own. */
+object PhoneCall {
+    @Volatile var listener: ((busy: Boolean) -> Unit)? = null
+}
+
 /**
  * Calls in the timeline: the phone's audio mode (ringing, in a call, back to normal), the moments
  * a report of "the music did not come back after a call" turns on. Android 12+.
@@ -107,6 +112,7 @@ internal object AudioModeWatch {
                     else -> "mode $mode"
                 }
                 Logbook.log("audio mode: $name")
+                PhoneCall.listener?.invoke(mode != android.media.AudioManager.MODE_NORMAL)
             }
         }
     }

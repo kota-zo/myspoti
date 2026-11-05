@@ -244,6 +244,7 @@ object SongPlayer {
     /** Wires the API's flows into the UI's now-playing state. Call once, on the main thread. */
     fun attachEngine(state: CurrentSongState) {
         boundState = state
+        app.myspoti.host.android.PhoneCall.listener = { busy -> main.post { phoneCall(busy) } }
         com.music.spotui.data.api.LyricsApi.extraSources =
             com.music.spotui.data.preferences.isLyricsExtraSources(Graph.app)
         com.music.spotui.data.api.LyricsApi.extraSourcesOff =
@@ -1712,6 +1713,7 @@ object SongPlayer {
     /** [by]: who asked, for the diagnostic (the app's screens, the media session, an extension...). */
     fun play(by: String = "user") {
         app.myspoti.host.android.Logbook.log("play asked by $by")
+        if (by != BY_CALL) callPause.userActed()
         userActed()
         if (routing) return // the song asked for starts by itself
         if (LocalPlayer.active.value) { Haptics.click(); if (!playDueOnSpotify()) LocalPlayer.resume(); return }
@@ -1748,7 +1750,21 @@ object SongPlayer {
         }
     }
 
+    private const val BY_CALL = "phone call"
+    private val callPause = CallPause()
+
+    /** The phone rings or a call ends, on the main thread. ExoPlayer deals with its own audio focus. */
+    private fun phoneCall(busy: Boolean) {
+        if (LocalPlayer.holdsFocus || MyspotiRuntime.spotify.player.playsElsewhere.value) return
+        when (callPause.modeChanged(busy, isPlaying(), SystemClock.elapsedRealtime())) {
+            CallPause.Action.PAUSE -> pause(by = BY_CALL)
+            CallPause.Action.RESUME -> play(by = BY_CALL)
+            CallPause.Action.NONE -> Unit
+        }
+    }
+
     fun pause(by: String = "user") {
+        if (by != BY_CALL) callPause.userActed()
         app.myspoti.host.android.Logbook.log("pause asked by $by")
         userActed()
         Haptics.click(); cancelBurst(); pauseSilently()
