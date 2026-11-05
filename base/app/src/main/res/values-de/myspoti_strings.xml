@@ -376,6 +376,14 @@
     <string name="recents_filter_podcasts">Podcasts</string>
     <string name="recents_today">Heute</string>
     <string name="recents_yesterday">Gestern</string>
+    <string name="whats_new_title">Neuheiten</string>
+    <string name="whats_new_subtitle">Die neuesten Veröffentlichungen und Folgen der Künstler und Shows, denen du folgst.</string>
+    <string name="whats_new_section_new">Neu</string>
+    <string name="whats_new_section_earlier">Früher</string>
+    <string name="whats_new_empty">Noch nichts Neues. Folge Künstlern und Podcasts, um ihre neuen Veröffentlichungen und Folgen hier zu sehen.</string>
+    <string name="whats_new_failed">Neuheiten konnten nicht geladen werden (%1$s)</string>
+    <string name="whats_new_add_library">Zur Bibliothek hinzufügen</string>
+    <string name="whats_new_remove_library">Aus der Bibliothek entfernen</string>
     <string name="recents_played_one">1 Titel gespielt</string>
     <string name="recents_played_many">%1$d Titel gespielt</string>
     <string name="recents_saved_one">1 Titel hinzugefügt</string>

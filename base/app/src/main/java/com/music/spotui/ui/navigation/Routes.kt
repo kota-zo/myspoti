@@ -36,6 +36,8 @@ sealed class Routes(
     object NewEpisodes : Routes(0, "NewEpisodes", "newepisodes")
     object Recap : Routes(0, "Recap", "recap")
     object Recent : Routes(0, "Recent", "recent")
+    /** The "What's New" feed behind the bell on Home. */
+    object WhatsNew : Routes(0, "WhatsNew", "whatsnew")
     object Friends : Routes(icon = R.drawable.ic_friends_big, label = "Amis", route = "friends", labelRes = R.string.friends_tab)
     object Settings : Routes(0, "Settings", "settings")
     object Extensions : Routes(0, "Extensions", "extensions")

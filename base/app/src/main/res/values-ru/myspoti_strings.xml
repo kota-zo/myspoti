@@ -168,6 +168,14 @@
     <string name="recents_filter_podcasts">Подкасты</string>
     <string name="recents_today">Сегодня</string>
     <string name="recents_yesterday">Вчера</string>
+    <string name="whats_new_title">Что нового</string>
+    <string name="whats_new_subtitle">Последние релизы и выпуски исполнителей и подкастов, на которые вы подписаны.</string>
+    <string name="whats_new_section_new">Новое</string>
+    <string name="whats_new_section_earlier">Ранее</string>
+    <string name="whats_new_empty">Пока ничего нового. Подпишитесь на исполнителей и подкасты, чтобы видеть здесь их новые релизы и выпуски.</string>
+    <string name="whats_new_failed">Не удалось загрузить «Что нового» (%1$s)</string>
+    <string name="whats_new_add_library">Добавить в медиатеку</string>
+    <string name="whats_new_remove_library">Удалить из медиатеки</string>
     <string name="recents_played_one">Прослушан 1 трек</string>
     <string name="recents_played_many">Прослушано треков: %1$d</string>
     <string name="recents_saved_one">Добавлен 1 трек</string>

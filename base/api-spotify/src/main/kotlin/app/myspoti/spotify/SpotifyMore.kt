@@ -35,6 +35,8 @@ import app.myspoti.api.TrackExtras
 import app.myspoti.api.UserProfile
 import app.myspoti.api.UserRef
 import app.myspoti.api.Users
+import app.myspoti.api.WhatsNewContent
+import app.myspoti.api.WhatsNewItem
 import app.myspoti.api.Uri
 import app.myspoti.api.ArtistRef
 import app.myspoti.spotify.bridge.Bridge
@@ -133,6 +135,27 @@ class SpotifyHome(private val gql: Gql) : Home {
             val d = item.at("content.data")
             album(d)?.let { a -> if (a.type == "ALBUM" && d.str("albumType") != null) a.copy(type = d.str("albumType")!!) else a }
         }
+    }
+
+    // The Web Player's own page: 50 entries, the pill as `includedContentTypes` (none: both).
+    override suspend fun whatsNewFeed(offset: Int, limit: Int, content: WhatsNewContent): Page<WhatsNewItem> {
+        val feed = gql.query("queryWhatsNewFeed", vars(
+            "offset" to offset, "limit" to limit, "onlyUnPlayedItems" to false,
+            "includedContentTypes" to when (content) {
+                WhatsNewContent.ALL -> emptyList()
+                WhatsNewContent.MUSIC -> listOf("ALBUM")
+                WhatsNewContent.PODCASTS -> listOf("EPISODE")
+            },
+            "includeEpisodeContentRatingsV2" to true,
+        )).at("data.whatsNewFeedItems")
+        return page(feed, offset, ::whatsNewItem)
+    }
+
+    // `$items` is an input object holding the list (a bare list is refused with 400), as the Web
+    // Player sends it: {items: {items: [{id, state}]}}.
+    override suspend fun markWhatsNewSeen(ids: List<String>) {
+        if (ids.isEmpty()) return
+        gql.query("SetItemsStateInWhatsNewFeed", vars("items" to mapOf("items" to ids.map { mapOf("id" to it, "state" to "SEEN") })))
     }
 
     override suspend fun category(uri: Uri): BrowsePage {

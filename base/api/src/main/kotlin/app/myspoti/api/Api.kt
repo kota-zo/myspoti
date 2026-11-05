@@ -225,6 +225,13 @@ interface Home {
     suspend fun category(uri: Uri): BrowsePage
     /** New releases from the artists the user follows, newest first ("What's new"). */
     suspend fun whatsNew(offset: Int = 0, limit: Int = 50): Page<Album>
+    /**
+     * The "What's New" feed in full: the releases of the followed artists and the episodes of the
+     * followed shows, each with its seen state (see [whatsNewSections]).
+     */
+    suspend fun whatsNewFeed(offset: Int = 0, limit: Int = 50, content: WhatsNewContent = WhatsNewContent.ALL): Page<WhatsNewItem>
+    /** Marks entries of the feed seen ([WhatsNewItem.id]), as opening the Web Player's page does. */
+    suspend fun markWhatsNewSeen(ids: List<String>)
 }
 
 interface Podcasts {

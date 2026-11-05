@@ -253,5 +253,27 @@ internal fun show(d: JsonElement?): app.myspoti.api.Show? {
     )
 }
 
+/**
+ * A row of the What's New feed: `{id, state{state, timestamp{isoString}}, content{__typename, data}}`,
+ * where `data` is an `Album` or an `Episode`. Chapters and the feed's own notifications are
+ * skipped: the Web Player draws nothing for them either.
+ */
+internal fun whatsNewItem(row: JsonElement?): app.myspoti.api.WhatsNewItem? {
+    val id = row.str("id") ?: return null
+    val data = row.obj("content.data")
+    val state = app.myspoti.api.WhatsNewState.entries.firstOrNull { it.name == row.str("state.state") }
+        ?: app.myspoti.api.WhatsNewState.UNKNOWN
+    val at = row.str("state.timestamp.isoString")
+    return when (data.typename()) {
+        // `type` is "ALBUM" for every release here; `albumType` says single, EP or album.
+        "Album" -> album(data)?.let { a ->
+            val type = data.str("albumType")?.takeIf { a.type == "ALBUM" } ?: a.type
+            app.myspoti.api.WhatsNewItem(id, state, at, album = a.copy(type = type))
+        }
+        "Episode" -> episode(data)?.let { app.myspoti.api.WhatsNewItem(id, state, at, episode = it) }
+        else -> null
+    }
+}
+
 /** Discography and "appears on" rows hold `releases.items[0]`. */
 internal fun release(row: JsonElement?): Album? = album(row.list("releases.items").firstOrNull() ?: row)

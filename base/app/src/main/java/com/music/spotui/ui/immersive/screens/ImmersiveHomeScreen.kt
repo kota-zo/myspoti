@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -204,7 +205,7 @@ fun ImmersiveHomeScreen(navController: NavController) {
                 }
             }
         }
-        // The greeting and the profile disc on floating glass; the feed scrolls under it.
+        // The greeting, the bell and the profile disc on floating glass; the feed scrolls under it.
         ImmersiveFloatingHeader(title, collapse = rememberTopBarCollapse(listState, 24.dp)) {
             // Friend activity, out of the tab bar: beside the profile, as Spotify has it.
             com.music.spotui.ui.immersive.shell.ImmersiveBarAction(
@@ -213,6 +214,7 @@ fun ImmersiveHomeScreen(navController: NavController) {
                 onClick = { navController.navigate(com.music.spotui.ui.navigation.Routes.Friends.route) },
             )
             val size = LocalBarControlSize.current
+            WhatsNewBell(size) { navController.navigate(Routes.WhatsNew.route) }
             // The tap area is the header's full height and reaches past the disc toward the
             // title, so the small disc of the minimized bar is still easy to hit.
             Box(
@@ -230,6 +232,25 @@ fun ImmersiveHomeScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+/** The bell left of the profile disc: opens "What's New". Its tap area is the header's full height, as the disc's is. */
+@Composable
+private fun WhatsNewBell(size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .height(ImmersiveHeaderContentHeight)
+            .width(size)
+            .immersiveClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.Rounded.NotificationsNone,
+            contentDescription = stringResource(R.string.whats_new_title),
+            tint = Immersive.Text,
+            modifier = Modifier.size(size * 0.55f),
+        )
     }
 }
 
