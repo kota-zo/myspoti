@@ -12,7 +12,7 @@ import kotlin.math.abs
  * reference. Commands: `analyze <dir>` prints tempo, beat and downbeat agreement with the reference.
  */
 fun main(args: Array<String>) {
-    val cmd = args.getOrNull(0) ?: return println("usage: analyze <dir> | plan <dir> a,b [render] | matrix <dir> [long] [whole] [fresh]")
+    val cmd = args.getOrNull(0) ?: return println("usage: analyze <dir> | plan <dir> a,b [render] | matrix <dir> [long] [whole] [fresh] | segue <dir> split|matrix|measure|render|stability ...")
     val dir = args.getOrNull(1)?.let(::File) ?: return println("missing corpus directory")
     when (cmd) {
         "analyze" -> {
@@ -44,6 +44,7 @@ fun main(args: Array<String>) {
             println(String.format(java.util.Locale.ROOT, "%s\t%.0f BPM\tq25 %.2f q50 %.2f q75 %.2f\t%s", n, a.bpm, q(0.25), q(0.5), q(0.75),
                 a.barVocalRisk.joinToString("") { (it * 9.99f).toInt().coerceIn(0, 9).toString() }))
         }
+        "segue" -> app.myspoti.automix.segue.SegueBench.run(dir, args.drop(2))
         "tempo" -> dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted().forEach { tempoDebug(dir, it) }
         else -> println("unknown $cmd")
     }

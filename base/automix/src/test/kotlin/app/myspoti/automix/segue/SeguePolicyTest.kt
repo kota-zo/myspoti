@@ -33,6 +33,7 @@ class SeguePolicyTest {
         contentStart: Double = 0.0,
         contentEnd: Double = duration,
         barDb: Float = -10f,
+        down: Double = 0.0,
         risk: (Int) -> Float = { 0f },
     ): TrackAnalysis {
         val beat = 60 / bpm
@@ -41,7 +42,7 @@ class SeguePolicyTest {
         return TrackAnalysis(duration, contentStart, contentEnd, loudness, musicKey, 1.0, bpm, grid,
             if (grid) g else null, if (grid) tail ?: g else null, DoubleArray(0), DoubleArray(n) { it * 2.0 },
             FloatArray(n) { barDb }, FloatArray(n) { -16f }, FloatArray(n) { -20f }, FloatArray(n), FloatArray(n), 0, stereo,
-            if (grid) 0.0 else Double.NaN, if (grid) tail?.first ?: 0.0 else Double.NaN, barVocalRisk = FloatArray(n, risk),
+            if (grid) down else Double.NaN, if (grid) tail?.first ?: 0.0 else Double.NaN, barVocalRisk = FloatArray(n, risk),
             audioKey = key, barBassDb = FloatArray(n) { -18f }, headPhase = phase, tailPhase = phase, headMetre = metre, tailMetre = metre)
     }
 
@@ -223,6 +224,22 @@ class SeguePolicyTest {
         val d = decide(song("a", risk = { if (it < 100) 1f else 0f }), song("b"))
         assertEquals(SegueLevel.LOCKED_LONG, d.level)
         assertTrue(d.plan!!.toString(), d.plan!!.outgoing.anchorUs >= 192_000_000)
+    }
+
+    @Test fun anEntryIsNeverBeforeTheSongsStart() {
+        // The grid's downbeats fall at -0.05 s, 1.95 s...: the first one in the song is the one to use.
+        val d = decide(song("a"), song("b", down = 1.95))
+        assertEquals(d.why, SegueLevel.LOCKED_LONG, d.level)
+        assertEquals(1_950_000L, d.plan!!.incoming.anchorUs)
+        val far = decide(song("a"), song("b", bpm = 100.0, down = 2.35))
+        assertEquals(far.why, SegueLevel.FILTERED, far.level)
+        assertTrue(far.plan!!.incoming.anchorUs >= 0)
+    }
+
+    @Test fun theLongestLengthThatWorksIsKept() {
+        assertEquals(t.filteredLongUs, decide(song("a"), song("b", bpm = 100.0)).plan!!.span.lengthUs)
+        assertEquals(t.filteredShortUs, decide(song("a", steadiness = 0.5), song("b", bpm = 100.0)).plan!!.span.lengthUs)
+        assertEquals(t.lockedMiddleBars, decide(song("a", metre = 0.7f), song("b", metre = 0.7f)).plan!!.span.musicalUnits)
     }
 
     @Test fun nothingStartsBeforeTheEarliestExit() {

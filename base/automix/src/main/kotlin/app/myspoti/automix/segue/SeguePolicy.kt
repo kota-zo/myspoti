@@ -185,11 +185,15 @@ object SeguePolicy {
             return generateSequence(MixPlanner.firstDown(g, down, from)) { it + bar }.takeWhile { it <= to }
         }
 
+        /** B's first downbeat at its attack, never before the song's start. */
+        private fun firstEntry(g: Grid?): Double =
+            if (g != null) MixPlanner.firstDown(g, b.headDown, max(0.0, b.contentStart - 0.08)).coerceAtLeast(0.0) else b.contentStart
+
         /** B's useful attack, its first boundaries; leaving out a start must be worth its note. */
         private fun entries(g: Grid?, spanUs: Long, phrases: Boolean): List<Point> {
             val limit = us(b.contentEnd)
             val startUs = us(b.contentStart)
-            val first: Double = if (g != null) MixPlanner.firstDown(g, b.headDown, b.contentStart - 0.08) else b.contentStart
+            val first = firstEntry(g)
             val out = ArrayList<Point>()
             out += Point(us(first), b.barAt(first + 0.05), 1.0, true)
             if (g != null) {
@@ -245,6 +249,8 @@ object SeguePolicy {
                     val score = score(e, n, lengthUs, spanUs, phaseMedian, deviation, lanes)
                     if (best == null || score.total > best.score) best = Found(plan, score.total, swap)
                 }
+                // The longest length that works: shorter only when it has to be.
+                if (best != null && best.score >= t.thresholdLocked) break
             }
             return settle(level, tally, best, t.thresholdLocked)
         }
@@ -269,6 +275,7 @@ object SeguePolicy {
                     val score = score(e, n, lengthUs, lengthUs, null, 0, lanes)
                     if (best == null || score.total > best.score) best = Found(plan, score.total, t.filteredSwapShare)
                 }
+                if (best != null && best.score >= t.thresholdFiltered) break
             }
             return settle(level, tally, best, t.thresholdFiltered)
         }
@@ -301,7 +308,7 @@ object SeguePolicy {
             val targetUs = max(r.earliestExitUs, endUs - lengthUs)
             val bar = a.barStarts.lastOrNull { us(it) in r.earliestExitUs..targetUs && targetUs - us(it) <= t.simpleFadeUs }
             val exitUs = bar?.let(::us) ?: targetUs
-            val entryTime = gb?.let { MixPlanner.firstDown(it, b.headDown, b.contentStart - 0.08) } ?: b.contentStart
+            val entryTime = firstEntry(gb)
             val e = Point(exitUs, a.barAt(exitUs / 1e6 + 0.05), 1.0, true)
             val n = Point(us(entryTime), b.barAt(entryTime + 0.05), 1.0, true)
             val tally = Tally().also { it.seen = 1 }

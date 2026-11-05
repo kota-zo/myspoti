@@ -174,7 +174,8 @@ and the same request always gives the same plan.
 | `SIMPLE_FADE` | fade | A short fade from a safe point |
 | `NORMAL` | none | Plain playback. Not a failure: no effect beats a bad effect |
 
-Each level left behind records its cause in `SegueDecision.attempts`, outside the fingerprint.
+Each level left behind records its cause in `SegueDecision.attempts`, outside the fingerprint. Within
+a level the longest length that works is kept: a window is shortened only when it has to be.
 
 The score is `Σ weight × reliability × note − Σ penalty × defect`. Notes and defects run from 0 to 1.
 Scores compare only within a class; between classes the fallback order decides.
@@ -195,7 +196,30 @@ Scores compare only within a class; between classes the fallback order decides.
 
 `SegueTuning.kt` documents each parameter, with its label and range, and is the only place for them.
 
-### Parameters that were not in the design's tables
+## Measuring
+
+No value here counts until measured on the project's corpus. The bench (`tools/automix/README.md`)
+covers the objective part, in the protocol's order:
+
+- `split` cuts the corpus by artist and album into tuning, validation and final test (60/20/20 `[I]`),
+  so a value is never tested on the songs it was tuned on.
+- `measure` checks the render's integrity first (peak, clipping, loudness jump, clicks at the edges,
+  silent holes), then compares the phase measured on the render with the plan's `residualUs`.
+- `matrix` reports each pair's level and the causes of the levels left behind, and that a second run
+  gives the same fingerprint.
+- `stability` varies each parameter by ±20 % `[I]` and lists those that change nothing: candidates
+  for removal.
+
+Still to do, as they need people or annotations: fixing thresholds by controlled degradations in blind
+listening; learning the weights from pairwise comparisons with a simple non-negative model,
+cross-validated by artist; checking the analysis against annotated beats; freezing the parameters
+before a single listen to the final test; then recording each value with its corpus, date and
+interval, and relabelling it `[M]`.
+
+The desktop render stretches with `atempo` and has no player clock, so it does not measure the phone's
+own timing; `automix.status` reports the chain's position and the deck's distance on the phone.
+
+## Parameters that were not in the design's tables
 
 These had no value or only a word, and were added as proposals to measure. All are `[I]` unless
 marked `[R]`, reused from this repository.

@@ -158,5 +158,10 @@ data class SegueTuning(
         /** The band where two bass lines mask each other [U]. Fixed at analysis: not varied by the harness. */
         const val BASS_LOW_HZ = 20.0
         const val BASS_HIGH_HZ = 150.0
+
+        /** Measurement: how far each parameter is varied [I], and the corpus split for tuning, validation, final test [I]. */
+        const val STABILITY_RANGE = 0.20
+        const val SPLIT_TUNING_SHARE = 0.60
+        const val SPLIT_VALIDATION_SHARE = 0.20
     }
 }

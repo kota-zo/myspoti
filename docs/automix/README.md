@@ -135,6 +135,13 @@ Styles:
 - Seek, previous, a queue change or AutoMix off: the deck is dropped (before the mix) or the song
   coming in plays on at its own speed (during the mix).
 
+## Plan-based transitions (test)
+
+In the Mix Lab build only, a setting replaces the planner above with a policy that writes each
+transition as data, and an engine stage that plays it on the samples: see
+[segue-design.md](segue-design.md). It starts off, its numbers are unmeasured starting values, and
+every other build keeps its audio chain and its planner as they were.
+
 ## Known problems
 
 - The cover now changes after a mix (the stuck cover came from the hand-over bug fixed on
