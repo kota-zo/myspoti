@@ -95,8 +95,6 @@ object LocalPlayer {
             val builder = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-            // The data plans are a test of the Mix Lab: every other build keeps its chain as it was.
-            if (!app.myspoti.engine.BuildConfig.AUTOMIX_LAB) return builder.setAudioProcessors(arrayOf(EqualizerProcessor(), SpatialProcessor())).build()
             val stage = com.music.spotui.automix.SegueProcessor()
             lastSegueStage = stage
             return com.music.spotui.automix.SegueSink(builder.setAudioProcessors(arrayOf(stage, EqualizerProcessor(), SpatialProcessor())).build(), stage)

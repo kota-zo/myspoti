@@ -50,7 +50,6 @@ android {
         versionName = version
         // GitHub "owner/repo" whose releases the app checks for updates; empty = off
         // (local builds). CI sets it to the repository it builds.
-        buildConfigField("boolean", "AUTOMIX_LAB", automixLab.toString())
         buildConfigField("String", "UPDATE_REPO", "\"${(findProperty("updateRepo") as String?) ?: System.getenv("MYSPOTI_UPDATE_REPO") ?: ""}\"")
         // -Pabis=arm64-v8a: one APK for one phone (the test builds). Without it, the ABI splits below.
         (findProperty("abis") as String?)?.let { ndk { abiFilters += it.split(",") } }

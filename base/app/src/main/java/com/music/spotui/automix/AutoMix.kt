@@ -134,11 +134,11 @@ object AutoMix {
         djMode = sessionDj,
     )
 
-    /** The data-plan transitions (the Mix Lab's test of them), in place of the planner; only for the beat blend style. */
-    var segue by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_segue", app.myspoti.engine.BuildConfig.AUTOMIX_LAB))
+    /** The data-plan transitions, in place of the planner; only for the beat blend style. On unless the listener turned them off. */
+    var segue by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_segue", true))
         private set
     fun changeSegue(value: Boolean) { segue = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_segue", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
-    val segueActive: Boolean get() = app.myspoti.engine.BuildConfig.AUTOMIX_LAB && segue && style == 0
+    val segueActive: Boolean get() = segue && style == 0
 
     /** The policy's decision for two analysed songs. The listener's settings may only tighten its limits. */
     fun decide(a: TrackAnalysis, b: TrackAnalysis, earliestExit: Double, sameAlbum: Boolean, listener: Float): app.myspoti.automix.segue.SegueDecision {
