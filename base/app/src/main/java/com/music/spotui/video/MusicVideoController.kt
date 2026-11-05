@@ -452,7 +452,8 @@ object MusicVideoController {
         } catch (t: kotlinx.coroutines.CancellationException) {
             throw t
         } catch (t: Throwable) {
-            Log.w(TAG, "Video resolution failed: ${t.javaClass.simpleName}")
+            // Linkage errors name the class a build lacks (a shrunk one, reported); others may carry a URL.
+            Log.w(TAG, "Video resolution failed: ${t.javaClass.simpleName}${if (t is LinkageError) ": ${t.message}" else ""}")
             null
         } finally {
             refFile.delete()
