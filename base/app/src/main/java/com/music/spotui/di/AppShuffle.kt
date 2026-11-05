@@ -55,8 +55,14 @@ object AppShuffle {
     private var startedAt = 0L
     /** Spotify's shuffle came back on once and was turned off again. */
     private var retried = false
-    /** Shuffle turned on or off while paused: the song goes on in its new order at the next play. */
+    /**
+     * Shuffle turned on or off: playing a list in a new order means playing it again, heard as a cut
+     * or a jump back to the start (reported). So the song goes on untouched and the order changes
+     * when the next song starts, or at the next play when it was paused.
+     */
     private var due: (() -> Boolean)? = null
+    /** The song [due] waits out; null: it waits for the next play. */
+    private var dueAfter: String? = null
     /** Lists Spotify keeps on its own shuffle for this account, this session. */
     private val imposed = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
@@ -149,12 +155,23 @@ object AppShuffle {
 
     /** Shuffle changed while paused: what [due] holds plays at the next play (SongPlayer.play). True: done here. */
     fun resume(): Boolean {
-        val d = synchronized(this) { due.also { due = null } } ?: return false
+        val d = synchronized(this) { dueAfter = null; due.also { due = null } } ?: return false
         return d()
     }
 
     private fun whenPlaying(block: () -> Boolean) {
-        if (SongPlayer.isPlaying()) block() else synchronized(this) { due = block }
+        val after = SongPlayer.nowPlaying.value.uri.takeIf { SongPlayer.isPlaying() }
+        synchronized(this) { due = block; dueAfter = after }
+    }
+
+    /** The page reports [uri]: the song [due] waited out is over, the new order plays from this one. */
+    private fun songMoved(uri: String) {
+        val d = synchronized(this) {
+            if (due == null || !ShuffleOrder.songOver(dueAfter, uri, TRACK)) return
+            dueAfter = null
+            due.also { due = null }
+        } ?: return
+        main.post { d() }
     }
 
     /**
@@ -175,7 +192,7 @@ object AppShuffle {
             val picked = kept?.let { (o, a) -> ShuffleOrder.pick(o, a, first) }
             val dealt = picked ?: (ShuffleOrder.draw(uris, first) to 0)
             list = uri; order = dealt.first; at = dealt.second; plain = back
-            landed = same; startedAt = SystemClock.elapsedRealtime(); retried = false; due = null
+            landed = same; startedAt = SystemClock.elapsedRealtime(); retried = false; due = null; dueAfter = null
             dealt
         }
         val song = songs.getValue(dealt[from])
@@ -195,6 +212,7 @@ object AppShuffle {
      * the list (the player shows shuffle on).
      */
     fun onPage(contextUri: String, uri: String, shuffle: Boolean, trusted: Boolean): Boolean {
+        songMoved(uri)
         var told: String? = null
         var restore = false
         val mine = synchronized(this) {
@@ -249,7 +267,7 @@ object AppShuffle {
 
     private fun clearLocked() {
         gen.incrementAndGet()
-        list = null; order = emptyList(); at = -1; plain = null; landed = false; due = null
+        list = null; order = emptyList(); at = -1; plain = null; landed = false; due = null; dueAfter = null
     }
 
     /** Every song of the list [contextUri] (all its pages), null when it cannot be read in full. */

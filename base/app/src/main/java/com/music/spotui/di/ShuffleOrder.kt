@@ -8,6 +8,10 @@ import kotlin.random.Random
  * the song playing in the order.
  */
 internal object ShuffleOrder {
+    /** [now] playing means [waitedOut] is over: another song, an ad in between does not count. */
+    fun songOver(waitedOut: String?, now: String, songPrefix: String): Boolean =
+        waitedOut != null && now != waitedOut && now.startsWith(songPrefix)
+
     /** Fisher-Yates over [songs]; [first] (one of them) opens the order. */
     fun <T> draw(songs: List<T>, first: T?, random: Random = Random.Default): List<T> {
         val order = songs.toMutableList()
