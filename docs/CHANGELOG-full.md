@@ -2,6 +2,15 @@
 
 Every change, release by release. The short version is in [CHANGELOG.md](../CHANGELOG.md), which the app and the GitHub releases show.
 
+## 2.4.0
+
+- **AutoMix**: two decks, a whole-song analysis, and plan-based transitions on by default for the beat blend style, with a switch in Settings (see `docs/automix/`). The largest speed change of a locked mix is 9.5 %. The mixes' EQ is applied, the player's page is kept on a cold start, and the analyses wait for it.
+- **What's New** page behind a bell on Home (PR #162, andreiP4). **`lyrics-romanize` hook** for extensions (PR #165, Illumye), and romanizations set apart from translations (PR #166, Illumye).
+- **Tab bar**: keeps its glass while the tabs change (PR #176, noNameDS09). Classic search hint in the theme's muted colour (PR #170, Ashishranjan980).
+- **Fixes from Discord**: Myspoti shuffle's new order waits for the next song; music paused during a phone call; no "Advertisement" label on extension and local songs; Next on another device stays there; shuffle in the media session; playlist pickers kept across restarts.
+- **Friend activity** in more languages (from PR #126, Raitofod). TV: Ko-fi and GitHub Sponsors as QR codes.
+- Everything else in the short changelog's 2.4.0 section.
+
 ## 2.3.0
 
 - **Repeat**: four modes again (off, all, the song for good, the song once), on Spotify, extension, downloaded and device songs; the mode chosen on an extension song is kept.
