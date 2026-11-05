@@ -355,6 +355,15 @@ class ContextViewModel(
             val saved = SongPlayer.libraryContains(uris)
             savedUris.value = saved
             contextSaved.value = p.uri in saved
+            // Reported: a playlist in the Library with an empty heart, nothing to take it out with,
+            // until a pull-to-refresh of the Library. The list catches up by itself.
+            if (p.type == "playlist") {
+                val listed = withContext(Dispatchers.IO) { com.music.spotui.data.preferences.getCachedLibraryEntries(Graph.app) }
+                if (com.music.spotui.data.api.LibraryEdits.listedButNotSaved(p.uri, saved, listed)) {
+                    app.myspoti.host.android.Logbook.log("library: ${p.uri} listed but not saved, the list is read again")
+                    com.music.spotui.data.api.LibraryEdits.reloadSoon()
+                }
+            }
         }
         // A11: Spotify refuses an edit to a list the user cannot change, so the entry is only
         // offered where it would work (own and collaborative playlists, as Spotify itself).
