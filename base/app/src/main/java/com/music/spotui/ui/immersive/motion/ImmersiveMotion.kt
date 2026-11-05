@@ -6,6 +6,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -92,7 +93,8 @@ object ImmersiveMotion {
         fun enter(reduce: Boolean): AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
             val still = reduce || isTabSwitch()
             PageFade.enterMs = if (still) FADE_MS else PAGE_MS / 2
-            if (still) EnterTransition.None else slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset(1, 1))) { it }
+            // Tabs cross-fade over FADE_MS; without an enter transition, Compose detaches the outgoing tab immediately (#172).
+            if (still) fadeIn(tween(FADE_MS)) else slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset(1, 1))) { it }
         }
 
         fun exit(reduce: Boolean): AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
@@ -104,7 +106,8 @@ object ImmersiveMotion {
         fun popEnter(reduce: Boolean): AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
             val still = reduce || isTabSwitch()
             PageFade.enterMs = if (still) FADE_MS else PAGE_MS
-            if (still) EnterTransition.None else slideInHorizontally(tween(PAGE_MS)) { -it / 3 }
+            // Tabs cross-fade over FADE_MS; without an enter transition, Compose detaches the outgoing tab immediately (#172).
+            if (still) fadeIn(tween(FADE_MS)) else slideInHorizontally(tween(PAGE_MS)) { -it / 3 }
         }
 
         fun popExit(reduce: Boolean): AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {

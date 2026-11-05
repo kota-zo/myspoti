@@ -83,13 +83,16 @@ class LayerBackdrop internal constructor(
     internal var moves by androidx.compose.runtime.mutableIntStateOf(0)
 
     internal fun publish(source: Source) {
-        if (sources.lastOrNull() === source) layerCoordinates = source.coordinates
+        // Only the newest page owns the coordinates; one not laid out yet leaves them as they are (#172).
+        if (sources.lastOrNull() === source) source.coordinates?.let { layerCoordinates = it }
         moves++
     }
 
     internal fun retire(source: Source) {
         sources.remove(source)
-        layerCoordinates = sources.lastOrNull()?.coordinates
+        // Keep the latest valid coordinates when an outgoing source detaches during a tab transition (#172).
+        val remaining = sources.lastOrNull { it.coordinates != null }?.coordinates
+        if (remaining != null) layerCoordinates = remaining
         moves++
     }
 
@@ -113,6 +116,8 @@ class LayerBackdrop internal constructor(
      * transition both pages are drawn where they are this frame, so the glass sees what is on screen.
      */
     internal fun DrawScope.drawSources(offsetOf: (LayoutCoordinates) -> Offset) {
+        var drew = false
+        var holdover: Pair<LayoutCoordinates, GraphicsLayer>? = null
         for (s in sources.toList()) {
             val c = s.coordinates ?: continue
             val layer = s.layer ?: continue
@@ -122,7 +127,11 @@ class LayerBackdrop internal constructor(
             }
             if (!c.isAttached || layer.size.width <= 0) continue
             val a = s.alpha().coerceIn(0f, 1f)
-            if (a <= 0f) continue
+            if (a <= 0f) {
+                holdover = c to layer
+                continue
+            }
+            drew = true
             val o = offsetOf(c)
             withTransform({ translate(-o.x, -o.y) }) {
                 if (a >= 1f) drawLayer(layer)
@@ -133,6 +142,14 @@ class LayerBackdrop internal constructor(
                     drawLayer(layer)
                     canvas.restore()
                 }
+            }
+        }
+        if (!drew && holdover != null) {
+            // Draw the last valid frame if all sources are zero-alpha or unrecorded during cross-fade (#172).
+            val (c, layer) = holdover
+            val o = offsetOf(c)
+            withTransform({ translate(-o.x, -o.y) }) {
+                drawLayer(layer)
             }
         }
     }
