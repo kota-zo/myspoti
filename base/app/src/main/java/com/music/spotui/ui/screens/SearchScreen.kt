@@ -2,6 +2,7 @@ package com.music.spotui.ui.screens
 
 import com.music.spotui.ui.components.secondaryClick
 import com.music.spotui.ui.theme.tone
+import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
 
@@ -917,7 +918,8 @@ fun SearchStickyBar(
                 onValueChange = onTextChange,
                 placeholder = {
                     Text(
-                         textAlign = TextAlign.Center,
+                        textAlign = TextAlign.Center,
+                        color = AppMuted,
                         fontWeight = FontWeight.Bold,
                         text = stringResource(R.string.search_header_field_hint)
 
