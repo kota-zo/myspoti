@@ -38,6 +38,7 @@ object SegueBench {
         when (rest.firstOrNull()) {
             "split" -> printSplit(dir)
             "tempos" -> tempos(dir, fold)
+            "bars" -> bars(dir, fold)
             "voices" -> voices(dir, fold)
             "tails" -> tails(dir, fold, limit ?: 12)
             "matrix" -> matrix(dir, fold, rest.contains("fresh"))
@@ -139,6 +140,17 @@ object SegueBench {
         for ((name, s) in analyses(dir, names, false)) println(String.format(L, "%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d", name,
             s.tail?.bpm ?: 0.0, s.tail?.steadiness ?: 0.0, s.head?.bpm ?: 0.0, s.head?.steadiness ?: 0.0, s.modelBeats.size) +
             String.format(L, "\t%.1f\t%.1f\t%.1f\t%.1f", s.duration, s.contentStart, s.contentEnd, s.barStarts.lastOrNull() ?: 0.0))
+    }
+
+    /** Every song's bars: where they start, the phrase and section marks, the level. */
+    private fun bars(dir: File, fold: String?) {
+        val names = names(dir, fold)
+        val songs = analyses(dir, names, false)
+        println("song\tbar\tstart\tphrase\tsection\tlevel\tcontentStart")
+        for ((n, s) in songs) {
+            val st = app.myspoti.automix.MixPlanner.summary(s)
+            for (i in 0 until s.bars) println(String.format(L, "%s\t%d\t%.3f\t%d\t%.3f\t%.2f\t%.3f", n, i, s.barStarts[i], s.phrasePos(i), s.sectionStrength(i), st.levelBars(i, i + 1), s.contentStart))
+        }
     }
 
     private fun matrix(dir: File, fold: String?, fresh: Boolean) {

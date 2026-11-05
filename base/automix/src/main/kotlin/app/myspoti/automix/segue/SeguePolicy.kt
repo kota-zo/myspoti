@@ -103,7 +103,7 @@ object SeguePolicy {
 
     private fun us(seconds: Double): Long = (seconds * 1e6).roundToLong()
 
-    private class Point(val us: Long, val bar: Int, val rank: Double, val boundary: Boolean)
+    private class Point(val us: Long, val bar: Int, val rank: Double, val boundary: Boolean, val arrives: Boolean = false)
 
     /** [score] decides whether a level is good enough; [pick] decides between candidates of one level. */
     private class Found(val plan: SeguePlan, val score: Double, val swap: Double, val shape: SegueShape? = null, val restoreSec: Double = 0.0, val pick: Double = score)
@@ -263,7 +263,7 @@ object SeguePolicy {
                         val plan = plan(e.stretch.startUs, n.stretch.startUs, ga, gb, ratePpm, lengthUs, bars, PulseState.LOCKED, us60(ga), phaseMedian, lanes)
                             .copy(echoUs = if (shape == SegueShape.ECHO_TAIL) echoOf(ga.period) else null)
                         val score = score(e.point, n.point, lengthUs, spanUs, phaseMedian, deviation, lanes, pulse, bars, barsB)
-                        val pick = score.total - t.lostPickLocked * skipped(e.point, n.point, lengthUs)
+                        val pick = score.total - t.lostPickLocked * skipped(e.point, n.point, lengthUs) + (if (n.point.arrives && score.total >= t.thresholdLocked) t.arrivalPick * n.point.rank else 0.0)
                         if (best == null || pick > best.pick) best = Found(plan, score.total, swap, shape, restore(ratePpm, gb.period), pick)
                     }
                 }
@@ -306,7 +306,20 @@ object SeguePolicy {
             return (out.sortedByDescending { it.point.rank }.take(t.candidatesPerSide) + out.sortedByDescending { it.point.us }.take(t.lateCandidates)).distinctBy { it.point.us }
         }
 
-        /** B's stretches from its useful attack; leaving out a start must be worth its note. */
+        /** How far B arrives right after a window of [bars] from [bar], 0..1: its level rising past the window. */
+        private fun arrival(bar: Int, bars: Int): Double {
+            val end = bar + bars
+            if (end + 5 > b.bars) return 0.0
+            return ((rise(end, bars) - t.arrivalRiseMinDb) / (t.arrivalRiseFullDb - t.arrivalRiseMinDb)).coerceIn(0.0, 1.0)
+        }
+
+        /** B's level over the next bars from [end], against the [bars] bars before it. */
+        private fun rise(end: Int, bars: Int): Double = sb.levelBars(end, end + 4) - sb.levelBars(max(0, end - bars), end)
+
+        /** No bar next to [end] rises more: the song arrives here, not a bar before or after. */
+        private fun sharpest(end: Int, bars: Int): Boolean = rise(end, bars) >= rise(end - 1, bars) && rise(end, bars) >= rise(end + 1, bars)
+
+        /** B's stretches from its useful attack, and where it arrives; leaving out a start must be worth its note. */
         private fun stretchEntries(bars: Int, phrases: Boolean, tally: Tally): List<Placed> {
             val startUs = us(b.contentStart)
             val zone = min(startUs + t.entryZoneUs, us(b.contentEnd) / 3)
@@ -316,12 +329,14 @@ object SeguePolicy {
                 val at = us(b.barStarts[bar])
                 if (bar != firstBar && at >= zone) break
                 val on = boundary(b, bar)
-                if (phrases && !on && bar != firstBar) continue
+                val arrival = if (bar == firstBar) 0.0 else arrival(bar, bars)
+                if (phrases && !on && bar != firstBar && arrival == 0.0) continue
                 val s = cached(incomingStretches, b, bar, bars, b.headMetre.toDouble())
+                    ?: if (arrival > 0.0) Stretches.carried(b, bar, bars, b.headMetre.toDouble(), t) else null
                 if (s == null) { if (bar + bars < b.bars) tally.refused(listOf(SegueGuard.GRID_RELIABILITY)); continue }
                 val rank = if (bar == firstBar) 1.0
-                    else (if (b.sectionStrength(bar) > 0) t.entryNoteSection else t.entryNoteOther) * (1 - (at - startUs).toDouble() / t.entryZoneUs)
-                out += Placed(s, Point(s.startUs, bar, rank, on || bar == firstBar))
+                    else max(arrival, (if (b.sectionStrength(bar) > 0) t.entryNoteSection else t.entryNoteOther) * (1 - (at - startUs).toDouble() / t.entryZoneUs))
+                out += Placed(s, Point(s.startUs, bar, rank, on || bar == firstBar, arrives = arrival > 0.0))
             }
             return out.sortedByDescending { it.point.rank }.take(t.candidatesPerSide)
         }
@@ -371,7 +386,7 @@ object SeguePolicy {
 
         /** Music the listener never hears, the end of one song and the start of the other, 0..1. */
         private fun skipped(e: Point, n: Point, lengthUs: Long): Double =
-            ((max(0L, us(a.contentEnd) - (e.us + lengthUs)) + max(0L, n.us - us(b.contentStart))).toDouble() / t.lostFullUs).coerceAtMost(1.0)
+            ((max(0L, us(a.contentEnd) - (e.us + lengthUs)) + (if (n.arrives) 0L else max(0L, n.us - us(b.contentStart)))).toDouble() / t.lostFullUs).coerceAtMost(1.0)
 
         /** The outgoing song runs long enough past the window for a send to ring out. */
         private fun rings(exitUs: Long, lengthUs: Long) = us(a.duration) - (exitUs + lengthUs) >= t.sendTailUs
@@ -404,6 +419,27 @@ object SeguePolicy {
             return listOf(fit) + lengths.filter { it != fit }
         }
 
+        /**
+         * Songs that cannot be locked still need not share a long quiet opening: a fade over the end
+         * of it, up to where B clearly arrives at its full level, the rest of it left out.
+         */
+        private fun fadeArrivals(lengthUs: Long): List<Point> {
+            val startUs = us(b.contentStart)
+            val zone = min(startUs + t.entryZoneUs, us(b.contentEnd) / 3)
+            val out = ArrayList<Point>()
+            for (bar in 1 until b.bars - 5) {
+                val endUs = us(b.barStarts[bar])
+                val inUs = endUs - lengthUs
+                if (endUs >= zone) break
+                if (inUs - startUs < t.fadeArrivalMinSkipUs) continue
+                val from = b.barAt(inUs / 1e6)
+                if (from < 0 || from >= bar) continue
+                if (rise(bar, bar - from) < t.fadeArrivalRiseDb || !sharpest(bar, bar - from) || sb.levelBars(bar, bar + 4) < sb.loud - t.arrivalNearFullDb) continue
+                out += Point(inUs, from, 1.0, true, arrives = true)
+            }
+            return out.sortedBy { it.us }.take(t.candidatesPerSide)
+        }
+
         private fun filtered(level: SegueLevel): Found? {
             val rel = tempoReliability(ga)
             val lengths = when {
@@ -417,7 +453,7 @@ object SeguePolicy {
                 // A fade need not start on a bar: the one that ends with the music keeps the most of the song.
                 val ending = if (a.bars > 0) sequenceOf((us(a.contentEnd) - lengthUs) / 1e6) else emptySequence()
                 val outs = exits(a.barStarts.asSequence() + ending, lengthUs, us(a.contentEnd), phrases = false)
-                val ins = entries(gb, lengthUs, phrases = false)
+                val ins = entries(gb, lengthUs, phrases = false) + fadeArrivals(lengthUs)
                 for (e in outs) for (n in ins) {
                     tally.seen++
                     if (tally.refused(SegueGuards.crossed(SegueClass.FILTERED, measures(e, n, lengthUs, lengthUs), t))) continue
@@ -428,7 +464,7 @@ object SeguePolicy {
                     val plan = plan(e.us, n.us, ga, gb, SegueFormat.RATE_NOMINAL, lengthUs, null, PulseState.FREE, null, null, lanes)
                         .copy(echoUs = if (shape == SegueShape.ECHO_OUT) ga?.let { echoOf(it.period) } else null)
                     val score = score(e, n, lengthUs, lengthUs, null, 0, lanes)
-                    val pick = score.total - t.lostPickFade * skipped(e, n, lengthUs)
+                    val pick = score.total - t.lostPickFade * skipped(e, n, lengthUs) + (if (n.arrives && score.total >= t.thresholdFiltered) t.arrivalPick else 0.0)
                     if (best == null || pick > best.pick) best = Found(plan, score.total, at, shape, pick = pick)
                 }
                 if (best != null && best.score >= t.thresholdFiltered) break
@@ -518,7 +554,9 @@ object SeguePolicy {
                           pulse: Double = pulseReliability(), barsA: Int? = null, barsB: Int? = null): SegueScore {
             val a0 = e.us / 1e6; val a1 = (e.us + lengthUs) / 1e6; val b0 = n.us / 1e6; val b1 = (n.us + spanUs) / 1e6
             val endBar = a.barAt(a1)
-            val energy = abs(sa.levelBars(max(0, endBar - 3), endBar + 1) - sb.levelBars(max(0, n.bar), max(0, n.bar) + 4))
+            // An arrival is heard at the level it arrives at, not at that of the build-up.
+            val heard = if (n.arrives) b.barAt(b1) else max(0, n.bar)
+            val energy = abs(sa.levelBars(max(0, endBar - 3), endBar + 1) - sb.levelBars(heard, heard + 4))
             val rhythm = phaseUs?.let { SegueScore.fallingFrom(it.toDouble(), t.rhythmFullUs.toDouble(), t.phaseMedianMaxUs.toDouble()) } ?: 0.0
             val phrase = phraseNote(a, e, barsA) + phraseNote(b, n, barsB)
             val notes = listOf(

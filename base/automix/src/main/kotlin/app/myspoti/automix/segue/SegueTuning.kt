@@ -10,8 +10,8 @@ package app.myspoti.automix.segue
  */
 data class SegueTuning(
     // ── Guards: one crossing rejects a candidate, whatever its score ──
-    /** Largest speed change in the locked class, ppm. [U] range 4–8 %, the top of it: the stretch keeps the pitch, and the bench lost most pairs to this guard. */
-    val maxRateDeviationPpm: Long = 80_000,
+    /** Largest speed change in the locked class, ppm. [I] past the 4–8 % of [U]: the stretch keeps the pitch and most pairs were lost to this guard. To be heard. */
+    val maxRateDeviationPpm: Long = 100_000,
     /** Expected phase error: median [U], against double attacks. */
     val phaseMedianMaxUs: Long = 20_000,
     /** Expected phase error: 95th percentile [U]. */
@@ -114,6 +114,22 @@ data class SegueTuning(
     val exitZoneShare: Double = 1.0 / 3.0,
     /** Entries lie within this much of the first attack [R]. */
     val entryZoneUs: Long = 40_000_000,
+    /**
+     * A window that ends where the incoming song arrives, its level rising after it [I]: this rise
+     * earns the full note, and less than the smallest earns none. What it leaves out is not lost.
+     */
+    val arrivalRiseFullDb: Double = 6.0,
+    val arrivalRiseMinDb: Double = 2.0,
+    /** A build-up's beat carried back from this many bars after it [I], landing this near its start [I]. */
+    val carryFromBars: Int = 4,
+    val carrySearchBars: Int = 8,
+    val carryMaxOffUs: Long = 80_000,
+    /** Choosing within a level: what a full arrival is worth over a start [I]. */
+    val arrivalPick: Double = 0.5,
+    /** A fade reaches for an arrival only for this much rise, leaving out at least this much, to within this of the song's level [I]. */
+    val fadeArrivalRiseDb: Double = 10.0,
+    val fadeArrivalMinSkipUs: Long = 8_000_000,
+    val arrivalNearFullDb: Double = 3.0,
     /** Best candidates kept per side [I] range 3–8. */
     val candidatesPerSide: Int = 8,
     /** The latest exits always tried besides the best-ranked [I]. */

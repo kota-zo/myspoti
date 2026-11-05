@@ -33,6 +33,7 @@ class SeguePolicyTest {
         contentStart: Double = 0.0,
         contentEnd: Double = duration,
         barDb: Float = -10f,
+        barLevel: ((Int) -> Float)? = null,
         down: Double = 0.0,
         risk: (Int) -> Float = { 0f },
         modelBeats: DoubleArray? = null,
@@ -42,7 +43,7 @@ class SeguePolicyTest {
         val g = Grid(0.0, beat, (duration / beat).toInt(), steadiness, 0.0, 1.0)
         return TrackAnalysis(duration, contentStart, contentEnd, loudness, musicKey, 1.0, bpm, grid,
             if (grid) g else null, if (grid) tail ?: g else null, if (grid && bars) DoubleArray(g.count) { g.beat(it) } else DoubleArray(0), DoubleArray(n) { it * 4 * beat },
-            FloatArray(n) { barDb }, FloatArray(n) { -16f }, FloatArray(n) { -20f }, FloatArray(n), FloatArray(n), 0, stereo,
+            FloatArray(n) { barLevel?.invoke(it) ?: barDb }, FloatArray(n) { -16f }, FloatArray(n) { -20f }, FloatArray(n), FloatArray(n), 0, stereo,
             if (grid) down else Double.NaN, if (grid) tail?.first ?: 0.0 else Double.NaN, barVocalRisk = FloatArray(n, risk),
             audioKey = key, barBassDb = FloatArray(n) { -18f }, headPhase = phase, tailPhase = phase, headMetre = metre, tailMetre = metre,
             modelBeats = modelBeats ?: DoubleArray(0))
@@ -171,6 +172,31 @@ class SeguePolicyTest {
         assertEquals(t.microFadeUs, p.span.lengthUs)
         assertEquals(PulseState.LOOSE, p.pulse.state)
         assertEquals(2, p.lanes.size)
+    }
+
+    /** 24 s of quiet opening, then the song at its full level: bar 12 at 120 BPM. */
+    private val arrivesAt24: (Int) -> Float = { if (it < 12) -30f else -10f }
+
+    @Test fun aLockedMixEndsWhereTheSongArrives() {
+        // Windows that fit the build-up; the song rises by the rise that earns the full note.
+        val d = decide(song("a"), song("b", barLevel = { if (it < 12) -16f else -10f }), tuning = SegueTuning(reliabilityForLong = 2.0))
+        assertEquals(d.why, SegueClass.LOCKED, d.level.cls)
+        val p = d.plan!!
+        val rate = p.incoming.ratePpm.toDouble() / SegueFormat.RATE_NOMINAL
+        assertEquals(24_000_000.0, p.incoming.anchorUs + p.span.lengthUs * rate, 50_000.0)
+    }
+
+    @Test fun aFadeOfSongsThatCannotBeLockedEndsWhereTheSongArrivesToo() {
+        val d = decide(song("a", bpm = 90.0), song("b", bpm = 120.0, barLevel = arrivesAt24), tuning = SegueTuning(maxRateDeviationPpm = 10_000))
+        assertEquals(d.why, SegueClass.FILTERED, d.level.cls)
+        val p = d.plan!!
+        assertEquals(24_000_000L, p.incoming.anchorUs + p.span.lengthUs)
+    }
+
+    @Test fun aSmallRiseDoesNotCostAFadeTheOpening() {
+        val d = decide(song("a", bpm = 90.0), song("b", bpm = 120.0, barLevel = { if (it < 12) -14f else -10f }), tuning = SegueTuning(maxRateDeviationPpm = 10_000))
+        assertEquals(d.why, SegueClass.FILTERED, d.level.cls)
+        assertEquals(0L, d.plan!!.incoming.anchorUs)
     }
 
     @Test fun aCutThatSkipsTooMuchLeavesItToAShortFadeAtTheEnd() {

@@ -84,6 +84,25 @@ internal object Stretches {
     }
 
     /**
+     * A build-up has too few clear beats of its own to be measured, and the song arrives right after it:
+     * the [bars] bars from [bar] take the beat of the bars they lead into, carried back, when it lands
+     * on their start. Null when what follows does not hold or does not line up.
+     */
+    fun carried(s: TrackAnalysis, bar: Int, bars: Int, metre: Double, t: SegueTuning): Stretch? {
+        if (bar < 0) return null
+        val beatCount = 4 * bars
+        for (gap in 0..t.carrySearchBars) {
+            val next = measure(s, bar + bars + gap, t.carryFromBars, metre, t) ?: continue
+            val period = next.grid.period
+            val first = next.grid.first - (beatCount + 4 * gap) * period
+            if (abs(first - s.barStarts[bar]) * 1e6 > t.carryMaxOffUs) return null
+            return Stretch(bar, bars, Grid(first, period, beatCount, 1.0, next.grid.driftMs, 1.0),
+                DoubleArray(beatCount) { first + it * period }, min(next.reliability, t.reliabilityForMiddle))
+        }
+        return null
+    }
+
+    /**
      * How far apart the two stretches' beats fall once the incoming one plays at [rate] from its start
      * on the outgoing one's start: the sparser beats against the nearest of the denser. Median and
      * 95th percentile, microseconds; null with too few to tell.
