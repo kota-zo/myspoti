@@ -120,8 +120,7 @@ On the phone, `SegueProcessor` runs it at the head of each player's audio chain.
 acts ahead of the player's buffer, so it would be heard late if it followed the clock; here every
 sample's gain is fixed by the sample's place in the song, which `SegueSink` reads from each buffer's
 presentation time. The lock on the beats nudges only the player's speed, downstream of the chain, so
-the lanes stay on the song's musical time. Unarmed, the stage copies its input exactly. It exists only
-in the Mix Lab build; other builds keep their chain as it was.
+the lanes stay on the song's musical time. Unarmed, the stage copies its input exactly.
 
 - The incoming deck is armed when prepared: before its window its level lane is null, so its run-up is silent.
 - The outgoing side is armed `SEGUE_ARM_LEAD_MS` before its audio chain reaches the cue, once both
