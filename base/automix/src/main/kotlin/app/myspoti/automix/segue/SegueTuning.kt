@@ -11,7 +11,7 @@ package app.myspoti.automix.segue
 data class SegueTuning(
     // ── Guards: one crossing rejects a candidate, whatever its score ──
     /** Largest speed change in the locked class, ppm. [I] past the 4–8 % of [U]: the stretch keeps the pitch and most pairs were lost to this guard. To be heard. */
-    val maxRateDeviationPpm: Long = 100_000,
+    val maxRateDeviationPpm: Long = 95_000,
     /** Expected phase error: median [U], against double attacks. */
     val phaseMedianMaxUs: Long = 20_000,
     /** Expected phase error: 95th percentile [U]. */

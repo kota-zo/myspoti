@@ -97,8 +97,8 @@ class SegueBenchTest {
         val all = SegueCorpus.variations(base)
         assertTrue(all.size > 80)
         val v = all.first { it.first == "maxRateDeviationPpm\t1.2" }.second
-        assertEquals(120_000L, v.maxRateDeviationPpm)
-        assertEquals(base.copy(maxRateDeviationPpm = 120_000), v)
+        assertEquals(114_000L, v.maxRateDeviationPpm)
+        assertEquals(base.copy(maxRateDeviationPpm = 114_000), v)
         assertNotNull(all.first { it.first == "energySigmaDb\t0.8" })
         for ((_, t) in all) assertNotEquals(base, t)
     }
