@@ -350,6 +350,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 Logbook.log("page start ${Logbook.noQuery(url).take(120)}")
                 mainFrameFailed = false
+                // A "finished" comes just before the player's document starts: its wait must not run out on a
+                // page still loading (a page thrown away at 10 s, and a cold start of 30 s, on the test phone).
+                main.removeCallbacks(drmWatch)
                 // A load that never ends (measured: a reload's document request answered nothing
                 // for 9 minutes, the page stayed "loading", empty, without the bridge).
                 main.removeCallbacks(loadTimeout)
