@@ -36,6 +36,8 @@ object SegueBench {
         } ?: SegueTuning()
         when (rest.firstOrNull()) {
             "split" -> printSplit(dir)
+            "tempos" -> tempos(dir, fold)
+            "tails" -> tails(dir, fold, limit ?: 12)
             "matrix" -> matrix(dir, fold, rest.contains("fresh"))
             "measure" -> measure(dir, fold, limit ?: 100, args.firstOrNull { it.startsWith("only=") }?.removePrefix("only="))
             "stability" -> stability(dir, fold, limit ?: 60)
@@ -76,6 +78,49 @@ object SegueBench {
     private fun request(a: TrackAnalysis, b: TrackAnalysis, t: SegueTuning = tuning) = SegueRequest(a, b, tuning = t)
 
     // ── Every pair: which level, why ──
+
+    /** For each shape that rings: how loud the outgoing song's tail is against the incoming one, and whether the mix clips. */
+    private fun tails(dir: File, fold: String?, limit: Int) {
+        val names = names(dir, fold)
+        val songs = analyses(dir, names)
+        val tmp = File(dir, ".segue-tmp").apply { mkdirs() }
+        val cache = HashMap<String, FloatArray>()
+        val shapes = setOf(SegueShape.ECHO_OUT, SegueShape.WASH_OUT, SegueShape.ECHO_TAIL, SegueShape.RISE_OUT)
+        val seen = HashMap<SegueShape, Int>()
+        println("pair\tshape\tseconds\ttail_db\tb_db\ttail_minus_b\tpeak\tclipped_ms")
+        for ((x, y) in pairs(names, null).shuffled(java.util.Random(7))) {
+            val d = SeguePolicy.decide(request(songs.getValue(x), songs.getValue(y)))
+            val shape = d.shape ?: continue
+            val p = d.plan ?: continue
+            if (shape !in shapes || seen.getOrDefault(shape, 0) >= limit) continue
+            seen.merge(shape, 1, Int::plus)
+            cache.clear()
+            val st = stems(dir, x, y, p, 2.0, 4.0, cache, tmp)
+            val end = st.preFrames + (p.span.lengthUs / 1e6 * RATE).toInt()
+            fun rms(v: FloatArray, from: Int, to: Int): Double {
+                var e = 0.0; var n = 0
+                for (i in 2 * from until min(2 * to, v.size)) { e += v[i] * v[i]; n++ }
+                return 10 * log10(max(1e-12, e / max(1, n)))
+            }
+            // From where the send is at its height, or the end of the window when there is none.
+            val height = p.lanes.firstOrNull { it.side == LaneSide.OUTGOING && (it.target == Target.SEND_ECHO || it.target == Target.SEND_ROOM) }?.knots?.maxByOrNull { it.valueMilli ?: 0 }?.t
+            val from = if (height == null) end else st.preFrames + (height.toDouble() / SegueFormat.T_MAX * p.span.lengthUs / 1e6 * RATE).toInt() + RATE / 3
+            val to = from + RATE
+            val ma = mix(st)
+            val peak = ma.maxOf { abs(it) }
+            val clipped = ma.count { abs(it) > 1f } / 2 * 1000 / RATE
+            println(String.format(L, "%s,%s\t%s\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%d", x, y, shape, p.span.lengthUs / 1e6, rms(st.a, from, to), rms(st.b, from, to), rms(st.a, from, to) - rms(st.b, from, to), peak, clipped))
+        }
+        tmp.deleteRecursively()
+    }
+
+    /** Each song's tempo as the grid has it, at both ends. */
+    private fun tempos(dir: File, fold: String?) {
+        val names = names(dir, fold)
+        for ((name, s) in analyses(dir, names, false)) println(String.format(L, "%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d", name,
+            s.tail?.bpm ?: 0.0, s.tail?.steadiness ?: 0.0, s.head?.bpm ?: 0.0, s.head?.steadiness ?: 0.0, s.modelBeats.size) +
+            String.format(L, "\t%.1f\t%.1f\t%.1f\t%.1f", s.duration, s.contentStart, s.contentEnd, s.barStarts.lastOrNull() ?: 0.0))
+    }
 
     private fun matrix(dir: File, fold: String?, fresh: Boolean) {
         val names = names(dir, fold)

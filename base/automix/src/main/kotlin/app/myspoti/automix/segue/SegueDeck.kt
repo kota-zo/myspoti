@@ -24,6 +24,7 @@ class SegueDeck(
     private val level = curve(Target.LEVEL)
     private val bottom = curve(Target.SHELF_BOTTOM); private val core = curve(Target.BAND_CORE); private val top = curve(Target.SHELF_TOP)
     private val sweep = curve(Target.SWEEP_HZ); private val peak = curve(Target.SWEEP_PEAK)
+    private val rise = curve(Target.RISE_HZ)
     private val room = curve(Target.SEND_ROOM); private val echo = curve(Target.SEND_ECHO)
     private val usesSends = room != null || echo != null
 
@@ -33,12 +34,15 @@ class SegueDeck(
     private val bellCore = Array(channels) { Shape() }
     private val shelfTop = Array(channels) { Shape() }
     private val svf = Array(channels) { Svf() }
-    private val echoes = if (echo != null) Array(channels) { Delay(frames(tuning.echoDelayUs)) } else null
+    private val riseSvf = Array(channels) { Svf() }
+    private val sendCut = Array(channels) { LowCut(tuning.sendLowCutHz, sampleRate) }
+    private val echoes = if (echo != null) Array(channels) { Delay(frames(plan.echoUs ?: tuning.echoDelayUs)) } else null
     private val rooms = if (room != null) Array(channels) { Room(tuning, sampleRate) } else null
 
     private var lastGain = Double.NaN
     private val coreHz = sqrt(tuning.shelfLowHz * tuning.shelfHighHz)
     private var filterMix = 0.0
+    private var riseMix = 0.0
     private var holdMix = 0.0
     private val holdStep = 1.0 / max(1.0, tuning.holdRampUs * sampleRate / 1e6)
 
@@ -85,12 +89,16 @@ class SegueDeck(
         val wantFilter = if (hz < SegueFormat.SWEEP_OPEN_HZ * 0.999) 1.0 else 0.0
         val q = sqrt(0.5) * (peak?.value(u1) ?: 1.0)
         if (sweep != null) for (f in svf) f.tune(hz, q, sampleRate)
+        val riseHz = rise?.value(u1) ?: SegueFormat.RISE_OPEN_HZ
+        val wantRise = if (riseHz > SegueFormat.RISE_OPEN_HZ * 1.001) 1.0 else 0.0
+        if (rise != null) for (f in riseSvf) f.tune(riseHz, sqrt(0.5), sampleRate)
         val roomSend0 = room?.value(u0) ?: 0.0; val roomSend1 = room?.value(u1) ?: 0.0
         val echoSend0 = echo?.value(u0) ?: 0.0; val echoSend1 = echo?.value(u1) ?: 0.0
         for (i in 0 until n) {
             val p = (i + 1.0) / n
             val gain = g0 + (g1 - g0) * p
             val mix = filterMix + (wantFilter - filterMix) * p
+            val riseNow = riseMix + (wantRise - riseMix) * p
             holdMix = if (hold) min(1.0, holdMix + holdStep) else max(0.0, holdMix - holdStep)
             for (c in 0 until channels) {
                 val k = (from + i) * channels + c
@@ -101,16 +109,21 @@ class SegueDeck(
                     val filtered = svf[c].run(y)
                     y += (filtered - y) * mix
                 }
+                if (rise != null) {
+                    riseSvf[c].run(y)
+                    y += (riseSvf[c].high - y) * riseNow
+                }
                 var out = y * gain
                 if (usesSends) {
                     // Sends tap the signal before the fader: a tail outlives the song's level.
-                    echoes?.let { out += it[c].run(y * (echoSend0 + (echoSend1 - echoSend0) * p), tuning.echoFeedback) }
-                    rooms?.let { out += it[c].run(y * (roomSend0 + (roomSend1 - roomSend0) * p)) }
+                    val send = sendCut[c].run(y)
+                    echoes?.let { out += it[c].run(send * (echoSend0 + (echoSend1 - echoSend0) * p), tuning.echoFeedback) }
+                    rooms?.let { out += it[c].run(send * (roomSend0 + (roomSend1 - roomSend0) * p)) }
                 }
-                x[k] = (if (holdMix > 0) dry * holdMix + out * (1 - holdMix) else if (gain == 1.0 && eqNeutral && mix == 0.0 && !usesSends) dry else out).toFloat()
+                x[k] = (if (holdMix > 0) dry * holdMix + out * (1 - holdMix) else if (gain == 1.0 && eqNeutral && mix == 0.0 && riseNow == 0.0 && !usesSends) dry else out).toFloat()
             }
         }
-        lastGain = g1; filterMix = wantFilter
+        lastGain = g1; filterMix = wantFilter; riseMix = wantRise
     }
 
     /** Shelves and a bell on one state-variable filter: stable while they move, and the identity at 0 dB. */
@@ -145,8 +158,9 @@ class SegueDeck(
         }
     }
 
-    /** A low-pass that stays stable while its cutoff moves. */
+    /** A low-pass that stays stable while its cutoff moves; the same pass's high-pass is in [high]. */
     private class Svf {
+        var high = 0.0; private set
         private var g = 1.0; private var r = 1.414; private var h = 0.0
         private var s1 = 0.0; private var s2 = 0.0
         fun tune(hz: Double, q: Double, rate: Int) {
@@ -154,10 +168,18 @@ class SegueDeck(
         }
         fun run(x: Double): Double {
             val hp = (x - (r + g) * s1 - s2) * h
+            high = hp
             val bp = g * hp + s1; s1 = g * hp + bp
             val lp = g * bp + s2; s2 = g * bp + lp
             return lp
         }
+    }
+
+    /** One pole: enough to keep a send's bass from building up. */
+    private class LowCut(hz: Double, rate: Int) {
+        private val k = kotlin.math.exp(-2 * PI * hz / rate)
+        private var low = 0.0
+        fun run(x: Double): Double { low = x + (low - x) * k; return x - low }
     }
 
     private class Delay(size: Int) {

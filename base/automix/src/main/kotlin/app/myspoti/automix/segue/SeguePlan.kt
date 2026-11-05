@@ -15,6 +15,8 @@ data class SeguePlan(
     val lanes: List<Lane>,
     val gestures: List<Gesture> = emptyList(),
     val schema: String = SegueFormat.SCHEMA,
+    /** The echo send's delay, set from the song's pulse; null leaves it to the engine. */
+    val echoUs: Long? = null,
 ) {
     data class Origin(val engine: String, val corpus: String)
 
@@ -64,6 +66,7 @@ enum class Target(val wire: String, val unit: SegueUnit, val nullMeaning: String
     SHELF_TOP("shelfTop", SegueUnit.DB, "neutral", 0.0),
     SWEEP_HZ("sweepHz", SegueUnit.HZ, "filter open", SegueFormat.SWEEP_OPEN_HZ),
     SWEEP_PEAK("sweepPeak", SegueUnit.RATIO, "neutral", 1.0),
+    RISE_HZ("riseHz", SegueUnit.HZ, "filter open", SegueFormat.RISE_OPEN_HZ),
     SEND_ROOM("sendRoom", SegueUnit.RATIO, "no send", 0.0),
     SEND_ECHO("sendEcho", SegueUnit.RATIO, "no send", 0.0),
 }

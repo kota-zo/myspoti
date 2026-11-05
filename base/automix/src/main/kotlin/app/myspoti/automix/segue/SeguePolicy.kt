@@ -105,7 +105,8 @@ object SeguePolicy {
 
     private class Point(val us: Long, val bar: Int, val rank: Double, val boundary: Boolean)
 
-    private class Found(val plan: SeguePlan, val score: Double, val swap: Double, val shape: SegueShape? = null, val restoreSec: Double = 0.0)
+    /** [score] decides whether a level is good enough; [pick] decides between candidates of one level. */
+    private class Found(val plan: SeguePlan, val score: Double, val swap: Double, val shape: SegueShape? = null, val restoreSec: Double = 0.0, val pick: Double = score)
 
     private class Run(val r: SegueRequest) {
         val a = r.a; val b = r.b; val t = r.tuning
@@ -167,11 +168,13 @@ object SeguePolicy {
         /** A's points where a window of [lengthUs] fits, instrumental endings first. */
         private fun exits(times: Sequence<Double>, lengthUs: Long, limitUs: Long, phrases: Boolean): List<Point> {
             val zone = max(zoneStartUs, r.earliestExitUs)
-            return times.map { it to us(it) }.filter { (_, u) -> u >= zone && u + lengthUs <= limitUs }.mapNotNull { (time, u) ->
+            val all = times.map { it to us(it) }.filter { (_, u) -> u >= zone && u + lengthUs <= limitUs }.mapNotNull { (time, u) ->
                 val bar = a.barAt(time + 0.05)
                 val on = boundary(a, bar)
                 if (phrases && !on) null else Point(u, bar, instrumentalAfter(bar) + u.toDouble() / max(1L, limitUs) * 1e-3, on)
-            }.sortedByDescending { it.rank }.take(t.candidatesPerSide).toList()
+            }.toList()
+            // The latest ones stay in the running even when a voice lasts to the end: the score weighs that against what leaving early loses.
+            return (all.sortedByDescending { it.rank }.take(t.candidatesPerSide) + all.sortedByDescending { it.us }.take(t.lateCandidates)).distinctBy { it.us }
         }
 
         private fun instrumentalAfter(bar: Int): Double {
@@ -254,8 +257,10 @@ object SeguePolicy {
                         val shape = lockedShape(e.point, n.point, bars, barsB, swap, lengthUs, spanUs)
                         val lanes = compiler.locked(shape, swap, beatShare, matchA(), matchB(), r.eq)
                         val plan = plan(e.stretch.startUs, n.stretch.startUs, ga, gb, ratePpm, lengthUs, bars, PulseState.LOCKED, us60(ga), phaseMedian, lanes)
+                            .copy(echoUs = if (shape == SegueShape.ECHO_TAIL) echoOf(ga.period) else null)
                         val score = score(e.point, n.point, lengthUs, spanUs, phaseMedian, deviation, lanes, pulse, bars, barsB)
-                        if (best == null || score.total > best.score) best = Found(plan, score.total, swap, shape, restore(ratePpm, gb.period))
+                        val pick = score.total - t.lostPickLocked * skipped(e.point, n.point, lengthUs)
+                        if (best == null || pick > best.pick) best = Found(plan, score.total, swap, shape, restore(ratePpm, gb.period), pick)
                     }
                 }
                 // The longest length that works: shorter only when it has to be.
@@ -294,7 +299,7 @@ object SeguePolicy {
                 if (s.startUs < zone || us(s.end) > limit) continue
                 out += Placed(s, Point(s.startUs, bar, instrumentalAfter(bar) + s.startUs.toDouble() / max(1L, limit) * 1e-3, on))
             }
-            return out.sortedByDescending { it.point.rank }.take(t.candidatesPerSide)
+            return (out.sortedByDescending { it.point.rank }.take(t.candidatesPerSide) + out.sortedByDescending { it.point.us }.take(t.lateCandidates)).distinctBy { it.point.us }
         }
 
         /** B's stretches from its useful attack; leaving out a start must be worth its note. */
@@ -334,25 +339,52 @@ object SeguePolicy {
             val overlap = sa.maxVoice != 0f && sb.maxVoice != 0f &&
                 MixPlanner.coVocal(a, e.us / 1e6, (e.us + lengthUs) / 1e6, b, n.us / 1e6, (n.us + spanUs) / 1e6).total > 0
             if (overlap && bars <= t.lockedMiddleBars) return SegueShape.CUT_ON_BEAT
+            val tail = if (rings(e.us, lengthUs)) listOf(SegueShape.ECHO_TAIL) else emptyList()
             return seeded(when {
                 bars <= t.lockedTinyBars -> listOf(SegueShape.CUT_ON_BEAT, SegueShape.BASS_SWAP)
-                bars <= t.lockedShortBars -> listOf(SegueShape.BASS_SWAP, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN)
-                bars <= t.lockedMiddleBars -> listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN)
-                else -> listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.FILTER_OPEN)
+                bars <= t.lockedShortBars -> listOf(SegueShape.BASS_SWAP, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN) + tail
+                bars <= t.lockedMiddleBars -> listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN, SegueShape.RISE_OUT) + tail
+                else -> listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.FILTER_OPEN, SegueShape.RISE_OUT) + tail
             }, e.us, n.us)
         }
 
         private fun filteredShape(e: Point, n: Point, lengthUs: Long): SegueShape {
-            val all = listOf(SegueShape.SWEEP_OUT, SegueShape.EVEN_FADE, SegueShape.QUICK_OUT, SegueShape.LATE_OUT)
+            val ring = rings(e.us, lengthUs)
+            val all = listOf(SegueShape.SWEEP_OUT, SegueShape.EVEN_FADE, SegueShape.QUICK_OUT, SegueShape.LATE_OUT) +
+                (if (ring && r.eq && ga != null) listOf(SegueShape.ECHO_OUT) else emptyList()) +
+                (if (ring && r.eq) listOf(SegueShape.WASH_OUT) else emptyList())
             // A voice still there late in the window leaves early; one coming early in the incoming song gets in clear.
             val endBar = a.barAt((e.us + lengthUs) / 1e6)
             val lateVoice = ((e.bar + endBar + 1) / 2..endBar).any { a.barVocalRisk.getOrElse(it) { 0f } >= t.voiceBarRisk }
             val earlyVoice = (n.bar until b.barAt((n.us + lengthUs / 2) / 1e6) + 1).any { b.barVocalRisk.getOrElse(it) { 0f } >= t.voiceBarRisk }
             return when {
-                lateVoice -> SegueShape.QUICK_OUT
+                lateVoice -> if (ring && r.eq && ga != null) seeded(listOf(SegueShape.QUICK_OUT, SegueShape.ECHO_OUT), e.us, n.us) else SegueShape.QUICK_OUT
                 earlyVoice -> SegueShape.LATE_OUT
                 else -> seeded(all, e.us, n.us)
             }
+        }
+
+        /** Music the listener never hears, the end of one song and the start of the other, 0..1. */
+        private fun skipped(e: Point, n: Point, lengthUs: Long): Double =
+            ((max(0L, us(a.contentEnd) - (e.us + lengthUs)) + max(0L, n.us - us(b.contentStart))).toDouble() / t.lostFullUs).coerceAtMost(1.0)
+
+        /** The outgoing song runs long enough past the window for a send to ring out. */
+        private fun rings(exitUs: Long, lengthUs: Long) = us(a.duration) - (exitUs + lengthUs) >= t.sendTailUs
+
+        /** A delay in time with [period] seconds a beat: three quarters of a beat, or as near as stays usable. */
+        private fun echoOf(period: Double): Long {
+            var d = us(period * 0.75)
+            while (d > t.echoMaxUs) d /= 2
+            while (d < t.echoMinUs) d *= 2
+            return d.coerceAtMost(SegueFormat.ECHO_MAX_US)
+        }
+
+        /** The downbeat nearest the usual hand-over, 0..1 of the window, not too near either end. */
+        private fun throwAt(e: Point, lengthUs: Long, usual: Double): Double {
+            val want = e.us + usual * lengthUs
+            val bar = a.barStarts.minByOrNull { abs(us(it) - want) } ?: return usual
+            val at = (us(bar) - e.us).toDouble() / lengthUs
+            return if (at in 0.3..0.85) at else usual
         }
 
         /** The lengths to try: the longest that stays clear of both voices, then the others from the longest. */
@@ -383,10 +415,14 @@ object SeguePolicy {
                     tally.seen++
                     if (tally.refused(SegueGuards.crossed(SegueClass.FILTERED, measures(e, n, lengthUs, lengthUs), t))) continue
                     val shape = filteredShape(e, n, lengthUs)
-                    val lanes = compiler.filtered(shape, min(1.0, 0.4 * 1e6 / lengthUs), matchA(), matchB(), r.eq)
+                    val at = if (shape == SegueShape.ECHO_OUT) throwAt(e, lengthUs, compiler.swapOf(shape)) else compiler.swapOf(shape)
+                    val beat = ga?.let { min(0.25, it.period * 1e6 / lengthUs) } ?: 0.1
+                    val lanes = compiler.filtered(shape, min(1.0, 0.4 * 1e6 / lengthUs), matchA(), matchB(), r.eq, at, beat)
                     val plan = plan(e.us, n.us, ga, gb, SegueFormat.RATE_NOMINAL, lengthUs, null, PulseState.FREE, null, null, lanes)
+                        .copy(echoUs = if (shape == SegueShape.ECHO_OUT) ga?.let { echoOf(it.period) } else null)
                     val score = score(e, n, lengthUs, lengthUs, null, 0, lanes)
-                    if (best == null || score.total > best.score) best = Found(plan, score.total, compiler.swapOf(shape), shape)
+                    val pick = score.total - t.lostPickFade * skipped(e, n, lengthUs)
+                    if (best == null || pick > best.pick) best = Found(plan, score.total, at, shape, pick = pick)
                 }
                 if (best != null && best.score >= t.thresholdFiltered) break
             }
@@ -475,7 +511,7 @@ object SeguePolicy {
                 SegueNote("key", if (r.harmonic) t.weightKey else 0.0, keyReliability(), 1 - keyDistance / 2),
             )
             val overlap = if (sa.maxVoice == 0f || sb.maxVoice == 0f) 0.0 else MixPlanner.vocalOverlap(a, a0, a1, b, b0, b1)
-            val effects = lanes.count { it.target == Target.SWEEP_HZ || it.target == Target.SEND_ROOM || it.target == Target.SEND_ECHO }
+            val effects = lanes.count { it.target == Target.SWEEP_HZ || it.target == Target.RISE_HZ || it.target == Target.SEND_ROOM || it.target == Target.SEND_ECHO }
             val defects = listOf(
                 SegueDefect("speed", t.penaltySpeed, SegueScore.risingFrom(deviationPpm.toDouble(), t.rateCostFreePpm.toDouble(), t.maxRateDeviationPpm.toDouble())),
                 SegueDefect("voice", t.penaltyVoice, overlap * lengthUs / t.voiceOverlapMaxUs),

@@ -183,6 +183,44 @@ class SegueDeckTest {
         assertFalse(SegueDeck.playable(fine.copy(span = fine.span.copy(lengthUs = 0))))
     }
 
+    @Test fun theRiseCutsLowNotesAndPassesHighOnes() {
+        val closed = plan(lane(LaneSide.OUTGOING, Target.RISE_HZ, SeguePlan.Knot(0, 1_200_000, step), SeguePlan.Knot(m, 1_200_000, step)))
+        val low = run(closed, LaneSide.OUTGOING, tone(60.0, 1.0))
+        val high = run(closed, LaneSide.OUTGOING, tone(6_000.0, 1.0))
+        assertTrue(db(rms(low, 0.5, 1.0) / rms(tone(60.0, 1.0), 0.5, 1.0)) < -30)
+        assertTrue(abs(db(rms(high, 0.5, 1.0) / rms(tone(6_000.0, 1.0), 0.5, 1.0))) < 1)
+    }
+
+    @Test fun anOpenRiseLeavesTheSongAlone() {
+        val open = plan(lane(LaneSide.OUTGOING, Target.RISE_HZ, SeguePlan.Knot(0, null, step), SeguePlan.Knot(m, null, step)))
+        val x = tone(60.0, 0.5)
+        val out = run(open, LaneSide.OUTGOING, x)
+        for (i in x.indices) assertEquals(x[i], out[i], 1e-6f)
+    }
+
+    @Test fun theEchoRepeatsAtThePlansDelay() {
+        // Silence with one click: the fader is shut, so all that comes out is the send.
+        val shut = lane(LaneSide.OUTGOING, Target.LEVEL, SeguePlan.Knot(0, null, step), SeguePlan.Knot(m, null, step))
+        val send = lane(LaneSide.OUTGOING, Target.SEND_ECHO, SeguePlan.Knot(0, 1000, step), SeguePlan.Knot(m, 1000, step))
+        val at = rate / 10
+        val delays = listOf(300_000L, 450_000L)
+        for (us in delays) {
+            val x = FloatArray(2 * rate); x[at] = 1f
+            val out = run(plan(shut, send).copy(echoUs = us), LaneSide.OUTGOING, x)
+            val first = out.indices.first { abs(out[it]) > 0.2f }
+            assertEquals("$us", at + (us * rate / 1_000_000).toInt(), first.toLong().toInt())
+            val second = out.indices.first { it > first + 100 && abs(out[it]) > 0.05f }
+            assertEquals("$us", (us * rate / 1_000_000).toDouble(), (second - first).toDouble(), 2.0)
+        }
+    }
+
+    @Test fun anEchoOutsideItsBoundsIsRefused() {
+        val p = plan(lane(LaneSide.OUTGOING, Target.LEVEL, SeguePlan.Knot(0, 0, step), SeguePlan.Knot(m, 0, step)))
+        assertTrue(SegueViolation.ECHO_INVALID in SegueValidator.structural(p.copy(echoUs = 0)))
+        assertTrue(SegueViolation.ECHO_INVALID in SegueValidator.structural(p.copy(echoUs = SegueFormat.ECHO_MAX_US + 1)))
+        assertEquals(emptyList<SegueViolation>(), SegueValidator.structural(p.copy(echoUs = 400_000)))
+    }
+
     @Test fun onlySendsAskForATail() {
         val fader = lane(LaneSide.OUTGOING, Target.LEVEL, SeguePlan.Knot(0, 0, step), SeguePlan.Knot(m, null, ramp))
         assertEquals(0L, SegueDeck.tailUs(plan(fader)))

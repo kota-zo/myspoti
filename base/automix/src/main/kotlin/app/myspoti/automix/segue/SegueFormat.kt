@@ -27,4 +27,10 @@ object SegueFormat {
 
     /** The cutoff a null sweep knot stands for: the filter is fully open. */
     const val SWEEP_OPEN_HZ = 20_000.0
+
+    /** The cutoff a null rise knot stands for: the high-pass lets everything through. */
+    const val RISE_OPEN_HZ = 20.0
+
+    /** The longest echo a plan may ask for. */
+    const val ECHO_MAX_US = 2_000_000L
 }

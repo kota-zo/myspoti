@@ -291,3 +291,13 @@ marked `[R]`, reused from this repository.
 | `shelfQ`, `coreQ` | 0.707 `[U]`, 0.5 | The slope of a shelf, and a bell wide enough to span the middle band |
 | `echoDelayUs`, `echoFeedback`, `sendTailUs` | 375 ms, 0.35, 3 s | The sends need a sound; the policy does not use them yet |
 | `roomCombUs`, `roomAllPassUs`, `roomCombFeedback`, `roomAllPassGain` | Schroeder delays `[U]`, 0.75, 0.7 `[U]` | Same |
+
+## Sends and the rising filter
+
+Fades and locked mixes can now ring out. `riseHz` is a high-pass on a side, the mirror of `sweepHz`; a null knot leaves it open at 20 Hz. `echoUs` on the plan sets the echo send's delay from the outgoing song's beat, three quarters of a beat brought into 240-620 ms; a plan without it uses the engine's default. Sends leave out everything below 250 Hz so the tail does not sit on the incoming bass.
+
+Four shapes use them. `ECHO_OUT` throws the outgoing song into the echo on the downbeat nearest 72 % of a fade. `WASH_OUT` thins it from below into the room. `RISE_OUT` and `ECHO_TAIL` are the same two ideas on a locked mix. A shape with a tail is offered only when the outgoing song runs on past the window for at least `sendTailUs`: its player has to keep feeding the deck for the tail to sound.
+
+## What is skipped
+
+The level a pair reaches is still judged on `score`, but the candidate within a level is chosen on `pick`: the score less a cost for the music nobody hears, the end of one song and the start of the other. Taking this out of the score keeps a locked mix from losing its level because it skips an intro. Fades pay more for it than locked mixes, which have a reason to skip. The latest exits always stay in the running, including those with a voice that lasts to the end, so the choice between the two is the score's. Fades run 4, 6 or 8 s.

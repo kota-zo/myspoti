@@ -51,6 +51,10 @@ data class SegueTuning(
     val penaltyBass: Double = 0.5,
     val weightKey: Double = 0.2,
     val penaltyLost: Double = 0.35,
+    /** Choosing within a level: this much music skipped, both songs together [I], costs this much [I], locked or faded. */
+    val lostFullUs: Long = 20_000_000,
+    val lostPickLocked: Double = 0.4,
+    val lostPickFade: Double = 1.0,
     val penaltySobriety: Double = 0.2,
 
     // ── Shapes of the score's terms ──
@@ -99,8 +103,8 @@ data class SegueTuning(
     /** Half or double time: two grooves meeting every other beat, kept short [R]. */
     val halfDoubleMaxBars: Int = 8,
     /** Filtered fade lengths [U] range 4–12 s; the middle one is [I]. */
-    val filteredLongUs: Long = 12_000_000,
-    val filteredMiddleUs: Long = 8_000_000,
+    val filteredLongUs: Long = 8_000_000,
+    val filteredMiddleUs: Long = 6_000_000,
     val filteredShortUs: Long = 4_000_000,
     /** Exits lie in this last share of the song. */
     val exitZoneShare: Double = 1.0 / 3.0,
@@ -108,6 +112,8 @@ data class SegueTuning(
     val entryZoneUs: Long = 40_000_000,
     /** Best candidates kept per side [I] range 3–8. */
     val candidatesPerSide: Int = 8,
+    /** The latest exits always tried besides the best-ranked [I]. */
+    val lateCandidates: Int = 4,
     /** Anti-click fade of a cut [U] range 5–30 ms. */
     val microFadeUs: Long = 30_000,
     /** Plain short fade [R]. */
@@ -132,6 +138,16 @@ data class SegueTuning(
     /** Filtered: the outgoing song's filter closes to this cutoff [I] with this accent [I]. */
     val sweepClosedHz: Double = 400.0,
     val sweepPeakRatio: Double = 1.2,
+    /** The outgoing song's high-pass rises to this cutoff [I]. */
+    val riseClosedHz: Double = 1_200.0,
+    /** Send levels at their height [I]: echo, room. */
+    val echoSend: Double = 0.5,
+    val roomSend: Double = 1.5,
+    /** Where in a fade the outgoing song is thrown into the echo [I]: late, so the repeats have the end of the window to themselves. */
+    val echoThrowShare: Double = 0.72,
+    /** An echo's delay stays between these [I]: shorter is a flam, longer loses the pulse. */
+    val echoMinUs: Long = 240_000,
+    val echoMaxUs: Long = 620_000,
     /** Middle band handed over in a three-band shape: outgoing down to, incoming up from [I]. */
     val coreOutDb: Double = -24.0,
     val coreInDb: Double = -12.0,
@@ -140,7 +156,7 @@ data class SegueTuning(
     /** A cut on the beat lasts this share of a beat [I]: quick, without a click. */
     val cutBeatShare: Double = 0.25,
     /** The two faders' largest sum [I]: 1 can never clip two peaks that meet, and dips by 3 dB at equal gains. */
-    val overlapMaxSum: Double = 1.25,
+    val overlapMaxSum: Double = 1.1,
     /** Knots per equal-power curve [I]: enough that the steps between them are not heard. */
     val curveKnots: Int = 16,
     /** Loudness gap left alone, and the largest one corrected, dB [R]. */
@@ -161,13 +177,15 @@ data class SegueTuning(
     /** Slope of the shelves [U], width of the core bell between them [I]. */
     val shelfQ: Double = 0.7071,
     val coreQ: Double = 0.5,
-    /** Echo send: delay [I], feedback [I]. */
+    /** Echo send: delay when the plan sets none [I], feedback [I]. */
     val echoDelayUs: Long = 375_000,
-    val echoFeedback: Double = 0.35,
+    val echoFeedback: Double = 0.5,
+    /** Sends leave out what is below this [I]: bass that rings on muddies the song coming in. */
+    val sendLowCutHz: Double = 250.0,
     /** Room send: comb delays and all-pass delays of a small Schroeder reverb [U], comb feedback [I], all-pass gain [U]. */
     val roomCombUs: List<Long> = listOf(29_700, 37_100, 41_100, 43_700),
     val roomAllPassUs: List<Long> = listOf(5_000, 1_700),
-    val roomCombFeedback: Double = 0.75,
+    val roomCombFeedback: Double = 0.87,
     val roomAllPassGain: Double = 0.7,
     /** How long the outgoing player keeps running for a send's tail [I]. */
     val sendTailUs: Long = 3_000_000,

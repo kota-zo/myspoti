@@ -143,6 +143,7 @@ object SegueCodec {
                 "knots" to l.knots.map { k -> listOf(k.t, k.valueMilli?.let { BigDecimal.valueOf(it, 3) }, k.form.wire) })
         })
         put("gestures", p.gestures.map { mapOf("kind" to it.kind.wire, "atUs" to it.atUs, "units" to it.units) })
+        p.echoUs?.let { put("echoUs", it) }
     }
 
     private fun side(s: SeguePlan.Side) = mapOf("audioKey" to s.audioKey, "gridKey" to s.gridKey, "anchorUs" to s.anchorUs,
@@ -174,6 +175,7 @@ object SegueCodec {
                 SeguePlan.Gesture(enum(m, "kind", GestureKind.values()) { it.wire }, long(m, "atUs"), toInt(long(m, "units")))
             },
             schema,
+            longOrNull(root, "echoUs"),
         )
     }
 

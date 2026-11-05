@@ -20,6 +20,7 @@ enum class SegueViolation {
     FREQUENCY_NOT_POSITIVE,
     EASE_NOT_POSITIVE,
     GESTURE_INVALID,
+    ECHO_INVALID,
     WINDOW_PAST_OUTGOING,
     WINDOW_PAST_INCOMING,
     STALE_OUTGOING_AUDIO,
@@ -53,6 +54,7 @@ object SegueValidator {
         if (p.lanes.map { it.side to it.target }.toSet().size != p.lanes.size) out += SegueViolation.DUPLICATE_LANE
         for (lane in p.lanes) lane(lane, out)
         for (g in p.gestures) if (g.atUs < 0 || g.units <= 0) out += SegueViolation.GESTURE_INVALID
+        p.echoUs?.let { if (it !in 1..SegueFormat.ECHO_MAX_US) out += SegueViolation.ECHO_INVALID }
         return out.toList()
     }
 
