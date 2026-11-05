@@ -390,6 +390,8 @@ private class DrawBackdropNode(
                 onDrawSurface?.invoke(this)
                 onDrawFront?.invoke(this)
             }
+            // Signal readers (e.g. the lifted selection pill) to redraw over the newly recorded bar glass (#172).
+            exportedBackdrop?.moves = (exportedBackdrop?.moves ?: 0) + 1
         }
     }
 
@@ -403,6 +405,8 @@ private class DrawBackdropNode(
                 }
             }
             exportedBackdrop?.layerCoordinates = coordinates
+            // Invalidate readers when the exported surface moves or repositions (#172).
+            exportedBackdrop?.moves = (exportedBackdrop?.moves ?: 0) + 1
         }
     }
 
