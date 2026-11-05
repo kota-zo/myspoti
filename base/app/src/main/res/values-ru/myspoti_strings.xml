@@ -107,6 +107,7 @@
     <string name="download_kept_by_named">Остаётся скачанным: «%1$s» скачан и содержит его</string>
     <string name="support_title">Поддержать Myspoti</string>
     <string name="support_body">Myspoti бесплатен, без рекламы и создан в моё свободное время. Если он вам нравится, небольшое пожертвование поможет проекту жить дальше.</string>
+    <string name="support_scan">Отсканируйте телефоном</string>
     <string name="support_action">Поддержать на Ko-fi</string>
     <string name="support_decline">Нет, спасибо</string>
     <string name="support_row_detail">Небольшое пожертвование на Ko-fi или GitHub Sponsors помогает развивать приложение</string>

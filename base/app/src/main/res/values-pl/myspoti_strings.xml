@@ -107,6 +107,7 @@
     <string name="download_kept_by_named">Nadal pobrane: «%1$s» jest pobrane i zawiera ten utwór</string>
     <string name="support_title">Wesprzyj Myspoti</string>
     <string name="support_body">Myspoti jest darmowe, bez reklam i powstaje w moim wolnym czasie. Jeśli Ci się podoba, niewielka darowizna pomoże je rozwijać.</string>
+    <string name="support_scan">Zeskanuj telefonem</string>
     <string name="support_action">Wesprzyj na Ko-fi</string>
     <string name="support_decline">Nie, dziękuję</string>
     <string name="support_row_detail">Niewielka darowizna na Ko-fi lub GitHub Sponsors pomaga rozwijać aplikację</string>

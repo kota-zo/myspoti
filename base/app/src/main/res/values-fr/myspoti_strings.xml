@@ -110,6 +110,7 @@
     <string name="download_kept_by_named">Reste téléchargé : « %1$s » est téléchargé et le contient</string>
     <string name="support_title">Soutenir Myspoti</string>
     <string name="support_body">Myspoti est gratuit, sans publicité, et développé sur mon temps libre. Si vous l\'appréciez, un petit don aide à le faire avancer.</string>
+    <string name="support_scan">Scanne avec ton téléphone</string>
     <string name="support_action">Soutenir sur Ko-fi</string>
     <string name="support_decline">Non merci</string>
     <string name="support_row_detail">Un petit don sur Ko-fi ou GitHub Sponsors aide l\'app à avancer</string>

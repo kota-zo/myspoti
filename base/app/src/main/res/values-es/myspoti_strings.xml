@@ -97,6 +97,7 @@
     <string name="download_kept_by_named">Sigue descargada: «%1$s» está descargado y la incluye</string>
     <string name="support_title">Apoya Myspoti</string>
     <string name="support_body">Myspoti es gratis, sin anuncios, y lo desarrollo en mi tiempo libre. Si te gusta, una pequeña donación ayuda a que siga adelante.</string>
+    <string name="support_scan">Escanea con tu móvil</string>
     <string name="support_action">Apoyar en Ko-fi</string>
     <string name="support_decline">No, gracias</string>
     <string name="support_row_detail">Una pequeña donación en Ko-fi o GitHub Sponsors ayuda a mantener la app</string>

@@ -110,6 +110,7 @@
     <string name="download_kept_by_named">Still downloaded: “%1$s” is downloaded and holds it</string>
     <string name="support_title">Support Myspoti</string>
     <string name="support_body">Myspoti is free, without ads, and made in my spare time. If you enjoy it, a small donation helps keep it going.</string>
+    <string name="support_scan">Scan with your phone</string>
     <string name="support_action">Support on Ko-fi</string>
     <string name="support_decline">No thanks</string>
     <string name="support_row_detail">A small donation on Ko-fi or GitHub Sponsors helps keep the app going</string>
