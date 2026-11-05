@@ -46,7 +46,7 @@ mobile data" is on, never under the data saver), to mid and side at 22.05 kHz.
   structural boundaries and an 8-bar phrase fallback; key (Krumhansl–Kessler on the chroma),
   loudness, where the sound starts and ends. Voice-like activity uses existing spectral features,
   including absolute centre and mono uncertainty: it is a heuristic, not a vocal separation model.
-- The result is cached (`cache/automix4/`, format 4_08), about 10 KB a song. Source metadata/path
+- The result is cached (`cache/automix4/`, format 4_09), about 10 KB a song. Source metadata/path
   and local file size/modification time identify the recording; expiring access tokens do not.
 - Speed: on the S24, 5 to 11 s a song (decoding 3–6 s, analysis 3–5 s). The decoder never waits on
   the codec while it has work; the onset features (in slices) and Beat This (its 15-s chunks side by

@@ -99,6 +99,12 @@ class SegueProcessorTest {
         assertEquals(AudioProcessor.AudioFormat.NOT_SET, SegueProcessor().configure(AudioProcessor.AudioFormat(rate, 2, C.ENCODING_AC3)))
     }
 
+    @Test fun theLeadIsCountedFromTheChainNotThePlayer() {
+        // The player at 103.7 s, its chain 3 s ahead at 106.8 s: a cue at 105.2 s has already gone by.
+        assertTrue(MixPreparation.chainLeadMs(105_220_000, 106_811_000) < MixPreparation.SEGUE_ARM_MIN_MS)
+        assertEquals(1_500, MixPreparation.chainLeadMs(105_000_000, 103_500_000))
+    }
+
     @Test fun theChainAndThePlayerMustAgreeOnThePlace() {
         assertTrue(MixPreparation.placed(61_000_000, 60_000))
         assertTrue(MixPreparation.placed(60_000_000, 60_000))

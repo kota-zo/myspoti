@@ -124,9 +124,11 @@ the lanes stay on the song's musical time. Unarmed, the stage copies its input e
 in the Mix Lab build; other builds keep their chain as it was.
 
 - The incoming deck is armed when prepared: before its window its level lane is null, so its run-up is silent.
-- The outgoing side is armed `SEGUE_ARM_LEAD_MS` before the cue, once both songs are placed and
-  buffered, ahead of what the player has already buffered. Past `SEGUE_ARM_MIN_MS` without that, the
-  deck is dropped while the song is still whole, and the plan is computed again.
+- The outgoing side is armed `SEGUE_ARM_LEAD_MS` before its audio chain reaches the cue, once both
+  songs are placed and buffered. The chain runs ahead of the player by its whole buffer, from 0.5 to 3 s
+  on the emulator, and what it has passed can no longer change, so this is counted from the chain's position.
+  Under `SEGUE_ARM_MIN_MS` without that, the deck is dropped while the song is still whole, and the
+  plan is computed again.
 - If the incoming song stalls during the window, the outgoing one returns to its plain sound
   (`holdRampUs`), then both re-enter through the existing gentle fade.
 - After the window the incoming tempo returns to its own as with other plans (`restoreRatePerBeat`,
@@ -207,8 +209,9 @@ covers the objective part, in the protocol's order:
   silent holes), then compares the phase measured on the render with the plan's `residualUs`.
 - `matrix` reports each pair's level and the causes of the levels left behind, and that a second run
   gives the same fingerprint.
-- `stability` varies each parameter by ±20 % `[I]` and lists those that change nothing: candidates
-  for removal.
+- `stability` varies each parameter by ±20 % `[I]` and lists those that change no plan. Among the
+  policy's parameters these are candidates for removal; the sound's own (filters, sends) never change a
+  plan and are judged by ear.
 
 Still to do, as they need people or annotations: fixing thresholds by controlled degradations in blind
 listening; learning the weights from pairwise comparisons with a simple non-negative model,

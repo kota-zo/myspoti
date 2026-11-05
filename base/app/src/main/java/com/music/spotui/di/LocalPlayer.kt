@@ -724,21 +724,25 @@ object LocalPlayer {
         if (!com.music.spotui.automix.AutoMix.segueActive) return com.music.spotui.automix.AutoMix.planAfter(ra, rb, earliest)
         val album = a.album.trim()
         val sameAlbum = com.music.spotui.automix.AutoMix.albumOrder && album.isNotEmpty() && !album.equals("<unknown>", true) && album.equals(b.album.trim(), true)
-        val d = com.music.spotui.automix.AutoMix.decide(ra, rb, earliest, sameAlbum, rate())
+        // Its lanes must be armed before the audio chain, ahead of the player, reaches the cue.
+        val chainAheadMs = exo?.let { p -> segueStages[p]?.takeIf { it.marked }?.let { (it.positionUs / 1000 - p.currentPosition).coerceAtLeast(0) } } ?: 0L
+        val d = com.music.spotui.automix.AutoMix.decide(ra, rb, earliest + (chainAheadMs + MixPreparation.SEGUE_ARM_LEAD_MS) / 1000.0, sameAlbum, rate())
         com.music.spotui.automix.AutoMix.journal("segue ${d.level} ${d.fingerprint?.take(12) ?: ""}${if (d.attempts.isEmpty()) "" else ": ${d.why}"}")
         return app.myspoti.automix.segue.SeguePolicy.timing(d)
     }
 
     /**
      * A data plan's last check ahead of its cue: both songs placed and buffered. The outgoing lanes are
-     * armed early enough for what is still ahead of the player's buffer. Refused, the deck goes while
-     * the song is still whole, and a late failure falls back on the plain fade as any other deck.
+     * armed before the audio chain reaches the cue. Refused, the deck goes while the song is still
+     * whole, and a late failure falls back on the plain fade as any other deck.
      */
     private fun segueGo(run: MixRun, p: ExoPlayer, pos: Long, exitMs: Long) {
         val plan = run.plan.segue ?: return
-        if (run.go || exitMs - pos > MixPreparation.SEGUE_ARM_LEAD_MS) return
+        if (run.go) return
         val d = run.deck
         val stageA = segueStages[p]; val stageB = segueStages[d]
+        val lead = if (stageA?.marked == true) MixPreparation.chainLeadMs(plan.outgoing.anchorUs, stageA.positionUs) else exitMs - pos
+        if (lead > MixPreparation.SEGUE_ARM_LEAD_MS) return
         val remaining = (d.duration.takeIf { it > 0 } ?: Long.MAX_VALUE) - d.currentPosition
         val ready = stageA != null && stageB != null && stageA.marked && stageB.marked &&
             MixPreparation.segueReady(d.playbackState == Player.STATE_READY, d.totalBufferedDuration, remaining,
@@ -748,9 +752,9 @@ object LocalPlayer {
             stageA!!.arm(plan, app.myspoti.automix.segue.LaneSide.OUTGOING)
             d.volume = 1f
             run.go = true
-            com.music.spotui.automix.AutoMix.journal("segue armed ${exitMs - pos} ms ahead, chain at ${stageA.positionUs / 1000} ms, player at $pos ms")
-        } else if (exitMs - pos < MixPreparation.SEGUE_ARM_MIN_MS) {
-            cancelMix("segue not ready ${exitMs - pos} ms ahead (chain ${stageA?.marked}/${stageB?.marked}, buffered ${d.totalBufferedDuration} ms); replanning")
+            com.music.spotui.automix.AutoMix.journal("segue armed: the chain is $lead ms before the cue and ${stageA.positionUs / 1000 - pos} ms ahead of the player, the cue ${exitMs - pos} ms away")
+        } else if (lead < MixPreparation.SEGUE_ARM_MIN_MS) {
+            cancelMix("segue not ready $lead ms before the cue (chain ${stageA?.marked}/${stageB?.marked}, buffered ${d.totalBufferedDuration} ms); replanning")
         }
     }
 
