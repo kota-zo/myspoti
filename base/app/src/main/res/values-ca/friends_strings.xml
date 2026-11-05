@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Activitat dels amics</string>
+    <string name="friends_now">Ara</string>
+    <string name="friends_empty">Encara no hi ha activitat dels amics. Aquí apareixen els amics que segueixes i que comparteixen la seva activitat d\'escolta a Spotify.</string>
+    <string name="friends_failed">Spotify no ha enviat l\'activitat dels amics.</string>
+    <string name="friends_refresh">Actualitza</string>
+</resources>

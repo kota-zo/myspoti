@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Aktivita přátel</string>
+    <string name="friends_now">Teď</string>
+    <string name="friends_empty">Zatím žádná aktivita přátel. Zobrazí se tu přátelé, které sledujete a kteří na Spotify sdílejí, co poslouchají.</string>
+    <string name="friends_failed">Spotify neposlal aktivitu přátel.</string>
+    <string name="friends_refresh">Obnovit</string>
+</resources>

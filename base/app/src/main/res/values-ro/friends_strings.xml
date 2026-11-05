@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Activitatea prietenilor</string>
+    <string name="friends_now">Acum</string>
+    <string name="friends_empty">Încă nu există activitate a prietenilor. Aici apar prietenii pe care îi urmărești și care își partajează activitatea de ascultare pe Spotify.</string>
+    <string name="friends_failed">Spotify nu a trimis activitatea prietenilor.</string>
+    <string name="friends_refresh">Reîmprospătează</string>
+</resources>

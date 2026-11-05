@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Vriendenactiviteit</string>
+    <string name="friends_now">Nu</string>
+    <string name="friends_empty">Nog geen vriendenactiviteit. Vrienden die je volgt en die hun luisteractiviteit op Spotify delen, verschijnen hier.</string>
+    <string name="friends_failed">Spotify heeft de vriendenactiviteit niet verstuurd.</string>
+    <string name="friends_refresh">Vernieuwen</string>
+</resources>

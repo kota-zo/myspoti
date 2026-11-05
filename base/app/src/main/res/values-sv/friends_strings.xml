@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Vänaktivitet</string>
+    <string name="friends_now">Nu</string>
+    <string name="friends_empty">Ingen vänaktivitet än. Vänner du följer som delar sin lyssningsaktivitet på Spotify visas här.</string>
+    <string name="friends_failed">Spotify skickade inte vänaktiviteten.</string>
+    <string name="friends_refresh">Uppdatera</string>
+</resources>

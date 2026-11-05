@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Hoạt động của bạn bè</string>
+    <string name="friends_now">Bây giờ</string>
+    <string name="friends_empty">Chưa có hoạt động nào của bạn bè. Những người bạn bạn theo dõi và chia sẻ hoạt động nghe nhạc trên Spotify sẽ xuất hiện ở đây.</string>
+    <string name="friends_failed">Spotify không gửi hoạt động của bạn bè.</string>
+    <string name="friends_refresh">Làm mới</string>
+</resources>

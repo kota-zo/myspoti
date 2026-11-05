@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">സുഹൃത്തുക്കളുടെ പ്രവർത്തനം</string>
+    <string name="friends_now">ഇപ്പോൾ</string>
+    <string name="friends_empty">ഇതുവരെ സുഹൃത്തുക്കളുടെ പ്രവർത്തനമൊന്നുമില്ല. നിങ്ങൾ ഫോളോ ചെയ്യുന്നവരും Spotify-യിൽ കേൾക്കൽ പ്രവർത്തനം പങ്കിടുന്നവരുമായ സുഹൃത്തുക്കൾ ഇവിടെ കാണിക്കും.</string>
+    <string name="friends_failed">Spotify സുഹൃത്തുക്കളുടെ പ്രവർത്തനം അയച്ചില്ല.</string>
+    <string name="friends_refresh">പുതുക്കുക</string>
+</resources>

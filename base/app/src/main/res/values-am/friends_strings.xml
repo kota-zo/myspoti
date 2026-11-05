@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">የጓደኞች እንቅስቃሴ</string>
+    <string name="friends_now">አሁን</string>
+    <string name="friends_empty">እስካሁን የጓደኞች እንቅስቃሴ የለም። የሚከተሏቸው እና በSpotify ላይ የማዳመጥ እንቅስቃሴያቸውን የሚያጋሩ ጓደኞች እዚህ ይታያሉ።</string>
+    <string name="friends_failed">Spotify የጓደኞችን እንቅስቃሴ አልላከም።</string>
+    <string name="friends_refresh">አድስ</string>
+</resources>

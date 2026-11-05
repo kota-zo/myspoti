@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Draugu aktivitāte</string>
+    <string name="friends_now">Tagad</string>
+    <string name="friends_empty">Draugu aktivitātes vēl nav. Šeit redzami draugi, kuriem sekojat un kuri Spotify kopīgo savu klausīšanās aktivitāti.</string>
+    <string name="friends_failed">Spotify nenosūtīja draugu aktivitāti.</string>
+    <string name="friends_refresh">Atsvaidzināt</string>
+</resources>

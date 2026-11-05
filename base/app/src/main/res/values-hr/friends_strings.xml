@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Aktivnost prijatelja</string>
+    <string name="friends_now">Sada</string>
+    <string name="friends_empty">Još nema aktivnosti prijatelja. Ovdje se prikazuju prijatelji koje pratite i koji dijele što slušaju na Spotifyju.</string>
+    <string name="friends_failed">Spotify nije poslao aktivnost prijatelja.</string>
+    <string name="friends_refresh">Osvježi</string>
+</resources>
