@@ -94,6 +94,7 @@
     <string name="download_kept_by_named">Continua transferida: «%1$s» está transferido e inclui-a</string>
     <string name="support_title">Apoiar o Myspoti</string>
     <string name="support_body">O Myspoti é gratuito, sem anúncios, e é feito no meu tempo livre. Se gostas, um pequeno donativo ajuda a mantê-lo a funcionar.</string>
+    <string name="support_scan">Digitaliza com o telemóvel</string>
     <string name="support_action">Apoiar no Ko-fi</string>
     <string name="support_decline">Não, obrigado</string>
     <string name="support_row_detail">Um pequeno donativo no Ko-fi ou no GitHub Sponsors ajuda a manter a app</string>

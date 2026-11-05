@@ -104,6 +104,7 @@
     <string name="download_kept_by_named">仍保留下载：已下载的“%1$s”包含它</string>
     <string name="support_title">支持 Myspoti</string>
     <string name="support_body">Myspoti 免费、无广告，由我在业余时间制作。如果你喜欢它，一点小小的捐助能帮助它继续下去。</string>
+    <string name="support_scan">用手机扫描</string>
     <string name="support_action">在 Ko-fi 上支持</string>
     <string name="support_decline">不用了</string>
     <string name="support_row_detail">在 Ko-fi 或 GitHub Sponsors 上的小额捐助有助于应用持续更新</string>

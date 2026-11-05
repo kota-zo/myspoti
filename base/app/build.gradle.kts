@@ -138,6 +138,8 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
     // Jam: scan the invite QR code (Google code scanner, no camera permission).
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    // Myspoti TV: the support links as QR codes (Apache-2.0), the encoder alone.
+    implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
     // The real org.json in unit tests (android.jar only has stubs).
     testImplementation("org.json:json:20240303")

@@ -101,6 +101,7 @@
     <string name="download_kept_by_list">Continua baixada: uma playlist baixada a mantém</string>
     <string name="support_title">Apoie o Myspoti</string>
     <string name="support_body">O Myspoti é gratuito, sem anúncios, e feito no meu tempo livre. Se você gosta dele, uma pequena doação ajuda a mantê-lo vivo.</string>
+    <string name="support_scan">Escaneie com o celular</string>
     <string name="support_action">Apoiar no Ko-fi</string>
     <string name="support_decline">Não, obrigado</string>
     <string name="support_row_detail">Uma pequena doação no Ko-fi ou no GitHub Sponsors ajuda a manter o app</string>
