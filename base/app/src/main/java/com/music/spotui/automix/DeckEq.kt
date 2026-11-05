@@ -46,7 +46,7 @@ class DeckEq private constructor(private val dp: DynamicsProcessing) {
                 dp.enabled = true
                 DeckEq(dp)
             } catch (e: Throwable) {
-                AutoMix.journal("EQ unavailable on session $sessionId: ${e.javaClass.simpleName}")
+                AutoMix.journal("EQ unavailable on session $sessionId: ${e.javaClass.simpleName}: ${e.message}")
                 null
             }
         }

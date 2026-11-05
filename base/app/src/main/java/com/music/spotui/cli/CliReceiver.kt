@@ -216,6 +216,10 @@ class CliReceiver : BroadcastReceiver() {
             c.on?.let { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) }
             JsonPrimitive(com.music.spotui.di.LocalPlayer.autoMixState())
         }
+        is CliCommand.AutoMixSegue -> onMain {
+            c.on?.let { com.music.spotui.automix.AutoMix.changeSegue(it) }
+            JsonPrimitive(com.music.spotui.automix.AutoMix.segue)
+        }
         is CliCommand.JamJoin -> jamJson(MyspotiRuntime.api.jam.join(c.token))
         CliCommand.JamStatus -> { MyspotiRuntime.api.jam.refresh(); jamJson(MyspotiRuntime.api.jam.session.value) }
         CliCommand.JamLeave -> { MyspotiRuntime.api.jam.leave(); JsonNull }

@@ -31,7 +31,7 @@ class BeatThis(model: ByteArray, private val defaultThreads: Int = 4) : AutoClos
     }
 
     fun run(mono: FloatArray, from: Int, to: Int, cancelled: () -> Boolean = { false }, threads: Int = defaultThreads): Activations {
-        val mel = MelFrontend.spectrogram(mono, from, to, threads)
+        val mel = MelFrontend.spectrogram(mono, from, to, threads, cancelled)
         val n = mel.size
         val beat = FloatArray(n); val down = FloatArray(n)
         // Chunks of 768 frames that overlap by 12; each keeps all but its 6 edge frames.
@@ -106,6 +106,7 @@ object MelFrontend {
     private val filters = Array(MELS) { DoubleArray(FFT_N / 2 + 1) }
     private val first = IntArray(MELS); private val last = IntArray(MELS)
     private val window = hann(FFT_N)
+    private val fft = Fft(FFT_N)
 
     init {
         val lo = mel(30.0); val hi = mel(11000.0)
@@ -123,20 +124,20 @@ object MelFrontend {
     private fun mel(f: Double) = if (f < 1000) f / (200.0 / 3) else 15 + ln(f / 1000) / (ln(6.4) / 27)
     private fun hz(m: Double) = if (m < 15) m * (200.0 / 3) else 1000 * Math.exp((m - 15) * (ln(6.4) / 27))
 
-    fun spectrogram(mono: FloatArray, from: Int, to: Int, threads: Int = 1): Array<FloatArray> {
+    fun spectrogram(mono: FloatArray, from: Int, to: Int, threads: Int = 1, cancelled: () -> Boolean = { false }): Array<FloatArray> {
         val n = to - from
         require(n >= FFT_N) { "audio window too short" }
         val frames = 1 + n / HOP
         val out = Array(frames) { FloatArray(MELS) }
         val parts = max(1, threads)
-        parallel(parts, parts) { part -> slice(mono, from, n, out, frames * part / parts, frames * (part + 1) / parts) }
+        parallel(parts, parts) { part -> slice(mono, from, n, out, frames * part / parts, frames * (part + 1) / parts, cancelled) }
         return out
     }
 
-    private fun slice(mono: FloatArray, from: Int, n: Int, out: Array<FloatArray>, t0: Int, t1: Int) {
-        val fft = Fft(FFT_N)
+    private fun slice(mono: FloatArray, from: Int, n: Int, out: Array<FloatArray>, t0: Int, t1: Int, cancelled: () -> Boolean) {
         val re = DoubleArray(FFT_N); val im = DoubleArray(FFT_N); val mag = DoubleArray(FFT_N / 2 + 1)
         for (t in t0 until t1) {
+            if (t and 63 == 0 && cancelled()) throw InterruptedException("analysis cancelled")
             for (i in 0 until FFT_N) {
                 var at = t * HOP + i - FFT_N / 2
                 while (at < 0 || at >= n) at = if (at < 0) -at else 2 * n - 2 - at

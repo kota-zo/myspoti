@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 package app.myspoti.automix
 
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.log2
@@ -19,6 +21,8 @@ class Features private constructor(
     val bassOnset: FloatArray,
     /** Band levels in dB per onset frame: low (< 180 Hz), mid (180 Hz – 2.5 kHz), high (> 2.5 kHz), all. */
     val lowDb: FloatArray, val midDb: FloatArray, val highDb: FloatArray, val rmsDb: FloatArray,
+    /** Level in dB per onset frame of the band where two bass lines mask each other ([SegueTuning.BASS_LOW_HZ] to [SegueTuning.BASS_HIGH_HZ]). */
+    val bassDb: FloatArray,
     /** Pitch-class profile, 12 values per chroma frame ([CHROMA_HOP] samples apart). */
     val chroma: Array<FloatArray>,
     /** Voice-band (300 Hz – 3.4 kHz) level of the mid signal over the side signal, in dB per chroma frame. */
@@ -40,10 +44,17 @@ class Features private constructor(
         const val LOW_HZ = 180.0
         const val HIGH_HZ = 2500.0
         private const val BANDS = 40
+        private const val POWER_NORM = N * N / 32.0
+        // FFT tables and windows are immutable; every worker owns only its scratch buffers.
+        private val onsetFft = Fft(N)
+        private val chromaFft = Fft(CHROMA_N)
+        private val onsetWindow = hann(N)
+        private val chromaWindow = hann(CHROMA_N)
 
-        /** [threads]: the onset frames are cut into that many slices, computed side by side (and the chroma beside them). */
+        /** [threads] is the total worker budget, including the chroma task and the calling thread. */
         fun of(mid: FloatArray, side: FloatArray?, cancelled: () -> Boolean = { false }, threads: Int = 1): Features {
-            val win = hann(N)
+            if (cancelled()) throw InterruptedException("analysis cancelled")
+            val win = onsetWindow
             val frames = max(1, (mid.size - N) / HOP + 1)
             val binHz = RATE.toDouble() / N
             // Log-spaced bands, 30 Hz to 10 kHz, each at least one bin wide.
@@ -55,17 +66,20 @@ class Features private constructor(
             val bassBands = (0 until BANDS).count { edges[it + 1] * binHz <= 150.0 }.coerceAtLeast(2)
             val lowBin = (LOW_HZ / binHz).toInt()
             val highBin = (HIGH_HZ / binHz).toInt()
+            val bassFrom = ceil(app.myspoti.automix.segue.SegueTuning.BASS_LOW_HZ / binHz).toInt().coerceAtLeast(1)
+            val bassTo = floor(app.myspoti.automix.segue.SegueTuning.BASS_HIGH_HZ / binHz).toInt()
 
             val onset = FloatArray(frames)
             val bassOnset = FloatArray(frames)
-            val lowDb = FloatArray(frames); val midDb = FloatArray(frames); val highDb = FloatArray(frames); val rmsDb = FloatArray(frames)
+            val lowDb = FloatArray(frames); val midDb = FloatArray(frames); val highDb = FloatArray(frames); val rmsDb = FloatArray(frames); val bassDb = FloatArray(frames)
             var chromaResult: Triple<Array<FloatArray>, FloatArray, Boolean>? = null
-            val slices = max(1, threads)
+            val budget = max(1, threads)
+            val slices = max(1, budget - 1)
             // Task 0: the chroma; tasks 1..slices: the onset frames, a slice each (from the frame before it, for the flux).
-            parallel(slices + 1, slices + 1) { task ->
+            parallel(slices + 1, budget) { task ->
               if (task == 0) chromaResult = chromaAndCentre(mid, side, cancelled) else {
               val f0 = frames.toLong() * (task - 1) / slices; val f1 = frames.toLong() * task / slices
-              val fft = Fft(N)
+              val fft = onsetFft
               val frame = DoubleArray(N); val mag = DoubleArray(N / 2 + 1)
               val re = DoubleArray(N); val im = DoubleArray(N)
               var prev = DoubleArray(BANDS); var cur = DoubleArray(BANDS)
@@ -74,14 +88,14 @@ class Features private constructor(
                 val start = f * HOP
                 for (i in 0 until N) frame[i] = (mid.getOrElse(start + i) { 0f }) * win[i]
                 fft.magnitudes(frame, mag, re, im)
-                var low = 0.0; var mi = 0.0; var hi = 0.0
+                var low = 0.0; var mi = 0.0; var hi = 0.0; var ba = 0.0
                 for (k in 1..N / 2) {
                     val p = mag[k] * mag[k]
                     when { k < lowBin -> low += p; k < highBin -> mi += p; else -> hi += p }
+                    if (k in bassFrom..bassTo) ba += p
                 }
                 // Power to dB of a full-scale sine ~ 0 dB (Hann window sum N/2, one-sided spectrum).
-                val norm = (N / 4.0).pow(2) / 2
-                lowDb[f] = db(low / norm); midDb[f] = db(mi / norm); highDb[f] = db(hi / norm); rmsDb[f] = db((low + mi + hi) / norm)
+                lowDb[f] = db(low / POWER_NORM); midDb[f] = db(mi / POWER_NORM); highDb[f] = db(hi / POWER_NORM); rmsDb[f] = db((low + mi + hi) / POWER_NORM); bassDb[f] = db(ba / POWER_NORM)
                 for (b in 0 until BANDS) {
                     var s = 0.0
                     for (k in edges[b] until edges[b + 1]) s += mag[k]
@@ -101,12 +115,12 @@ class Features private constructor(
             }
 
             val (chroma, centre, stereo) = chromaResult!!
-            return Features(onset, bassOnset, lowDb, midDb, highDb, rmsDb, chroma, centre, stereo, mid.size.toDouble() / RATE)
+            return Features(onset, bassOnset, lowDb, midDb, highDb, rmsDb, bassDb, chroma, centre, stereo, mid.size.toDouble() / RATE)
         }
 
         private fun chromaAndCentre(mid: FloatArray, side: FloatArray?, cancelled: () -> Boolean): Triple<Array<FloatArray>, FloatArray, Boolean> {
-            val fft = Fft(CHROMA_N)
-            val win = hann(CHROMA_N)
+            val fft = chromaFft
+            val win = chromaWindow
             val frames = max(1, (mid.size - CHROMA_N) / CHROMA_HOP + 1)
             val binHz = RATE.toDouble() / CHROMA_N
             // Pitch class of each bin from 65 Hz (C2) to 2.1 kHz (C7); weights favour the bins near a semitone centre.
@@ -117,6 +131,8 @@ class Features private constructor(
             val centre = FloatArray(frames)
             val frame = DoubleArray(CHROMA_N); val mag = DoubleArray(CHROMA_N / 2 + 1); val smag = DoubleArray(CHROMA_N / 2 + 1)
             val re = DoubleArray(CHROMA_N); val im = DoubleArray(CHROMA_N)
+            // A decoder can supply a zero side buffer for a mono file: no second FFT is needed.
+            val sideSignal = side?.takeIf { samples -> samples.any { it != 0f } }
             var sideEnergy = 0.0; var midEnergy = 0.0
             for (f in 0 until frames) {
                 if (f and 255 == 0 && cancelled()) throw InterruptedException("analysis cancelled")
@@ -128,8 +144,8 @@ class Features private constructor(
                 var m = 0.0
                 for (k in voiceLo..voiceHi) m += mag[k] * mag[k]
                 midEnergy += m
-                if (side != null) {
-                    for (i in 0 until CHROMA_N) frame[i] = side.getOrElse(start + i) { 0f } * win[i]
+                if (sideSignal != null) {
+                    for (i in 0 until CHROMA_N) frame[i] = sideSignal.getOrElse(start + i) { 0f } * win[i]
                     fft.magnitudes(frame, smag, re, im)
                     var s = 0.0
                     for (k in voiceLo..voiceHi) s += smag[k] * smag[k]
@@ -140,7 +156,7 @@ class Features private constructor(
                 if (norm > 0) for (i in 0 until 12) c[i] /= norm
             }
             // A side signal 30 dB under the mid one is a mono master: no centre measure.
-            val stereo = side != null && sideEnergy > midEnergy * 1e-3
+            val stereo = sideSignal != null && sideEnergy > midEnergy * 1e-3
             return Triple(chroma, centre, stereo)
         }
 

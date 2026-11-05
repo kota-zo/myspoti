@@ -697,10 +697,10 @@
     <string name="settings_automix_length_auto">Equilibrada</string>
     <string name="settings_automix_length_long">Longa</string>
     <string name="settings_automix_tempo">Ajuste do andamento</string>
-    <string name="settings_automix_tempo_detail">Quanto o andamento da próxima música pode mudar para cair no tempo. Além disso, as músicas trocam com um corte no tempo.</string>
+    <string name="settings_automix_tempo_detail">Quanto o andamento da próxima música pode mudar para cair no tempo. Além disso, as músicas trocam com um fade filtrado: a próxima entra sem graves, que assumem no seu primeiro tempo.</string>
     <string name="settings_automix_tempo_strict">Estrito (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Amplo (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Amplo (16 %)</string>
     <string name="settings_automix_eq">EQ de DJ</string>
     <string name="settings_automix_eq_detail">Troca de graves e filtros durante a mixagem. Desligado, só os volumes mudam.</string>
     <string name="settings_automix_pulse">Animação do player</string>
@@ -711,7 +711,7 @@
     <string name="settings_automix_style_cut">Corte no tempo</string>
     <string name="settings_automix_style_fade">Fade suave</string>
     <string name="settings_automix_style_detail">A mixagem no ritmo acerta os andamentos quando pode; senão, corta no tempo ou faz fade. O corte no tempo troca de música num primeiro tempo. O fade suave não mexe no andamento.</string>
-    <string name="settings_automix_length_detail">Curta: 4 a 8 compassos. Equilibrada: 2 a 16, conforme a música. Longa: 12 a 32 compassos, até cerca de um minuto.</string>
+    <string name="settings_automix_length_detail">Curta: 4 a 8 compassos. Equilibrada: de preferência 8 a 16. Longa: de preferência 12 a 32, até 90 segundos. Mais curta quando a música pede.</string>
     <string name="settings_automix_harmonic">Mixagem harmônica</string>
     <string name="settings_automix_harmonic_detail">Músicas em tons que não combinam têm mixagens curtas; em tons compatíveis, longas. Desativada, o tom é ignorado.</string>
     <string name="settings_automix_podcasts">Mixar podcasts</string>

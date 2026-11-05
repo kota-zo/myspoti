@@ -40,6 +40,8 @@ sealed interface CliCommand {
     data class Nav(val route: String) : CliCommand
     /** AutoMix on or off; null: as it is. */
     data class AutoMixSet(val on: Boolean?) : CliCommand
+    /** The data-plan transitions on or off; null: as they are. */
+    data class AutoMixSegue(val on: Boolean?) : CliCommand
     data object AutoMixStatus : CliCommand
     /** Phone songs (a piece of each one's MediaStore folder + title) played as the local queue. */
     data class AutoMixFiles(val names: List<String>) : CliCommand
@@ -57,7 +59,7 @@ object CliParser {
         "status", "ext.list", "ext.install <zip path>", "ext.uninstall <id>", "ext.enable <id>", "ext.disable <id>",
         "ext.setting <id> <key> <value|null>", "ext.press <id> <key>", "ext.call <id> <hook> [json]",
         "ext.log <id> [lines]", "ext.storage <id>", "ext.why [n]", "play <spotify uri> [context uri]", "pause", "resume", "next", "previous",
-        "nav <route>", "automix [on|off]", "automix.status", "automix.files <folder+title piece> <folder+title piece>...", "automix.seek <ms>", "jam.join <token|link>", "jam.status", "jam.leave",
+        "nav <route>", "automix [on|off]", "automix.segue [on|off]", "automix.status", "automix.files <folder+title piece> <folder+title piece>...", "automix.seek <ms>", "jam.join <token|link>", "jam.status", "jam.leave",
     )
 
     private val ID = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
@@ -106,6 +108,7 @@ object CliParser {
                 CliCommand.Play(uri, args.getOrNull(1)?.takeIf { it.isNotBlank() }?.also { if (!URI.matches(it)) throw CliError("play: the context is not a spotify: uri") })
             }
             "automix" -> CliCommand.AutoMixSet(when (args.getOrNull(0)) { null -> null; "on" -> true; "off" -> false; else -> throw CliError("automix: on or off") }).also { most(1) }
+            "automix.segue" -> CliCommand.AutoMixSegue(when (args.getOrNull(0)) { null -> null; "on" -> true; "off" -> false; else -> throw CliError("automix.segue: on or off") }).also { most(1) }
             "automix.status" -> CliCommand.AutoMixStatus.also { most(0) }
             "automix.files" -> CliCommand.AutoMixFiles(args.filter { it.isNotBlank() }.also { if (it.size < 2) throw CliError("automix.files: at least two files") })
             "jam.join" -> CliCommand.JamJoin(arg(0, "token").let { a -> Regex("socialsession[:/]([A-Za-z0-9]+)").find(a)?.groupValues?.get(1) ?: a }).also { most(1) }

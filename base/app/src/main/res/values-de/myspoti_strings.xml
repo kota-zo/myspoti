@@ -719,10 +719,10 @@
     <string name="settings_automix_length_auto">Ausgewogen</string>
     <string name="settings_automix_length_long">Lang</string>
     <string name="settings_automix_tempo">Tempoangleichung</string>
-    <string name="settings_automix_tempo_detail">Wie stark das Tempo des nächsten Songs angepasst werden darf, um im Takt zu landen. Darüber hinaus wechseln die Songs mit einem Schnitt im Takt.</string>
+    <string name="settings_automix_tempo_detail">Wie stark das Tempo des nächsten Songs angepasst werden darf, um im Takt zu landen. Darüber hinaus wechseln die Songs mit einer gefilterten Überblendung: Der nächste kommt ohne Bass, der auf seiner Eins übernimmt.</string>
     <string name="settings_automix_tempo_strict">Streng (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Weit (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Weit (16 %)</string>
     <string name="settings_automix_eq">DJ-EQ</string>
     <string name="settings_automix_eq_detail">Bass-Tausch und Filter während des Mixes. Aus, bewegen sich nur die Lautstärken.</string>
     <string name="settings_automix_pulse">Player-Animation</string>
@@ -733,7 +733,7 @@
     <string name="settings_automix_style_cut">Schnitt auf dem Beat</string>
     <string name="settings_automix_style_fade">Sanfte Blende</string>
     <string name="settings_automix_style_detail">Der Beat-Mix gleicht die Tempos an, wo es geht, sonst schneidet er auf dem Beat oder blendet. Der Schnitt auf dem Beat wechselt auf einer Eins. Die sanfte Blende blendet, ohne das Tempo zu ändern.</string>
-    <string name="settings_automix_length_detail">Kurz: 4 bis 8 Takte. Ausgewogen: 2 bis 16, wie die Musik es zulässt. Lang: 12 bis 32 Takte, bis etwa eine Minute.</string>
+    <string name="settings_automix_length_detail">Kurz: 4 bis 8 Takte. Ausgewogen: vorzugsweise 8 bis 16. Lang: vorzugsweise 12 bis 32, bis zu 90 Sekunden. Kürzer, wenn es die Musik erfordert.</string>
     <string name="settings_automix_harmonic">Harmonisches Mixen</string>
     <string name="settings_automix_harmonic_detail">Songs in unpassenden Tonarten bekommen kurze Mixe, passende lange. Aus: Tonarten werden ignoriert.</string>
     <string name="settings_automix_podcasts">Podcasts mixen</string>

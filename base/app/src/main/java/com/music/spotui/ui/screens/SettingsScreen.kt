@@ -707,6 +707,10 @@ private fun TransitionsRow() {
             com.music.spotui.ui.theme.AppAccent, AppText, AppMuted, Modifier.padding(top = 12.dp))
     }
     if (mode == TransitionMode.AUTOMIX) {
+        OptionRow(stringResource(R.string.settings_automix_session), stringResource(R.string.settings_automix_session_detail),
+            checked = automix.sessionDj, onChecked = automix::changeSessionDj)
+        if (app.myspoti.engine.BuildConfig.AUTOMIX_LAB) OptionRow(stringResource(R.string.settings_automix_segue), stringResource(R.string.settings_automix_segue_detail),
+            checked = automix.segue, onChecked = automix::changeSegue)
         OptionRow(stringResource(R.string.settings_automix_album_order), stringResource(R.string.settings_automix_album_order_detail),
             checked = automix.albumOrder, onChecked = automix::changeAlbumOrder)
         OptionRow(stringResource(R.string.settings_automix_podcasts), stringResource(R.string.settings_automix_podcasts_detail),

@@ -726,10 +726,10 @@
     <string name="settings_automix_length_auto">Balanced</string>
     <string name="settings_automix_length_long">Long</string>
     <string name="settings_automix_tempo">Tempo matching</string>
-    <string name="settings_automix_tempo_detail">How far the next song\'s tempo may be bent to land on the beat. Beyond it, the songs change with a cut on the beat.</string>
+    <string name="settings_automix_tempo_detail">How far the next song\'s tempo may be bent to land on the beat. Beyond it, the songs change with a filtered fade: the next one comes in without its bass, which takes over on its downbeat.</string>
     <string name="settings_automix_tempo_strict">Strict (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Wide (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Wide (16 %)</string>
     <string name="settings_automix_eq">DJ EQ</string>
     <string name="settings_automix_eq_detail">Bass swap and filters during the mix. Off, only the volumes move.</string>
     <string name="settings_automix_pulse">Player animation</string>
@@ -740,7 +740,7 @@
     <string name="settings_automix_style_cut">Cut on the beat</string>
     <string name="settings_automix_style_fade">Smooth fade</string>
     <string name="settings_automix_style_detail">Beat blend matches the tempos where it can, else cuts on the beat or fades. Cut on the beat switches songs on a downbeat. Smooth fade fades without touching the tempo.</string>
-    <string name="settings_automix_length_detail">Short: 4 to 8 bars. Balanced: 2 to 16, as the music allows. Long: 12 to 32 bars, up to about a minute.</string>
+    <string name="settings_automix_length_detail">Short: 4 to 8 bars. Balanced: preferably 8 to 16. Long: preferably 12 to 32, up to 90 seconds. Shorter when the music needs it.</string>
     <string name="settings_automix_harmonic">Harmonic mixing</string>
     <string name="settings_automix_harmonic_detail">Songs in clashing keys get short mixes, matching keys long ones. Off, keys are ignored.</string>
     <string name="settings_automix_podcasts">Mix podcasts</string>

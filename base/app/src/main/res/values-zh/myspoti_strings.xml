@@ -719,10 +719,10 @@
     <string name="settings_automix_length_auto">均衡</string>
     <string name="settings_automix_length_long">长</string>
     <string name="settings_automix_tempo">速度对齐</string>
-    <string name="settings_automix_tempo_detail">下一首的速度最多可调整多少以对上节拍。超出时，歌曲会在节拍上直接切换。</string>
+    <string name="settings_automix_tempo_detail">下一首的速度最多可调整多少以对上节拍。超出时，歌曲以滤波淡入淡出切换：下一首先去掉低音进入，低音在它的强拍上接替。</string>
     <string name="settings_automix_tempo_strict">严格 (4%)</string>
-    <string name="settings_automix_tempo_normal">正常 (8%)</string>
-    <string name="settings_automix_tempo_wide">宽松 (12%)</string>
+    <string name="settings_automix_tempo_normal">正常 (12%)</string>
+    <string name="settings_automix_tempo_wide">宽松 (16%)</string>
     <string name="settings_automix_eq">DJ 均衡器</string>
     <string name="settings_automix_eq_detail">混音时交换低音并使用滤波。关闭后只调整音量。</string>
     <string name="settings_automix_pulse">播放器动画</string>
@@ -733,7 +733,7 @@
     <string name="settings_automix_style_cut">踩拍切换</string>
     <string name="settings_automix_style_fade">平滑淡入淡出</string>
     <string name="settings_automix_style_detail">节拍混音在可行时对齐速度，否则踩拍切换或淡入淡出。踩拍切换在强拍上换歌。平滑淡入淡出不改变速度。</string>
-    <string name="settings_automix_length_detail">短：4 到 8 小节。均衡：2 到 16 小节，视音乐而定。长：12 到 32 小节，最长约一分钟。</string>
+    <string name="settings_automix_length_detail">短：4 到 8 小节。均衡：优先 8 到 16 小节。长：优先 12 到 32 小节，最长 90 秒。音乐需要时会缩短。</string>
     <string name="settings_automix_harmonic">和声混音</string>
     <string name="settings_automix_harmonic_detail">调性冲突的歌曲混音较短，调性相合的较长。关闭时忽略调性。</string>
     <string name="settings_automix_podcasts">混音播客</string>

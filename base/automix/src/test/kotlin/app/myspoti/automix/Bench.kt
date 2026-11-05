@@ -12,8 +12,8 @@ import kotlin.math.abs
  * reference. Commands: `analyze <dir>` prints tempo, beat and downbeat agreement with the reference.
  */
 fun main(args: Array<String>) {
-    val cmd = args.getOrNull(0) ?: return println("usage: analyze <dir> | plan <dir> <a> <b> [out.f32]")
-    val dir = File(args[1])
+    val cmd = args.getOrNull(0) ?: return println("usage: analyze <dir> | plan <dir> a,b [render] | matrix <dir> [long] [whole] [fresh] | segue <dir> split|matrix|measure|render|stability ...")
+    val dir = args.getOrNull(1)?.let(::File) ?: return println("missing corpus directory")
     when (cmd) {
         "analyze" -> {
             val names = dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted()
@@ -32,9 +32,19 @@ fun main(args: Array<String>) {
                 if (render) Render.render(File(dir, "$x.f32"), File(dir, "$y.f32"), plan, File(dir, "mix-$x-$y.wav"))
             }
         }
+        "matrix" -> matrix(dir, args.contains("long"), args.contains("fresh"), !args.contains("whole"))
         "model" -> dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted().forEach { modelDebug(dir, it) }
         "profile" -> args.drop(2).forEach { profile(dir, it) }
         "grids" -> args.drop(2).forEach { gridDebug(dir, it) }
+        "vocal" -> dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted().forEach { n ->
+            // Per-bar voice-like risk, as a strip (0–9) and its quartiles, to calibrate the planner's thresholds.
+            val a = analysisOf(dir, n)
+            val r = a.barVocalRisk.sortedArray()
+            fun q(p: Double) = if (r.isEmpty()) 0f else r[((r.size - 1) * p).toInt()]
+            println(String.format(java.util.Locale.ROOT, "%s\t%.0f BPM\tq25 %.2f q50 %.2f q75 %.2f\t%s", n, a.bpm, q(0.25), q(0.5), q(0.75),
+                a.barVocalRisk.joinToString("") { (it * 9.99f).toInt().coerceIn(0, 9).toString() }))
+        }
+        "segue" -> app.myspoti.automix.segue.SegueBench.run(dir, args.drop(2))
         "tempo" -> dir.listFiles { f -> f.name.endsWith(".f32") }!!.map { it.nameWithoutExtension }.sorted().forEach { tempoDebug(dir, it) }
         else -> println("unknown $cmd")
     }
@@ -58,8 +68,48 @@ fun loadPcm(file: File): Pair<FloatArray, FloatArray> {
 val model: BeatThis? by lazy { System.getenv("AUTOMIX_MODEL")?.let { BeatThis(File(it).readBytes(), defaultThreads = System.getenv("AUTOMIX_THREADS")?.toInt() ?: 2) } }
 
 fun analysisOf(dir: File, name: String): TrackAnalysis {
-    val (mid, side) = loadPcm(File(dir, "$name.f32"))
-    return Analyzer.analyze(mid, side, model, threads = System.getenv("AUTOMIX_THREADS")?.toInt() ?: 2)
+    return BenchCache.analysis(dir, name).analysis
+}
+
+/** Replans every ordered pair cheaply from persistent analyses: no audio rendering or rereading on a warm run. */
+private fun matrix(dir: File, long: Boolean, fresh: Boolean, dj: Boolean) {
+    val names = dir.listFiles { f -> f.name.endsWith(".f32") && !f.name.contains(".tmp.") && !f.name.startsWith("mix-") }
+        .orEmpty().map { it.nameWithoutExtension }.sorted()
+    require(names.size >= 2) { "matrix needs at least two .f32 songs" }
+    val analyses = names.associateWith { name ->
+        val result = BenchCache.analysis(dir, name, fresh)
+        println(String.format(java.util.Locale.ROOT, "track\t%s\t%s\t%.1f ms\t%.2f BPM\t%d sections\tmusicEnd %.1f\tlastLoud %.1f", name,
+            if (result.cached) "cached" else "analysed", result.elapsedMs, result.analysis.bpm, result.analysis.sectionStarts.size,
+            MixPlanner.musicEnd(result.analysis), MixPlanner.lastLoudEnd(result.analysis)))
+        result.analysis
+    }
+    // Same balanced/long policy as AutoMix.settings(), with harmonic mixing and Session DJ on.
+    val stretch = System.getenv("AUTOMIX_STRETCH")?.toDouble() ?: 0.12
+    val settings = MixPlanner.Settings(maxStretch = stretch, maxSec = if (long) 90.0 else 48.0, lengthBias = if (long) 1 else 0,
+        minBars = if (long) 12 else 8, maxBars = if (long) 32 else 16, keyWeight = 2.0, djMode = dj, filterSec = if (long) 14.0 else 10.0)
+    val counts = MixPlan.Style.values().associateWith { 0 }.toMutableMap()
+    val costs = ArrayList<Double>(); val lengths = ArrayList<Double>()
+    var longBlends = 0; var filtered = 0
+    val left = ArrayList<Double>()
+    println("pair\tstyle\tseconds\tbars\texitA\tentryB\tspeedB\tplan_ms\tleftA\treason")
+    for (a in names) for (b in names) if (a != b) {
+        val t0 = System.nanoTime()
+        val plan = MixPlanner.plan(analyses.getValue(a), analyses.getValue(b), settings)
+        val ms = (System.nanoTime() - t0) / 1e6
+        costs.add(ms); lengths.add(plan.length)
+        counts[plan.style] = counts.getValue(plan.style) + 1
+        if (plan.style == MixPlan.Style.BLEND && plan.beats >= 48) longBlends++
+        if (plan.filtered) filtered++
+        // A's music left out after the mix (its silent tail not counted).
+        val leftA = (MixPlanner.musicEnd(analyses.getValue(a)) - plan.endA).coerceAtLeast(0.0); left.add(leftA)
+        println(String.format(java.util.Locale.ROOT, "%s,%s\t%s\t%.3f\t%.1f\t%.3f\t%.3f\t%.5f\t%.3f\t%.1f\t%s",
+            a, b, if (plan.filtered) "FILTER" else plan.style, plan.length, plan.beats / 4.0, plan.exitA, plan.entryB, plan.speedB, ms, leftA, plan.note))
+    }
+    costs.sort(); lengths.sort(); left.sort()
+    fun percentile(x: List<Double>, q: Double) = x[((x.size - 1) * q).toInt()]
+    println(String.format(java.util.Locale.ROOT, "summary\tpairs=%d\tBLEND=%d\tFILTER=%d\tCUT=%d\tFADE=%d\tblend_12plus_bars=%d\tmedian_seconds=%.2f\tmedian_leftA=%.1f\tplan_median_ms=%.3f\tplan_p95_ms=%.3f",
+        costs.size, counts.getValue(MixPlan.Style.BLEND), filtered, counts.getValue(MixPlan.Style.CUT), counts.getValue(MixPlan.Style.FADE) - filtered, longBlends,
+        percentile(lengths, 0.5), percentile(left, 0.5), percentile(costs, 0.5), percentile(costs, 0.95)))
 }
 
 private fun analyzeOne(dir: File, name: String) {

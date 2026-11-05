@@ -58,6 +58,11 @@ data class ImmersivePlayerState(
     /** The playhead in milliseconds, read per frame (SongPlayer.getCurrentPosition()). */
     val positionMs: () -> Long = { 0L },
     val durationMs: Long = 0L,
+    /**
+     * The length of the song a seek moves, read at the drop. Not [durationMs]: during a mix that is
+     * the outgoing song's, and it follows the engine a poll late.
+     */
+    val seekLengthMs: (() -> Long)? = null,
     val shuffle: Boolean = false,
     /** Smart shuffle is on for the list that plays. */
     val smart: Boolean = false,
@@ -159,6 +164,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
         buffering = buffering,
         positionMs = remember(outgoing) { outgoing?.let { o -> { o.positionMs() } } ?: { SongPlayer.getCurrentPosition() } },
         durationMs = outgoing?.song?.durationMs ?: duration,
+        seekLengthMs = SongPlayer::getDuration,
         shuffle = shuffle,
         smart = smart,
         repeatMode = repeat,

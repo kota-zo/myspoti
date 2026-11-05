@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_automix_session">Session DJ</string>
+    <string name="settings_automix_session_detail">Autoriser les transitions sur un changement de section avant la fin. Désactivez pour garder davantage de chaque morceau.</string>
+    <string name="settings_automix_segue">Transitions planifiées</string>
+    <string name="settings_automix_segue_detail">Version de test : une nouvelle façon de choisir et de jouer les transitions, avec des limites plus strictes. Une paire peut rester sans mix.</string>
+</resources>

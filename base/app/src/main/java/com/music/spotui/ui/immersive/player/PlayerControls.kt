@@ -136,7 +136,7 @@ internal fun PlayerScrubber(
         ThinSlider(
             value = { frame.value; scrub.shown(state.positionMs(), state.durationMs) },
             onValueChange = scrub::drag,
-            onValueChangeFinished = { scrub.release { onSeek((it * state.durationMs).toLong()) } },
+            onValueChangeFinished = { scrub.release { onSeek((it * (state.seekLengthMs?.invoke() ?: state.durationMs)).toLong()) } },
             loading = state.buffering && !scrub.scrubbing,
             // AutoMix: the mix's stretch in the accent from the moment it is planned, beating while it plays.
             mixZone = { state.mixCue?.zoneOn(state.durationMs, incomingShown = state.blend?.outgoingWords == false) },

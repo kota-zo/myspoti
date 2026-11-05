@@ -724,10 +724,10 @@
     <string name="settings_automix_length_auto">Équilibrée</string>
     <string name="settings_automix_length_long">Longue</string>
     <string name="settings_automix_tempo">Calage du tempo</string>
-    <string name="settings_automix_tempo_detail">Jusqu\'où le tempo du morceau suivant peut être modifié pour tomber sur le temps. Au-delà, les morceaux changent par une coupe sur le temps.</string>
+    <string name="settings_automix_tempo_detail">Jusqu\'où le tempo du morceau suivant peut être modifié pour tomber sur le temps. Au-delà, les morceaux changent par un fondu filtré : le suivant arrive sans ses basses, qui prennent le relais sur son premier temps.</string>
     <string name="settings_automix_tempo_strict">Strict (4 %)</string>
-    <string name="settings_automix_tempo_normal">Normal (8 %)</string>
-    <string name="settings_automix_tempo_wide">Large (12 %)</string>
+    <string name="settings_automix_tempo_normal">Normal (12 %)</string>
+    <string name="settings_automix_tempo_wide">Large (16 %)</string>
     <string name="settings_automix_eq">EQ DJ</string>
     <string name="settings_automix_eq_detail">Échange des basses et filtres pendant le mix. Désactivé, seuls les volumes bougent.</string>
     <string name="settings_automix_pulse">Animation du lecteur</string>
@@ -738,7 +738,7 @@
     <string name="settings_automix_style_cut">Coupe sur le temps</string>
     <string name="settings_automix_style_fade">Fondu doux</string>
     <string name="settings_automix_style_detail">Le mix sur le temps cale les tempos quand il le peut, sinon il coupe sur le temps ou fait un fondu. La coupe sur le temps change de morceau sur un premier temps. Le fondu doux fond sans toucher au tempo.</string>
-    <string name="settings_automix_length_detail">Court : 4 à 8 mesures. Équilibré : 2 à 16, selon la musique. Long : 12 à 32 mesures, jusqu\'à une minute environ.</string>
+    <string name="settings_automix_length_detail">Court : 4 à 8 mesures. Équilibré : de préférence 8 à 16. Long : de préférence 12 à 32, jusqu\'à 90 secondes. Plus court lorsque la musique le demande.</string>
     <string name="settings_automix_harmonic">Mix harmonique</string>
     <string name="settings_automix_harmonic_detail">Les morceaux de tonalités qui se heurtent ont des mix courts, les tonalités proches des mix longs. Désactivé, la tonalité est ignorée.</string>
     <string name="settings_automix_podcasts">Mixer les podcasts</string>

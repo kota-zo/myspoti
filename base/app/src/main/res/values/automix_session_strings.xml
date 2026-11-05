@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_automix_session">DJ session</string>
+    <string name="settings_automix_session_detail">Let transitions begin at a musical section before the end. Turn off to keep more of each song.</string>
+    <string name="settings_automix_segue">Plan-based transitions</string>
+    <string name="settings_automix_segue_detail">Test build: a new way of choosing and playing transitions, with stricter limits. It may leave a pair unmixed.</string>
+</resources>

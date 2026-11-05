@@ -734,10 +734,10 @@
     <string name="settings_automix_length_auto">Сбалансированная</string>
     <string name="settings_automix_length_long">Длинная</string>
     <string name="settings_automix_tempo">Подгонка темпа</string>
-    <string name="settings_automix_tempo_detail">Насколько можно изменить темп следующего трека, чтобы попасть в такт. Сверх этого треки сменяются склейкой в такт.</string>
+    <string name="settings_automix_tempo_detail">Насколько можно изменить темп следующего трека, чтобы попасть в такт. Сверх этого треки сменяются фильтрованным переходом: следующий входит без баса, который вступает на его сильную долю.</string>
     <string name="settings_automix_tempo_strict">Строгая (4 %)</string>
-    <string name="settings_automix_tempo_normal">Обычная (8 %)</string>
-    <string name="settings_automix_tempo_wide">Широкая (12 %)</string>
+    <string name="settings_automix_tempo_normal">Обычная (12 %)</string>
+    <string name="settings_automix_tempo_wide">Широкая (16 %)</string>
     <string name="settings_automix_eq">DJ-эквалайзер</string>
     <string name="settings_automix_eq_detail">Смена баса и фильтры во время сведения. Если выключено, меняется только громкость.</string>
     <string name="settings_automix_pulse">Анимация плеера</string>
@@ -748,7 +748,7 @@
     <string name="settings_automix_style_cut">Склейка на сильную долю</string>
     <string name="settings_automix_style_fade">Плавное затухание</string>
     <string name="settings_automix_style_detail">Сведение в такт подгоняет темпы, когда может, иначе склеивает на сильную долю или делает затухание. Склейка меняет трек на первой доле такта. Плавное затухание не меняет темп.</string>
-    <string name="settings_automix_length_detail">Короткий: 4–8 тактов. Сбалансированный: 2–16, как позволяет музыка. Длинный: 12–32 такта, примерно до минуты.</string>
+    <string name="settings_automix_length_detail">Короткий: 4–8 тактов. Сбалансированный: предпочтительно 8–16. Длинный: предпочтительно 12–32, до 90 секунд. Короче, если этого требует музыка.</string>
     <string name="settings_automix_harmonic">Гармоническое сведение</string>
     <string name="settings_automix_harmonic_detail">Треки в несовместимых тональностях сводятся коротко, в совместимых — долго. Выключено: тональность не учитывается.</string>
     <string name="settings_automix_podcasts">Сводить подкасты</string>
