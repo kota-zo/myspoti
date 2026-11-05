@@ -40,6 +40,7 @@ android {
         versionName = version
         // GitHub "owner/repo" whose releases the app checks for updates; empty = off
         // (local builds). CI sets it to the repository it builds.
+        buildConfigField("boolean", "AUTOMIX_LAB", automixLab.toString())
         buildConfigField("String", "UPDATE_REPO", "\"${(findProperty("updateRepo") as String?) ?: System.getenv("MYSPOTI_UPDATE_REPO") ?: ""}\"")
         ndk {
             // -Pabis=arm64-v8a: a smaller test APK for one phone.

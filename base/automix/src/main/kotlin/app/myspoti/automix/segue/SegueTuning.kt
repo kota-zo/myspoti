@@ -131,6 +131,28 @@ data class SegueTuning(
     /** Tempo return after the window: share of the speed per beat [R], least beats [R]. */
     val restoreRatePerBeat: Double = 0.001,
     val restoreMinBeats: Double = 16.0,
+
+    // ── The engine's sound ──
+    /** Automation is read every this many frames, gains interpolated between [R]. */
+    val blockFrames: Int = 64,
+    /** Band edges of the shelves [R]. */
+    val shelfLowHz: Double = 180.0,
+    val shelfHighHz: Double = 2_500.0,
+    /** Slope of the shelves [U], width of the core bell between them [I]. */
+    val shelfQ: Double = 0.7071,
+    val coreQ: Double = 0.5,
+    /** Echo send: delay [I], feedback [I]. */
+    val echoDelayUs: Long = 375_000,
+    val echoFeedback: Double = 0.35,
+    /** Room send: comb delays and all-pass delays of a small Schroeder reverb [U], comb feedback [I], all-pass gain [U]. */
+    val roomCombUs: List<Long> = listOf(29_700, 37_100, 41_100, 43_700),
+    val roomAllPassUs: List<Long> = listOf(5_000, 1_700),
+    val roomCombFeedback: Double = 0.75,
+    val roomAllPassGain: Double = 0.7,
+    /** How long the outgoing player keeps running for a send's tail [I]. */
+    val sendTailUs: Long = 3_000_000,
+    /** Back to the plain song when the incoming one stalls [R]. */
+    val holdRampUs: Long = 400_000,
 ) {
     companion object {
         /** The band where two bass lines mask each other [U]. Fixed at analysis: not varied by the harness. */

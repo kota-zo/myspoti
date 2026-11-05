@@ -600,6 +600,8 @@ private fun TransitionsRow() {
     if (mode == TransitionMode.AUTOMIX) {
         OptionRow(stringResource(R.string.settings_automix_session), stringResource(R.string.settings_automix_session_detail),
             checked = automix.sessionDj, onChecked = automix::changeSessionDj)
+        if (app.myspoti.engine.BuildConfig.AUTOMIX_LAB) OptionRow(stringResource(R.string.settings_automix_segue), stringResource(R.string.settings_automix_segue_detail),
+            checked = automix.segue, onChecked = automix::changeSegue)
         OptionRow(stringResource(R.string.settings_automix_on_next), stringResource(R.string.settings_automix_on_next_detail),
             checked = automix.mixOnNext, onChecked = automix::changeMixOnNext)
         OptionRow(stringResource(R.string.settings_automix_album_order), stringResource(R.string.settings_automix_album_order_detail),

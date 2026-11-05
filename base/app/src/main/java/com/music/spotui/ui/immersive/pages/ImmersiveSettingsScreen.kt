@@ -464,6 +464,8 @@ private fun CrossfadePage(back: () -> Unit) {
         }
         if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_title, footerRes = R.string.settings_automix_detail) {
             row {
+                if (app.myspoti.engine.BuildConfig.AUTOMIX_LAB) ImmersiveSwitchRow(stringResource(R.string.settings_automix_segue), checked = automix.segue,
+                    onChecked = automix::changeSegue, detail = stringResource(R.string.settings_automix_segue_detail))
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_session), checked = automix.sessionDj,
                     onChecked = automix::changeSessionDj, detail = stringResource(R.string.settings_automix_session_detail))
             }

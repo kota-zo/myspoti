@@ -111,6 +111,34 @@ alone, `against` also needs the current analyses:
 `null` has a meaning for all of today's targets, so that rule rejects nothing yet: each new target
 must state its own in `Target`.
 
+## Engine
+
+The engine executes lanes and decides nothing. `SegueDeck` (pure Kotlin) is the sound, used both by
+the phone and by the desktop render, so what is measured is what plays.
+
+On the phone, `SegueProcessor` runs it at the head of each player's audio chain. An audio processor
+acts ahead of the player's buffer, so it would be heard late if it followed the clock; here every
+sample's gain is fixed by the sample's place in the song, which `SegueSink` reads from each buffer's
+presentation time. The lock on the beats nudges only the player's speed, downstream of the chain, so
+the lanes stay on the song's musical time. Unarmed, the stage copies its input exactly. It exists only
+in the Mix Lab build; other builds keep their chain as it was.
+
+- The incoming deck is armed when prepared: before its window its level lane is null, so its run-up is silent.
+- The outgoing side is armed `SEGUE_ARM_LEAD_MS` before the cue, once both songs are placed and
+  buffered, ahead of what the player has already buffered. Past `SEGUE_ARM_MIN_MS` without that, the
+  deck is dropped while the song is still whole, and the plan is computed again.
+- If the incoming song stalls during the window, the outgoing one returns to its plain sound
+  (`holdRampUs`), then both re-enter through the existing gentle fade.
+- After the window the incoming tempo returns to its own as with other plans (`restoreRatePerBeat`,
+  `restoreMinBeats`). This is not in the plan: it comes after the window and depends only on the rate.
+
+Shelves and the core bell are state-variable filters: stable while they move, and exactly the identity
+at 0 dB. Sends tap the signal ahead of the fader, so a tail outlives the song's level. The policy
+does not write sends yet, as no class's treatment calls for them.
+
+Next, and the provisional fade used while an analysis is missing, stay on the earlier plans: they
+have no analysis to fill `audioKey` from, or no time for a policy to run.
+
 ## Analysis the policy reads
 
 Each quantity carries a reliability: an uncertain measure weighs less, it is not treated as an average.
@@ -188,3 +216,7 @@ marked `[R]`, reused from this repository.
 | `simpleFadeUs`, `entryZoneUs`, `halfDoubleMaxBars` | 6 s, 40 s, 8 bars `[R]` | Values the player already uses |
 | Lane shapes (`bassKillDb`, `outgoingTopDb`, `incomingBedGain`…) | see `SegueTuning` `[R]` | The curves the player already plays |
 | `sweepClosedHz`, `sweepPeakRatio` | 400 Hz, 1.2 | The design asks for a filtered exit without values |
+| `blockFrames`, `shelfLowHz`, `shelfHighHz`, `holdRampUs` | 64, 180 Hz, 2.5 kHz, 400 ms `[R]` | Values the player and the render already use |
+| `shelfQ`, `coreQ` | 0.707 `[U]`, 0.5 | The slope of a shelf, and a bell wide enough to span the middle band |
+| `echoDelayUs`, `echoFeedback`, `sendTailUs` | 375 ms, 0.35, 3 s | The sends need a sound; the policy does not use them yet |
+| `roomCombUs`, `roomAllPassUs`, `roomCombFeedback`, `roomAllPassGain` | Schroeder delays `[U]`, 0.75, 0.7 `[U]` | Same |

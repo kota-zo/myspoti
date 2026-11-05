@@ -125,6 +125,24 @@ object AutoMix {
         djMode = sessionDj,
     )
 
+    /** The data-plan transitions (the Mix Lab's test of them), in place of the planner; only for the beat blend style. */
+    var segue by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_segue", false))
+        private set
+    fun changeSegue(value: Boolean) { segue = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_segue", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+    val segueActive: Boolean get() = app.myspoti.engine.BuildConfig.AUTOMIX_LAB && segue && style == 0
+
+    /** The policy's decision for two analysed songs. The listener's settings may only tighten its limits. */
+    fun decide(a: TrackAnalysis, b: TrackAnalysis, earliestExit: Double, sameAlbum: Boolean, listener: Float): app.myspoti.automix.segue.SegueDecision {
+        val s = settings()
+        val d = app.myspoti.automix.segue.SeguePolicy.decide(app.myspoti.automix.segue.SegueRequest(a, b, (earliestExit * 1e6).toLong(),
+            listenerRate = (listener * app.myspoti.automix.segue.SegueFormat.RATE_NOMINAL).toLong(),
+            maxRatePpm = (s.maxStretch * 1e6).toLong(), maxBars = s.maxBars, eq = djEq, harmonic = harmonic, sameAlbum = sameAlbum))
+        val plan = d.plan ?: return d
+        if (app.myspoti.automix.segue.SegueDeck.playable(plan)) return d
+        return app.myspoti.automix.segue.SegueDecision(app.myspoti.automix.segue.SegueLevel.NORMAL, null,
+            d.attempts + app.myspoti.automix.segue.SegueAttempt(d.level, app.myspoti.automix.segue.SegueCause.INVALID_PLAN, "the engine cannot play it"))
+    }
+
     // ── Why a song is not mixed (for the screens) ──
 
     /** Why the next transition is not an AutoMix one. */
