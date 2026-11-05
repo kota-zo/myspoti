@@ -151,6 +151,17 @@ object LyricsApi {
         sourcesTick.value++
     }
 
+    /** What is already here for [track], from memory or storage, whole: asks no one. */
+    fun known(track: Track): Lyrics? {
+        val found = when (val c = cache[track.key]) {
+            is Lyrics -> c
+            is Partial -> null
+            is Miss -> null
+            else -> LyricsDisk.read(track.key)
+        }
+        return found?.takeIf { it.synced && it.uncapped && !it.isEmpty }
+    }
+
     suspend fun fetch(track: Track): Lyrics? {
         when (val c = cache[track.key]) {
             is Lyrics -> return c

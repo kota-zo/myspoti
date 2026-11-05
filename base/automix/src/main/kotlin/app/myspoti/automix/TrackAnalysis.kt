@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 package app.myspoti.automix
 
+import kotlin.math.max
+import kotlin.math.min
+
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
@@ -64,8 +67,23 @@ class TrackAnalysis(
     val modelBeats: DoubleArray = DoubleArray(0),
     /** How sure the model is of a downbeat at each bar start, 0..1; empty without the model. */
     val barDownConfidence: FloatArray = FloatArray(0),
+    /** [barVocalRisk] comes from the song's timed lyrics, not from the spectral estimate. Not stored: lyrics come and go. */
+    val voiceKnown: Boolean = false,
 ) {
     val bars get() = barStarts.size
+
+    /** This analysis with its voices taken from [spans], seconds from the song's start where it is known to be sung. */
+    fun withSung(spans: List<Pair<Double, Double>>): TrackAnalysis {
+        val sorted = spans.filter { it.second > it.first }.sortedBy { it.first }
+        val risk = FloatArray(bars) { i ->
+            val from = barStarts[i]; val to = barEnd(i)
+            val sung = sorted.sumOf { (a, b) -> max(0.0, min(to, b) - max(from, a)) }
+            if (to > from && sung / (to - from) >= SUNG_BAR_SHARE) SUNG_RISK else UNSUNG_RISK
+        }
+        return TrackAnalysis(duration, contentStart, contentEnd, loudnessDb, key, keyStrength, bpm, steady, head, tail, beats, barStarts,
+            barDb, barLowDb, barHighDb, barCentre, barNovelty, phraseOffset, stereo, headDown, tailDown, note, risk, audioKey, barBassDb,
+            headPhase, tailPhase, headMetre, tailMetre, modelBeats, barDownConfidence, voiceKnown = true)
+    }
     /** Identify the grids a plan relies on: a new analysis with another grid invalidates the plan. */
     val headGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { head?.let { gridKey(it, headDown) } }
     val tailGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { tail?.let { gridKey(it, tailDown) } }
@@ -122,6 +140,11 @@ class TrackAnalysis(
     }
 
     companion object {
+        /** A bar with this share of it sung counts as sung. */
+        private const val SUNG_BAR_SHARE = 0.3
+        private const val SUNG_RISK = 0.95f
+        private const val UNSUNG_RISK = 0.02f
+
         const val VERSION = 4_10
 
         fun read(input: InputStream): TrackAnalysis? {

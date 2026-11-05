@@ -743,13 +743,24 @@ object LocalPlayer {
         segueWork = work
         segueWorker.execute {
             runCatching {
-                val d = com.music.spotui.automix.AutoMix.decide(ra, rb, from, sameAlbum, listener)
-                work.note = "segue ${d.level} ${d.shape ?: ""} ${d.fingerprint?.take(12) ?: ""}${if (d.attempts.isEmpty()) "" else ": ${d.why}"}"
+                val sungA = sung(a, ra); val sungB = sung(b, rb)
+                val d = com.music.spotui.automix.AutoMix.decide(sungA, sungB, from, sameAlbum, listener)
+                val voices = "voices ${if (sungA.voiceKnown) "lyrics" else "estimate"}/${if (sungB.voiceKnown) "lyrics" else "estimate"}"
+                work.note = "segue ${d.level} ${d.shape ?: ""} ${d.fingerprint?.take(12) ?: ""} $voices${if (d.attempts.isEmpty()) "" else ": ${d.why}"}"
                 work.plan = app.myspoti.automix.segue.SeguePolicy.timing(d)
             }.onFailure { work.note = "segue failed: $it"; work.plan = null }
             work.done = true
         }
         return false
+    }
+
+    /** [analysis] with its voices from the song's timed lyrics, when they are already here. On the plan's thread. */
+    private fun sung(t: LocalTrack, analysis: app.myspoti.automix.TrackAnalysis): app.myspoti.automix.TrackAnalysis {
+        val lyrics = com.music.spotui.data.api.LyricsApi.known(com.music.spotui.data.api.LyricsApi.Track(spotifyId(t), t.title, t.artist, t.album, t.durationMs)) ?: return analysis
+        val lines = lyrics.lines.map { l ->
+            app.myspoti.automix.SungSpans.Line(l.timeMs, l.words?.lastOrNull()?.endMs?.takeIf { it > 0 }, l.text.isNotBlank())
+        }
+        return app.myspoti.automix.SungSpans.of(lines, analysis.duration)?.let(analysis::withSung) ?: analysis
     }
 
     /** The plan for two analysed songs, once [segueDecided]. With the data plans on, null means the policy chose plain playback. */

@@ -157,7 +157,11 @@ object SeguePolicy {
         private fun tempoReliability(g: Grid?): Double = g?.steadiness?.coerceIn(0.0, 1.0) ?: 0.0
         private fun pulseReliability() = min(min(tempoReliability(ga), tempoReliability(gb)), min(a.tailMetre, b.headMetre).toDouble())
         private fun structureReliability(s: TrackAnalysis, bar: Int) = max(s.sectionStrength(bar), t.reliabilityPhraseFallback)
-        private fun vocalReliability() = if (a.stereo && b.stereo) t.reliabilityVocalStereo else t.reliabilityVocalMono
+        private fun vocalReliability() = when {
+            a.voiceKnown && b.voiceKnown -> 1.0
+            a.stereo && b.stereo -> t.reliabilityVocalStereo
+            else -> t.reliabilityVocalMono
+        }
         private fun keyReliability() = if (a.key >= 0 && b.key >= 0) min(a.keyStrength, b.keyStrength).coerceIn(0.0, 1.0) else 0.0
 
         private fun reliable(g: Grid?) = g != null && g.count >= t.gridMinBeats && g.steadiness >= t.gridMinSteadiness && g.driftMs <= t.gridMaxDriftMs

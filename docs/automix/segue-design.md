@@ -301,3 +301,7 @@ Four shapes use them. `ECHO_OUT` throws the outgoing song into the echo on the d
 ## What is skipped
 
 The level a pair reaches is still judged on `score`, but the candidate within a level is chosen on `pick`: the score less a cost for the music nobody hears, the end of one song and the start of the other. Taking this out of the score keeps a locked mix from losing its level because it skips an intro. Fades pay more for it than locked mixes, which have a reason to skip. The latest exits always stay in the running, including those with a voice that lasts to the end, so the choice between the two is the score's. Fades run 4, 6 or 8 s.
+
+## Voices from lyrics
+
+The spectral estimate in `barVocalRisk` mostly sees that a bar could hold a voice: on the bench corpus, checked against the songs' timed lyrics, it finds about a third of the sung bars at the threshold the policy uses, and lowering the threshold only approaches "every bar". When a song's timed lyrics are already on the device, `withSung` replaces it for that decision and nothing is fetched for it. On the corpus, with both songs' lyrics known, locked mixes where two voices meet for over 2 s fall from 53 % to under 1 %, windows get shorter by themselves, and the share of pairs reaching a locked level goes from 25 % to 19 %: these are the mixes that could not avoid a clash. The numbers are not an independent test, since the lyrics that judge are also the ones used, and a song without lyrics gets the estimate as before. The journal says which was used.

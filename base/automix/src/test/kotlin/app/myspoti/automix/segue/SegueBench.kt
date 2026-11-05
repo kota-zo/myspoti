@@ -30,13 +30,15 @@ object SegueBench {
     fun run(dir: File, args: List<String>) {
         val fold = args.firstOrNull { it.startsWith("fold=") }?.removePrefix("fold=")
         val limit = args.firstOrNull { it.startsWith("limit=") }?.removePrefix("limit=")?.toInt()
-        val rest = args.filter { !it.contains('=') }
+        val rest = args.filter { !it.contains('=') && it != "sung" }
+        sung = "sung" in args
         tuning = args.firstOrNull { it.startsWith("with=") }?.removePrefix("with=")?.split(',')?.fold(SegueTuning()) { t, kv ->
             val (k, v) = kv.split(':'); SegueCorpus.withValue(t, k, v.toDouble())
         } ?: SegueTuning()
         when (rest.firstOrNull()) {
             "split" -> printSplit(dir)
             "tempos" -> tempos(dir, fold)
+            "voices" -> voices(dir, fold)
             "tails" -> tails(dir, fold, limit ?: 12)
             "matrix" -> matrix(dir, fold, rest.contains("fresh"))
             "measure" -> measure(dir, fold, limit ?: 100, args.firstOrNull { it.startsWith("only=") }?.removePrefix("only="))
@@ -55,7 +57,16 @@ object SegueBench {
         return all.filter { split[it] == fold }
     }
 
-    private fun analyses(dir: File, names: List<String>, fresh: Boolean = false) = names.associateWith { BenchCache.analysis(dir, it, fresh).analysis }
+    /** With the `sung` argument, each song's voices come from `sung/<id>.tsv`, as they do on the phone when lyrics are known. */
+    private var sung = false
+
+    private fun analysis(dir: File, name: String, fresh: Boolean = false): TrackAnalysis {
+        val a = BenchCache.analysis(dir, name, fresh).analysis
+        val spans = File(dir, "sung/$name.tsv").takeIf { sung && it.exists() } ?: return a
+        return a.withSung(spans.readLines().filter { it.isNotBlank() }.map { l -> l.split('\t').let { it[0].toDouble() to it[1].toDouble() } })
+    }
+
+    private fun analyses(dir: File, names: List<String>, fresh: Boolean = false) = names.associateWith { analysis(dir, it, fresh) }
 
     private fun printSplit(dir: File) {
         val rows = SegueCorpus.read(File(dir, "names.txt"))
@@ -112,6 +123,13 @@ object SegueBench {
             println(String.format(L, "%s,%s\t%s\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%d", x, y, shape, p.span.lengthUs / 1e6, rms(st.a, from, to), rms(st.b, from, to), rms(st.a, from, to) - rms(st.b, from, to), peak, clipped))
         }
         tmp.deleteRecursively()
+    }
+
+    /** Each song's bars and how likely a voice is on them. */
+    private fun voices(dir: File, fold: String?) {
+        val names = names(dir, fold)
+        for ((name, s) in analyses(dir, names, false)) for (i in 0 until s.bars)
+            println(String.format(L, "%s\t%.3f\t%.3f\t%.3f", name, s.barStarts[i], s.barEnd(i), s.barVocalRisk.getOrElse(i) { 0f }))
     }
 
     /** Each song's tempo as the grid has it, at both ends. */
@@ -257,7 +275,7 @@ object SegueBench {
         val cache = HashMap<String, FloatArray>()
         for (pair in asked) {
             val (x, y) = pair.split(',')
-            val d = SeguePolicy.decide(request(BenchCache.analysis(dir, x).analysis, BenchCache.analysis(dir, y).analysis))
+            val d = SeguePolicy.decide(request(analysis(dir, x), analysis(dir, y)))
             val p = d.plan
             println("$x,$y ${d.level} ${d.fingerprint ?: ""} | ${d.why}")
             if (p == null) continue
