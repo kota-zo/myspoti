@@ -68,7 +68,7 @@ object RadioPlayer {
         album = Graph.app.getString(app.myspoti.engine.R.string.live_radio_title), durationMs = 0L,
         artUri = station.favicon.takeIf { it.isNotBlank() }?.let(android.net.Uri::parse)
             ?: android.net.Uri.parse("android.resource://${Graph.app.packageName}/drawable/live_radio_cover"),
-        isRadio = true,
+        isRadio = true, stationUuid = station.stationUuid,
     )
 
     /**

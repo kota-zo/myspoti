@@ -59,6 +59,9 @@ object RadioBrowserApi {
     )
     private const val CURATED_PREFIX = "curated-"
     private const val USER_AGENT = "Myspoti/1.0 (Live Radio module; +https://github.com/kota-zo/myspoti)"
+    private val UUID_REGEX = Regex(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
     private val http by lazy { OkHttpClient.Builder().callTimeout(12, TimeUnit.SECONDS).build() }
@@ -117,6 +120,15 @@ object RadioBrowserApi {
     /** The directory's most-voted stations overall, for a starting screen with nothing searched yet. */
     suspend fun topStations(limit: Int = 30): List<RadioStation> = search(limit = limit, order = "votes")
 
+    /** The station [uuid] names, or empty if it isn't one of the directory's. */
+    suspend fun byUuid(uuid: String): List<RadioStation> = withContext(Dispatchers.IO) {
+        stations(getArray("/json/stations/byuuid?uuids=${enc(uuid)}"))
+    }
+
+    /** [query], trimmed, if it looks like a station's uuid. */
+    fun asStationUuid(query: String): String? =
+        query.trim().takeIf { UUID_REGEX.matches(it) }
+
     /** Every tag (genre, mood, format…) the directory knows, most used first. */
     suspend fun tags(limit: Int = 60): List<RadioTag> = withContext(Dispatchers.IO) {
         getArray("/json/tags?order=stationcount&reverse=true&limit=$limit").map {
@@ -135,16 +147,10 @@ object RadioBrowserApi {
         withContext(Dispatchers.IO) { runCatching { get("/json/url/${enc(stationUuid)}") } }
     }
 
-    /**
-     * Whether this app can play [streamUrl]: https only (the app allows no cleartext traffic,
-     * and a station is no reason to relax that), and no HLS, which the player is built without
-     * (no media3-exoplayer-hls): an .m3u8 address would throw before it even starts.
-     */
-    internal fun playable(streamUrl: String, hls: Boolean = false): Boolean {
-        if (hls) return false
+    /** Whether this app can play [streamUrl]: https only (no cleartext). HLS is fine too. */
+    internal fun playable(streamUrl: String): Boolean {
         val uri = runCatching { java.net.URI(streamUrl.trim()) }.getOrNull() ?: return false
-        return uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() &&
-            !uri.path.orEmpty().endsWith(".m3u8", ignoreCase = true)
+        return uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
     }
 
     /** The directory's station list, without the ones [playable] turns down. */
@@ -154,7 +160,7 @@ object RadioBrowserApi {
         val o = e as? JsonObject ?: return null
         // url_resolved follows redirects already; url is the directory's raw entry.
         val streamUrl = o.str("url_resolved")?.takeIf { it.isNotBlank() } ?: o.str("url").orEmpty()
-        if (!playable(streamUrl, hls = o.bool("hls") == true)) return null
+        if (!playable(streamUrl)) return null
         return RadioStation(
             stationUuid = o.str("stationuuid").orEmpty(),
             name = o.str("name").orEmpty().ifBlank { "?" },

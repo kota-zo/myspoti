@@ -33,6 +33,8 @@ data class LocalTrack(
     val trackNo: Int = 0,
     /** A podcast episode or an audiobook (spoken word): AutoMix leaves it whole unless asked. */
     val speech: Boolean = false,
+    /** [isRadio]'s station uuid, "" otherwise. */
+    val stationUuid: String = "",
 )
 
 /** The device's music files, read through MediaStore (no file access beyond audio). */
