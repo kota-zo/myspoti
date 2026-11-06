@@ -8,7 +8,6 @@ package com.music.spotui.ui.immersive.shell
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -44,11 +43,8 @@ import com.music.spotui.ui.look.rememberReduceMotion
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.TabReselect
 
-/**
- * The gap between the pill's glass edge and the tabs inside it. Shared with the mini player so
- * the two floating bars measure alike.
- */
-internal val PILL_INSET = 6.dp
+/** The gap between the pill's glass edge and the tabs inside it. */
+private val PILL_INSET = 6.dp
 
 /**
  * How far the floating bars stand off the bottom edge: the system navigation bar's inset, but
@@ -66,7 +62,7 @@ private val GESTURE_BAR_FLOOR = 15.dp
  * its own, so the two numbers are a pair — change one and the bar's height moves unless the other
  * moves against it.
  */
-private val TAB_VERTICAL_PADDING = 9.dp
+private val TAB_VERTICAL_PADDING = 7.dp
 
 /** The gap between a tab's glyph and its label. */
 private val TAB_ICON_LABEL_GAP = 2.dp
@@ -74,21 +70,10 @@ private val TAB_ICON_LABEL_GAP = 2.dp
 /** How wide the floating bars are ever allowed to get: on a tablet they stop growing and centre. */
 val ImmersiveBarMaxWidth = 440.dp
 
-/**
- * The room [ImmersiveTabBar] takes at the bottom of the screen (its own height, the gap under it
- * and the navigation bar inset). Stack the mini player above this.
- */
-@Composable
-fun immersiveTabBarHeight(): androidx.compose.ui.unit.Dp =
-    TabBarContentHeight + 2.dp + ImmersiveBarInsets.asPaddingValues().calculateBottomPadding()
-
-/** The bar's own height: a 25 dp glyph, the gap, an 11 sp label, the tab padding and the pill inset. */
-private val TabBarContentHeight = (PILL_INSET + TAB_VERTICAL_PADDING) * 2 + 25.dp + TAB_ICON_LABEL_GAP + 14.dp
-
 private val TabLabel = TextStyle(
     fontFamily = ImmersiveSans,
-    fontSize = 11.sp,
-    lineHeight = 14.sp,
+    fontSize = 10.sp,
+    lineHeight = 12.sp,
     fontWeight = FontWeight.Medium,
 )
 
@@ -103,8 +88,8 @@ private val TabLabel = TextStyle(
  * `launchSingleTop` and `restoreState` (Home always reopens itself). The bar hides itself on the
  * player, queue and SpotiFLAC routes.
  *
- * Usage: put it at the bottom of the app's Box, above the NavHost, and the mini player above it
- * (see [immersiveTabBarHeight]). Provide [LocalImmersiveHaze] and mark the NavHost with
+ * Usage: put it at the bottom of the app's Box, above the NavHost, and the mini player above it.
+ * Provide [LocalImmersiveHaze] and mark the NavHost with
  * [immersiveHazeSource] for the glass to blur the page behind; without it the glass is a plain
  * translucent fill.
  *
@@ -231,7 +216,7 @@ internal fun TabBarContent(
                             overflow = TextOverflow.Ellipsis,
                             // Three tabs in the pill: a long label (Bibliothèque, with large text) shrinks a little before it is cut,
                             // and keeps clear of the tab's rounded ends, which clip its first and last letters.
-                            autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 11.sp, stepSize = 0.5.sp),
+                            autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 10.sp, stepSize = 0.5.sp),
                             modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP).padding(horizontal = 6.dp),
                         )
                     },
@@ -263,6 +248,6 @@ private fun TabIcon(item: Routes, tint: Color) {
         // The label right below names the tab for TalkBack; the standalone one has none.
         contentDescription = if (item == Routes.Search) tabLabel(item) else null,
         tint = tint,
-        modifier = Modifier.size(25.dp),
+        modifier = Modifier.size(22.dp),
     )
 }
