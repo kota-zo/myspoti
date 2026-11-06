@@ -35,6 +35,14 @@ data class HomeSection(
     val items: List<HomeItem>,
 )
 
+/**
+ * The shelves as the feed shows them: with podcasts off, their shows and episodes leave
+ * (and a shelf left empty goes).
+ */
+fun List<HomeSection>.withoutPodcastShows(): List<HomeSection> =
+    if (com.music.spotui.data.api.Features.PODCASTS) this
+    else map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Show }) }.filter { it.items.isNotEmpty() }
+
 /** The shelves without Spotify's DJ (a playlist card named "DJ"); a shelf left empty goes. */
 fun List<HomeSection>.withoutDj(): List<HomeSection> =
     map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Playlist && (it.id == DJ_PLAYLIST_ID || it.name.trim().equals("DJ", ignoreCase = true)) }) }
