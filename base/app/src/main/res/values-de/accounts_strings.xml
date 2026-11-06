@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Konten</string>
+    <string name="accounts_switch_row">Konto wechseln</string>
+    <string name="accounts_switch_row_detail">Deine Spotify-Konten auf diesem Telefon</string>
+    <string name="accounts_add">Konto hinzufügen</string>
+    <string name="accounts_add_detail">Öffnet die Spotify-Anmeldung; die Konten hier bleiben angemeldet</string>
+    <string name="accounts_add_single_detail">Meldet dieses Konto ab und öffnet die Spotify-Anmeldung</string>
+    <string name="accounts_not_signed_in">Nicht angemeldet</string>
+    <string name="accounts_in_use">Aktiv</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Free</string>
+    <string name="accounts_switch_title">Zu %1$s wechseln?</string>
+    <string name="accounts_switch_text">Die Wiedergabe stoppt. Downloads und der Hörverlauf gehören zu ihrem eigenen Konto; Erweiterungen laufen weiter.</string>
+    <string name="accounts_switch_confirm">Wechseln</string>
+    <string name="accounts_remove">Entfernen</string>
+    <string name="accounts_remove_title">%1$s entfernen?</string>
+    <string name="accounts_remove_text">Anmeldung und Webdaten werden von diesem Telefon gelöscht, ebenso der Hörverlauf. Die Downloads werden beiseitegelegt und kommen zurück, wenn du das Konto wieder hinzufügst.</string>
+    <string name="accounts_footer">Jedes Konto bleibt auf diesem Telefon angemeldet. Ein Wechsel stoppt die Wiedergabe; Downloads und Hörverlauf gehören zu ihrem Konto; Erweiterungen laufen weiter.</string>
+    <string name="accounts_single_footer">Das WebView dieses Telefons hält nur ein Konto gleichzeitig: Wechseln oder Hinzufügen meldet dieses Konto ab und öffnet die Spotify-Anmeldung. Mit einem aktuellen Android System WebView bleiben mehrere Konten angemeldet.</string>
+    <string name="accounts_back_to">Zurück zu %1$s</string>
+</resources>

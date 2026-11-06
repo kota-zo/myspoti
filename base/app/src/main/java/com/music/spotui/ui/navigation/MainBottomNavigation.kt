@@ -6,7 +6,6 @@ import com.music.spotui.ui.theme.AppShade
 
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.compose.ui.res.stringResource
-import app.myspoti.engine.R
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -15,13 +14,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
@@ -48,8 +45,6 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.music.spotui.ui.components.MiniPlayer
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
@@ -88,17 +83,8 @@ object TabReselect {
     }
 }
 
-class NoRippleInteractionSource : MutableInteractionSource {
-
-    override val interactions: Flow<Interaction> = emptyFlow()
-
-    override suspend fun emit(interaction: Interaction) {}
-
-    override fun tryEmit(interaction: Interaction) = true
-}
-
 @Composable
-fun MainBottomNavigation(navController: NavHostController, bottomBarState: MutableState<Boolean>, bottomBarPlayerState : MutableState<Boolean>) {
+fun MainBottomNavigation(navController: NavHostController) {
 
     // Visibility follows the screen actually shown (not flags each screen sets,
     // which raced during transitions and left the mini player over the full one).
@@ -140,7 +126,7 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
                             // Large windows: a capped, centred capsule, not a bar across a desktop window.
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 Box(if (com.music.spotui.ui.components.windowSize().large) Modifier.widthIn(max = com.music.spotui.ui.components.WindowSize.MaxMiniPlayerWidth) else Modifier) {
-                                    MiniPlayer(navController)
+                                    MiniPlayer()
                                 }
                             }
                         }
@@ -183,7 +169,14 @@ fun MainBottomNavigation(navController: NavHostController, bottomBarState: Mutab
     )
 }
 
-private val TabItems = listOf(Routes.Home, Routes.Search, Routes.Library, Routes.Friends)
+// Friend activity opens from Home's header (as in Spotify), not from a tab.
+/** The tabs, in the order an extension's look sets (`ui.order.nav`) or the app's own. */
+private val TabItems: List<Routes>
+    get() {
+        val tabs = mapOf("home" to Routes.Home, "search" to Routes.Search, "library" to Routes.Library)
+        return com.music.spotui.extensions.ExtensionLook.navOrder?.mapNotNull { tabs[it] }?.takeIf { it.size == tabs.size }
+            ?: listOf(Routes.Home, Routes.Search, Routes.Library)
+    }
 
 /** The tab shown (also on its sub-pages) and what a tap on a tab does; shared by the bar and the rail. */
 private class TabNavigation(private val navController: NavHostController, private val state: androidx.compose.runtime.MutableState<String>, private val currentRoute: String?) {

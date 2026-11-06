@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">פעילות חברים</string>
+    <string name="friends_now">עכשיו</string>
+    <string name="friends_empty">אין עדיין פעילות של חברים. חברים שאתם עוקבים אחריהם ומשתפים את פעילות ההאזנה שלהם ב-Spotify יופיעו כאן.</string>
+    <string name="friends_failed">Spotify לא שלח את פעילות החברים.</string>
+    <string name="friends_refresh">רענון</string>
+</resources>

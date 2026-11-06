@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">دوست</string>
     <string name="messages_title">پیغامات</string>
     <string name="messages_empty">ابھی کوئی گفتگو نہیں۔ اوپر والی پنسل سے کسی دوست کو لکھیں۔</string>
     <string name="messages_failed">Spotify نے آپ کے پیغامات نہیں بھیجے۔</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s نے %2$s کو ہٹا دیا</string>
     <string name="messages_event_link">%1$s لنک کے ذریعے شامل ہوا</string>
     <string name="messages_event_reported">گفتگو کی رپورٹ کی گئی</string>
-    <string name="friends_title">دوستوں کی سرگرمی</string>
-    <string name="friends_now">ابھی</string>
-    <string name="friends_empty">ابھی تک دوستوں کی کوئی سرگرمی نہیں۔ جن دوستوں کو آپ فالو کرتے ہیں اور جو Spotify پر اپنی سننے کی سرگرمی شیئر کرتے ہیں، وہ یہاں نظر آتے ہیں۔</string>
-    <string name="friends_failed">Spotify نے دوستوں کی سرگرمی نہیں بھیجی۔</string>
-    <string name="friends_refresh">ریفریش کریں</string>
+    <string name="friends_tab">دوست</string>
 </resources>

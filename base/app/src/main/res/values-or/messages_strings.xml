@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">ବନ୍ଧୁମାନେ</string>
     <string name="messages_title">ମେସେଜ୍</string>
     <string name="messages_empty">ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି କଥାବାର୍ତ୍ତା ନାହିଁ। ଉପରେ ଥିବା ପେନ୍ସିଲ୍ ଦ୍ୱାରା ଜଣେ ବନ୍ଧୁଙ୍କୁ ଲେଖନ୍ତୁ।</string>
     <string name="messages_failed">Spotify ଆପଣଙ୍କ ମେସେଜ୍ ପଠାଇଲା ନାହିଁ।</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s %2$s ଙ୍କୁ କାଢ଼ିଲେ</string>
     <string name="messages_event_link">%1$s ଲିଙ୍କ୍ ମାଧ୍ୟମରେ ଯୋଗ ଦେଲେ</string>
     <string name="messages_event_reported">କଥାବାର୍ତ୍ତା ରିପୋର୍ଟ କରାଯାଇଛି</string>
-    <string name="friends_title">ସାଙ୍ଗମାନଙ୍କ କାର୍ଯ୍ୟକଳାପ</string>
-    <string name="friends_now">ବର୍ତ୍ତମାନ</string>
-    <string name="friends_empty">ଏପର୍ଯ୍ୟନ୍ତ ସାଙ୍ଗମାନଙ୍କ କୌଣସି କାର୍ଯ୍ୟକଳାପ ନାହିଁ। ଆପଣ ଫଲୋ କରୁଥିବା ଏବଂ Spotifyରେ ନିଜର ଶୁଣିବା କାର୍ଯ୍ୟକଳାପ ସେୟାର କରୁଥିବା ସାଙ୍ଗମାନେ ଏଠାରେ ଦେଖାଯାଆନ୍ତି।</string>
-    <string name="friends_failed">Spotify ସାଙ୍ଗମାନଙ୍କ କାର୍ଯ୍ୟକଳାପ ପଠାଇଲା ନାହିଁ।</string>
-    <string name="friends_refresh">ରିଫ୍ରେସ୍ କରନ୍ତୁ</string>
+    <string name="friends_tab">ବନ୍ଧୁମାନେ</string>
 </resources>

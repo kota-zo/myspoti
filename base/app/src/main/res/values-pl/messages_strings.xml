@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Znajomi</string>
     <string name="messages_title">Wiadomości</string>
     <string name="messages_empty">Nie masz jeszcze rozmów. Napisz do znajomego ołówkiem u góry.</string>
     <string name="messages_failed">Spotify nie wysłał Twoich wiadomości.</string>

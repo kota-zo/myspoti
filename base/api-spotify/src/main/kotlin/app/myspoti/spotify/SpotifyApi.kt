@@ -38,9 +38,11 @@ class SpotifyApi(
     deviceId: String? = null,
     /** The browser this install presents to Spotify (see [SpotifyHttp.browserUserAgent]); null keeps the constant. */
     userAgent: String? = null,
+    /** Keeps the client token across launches (see [app.myspoti.spotify.gql.ClientTokenStore]). */
+    tokenStore: app.myspoti.spotify.gql.ClientTokenStore? = null,
 ) : MyspotiApi {
     val bridge = Bridge(host, scope)
-    val http = SpotifyHttp(http, bridge, language, userAgent, deviceId ?: java.util.UUID.randomUUID().toString())
+    val http = SpotifyHttp(http, bridge, language, userAgent, deviceId ?: java.util.UUID.randomUUID().toString(), tokenStore)
     @Volatile private var currentOps: GqlOps = ops
     /** The operation table in use; [updateOps] swaps it when Spotify ships a new build. */
     val opsInUse: GqlOps get() = currentOps
@@ -61,7 +63,9 @@ class SpotifyApi(
     override val users = SpotifyUsers(gql, bridge, this.http)
     override val extras = SpotifyTrackExtras(gql, bridge, this.http)
     override val devices = SpotifyDevices(bridge)
-    override val jam = SpotifyJam(bridge)
+    override val jam = SpotifyJam(bridge, this.http)
+
+    init { player.inJam = { jam.member }; player.inJamSession = { jam.session.value != null } }
     override val blends = SpotifyBlends(this.http)
     override val recents = SpotifyRecents(gql)
     override val messages = SpotifyMessages(gql, this.http, users)
@@ -93,11 +97,25 @@ class SpotifyApi(
                 } catch (e: Exception) {
                     // No state now: the page's next state event brings it anyway.
                 }
+                // A Jam this account is in (joined before a restart or a reload): known at once, so
+                // nothing takes the host's playback here before the Jam sheet is opened.
+                try { jam.refresh() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { }
             }
         }
     }
 
     suspend fun onPageLoaded() = bridge.inject()
+
+    /**
+     * The page moves to another account (an account switch): its token, username and Jam are
+     * forgotten now, not at the next ready page, so no direct call goes out meanwhile as the account
+     * that left.
+     */
+    suspend fun forgetAccount() {
+        http.forgetWebToken()
+        users.forgetUsername()
+        jam.forgetSession()
+    }
 
     /** The host calls this when a Web Player page load starts (reload, renderer back). */
     fun onPageStarting() = bridge.pageGone()

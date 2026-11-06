@@ -39,6 +39,18 @@ internal object LocalQueueOrder {
     }
 
     /**
+     * A list played from the song at [cur] with shuffle on: that song first, the queued songs right
+     * after it, then every other song of the list [shuffle]d, those before [cur] too (as Spotify's
+     * shuffle plays a whole list from a picked song). [shuffled] alone left the songs above the
+     * pick out: a tap low in a 40-song list queued 5 to 10 of them (reported, B6).
+     */
+    fun <T> shuffledWhole(order: List<T>, cur: Int, isQueued: (T) -> Boolean, shuffle: (List<T>) -> List<T>): List<T> {
+        val current = order.getOrNull(cur) ?: return order
+        val others = order.filterIndexed { i, _ -> i != cur }
+        return listOf(current) + order.drop(cur + 1).filter(isQueued) + shuffle(others.filterNot(isQueued))
+    }
+
+    /**
      * Shuffle off: the list back in its order [before] (songs added since at its end), the queued
      * songs still right after the current one.
      */

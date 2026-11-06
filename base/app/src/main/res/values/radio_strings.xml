@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Live Radio (radio/ package): internet radio via the free radio-browser.info directory. -->
+<resources>
+    <string name="live_radio_title">Live Radio</string>
+    <string name="live_radio_subtitle">Internet radio stations, from the free radio-browser.info directory</string>
+    <string name="live_radio_search_hint">Search stations</string>
+    <string name="live_radio_popular">Popular stations</string>
+    <string name="live_radio_search_results">Search results</string>
+    <string name="live_radio_favorites">Favorites</string>
+    <string name="live_radio_favorite">Add to favorites</string>
+    <string name="live_radio_unfavorite">Remove from favorites</string>
+    <string name="live_radio_no_results">No stations found</string>
+    <string name="live_radio_error">The radio directory could not be reached. Check your connection and try again.</string>
+    <string name="live_radio_settings_title">Live Radio</string>
+    <string name="live_radio_settings_detail">Adds a Live Radio folder to Your Library, under Local Files. Searches go to the radio-browser.info directory; each station\'s logo and stream come from that station\'s own server.</string>
+</resources>

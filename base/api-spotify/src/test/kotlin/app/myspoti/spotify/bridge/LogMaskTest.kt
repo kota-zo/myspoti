@@ -34,4 +34,19 @@ class LogMaskTest {
         assertTrue(out.endsWith("(+30)"))
         assertFalse(LogMask.shown("short").contains("+"))
     }
+
+    @Test fun `shown masks the head of a huge result only`() {
+        // A queue dump: only the head is masked, and the count still says the real size.
+        val out = LogMask.shown("\"access_token\":\"BQsecret\"" + "x".repeat(50_000), 20)
+        assertFalse(out.contains("BQsecret"))
+        assertTrue(out.endsWith("(+50005)"))
+    }
+
+    @Test fun `shown masks a value cut at the end of the head`() {
+        // The blob shrinks to a placeholder, so the token cut at the head's end would be kept unmasked.
+        val text = "{\"x\":\"" + "A".repeat(700) + "\",\"v\":\"" + "B".repeat(300) + "\"}"
+        val out = LogMask.shown(text, 200)
+        assertFalse(out.contains("BBBB"))
+        assertFalse(out.contains("AAAA"))
+    }
 }

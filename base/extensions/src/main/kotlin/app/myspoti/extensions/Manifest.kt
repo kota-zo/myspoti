@@ -1,6 +1,7 @@
 package app.myspoti.extensions
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -68,6 +69,22 @@ data class Manifest(
     val replaces: List<String> = emptyList(),
     /** Extensions (ids) that must not run with this one: the user is asked which to keep. */
     val conflictsWith: List<String> = emptyList(),
+    /**
+     * `ui`: the look it gives the app ([UiStyle]), applied with the `ui.style` action. Ignored
+     * without it (and by an older Myspoti).
+     */
+    val ui: UiStyle? = null,
+    /**
+     * The texts shown to people in other languages, by BCP 47 tag (`"fr"`, `"pt-BR"`): any of
+     * `name`, `description`, `changelog`, `welcome`, an action's reason (`actions`: name → why) and
+     * a setting's `label`, `description` and `options` (`settings`: key → texts; the options' labels,
+     * the values stay the manifest's). Missing ones fall back to the manifest's own ([localized]).
+     */
+    val translations: Map<String, Translation> = emptyMap(),
+    /** The manifest as written, when this one is [localized] (texts swapped for one language). */
+    @Transient private val written: Manifest? = null,
+    /** The language this one is [localized] in, or null: the manifest's own texts. */
+    @Transient val shownIn: String? = null,
 ) {
     /** True for a manifest written before actions (`provides` and `permissions`): still loaded, mapped to actions. */
     val isLegacy: Boolean get() = actions.isEmpty() && (provides.isNotEmpty() || permissions.isNotEmpty())
@@ -117,6 +134,52 @@ data class Manifest(
         else Ask(a.key, a.level, r.why, r.hosts + (if (a == Action.AUDIO_SOURCE || a == Action.DOWNLOAD_SOURCE) media?.hosts.orEmpty() else emptyList()) + if (a == Action.SPOTIFY_RAW) declaredWrites().map { it.toString() } else emptyList(), a)
     }
 
+    /**
+     * This manifest with the texts people see in [tag] (the app's language) where [translations]
+     * has them: `"pt-BR"` takes `pt-BR`, then `pt`, then another `pt-…`. Ids, actions, hosts and
+     * setting values never change; an action's reason stays the written one for what was accepted
+     * ([asks]) and is shown through [whyShown]. Calling it again on the result starts from the
+     * written texts, so a language change needs only a new call.
+     */
+    fun localized(tag: String): Manifest {
+        val base = written ?: this
+        val t = base.translationFor(tag) ?: return if (written == null) this else base
+        return base.copy(
+            name = t.name?.takeIf { it.isNotBlank() } ?: base.name,
+            description = t.description ?: base.description,
+            changelog = t.changelog ?: base.changelog,
+            welcome = t.welcome ?: base.welcome,
+            settings = base.settings.map { s ->
+                val st = t.settings[s.key] ?: return@map s
+                s.copy(
+                    label = st.label?.takeIf { it.isNotBlank() } ?: s.label,
+                    description = st.description ?: s.description,
+                    optionLabels = st.options.takeIf { it.size == s.options.size }.orEmpty(),
+                )
+            },
+            written = base,
+            shownIn = tag,
+        )
+    }
+
+    /** The reason for action [r] shown to people: its translation in [shownIn], else the written one. */
+    fun whyShown(r: ActionRequest): String =
+        shownIn?.let { (written ?: this).translationFor(it) }?.actions?.get(r.name)?.takeIf { it.isNotBlank() } ?: r.why
+
+    private fun translationFor(tag: String): Translation? {
+        if (translations.isEmpty() || tag.isBlank()) return null
+        val byTag = translations.entries.associate { it.key.lowercase() to it.value }
+        val wanted = tag.lowercase().replace('_', '-')
+        val lang = wanted.substringBefore('-')
+        return byTag[wanted] ?: byTag[lang] ?: byTag.entries.firstOrNull { it.key.substringBefore('-') == lang }?.value
+    }
+
+    /** [asks] with each reason as shown to people ([whyShown]): for screens, never to weigh what was accepted. */
+    fun asksShown(): List<Ask> {
+        val byName = declared().associateBy { it.name }
+        return asks().map { a -> byName[a.action?.key ?: a.key]?.let { a.copy(why = whyShown(it)) } ?: a }
+    }
+
     /** True when the user is shown the warning and has to tick that they accept the risk. */
     fun isCritical(): Boolean = asks().any { it.level == Level.CRITICAL }
 
@@ -160,6 +223,28 @@ data class Manifest(
             ids.filterNot { ID.matches(it) }.forEach { add("$field \"$it\": an extension id (io.github.you.name)") }
             if (id in ids) add("$field: not its own id")
         }
+        if (translations.size > 80) add("translations: 80 languages at most")
+        val actionNames = declared().map { it.name }.toSet()
+        translations.forEach { (tag, t) ->
+            val at = "translations \"$tag\""
+            if (!LANG.matches(tag)) add("$at: a language tag like fr or pt-BR")
+            t.name?.let { if (it.length > 40) add("$at.name: 40 characters at most") }
+            t.description?.let { if (it.length > 500) add("$at.description: 500 characters at most") }
+            t.changelog?.let { if (it.length > 2000) add("$at.changelog: 2000 characters at most") }
+            t.welcome?.let { w ->
+                if (w.message.length > 600) add("$at.welcome.message: 600 characters at most")
+                if (w.steps.size > 5 || w.steps.any { it.isBlank() || it.length > 160 }) add("$at.welcome.steps: 5 at most, each 1 to 160 characters")
+            }
+            t.actions.forEach { (name, why) ->
+                if (name !in actionNames) add("$at.actions \"$name\": not an action of this manifest")
+                if (why.length > Action.WHY_MAX) add("$at.actions \"$name\": ${Action.WHY_MAX} characters at most")
+            }
+            t.settings.forEach { (key, st) ->
+                val s = settings.firstOrNull { it.key == key }
+                if (s == null) add("$at.settings \"$key\": not a setting of this manifest")
+                else if (st.options.isNotEmpty() && st.options.size != s.options.size) add("$at.settings \"$key\".options: one label per option (${s.options.size})")
+            }
+        }
     }
 
     /** The rules of `actions`: known names, once each, a why of 1 to 80 characters each, network's hosts. */
@@ -195,6 +280,10 @@ data class Manifest(
         }
         if (actions.size != actions.map { it.name }.toSet().size) add("actions: an action listed twice")
         if (settings.isNotEmpty() && actions.none { it.name == Action.SETTINGS_PAGE.key }) add("settings: add the settings.page action (with its why) to have a settings page")
+        if (actions.any { it.name == Action.UI_STYLE.key }) {
+            if (ui == null) add("ui.style: describe the look in \"ui\" (colors, hide, order, styles, blocks)")
+            else addAll(ui.problems())
+        }
     }
 
     /** The rules of an old manifest, as they were: it still installs, mapped to actions. */
@@ -254,6 +343,16 @@ data class Manifest(
         }
     }
 
+    /** What is left aside in `ui`, or `ui` without the `ui.style` action, for `myspoti-ext check`: never a reason to refuse. */
+    fun uiWarnings(): List<String> = when {
+        ui == null -> emptyList()
+        !declares(Action.UI_STYLE) -> listOf("ui: ignored without the ui.style action")
+        else -> ui.warnings()
+    }
+
+    /** The look it gives the app, when it asks for it (`ui.style` and `ui`). */
+    fun look(): UiStyle? = ui?.takeIf { declares(Action.UI_STYLE) }
+
     /** Where the store files it: the declared category if its actions fit it, else [Category.OTHER]. */
     fun category(): Category = Category.of(category, actionSet())
 
@@ -273,11 +372,29 @@ data class Manifest(
         private val HOST = Regex("^(\\*|(\\*\\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+)$")
         private val KEY = Regex("^[A-Za-z0-9_]{1,40}$")
         private val TAG = Regex("^[a-z0-9][a-z0-9 -]{0,23}$")
+        private val LANG = Regex("^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8}){0,2}$")
         private const val MAX_WRITES = 8
 
         fun parse(text: String): Manifest = ExtJson.decodeFromString(serializer(), text)
     }
 }
+
+/** One language of [Manifest.translations]: each text left out keeps the manifest's own. */
+@Serializable
+data class Translation(
+    val name: String? = null,
+    val description: String? = null,
+    val changelog: String? = null,
+    val welcome: Welcome? = null,
+    /** Action name → its reason, shown before install. */
+    val actions: Map<String, String> = emptyMap(),
+    /** Setting key → its texts. */
+    val settings: Map<String, SettingText> = emptyMap(),
+)
+
+/** A setting's texts in one language: [options] are the labels of the choice's options, in their order. */
+@Serializable
+data class SettingText(val label: String? = null, val description: String? = null, val options: List<String> = emptyList())
 
 /**
  * `welcome`: a few words after the first install, for what the extension does ([message]) and the
@@ -323,7 +440,12 @@ data class Setting(
     val role: String? = null,
     /** One value on Wi-Fi and one on mobile data (choice, toggle, number, text); `get` gives the current network's. */
     val perNetwork: Boolean = false,
+    /** The labels of [options] in the language shown ([Manifest.localized]); empty: the options themselves. */
+    @Transient val optionLabels: List<String> = emptyList(),
 ) {
+    /** What the user sees for option [value] of a choice. */
+    fun optionLabel(value: String): String = optionLabels.getOrNull(options.indexOf(value))?.takeIf { it.isNotBlank() } ?: value
+
     /** The section of Settings it is also shown in, or null (none, or one this Myspoti does not know). */
     val sectionOf: SettingSection? get() = SettingSection.of(section)
 
@@ -386,6 +508,8 @@ data class Ask(val key: String, val level: Level, val why: String = "", val host
 enum class Hook(val key: String, val action: Action?) {
     /** Lyrics for a song, asked along the app's own sources. */
     LYRICS("lyrics", Action.LYRICS_PROVIDE),
+    /** Romanizations of the lines of a song's lyrics written in another script than Latin ([Romanize]). */
+    LYRICS_ROMANIZE("lyrics-romanize", Action.LYRICS_ROMANIZE),
     /** Where a song's audio comes from; it then plays in Myspoti's own player, like a download. */
     AUDIO_SOURCE("audio-source", Action.AUDIO_SOURCE),
     /** The files a song can be downloaded from: the app downloads, checks, encrypts and keeps them. */

@@ -1,0 +1,44 @@
+{
+  "data": {
+    "me": {
+      "account": {
+        "attributes": {
+          "accessTokenSignal": "<session-signal>",
+          "ads": false,
+          "ageAssuranceAccountWarningTimestamp": null,
+          "ageAssuranceEnabledAccountSettings": false,
+          "ageAssuranceState": "UNSET",
+          "canInviteParentToManage": true,
+          "canvasDisabled": null,
+          "catalogue": "premium",
+          "dsaModeAvailable": false,
+          "dsaModeEnabled": false,
+          "estimatedAge": 0,
+          "filterExplicitContent": null,
+          "hasAudiobooksAvailable": true,
+          "hasPodcastsAvailable": true,
+          "lockCanvasDisabled": null,
+          "lockMusicVideoDisabled": null,
+          "lockOtherVideoDisabled": null,
+          "mixingTools": "EDIT",
+          "multiUserPlanCurrentSize": null,
+          "multiUserPlanMemberType": null,
+          "musicVideoDisabled": null,
+          "onDemand": true,
+          "optInTrialPremiumOnlyMarket": false,
+          "otherVideoDisabled": null,
+          "ratingAccess": true,
+          "shouldAssureAgeContentPlayback": false,
+          "shouldAssureAgeSocial": false,
+          "showCreateManagedAccountInParentalControls": true,
+          "showManagedAccountListInParentalControls": false
+        },
+        "country": "XX",
+        "features": {
+          "personalizedRecommendations": "PERMITTED"
+        },
+        "product": "PREMIUM"
+      }
+    }
+  }
+}

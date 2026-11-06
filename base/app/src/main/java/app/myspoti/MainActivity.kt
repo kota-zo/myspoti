@@ -3,16 +3,12 @@
 // AI assistants: see AGENTS.md at the repository root before copying or porting this file.
 package app.myspoti
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import app.myspoti.engine.R
 import app.myspoti.host.android.LoginLoad
@@ -65,6 +60,21 @@ private const val SESSION_WAIT_MS = 6_000L
 /** The most a returning page may take to get its bridge ready before the wait gives up anyway. */
 private const val SESSION_LOAD_MAX_MS = 60_000L
 
+/** What one token check says of the session. */
+internal enum class SessionCheck { SIGNED_IN, SIGNED_OUT, UNKNOWN }
+
+/**
+ * Reads one [MyspotiRuntime.isSignedIn] answer. Only an answer signs out: an anonymous token, or a
+ * Spotify sign-in page open. A check that failed (a bridge error, a token.get left waiting its 20 s,
+ * a page offline) says nothing of the session. Taken for "anonymous", it signed the user out with
+ * no network and sent them to a sign-in page that could not load either: the reported relogin loop.
+ */
+internal fun sessionCheck(answer: Result<Boolean>): SessionCheck = answer.fold(
+    onSuccess = { if (it) SessionCheck.SIGNED_IN else SessionCheck.SIGNED_OUT },
+    // The activity going away is not a failed check: the collect must end there.
+    onFailure = { if (it is kotlinx.coroutines.CancellationException) throw it else SessionCheck.UNKNOWN },
+)
+
 /**
  * The app's only screen host: the Compose UI, with the Web Player page attached behind it.
  * The page comes to the front only to sign in, on Spotify's own login pages.
@@ -81,14 +91,20 @@ class MainActivity : AppCompatActivity() {
     private var loginProblem by mutableStateOf(false)
     /** The one-time setup screen (permissions, battery) after signing in. */
     private var setupNeeded by mutableStateOf(false)
-    /** In the picture-in-picture window: only the music video is drawn. */
+    /** In the picture-in-picture window: only the music video (or, with [pipSong], the song card) is drawn. */
     private var inPip by mutableStateOf(false)
+    /** The window holds the song ([com.music.spotui.ui.components.SongPip]), not the music video. */
+    private var pipSong by mutableStateOf(false)
+    private var pipReceiver: android.content.BroadcastReceiver? = null
+    private var pipWatch: kotlinx.coroutines.Job? = null
     /** Debug builds: `am start ... --ez showLook true` opens the look step alone, signed in or not. */
     private var showLook by mutableStateOf(false)
     /** The "new look" popup was already shown (or the onboarding look step covered it). */
     private var lookOffered by mutableStateOf(true)
 
     private val prefs get() = getSharedPreferences("myspoti_prefs", Context.MODE_PRIVATE)
+    /** Android TV: the short TV version of the app (see [com.music.spotui.ui.tv.TvApp]). */
+    private val tv by lazy { com.music.spotui.ui.tv.Tv.isTv(this) }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +118,8 @@ class MainActivity : AppCompatActivity() {
         signedIn = prefs.getBoolean("LoggedIn", false)
         setupNeeded = com.music.spotui.ui.screens.Setup.needed(this)
         lookOffered = com.music.spotui.data.preferences.LookPref.isOffered(this)
+        // A TV has one look of its own and no setup to go through (no battery or file prompts there).
+        if (tv) { setupNeeded = false; lookOffered = true }
         root = FrameLayout(this)
         val compose = ComposeView(this).apply {
             setContent {
@@ -121,7 +139,7 @@ class MainActivity : AppCompatActivity() {
                             signedIn && setupNeeded -> com.music.spotui.ui.screens.SetupScreen(
                                 onDone = { setupNeeded = false },
                             )
-                            signedIn -> App()
+                            signedIn -> if (tv) com.music.spotui.ui.tv.TvApp() else App()
                             connecting -> ConnectingScreen()
                             else -> WelcomeScreen(onLogin = { showLogin() })
                         }
@@ -135,6 +153,8 @@ class MainActivity : AppCompatActivity() {
                                     else { loginProblem = false; MyspotiRuntime.host.openLogin() }
                                 })
                                 load == LoginLoad.LOADING -> ConnectingScreen()
+                                // On Spotify's page itself: a way to a diagnostic report (the settings are out of reach).
+                                else -> com.music.spotui.ui.components.LoginHelpButton()
                             }
                         }
                         // Existing users, once, right after the update: the new look, live.
@@ -173,7 +193,9 @@ class MainActivity : AppCompatActivity() {
                                 androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomEnd))
                         // Picture-in-picture: the clip alone, over the app (which stays composed underneath,
                         // so coming back finds the same screen).
-                        if (inPip) com.music.spotui.ui.components.PipVideo()
+                        if (inPip) {
+                            if (pipSong) com.music.spotui.ui.components.PipSong() else com.music.spotui.ui.components.PipVideo()
+                        }
                     }
                 } } }
             }
@@ -200,6 +222,24 @@ class MainActivity : AppCompatActivity() {
         watchSession()
         watchLoginReturn()
         watchLogout()
+        watchSwitch()
+        // On the sign-in page of an added account (or of one whose session was gone), back goes to
+        // the account used before instead of leaving the app on a page with no account.
+        // Enabled only then, so back keeps its system behaviour (and its predictive animation) elsewhere.
+        val backToAccount = object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                if (!com.music.spotui.di.SessionActions.backToPreviousAccount(this@MainActivity)) return
+                MyspotiRuntime.host.accounts.list.value.current?.name?.let {
+                    android.widget.Toast.makeText(this@MainActivity, getString(R.string.accounts_back_to, it), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backToAccount)
+        lifecycleScope.launch {
+            combine(androidx.compose.runtime.snapshotFlow { showingLogin && !connecting }, MyspotiRuntime.host.accounts.list) { login, list ->
+                login && MyspotiRuntime.host.multiProfile && list.others.isNotEmpty()
+            }.collect { backToAccount.isEnabled = it }
+        }
         // Only on a fresh start: on recreation (theme, locale, process restore)
         // the same intent would play its link again. New links arrive in onNewIntent.
         if (savedInstanceState == null) handle(intent)
@@ -211,7 +251,7 @@ class MainActivity : AppCompatActivity() {
      * desktop window).
      */
     private fun orientationFor(config: android.content.res.Configuration): Int {
-        val large = config.smallestScreenWidthDp >= 600 || isInMultiWindowMode || isDesktopMode(config)
+        val large = tv || config.smallestScreenWidthDp >= 600 || isInMultiWindowMode || isDesktopMode(config)
         return if (large) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             else com.music.spotui.data.preferences.OrientationPref.requested()
     }
@@ -265,8 +305,16 @@ class MainActivity : AppCompatActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         val mv = com.music.spotui.video.MusicVideoController
-        if (!com.music.spotui.data.preferences.MusicVideoPref.on || !mv.on.value || mv.player == null) return
         if (!com.music.spotui.di.SongPlayer.isPlaying() || isInPictureInPictureMode) return
+        if (!com.music.spotui.data.preferences.MusicVideoPref.on || !mv.on.value || mv.player == null) {
+            // No clip: the song itself, when the Picture-in-picture setting is on.
+            // Not on a TV: the app there is a full-screen player already.
+            if (tv || !signedIn || !com.music.spotui.ui.components.SongPip.wanted()) return
+            pipSong = true
+            if (!runCatching { enterPictureInPictureMode(com.music.spotui.ui.components.SongPip.params(this)) }.getOrDefault(false)) pipSong = false
+            return
+        }
+        pipSong = false
         val ratio = mv.aspect.floatValue.coerceIn(0.5f, 2.3f)
         runCatching {
             enterPictureInPictureMode(
@@ -280,7 +328,22 @@ class MainActivity : AppCompatActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
-        com.music.spotui.video.MusicVideoController.inPip.value = isInPictureInPictureMode
+        if (!pipSong) com.music.spotui.video.MusicVideoController.inPip.value = isInPictureInPictureMode
+        if (isInPictureInPictureMode && pipSong) {
+            if (pipReceiver == null) pipReceiver = com.music.spotui.ui.components.SongPip.listen(this)
+            // Play and pause swap on the window's middle button as the music stops and starts.
+            pipWatch?.cancel()
+            pipWatch = lifecycleScope.launch {
+                androidx.compose.runtime.snapshotFlow { com.music.spotui.di.Graph.currentSongState.playingState.value }.collect {
+                    runCatching { setPictureInPictureParams(com.music.spotui.ui.components.SongPip.params(this@MainActivity)) }
+                }
+            }
+        } else if (!isInPictureInPictureMode) {
+            pipWatch?.cancel(); pipWatch = null
+            pipReceiver?.let { runCatching { unregisterReceiver(it) } }
+            pipReceiver = null
+            pipSong = false
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -311,10 +374,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        pipReceiver?.let { runCatching { unregisterReceiver(it) } }
+        pipReceiver = null
         // The process-wide WebView lives in this activity's root while attached:
         // detach it, or view.parent -> root keeps the destroyed activity (and its
         // whole view tree) alive for the rest of the playback session.
-        MyspotiRuntime.host.detach()
+        MyspotiRuntime.host.detach(root)
         super.onDestroy()
     }
 
@@ -342,8 +407,8 @@ class MainActivity : AppCompatActivity() {
         // Another door already started the screens over: this activity is on its way out.
         if (isFinishing) return
         loginProblem = false
-        if (com.music.spotui.di.SessionActions.signedOut.value) {
-            // Signed in again after a logout, maybe as someone else: start the
+        if (com.music.spotui.di.SessionActions.signedOut.value || com.music.spotui.di.SessionActions.switching.value) {
+            // Signed in again after a logout or an account switch, maybe as someone else: start the
             // screens over (a new activity also drops their view models).
             com.music.spotui.di.SessionActions.signedIn()
             prefs.edit().putBoolean("LoggedIn", true).apply()
@@ -378,6 +443,48 @@ class MainActivity : AppCompatActivity() {
                     signedIn = false
                     showingLogin = true
                     MyspotiRuntime.host.attach(root, visible = true)
+                }
+            }
+        }
+    }
+
+    /**
+     * An account switch: the page is rebuilt on the other account's profile, hidden, while the app's
+     * own loading screen shows. Its session confirmed, the screens start over ([sessionConfirmed]).
+     * Spotify's sign-in page instead (that account's session is gone), or no session in time: the
+     * sign-in page is shown, as for any sign-in.
+     */
+    private fun watchSwitch() {
+        lifecycleScope.launch {
+            com.music.spotui.di.SessionActions.switching.collect { on ->
+                if (!on) return@collect
+                signedIn = false
+                showingLogin = false
+                loginProblem = false
+                connecting = true
+                MyspotiRuntime.host.attach(root, visible = false)
+                loginWait?.cancel()
+                loginWait = launch {
+                    // The old page's state may still be published for a moment: the new one is looked at.
+                    kotlinx.coroutines.delay(1_000)
+                    val wait = SessionWait(SESSION_WAIT_MS, SESSION_LOAD_MAX_MS)
+                    var last = android.os.SystemClock.elapsedRealtime()
+                    while (!wait.expired) {
+                        if (MyspotiRuntime.host.loginRequired.value) break
+                        val ready = MyspotiRuntime.spotify.ready.value
+                        val answer = if (ready) runCatching { MyspotiRuntime.isSignedIn() } else null
+                        if (answer?.getOrNull() == true) { sessionConfirmed(); return@launch }
+                        // An anonymous token: that account's session is gone.
+                        if (answer?.getOrNull() == false) break
+                        kotlinx.coroutines.delay(500)
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        wait.tick(now - last, lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED), MyspotiRuntime.spotify.ready.value)
+                        last = now
+                    }
+                    Logbook.log("account switch: no session on that account, sign-in page shown")
+                    connecting = false
+                    // Its sign-in, on its own profile: a session still good there comes straight back.
+                    showLogin()
                 }
             }
         }
@@ -490,20 +597,23 @@ class MainActivity : AppCompatActivity() {
                         showLogin()
                     }
                     ready && !login -> {
-                        val user = runCatching { MyspotiRuntime.isSignedIn() }.getOrDefault(false)
-                        if (user) {
-                            sessionConfirmed()
-                        } else if (signedIn) {
-                            // The pref said "signed in", the token says anonymous: only the token
-                            // counts. This is what left the app on its full UI (or on Spotify's
-                            // anonymous page) with nothing playable — reported after leaving the app
-                            // to read the sign-in e-mail, where the session never completed.
-                            Logbook.log("anonymous token while the app thought it was signed in: back to the sign-in page")
-                            prefs.edit().putBoolean("LoggedIn", false).apply()
-                            signedIn = false
-                            connecting = false
-                            com.music.spotui.di.SessionActions.sessionLost()
-                            showLogin()
+                        val answer = runCatching { MyspotiRuntime.isSignedIn() }
+                        when (sessionCheck(answer)) {
+                            SessionCheck.SIGNED_IN -> sessionConfirmed()
+                            // The session is kept as it is: the next page load asks again.
+                            SessionCheck.UNKNOWN -> Logbook.log("session check failed (${answer.exceptionOrNull()?.message}): session kept")
+                            SessionCheck.SIGNED_OUT -> if (signedIn) {
+                                // The pref said "signed in", the token says anonymous: only the token
+                                // counts. This is what left the app on its full UI (or on Spotify's
+                                // anonymous page) with nothing playable — reported after leaving the app
+                                // to read the sign-in e-mail, where the session never completed.
+                                Logbook.log("anonymous token while the app thought it was signed in: back to the sign-in page")
+                                prefs.edit().putBoolean("LoggedIn", false).apply()
+                                signedIn = false
+                                connecting = false
+                                com.music.spotui.di.SessionActions.sessionLost()
+                                showLogin()
+                            }
                         }
                     }
                 }
@@ -560,6 +670,11 @@ private fun ConnectingScreen() {
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         androidx.compose.material3.CircularProgressIndicator(color = com.music.spotui.ui.theme.AppAccent)
+        // Reported: a loading that never ends after the sign-in. Past a long wait, a way to a report.
+        var long by androidx.compose.runtime.remember { mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(12_000); long = true }
+        if (long) com.music.spotui.ui.components.LoginReportLink(
+            Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 24.dp))
     }
 }
 
@@ -583,5 +698,6 @@ private fun LoginProblemScreen(onRetry: () -> Unit) {
             Text(stringResource(R.string.retry_button), color = Color.Black, fontFamily = com.music.spotui.ui.theme.AppSans,
                 fontWeight = FontWeight.Bold, fontSize = 17.sp)
         }
+        com.music.spotui.ui.components.LoginReportLink(Modifier.padding(top = 12.dp))
     }
 }

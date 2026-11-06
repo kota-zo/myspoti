@@ -63,12 +63,8 @@ data class WindowSize(val widthDp: Int, val heightDp: Int) {
         if (!large) phone else (widthDp / cell.value).toInt().coerceIn(phone, phone * 4)
 
     companion object {
-        /** The widest a content column (rows, track lists, settings) grows on a large window. */
-        val MaxContentWidth = 960.dp
         /** The widest a detail page (album, playlist, artist, settings) grows, centred. */
         val MaxPageWidth = 1040.dp
-        /** The widest a sheet grows on a large window, centred. */
-        val MaxSheetWidth = 640.dp
         /** The widest the mini player grows on a large window. */
         val MaxMiniPlayerWidth = 720.dp
     }
@@ -90,15 +86,6 @@ private fun configurationWindowSize(): WindowSize {
 @Composable
 fun ProvideWindowSize(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalWindowSize provides configurationWindowSize(), content = content)
-}
-
-/**
- * Large windows: caps the content at [max] and centres it, so rows are not stretched across a
- * desktop window. Phones: unchanged.
- */
-fun Modifier.maxContentWidth(max: Dp = WindowSize.MaxContentWidth): Modifier = composed {
-    if (!windowSize().large) this
-    else this.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = max)
 }
 
 /**

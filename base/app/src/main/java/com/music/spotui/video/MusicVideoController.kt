@@ -24,7 +24,6 @@ import com.music.spotui.di.SongPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -116,8 +115,12 @@ object MusicVideoController {
     // song shows its answer at once, with no disk and no job. No audio, no features, no decoder.
     private const val RECENT_MAX = 20
     private const val NONE_TTL_MS = 7 * 86_400_000L
-    /** Bumped when the search finds clips it missed before (Spotify-confirmed label uploads, "$" names). */
-    private const val NONE_RULES = 2
+    /**
+     * Bumped when the search finds clips it missed before (Spotify-confirmed label uploads, "$" names) or
+     * refuses ones it wrongly took (artist, title, other versions, length: MusicVideoMatch). Answers
+     * under older rules, "none" and clips alike, are looked up again.
+     */
+    private const val MATCH_RULES = 3
     private class Recent(val state: State, val at: Long)
     private val recent = object : LinkedHashMap<String, Recent>(32, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Recent>) = size > RECENT_MAX
@@ -152,9 +155,11 @@ object MusicVideoController {
             if (System.currentTimeMillis() - f.lastModified() > 86_400_000L) f.setLastModified(System.currentTimeMillis())
             if (o.optBoolean("none")) {
                 // "No clip" found under older search rules is looked up again.
-                return@runCatching if (o.optInt("rules") >= NONE_RULES && System.currentTimeMillis() - o.optLong("at") < NONE_TTL_MS)
+                return@runCatching if (o.optInt("rules") >= MATCH_RULES && System.currentTimeMillis() - o.optLong("at") < NONE_TTL_MS)
                     State.Unavailable.also { remember(trackId, it, o.optLong("at")) } else null
             }
+            // A clip picked under older rules may be a wrong one: looked up again.
+            if (o.optInt("rules") < MATCH_RULES) return@runCatching null
             val score = o.getDouble("score")
             require(score.isFinite() && score >= MIN_SCORE)
             val jsonSegments = o.getJSONArray("segments")
@@ -178,12 +183,12 @@ object MusicVideoController {
             val o = JSONObject()
             when (s) {
                 is State.Ready -> {
-                    o.put("video", s.videoUrl).put("score", s.map.score).put("complete", s.mapComplete)
+                    o.put("video", s.videoUrl).put("score", s.map.score).put("complete", s.mapComplete).put("rules", MATCH_RULES)
                     o.put("segments", JSONArray().apply {
                         s.map.segments.forEach { put(JSONObject().put("from", it.songStartMs).put("to", it.songEndMs).put("offset", it.offsetMs)) }
                     })
                 }
-                else -> o.put("none", true).put("at", System.currentTimeMillis()).put("rules", NONE_RULES)
+                else -> o.put("none", true).put("at", System.currentTimeMillis()).put("rules", MATCH_RULES)
             }
             runCatching {
                 val file = AtomicFile(cacheFile(trackId))
@@ -447,7 +452,8 @@ object MusicVideoController {
         } catch (t: kotlinx.coroutines.CancellationException) {
             throw t
         } catch (t: Throwable) {
-            Log.w(TAG, "Video resolution failed: ${t.javaClass.simpleName}")
+            // Linkage errors name the class a build lacks (a shrunk one, reported); others may carry a URL.
+            Log.w(TAG, "Video resolution failed: ${t.javaClass.simpleName}${if (t is LinkageError) ": ${t.message}" else ""}")
             null
         } finally {
             refFile.delete()

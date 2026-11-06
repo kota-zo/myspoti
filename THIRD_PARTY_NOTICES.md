@@ -3,6 +3,22 @@
 Myspoti is free software under the GNU General Public License v3.0 (see `LICENSE`).
 It builds on the projects below; their licences are compatible with the GPL-3.0.
 
+## Beat This! — MIT
+https://github.com/CPJKU/beat_this
+
+By Francesco Foscarin, Jan Schlüter and Gerhard Widmer (CPJKU, Johannes Kepler University Linz),
+"Beat This! Accurate beat tracking without DBN postprocessing" (ISMIR 2024). AutoMix ships the
+`small0` checkpoint, exported to ONNX and quantized to int8 (`base/app/src/main/assets/automix/
+beat-this-small0-int8.onnx`); upstream publishes the code and the weights under the MIT licence.
+The log-mel front end in `base/automix/.../BeatThis.kt` follows its input contract. The training
+recordings are not bundled.
+
+## ONNX Runtime — MIT
+https://github.com/microsoft/onnxruntime
+
+Copyright Microsoft Corporation. `com.microsoft.onnxruntime:onnxruntime-android` 1.23.2 runs the
+Beat This model on the phone (the desktop bench uses the JVM build of the same version).
+
 ## Spotui — GPL-3.0
 https://github.com/Spotui/Spotui
 
@@ -52,6 +68,24 @@ Code that BitChord itself carries from other projects, kept with its own header:
   (https://github.com/EchoMusicApp/Echo-Music), GPL-3.0. The lens of `shell/GlassSelectionPill.kt` and
   the minimizing chrome of `shell/ImmersiveChrome.kt` follow BitChord's `floatingtabbar/` files.
 
+## Apple Music TV — GPL-3.0
+https://github.com/JObersi10/apple-music-tv (commit `7e5c594`)
+
+By JObersi10. The Android TV look is ported from it. These files in
+`base/app/src/main/java/com/music/spotui/ui/tv/` are adapted from its
+`android/app/src/main/java/com/applemusicktv/ui/` files, stay under the GPL-3.0, and say so in
+their header:
+
+- `TvParts.kt`, from `components/TopNavBar.kt`, `AlbumCard.kt`, `SpotlightCards.kt` (GradientCard)
+  and `Skeleton.kt` (the floating tab pill, the focus scale, halo and border of the cards, the shelf skeleton)
+- `TvApp.kt`, from `AppShell.kt`, `screens/HomeScreen.kt` and `screens/PlaylistDetailScreen.kt`
+  (the shell, Home's shelves, a list's page)
+- `TvNowPlaying.kt`, from `screens/NowPlayingScreen.kt` (the full-screen player, its idle mode and
+  the D-pad seek bar)
+
+Only its UI is used: none of its playback, Widevine or network code, and none of its icons (Apple's
+SF Symbols), images or brand.
+
 ## Backdrop — Apache-2.0
 https://github.com/Kyant0/backdrop (v2.0.0, `io.github.kyant0:backdrop`), Copyright 2025 Kyant0.
 
@@ -66,6 +100,12 @@ compose-floating-tab-bar above).
 https://github.com/chrisbanes/haze
 
 The frosted bars of the Immersive look (Gradle dependency `dev.chrisbanes.haze:haze`).
+
+## Reorderable — Apache-2.0
+
+`sh.calvin.reorderable:reorderable` 3.1.0 (https://github.com/Calvin-LL/Reorderable), Copyright Calvin Liang,
+used as a library (unmodified) for dragging the rows of the Immersive queue. Licence text in
+`base/licenses/Apache-2.0.txt`.
 
 ## Inter — SIL Open Font License 1.1
 https://github.com/rsms/inter

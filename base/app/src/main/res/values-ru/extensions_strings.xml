@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Выше</string>
     <string name="extensions_move_down">Ниже</string>
     <string name="extension_off">Выключено</string>
-    <string name="extension_by">автор: %1$s</string>
     <string name="extension_changelog">Что нового</string>
     <string name="extension_update_from">Доступно обновление: %1$s → %2$s</string>
     <string name="extension_not_listed">Этого расширения нет в ваших репозиториях (или они ещё загружаются).</string>
@@ -96,6 +95,7 @@
     <string name="action_playback_queue">Изменять очередь</string>
     <string name="action_playback_events">Знать, что вы слушаете</string>
     <string name="action_lyrics_provide">Предоставлять тексты</string>
+    <string name="action_lyrics_romanize">Латинизировать тексты</string>
     <string name="action_trackinfo_provide">Добавлять сведения о треках</string>
     <string name="action_audio_source">Воспроизводить звук из другого источника</string>
     <string name="action_download_source">Предоставлять загрузки</string>
@@ -244,4 +244,5 @@
     <string name="why_source_open_ok">Открыто за %1$d мс</string>
     <string name="why_source_skipped">пропущено: %1$s</string>
     <string name="why_source_title">Почему этот источник?</string>
+    <string name="extensions_guide">Как установить расширения</string>
 </resources>

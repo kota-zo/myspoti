@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Lagunak</string>
     <string name="messages_title">Mezuak</string>
     <string name="messages_empty">Oraindik ez dago elkarrizketarik. Idatzi lagun bati goiko arkatzarekin.</string>
     <string name="messages_failed">Spotify-k ez ditu zure mezuak bidali.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s erabiltzaileak %2$s kendu du</string>
     <string name="messages_event_link">%1$s esteka baten bidez batu da</string>
     <string name="messages_event_reported">Elkarrizketa salatu da</string>
-    <string name="friends_title">Lagunen jarduera</string>
-    <string name="friends_now">Orain</string>
-    <string name="friends_empty">Oraindik ez dago lagunen jarduerarik. Jarraitzen dituzun eta Spotify-n entzuten dutena partekatzen duten lagunak hemen agertzen dira.</string>
-    <string name="friends_failed">Spotify-k ez du lagunen jarduera bidali.</string>
-    <string name="friends_refresh">Freskatu</string>
+    <string name="friends_tab">Lagunak</string>
 </resources>

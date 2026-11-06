@@ -37,6 +37,7 @@ import app.myspoti.engine.R
 import com.music.spotui.data.preferences.EqPreset
 import com.music.spotui.data.preferences.EqualizerPref
 import com.music.spotui.di.EqBands
+import com.music.spotui.di.Spatial
 import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppBackground
 import com.music.spotui.ui.theme.AppMuted
@@ -45,8 +46,8 @@ import com.music.spotui.ui.theme.tone
 
 /**
  * Settings > Playback > Equalizer (Classic): the local player's equalizer (on/off, a preset, ten
- * bands and the preamp), its speed and silence skipping (see [EqualizerPref]). Says first what it
- * applies to: never Spotify's own songs, whose sound the app does not get.
+ * bands and the preamp), its spatial audio, speed and silence skipping (see [EqualizerPref]). Says
+ * first what it applies to: never Spotify's own songs, whose sound the app does not get.
  */
 @Composable
 fun EqualizerScreen(navController: NavController) {
@@ -84,6 +85,25 @@ fun EqualizerScreen(navController: NavController) {
             Text(stringResource(R.string.equalizer_reset), color = if (pref.enabled) AppAccent else AppMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(50))
                     .clickable(enabled = pref.enabled) { pref.setPreset(ctx, EqPreset.FLAT) }.padding(horizontal = 12.dp, vertical = 8.dp))
+
+            Section(R.string.spatial_title)
+            OptionRow(
+                label = stringResource(R.string.spatial_enable),
+                detail = stringResource(R.string.spatial_detail),
+                checked = pref.spatial,
+                onChecked = { pref.setSpatial(ctx, it) },
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Text(stringResource(R.string.spatial_width), color = if (pref.spatial) AppText else AppMuted, fontSize = 13.sp, modifier = Modifier.width(64.dp))
+                Slider(
+                    value = pref.spatialWidth, onValueChange = { pref.setSpatialWidth(ctx, widthStep(it), save = false) },
+                    onValueChangeFinished = { pref.setSpatialWidth(ctx, pref.spatialWidth) },
+                    valueRange = Spatial.MIN_WIDTH..Spatial.MAX_WIDTH, enabled = pref.spatial, modifier = Modifier.weight(1f),
+                    colors = SliderDefaults.colors(thumbColor = AppAccent, activeTrackColor = AppAccent, inactiveTrackColor = tone(0xFF3A3A3A)),
+                )
+                Text(widthText(pref.spatialWidth), color = AppMuted, fontSize = 12.sp,
+                    modifier = Modifier.width(64.dp).padding(start = 8.dp))
+            }
 
             Section(R.string.equalizer_section_playback)
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
@@ -144,6 +164,13 @@ internal fun dbText(db: Float): String {
     val s = if (v == Math.floor(v.toDouble()).toFloat()) v.toInt().toString() else String.format(java.util.Locale.getDefault(), "%.1f", v)
     return if (v > 0) "+$s" else s
 }
+
+/** The spatial width in steps of 5 %. */
+internal fun widthStep(width: Float): Float = Math.round(width * 20) / 20f
+
+/** "160 %", "160%": the spatial width as a percentage, in the phone's language. */
+internal fun widthText(width: Float): String =
+    java.text.NumberFormat.getPercentInstance(java.util.Locale.getDefault()).format(widthStep(width).toDouble())
 
 /** "1×", "1,25×" in the phone's language. */
 internal fun speedText(speed: Float): String = com.music.spotui.ui.components.speedLabel(speed.toDouble()) + "×"

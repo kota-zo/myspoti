@@ -1,6 +1,7 @@
 package com.music.spotui.di
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -57,5 +58,13 @@ class ShuffleOrderTest {
         assertEquals(listOf("A", "B", "D", "E") to 1, now to at)
         // Nothing changed: the same order.
         assertEquals(order to 2, ShuffleOrder.refresh(order, 2, order.reversed(), Random(1)))
+    }
+
+    @Test fun aNewOrderWaitsForTheNextSongNotForAnAd() {
+        val song = "spotify:track:"
+        assertFalse(ShuffleOrder.songOver(song + "a", song + "a", song))
+        assertFalse(ShuffleOrder.songOver(song + "a", "spotify:ad:x", song))
+        assertTrue(ShuffleOrder.songOver(song + "a", song + "b", song))
+        assertFalse(ShuffleOrder.songOver(null, song + "b", song))
     }
 }

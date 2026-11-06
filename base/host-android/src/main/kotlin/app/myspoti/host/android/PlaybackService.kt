@@ -14,6 +14,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
+import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -52,11 +53,31 @@ data class NowPlayingInfo(
     /** A podcast episode: the notification offers 15 s skips, the headset next / previous skip 15 s. */
     val episode: Boolean = false,
 ) {
+    /**
+     * Audio goes on, or is about to: a song plays or loads, or an ad break runs. An ad is shown
+     * "paused" ([playing] false, for the screens) but the page plays it (muted) and the app is busy
+     * getting past it: the service keeps the foreground and its locks then, or a break over a
+     * minute let Android freeze the app (cached apps freezer, Android 14+) and, on Android 17,
+     * silence a player with no foreground service (background audio hardening).
+     */
+    val makesSound: Boolean get() = playing || buffering || id == AD_ID
+
     /** Everything but the position: a moving position alone is not a new state. */
     fun sameAs(other: NowPlayingInfo) = id == other.id && title == other.title && artist == other.artist &&
         album == other.album && coverUrl == other.coverUrl && durationMs == other.durationMs &&
         playing == other.playing && buffering == other.buffering && liked == other.liked && shuffle == other.shuffle && episode == other.episode
+
+    companion object {
+        /** The [id] the app gives an ad break (the screens then say "Advertisement"). */
+        const val AD_ID = "spotify:ad"
+    }
 }
+
+/**
+ * A row of the queue the car shows (Android Auto, some lock screens). [id] is all the car hands back
+ * on a tap ([PlaybackControls.skipToQueueItem]); [iconUri] a content:// URI, the car loads no web image.
+ */
+data class QueueEntry(val id: Long, val title: String, val artist: String, val iconUri: String?)
 
 /** Commands from the system (notification buttons, headset, car, lock screen). */
 interface PlaybackControls {
@@ -74,6 +95,8 @@ interface PlaybackControls {
     val isEpisode: Boolean get() = false
     /** Skips [deltaMs] within the episode; at its end, goes on to the next item. */
     fun skipBy(deltaMs: Long) {}
+    /** A row of the car's queue was tapped: [id] is its [QueueEntry.id] (see [PlaybackService.updateQueue]). */
+    fun skipToQueueItem(id: Long) {}
 }
 
 /** Android Auto / media browser content. */
@@ -120,6 +143,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         sessionToken = session.sessionToken
         createChannel()
         current?.let { apply(it) }
+        applyQueue()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -134,6 +158,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         // The paused notification was swiped away: leave the foreground with it.
         if (info?.playing != true && isStop(intent)) {
             handler.removeCallbacks(leaveForeground)
+            holdLocks(false)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             foreground = false
         }
@@ -160,7 +185,8 @@ class PlaybackService : MediaBrowserServiceCompat() {
      * notification goes with the service.
      */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (current?.playing == true && !playingRemote && !keepsPlayingOnClose(this)) {
+        // An ad or a song loading counts as playing: closing the app then stopped the service under it.
+        if (current?.makesSound == true && !playingRemote && !keepsPlayingOnClose(this)) {
             controls?.pause()
             handler.postDelayed({
                 ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -169,7 +195,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             }, CLOSE_STOP_MS)
             return
         }
-        if (current?.playing != true) stopSelf()
+        if (current?.makesSound != true) stopSelf()
     }
 
     /** A Spotify Connect device plays (the session's volume is that device's). */
@@ -231,7 +257,15 @@ class PlaybackService : MediaBrowserServiceCompat() {
         }
         override fun onSeekTo(pos: Long) = command("seek", wake = false) { seekTo(pos) }
         override fun onStop() = command("stop", wake = false) { pause() }
-        override fun onPlayFromMediaId(mediaId: String, extras: Bundle?) = command("play $mediaId") { playFromMediaId(mediaId) }
+        override fun onPlayFromMediaId(mediaId: String, extras: Bundle?) {
+            // The "recent" item of the resumption root (see onGetRoot): play on where the last session stopped.
+            if (mediaId == RESUME_ID) command("resume") { play() } else command("play $mediaId") { playFromMediaId(mediaId) }
+        }
+        // The car's own shuffle button (Android Auto greys it out without the action).
+        override fun onSetShuffleMode(shuffleMode: Int) = command("shuffle mode $shuffleMode", wake = false) {
+            setShuffle(shuffleMode != PlaybackStateCompat.SHUFFLE_MODE_NONE)
+        }
+        override fun onSkipToQueueItem(id: Long) = command("queue row $id") { skipToQueueItem(id) }
         override fun onPlayFromSearch(query: String, extras: Bundle?) = command("play from search") {
             // "Play music" with no words (Assistant, the car's voice button) is a plain play, not a search.
             if (query.isBlank()) play() else playFromSearch(query)
@@ -279,6 +313,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             info.playing -> PlaybackStateCompat.STATE_PLAYING
             else -> PlaybackStateCompat.STATE_PAUSED
         }
+        session.setShuffleMode(if (info.shuffle) PlaybackStateCompat.SHUFFLE_MODE_ALL else PlaybackStateCompat.SHUFFLE_MODE_NONE)
         session.setPlaybackState(PlaybackStateCompat.Builder()
             .setActions(if (info.episode) ACTIONS or SKIP_ACTIONS else ACTIONS)
             // Like on the left of previous / play / next, shuffle on the right: five buttons, so
@@ -288,7 +323,27 @@ class PlaybackService : MediaBrowserServiceCompat() {
             .addCustomAction(ACTION_SHUFFLE, getString(if (info.shuffle) R.string.msp_shuffle_off else R.string.msp_shuffle_on),
                 if (info.shuffle) R.drawable.msp_ic_shuffle_on else R.drawable.msp_ic_shuffle)
             .setState(state, info.positionMs, if (info.playing && !info.buffering) 1f else 0f)
+            .setActiveQueueItemId(QueueSync.activeRow(queue, activeQueueId, info.title, info.artist))
             .build())
+    }
+
+    /** The pushed queue ([updateQueue]) to the session; the row now playing is marked in the playback state. */
+    private fun applyQueue() {
+        session.setQueueTitle(queueTitle)
+        session.setQueue(queue.map { e ->
+            MediaSessionCompat.QueueItem(MediaDescriptionCompat.Builder()
+                .setTitle(e.title)
+                .setSubtitle(e.artist)
+                .setIconUri(e.iconUri?.let(Uri::parse))
+                .build(), e.id)
+        }.takeIf { it.isNotEmpty() })
+        // Only the marked row changes: the rest of the state (and its position clock) stays as it was.
+        // A row that is not the song shown is not marked (see QueueSync: Bluetooth holds its updates).
+        val state = session.controller.playbackState ?: return
+        val active = QueueSync.activeRow(queue, activeQueueId, current?.title, current?.artist)
+        if (state.activeQueueItemId != active) {
+            session.setPlaybackState(PlaybackStateCompat.Builder(state).setActiveQueueItemId(active).build())
+        }
     }
 
     private fun loadCover(url: String?) {
@@ -361,9 +416,14 @@ class PlaybackService : MediaBrowserServiceCompat() {
     }
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-    /** Leaves the foreground only after a real pause, never between two songs. */
+    /**
+     * Leaves the foreground only after a real pause, never between two songs; the locks go with it
+     * (see [show]).
+     */
     private val leaveForeground = Runnable {
-        if (current?.playing != true && foreground) {
+        if (current?.makesSound == true) return@Runnable
+        holdLocks(false)
+        if (foreground) {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
             foreground = false
         }
@@ -400,19 +460,25 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
     private fun show(info: NowPlayingInfo) {
         val notification = build(info)
-        holdLocks(info.playing || info.buffering)
-        if (info.playing || info.buffering) {
+        if (info.makesSound) {
+            holdLocks(true)
             handler.removeCallbacks(leaveForeground)
             startForegroundSafely(notification)
         } else {
             // The player is briefly "paused" while it loads the next song. Leaving the
             // foreground then let Android freeze the app with the screen off, and playback
-            // stopped after one song: the service stays a minute in the foreground.
+            // stopped after one song: the service stays a minute in the foreground. The locks
+            // stay for that minute too: in that gap the page has closed its audio stream, and a
+            // CPU lock dropped right then left a phone with the screen off free to sleep before
+            // the next song had loaded.
             if (foreground) {
                 runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
                 handler.removeCallbacks(leaveForeground)
                 handler.postDelayed(leaveForeground, PAUSE_GRACE_MS)
-            } else runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
+            } else {
+                holdLocks(false)
+                runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
+            }
         }
     }
 
@@ -502,6 +568,12 @@ class PlaybackService : MediaBrowserServiceCompat() {
             android.util.Log.w("Myspoti", "media browser: empty root for $clientPackageName")
             return BrowserRoot(EMPTY_ROOT_ID, null)
         }
+        // Media resumption (Android Auto on a new connection, the system's resume card): the system asks
+        // for the "recent" root, whose only item is what played last. Without it a reconnected car has
+        // nothing to restart (#142).
+        if (rootHints?.getBoolean(BrowserRoot.EXTRA_RECENT) == true) {
+            return BrowserRoot(RECENT_ROOT_ID, Bundle().apply { putBoolean(BrowserRoot.EXTRA_RECENT, true) })
+        }
         return BrowserRoot(ROOT_ID, Bundle().apply {
             putBoolean("android.media.browse.SEARCH_SUPPORTED", true)
             // Without this the car ignores the list / grid hints of the folders (AutoBrowser).
@@ -515,6 +587,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         // A client may subscribe to any id, not only the root it was given:
         // check the caller here too.
         if (parentId == EMPTY_ROOT_ID || !callerMayBrowse()) return result.sendResult(mutableListOf())
+        if (parentId == RECENT_ROOT_ID) return result.sendResult(recentItems())
         val lib = library ?: return result.sendResult(mutableListOf())
         result.detach()
         scope.launch {
@@ -541,6 +614,15 @@ class PlaybackService : MediaBrowserServiceCompat() {
             if (items == null) android.util.Log.w("Myspoti", "search: ${outcome.exceptionOrNull()?.message}")
             result.sendResult(items ?: mutableListOf())
         }
+    }
+
+    /** The song played last, as the one playable item of the resumption root: a tap plays on ([RESUME_ID]). */
+    private fun recentItems(): MutableList<MediaBrowserCompat.MediaItem> {
+        val info = current?.takeIf { it.title.isNotBlank() } ?: return mutableListOf()
+        val icon = info.coverUrl?.takeIf { it.startsWith("http") }
+        return mutableListOf(MediaBrowserCompat.MediaItem(MediaDescriptionCompat.Builder()
+            .setMediaId(RESUME_ID).setTitle(info.title).setSubtitle(info.artist).setIconUri(icon?.let(Uri::parse))
+            .build(), MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
     }
 
     /** The app itself, the listed browsers, and system apps may browse the library. */
@@ -583,6 +665,9 @@ class PlaybackService : MediaBrowserServiceCompat() {
         const val ROOT_ID = "root"
         /** Root for callers that may control playback but not browse (see onGetRoot). */
         private const val EMPTY_ROOT_ID = "empty"
+        /** Root asked for with EXTRA_RECENT: the last song, to resume it (see onGetRoot). */
+        private const val RECENT_ROOT_ID = "recent"
+        private const val RESUME_ID = "resume"
         private const val CHANNEL_ID = "playback"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_LIKE = "like"
@@ -591,7 +676,8 @@ class PlaybackService : MediaBrowserServiceCompat() {
         private val ACTIONS = PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_PLAY_PAUSE or
             PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
             PlaybackStateCompat.ACTION_SEEK_TO or PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
-            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH
+            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM or
+            PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE
         /** Added while an episode plays: the notification's 15 s buttons and the keys of the same name. */
         private val SKIP_ACTIONS = PlaybackStateCompat.ACTION_FAST_FORWARD or PlaybackStateCompat.ACTION_REWIND
         private val http = OkHttpClient()
@@ -604,6 +690,10 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
         @Volatile private var instance: PlaybackService? = null
         @Volatile private var current: NowPlayingInfo? = null
+        /** The queue the car shows, kept like [current] until the session exists (see [updateQueue]). */
+        @Volatile private var queue: List<QueueEntry> = emptyList()
+        @Volatile private var queueTitle: String? = null
+        @Volatile private var activeQueueId = MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
 
         /** True while the service runs (its notification is up): the app may be in the background. */
         val isRunning: Boolean get() = instance != null
@@ -648,7 +738,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             if (svc == null) {
                 // Loading counts: Android gives the audio only to a player in the foreground, and a
                 // song an extension is still resolving starts right after.
-                if (info.playing || info.buffering) runCatching {
+                if (info.makesSound) runCatching {
                     androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java))
                 }.onFailure { Logbook.logEvery("service-start", 10_000, "service not started for playback: ${it.javaClass.simpleName} ${it.message?.take(80)}") }
                 return
@@ -662,13 +752,29 @@ class PlaybackService : MediaBrowserServiceCompat() {
             svc.apply(info)
             svc.show(info)
             // Sound with no foreground service (bound by the car only, promotion refused): start it.
-            if ((info.playing || info.buffering) && !svc.foreground) svc.ensureStarted()
+            if (info.makesSound && !svc.foreground) svc.ensureStarted()
+        }
+
+        /**
+         * Pushes the queue the car shows: [items] in order, [activeId] the row now playing (none: null).
+         * Call on the main thread and only when the queue changes, never with the position; an
+         * unchanged queue is not sent again.
+         */
+        fun updateQueue(title: String?, items: List<QueueEntry>, activeId: Long?) {
+            val active = activeId ?: MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
+            if (title == queueTitle && items == queue && active == activeQueueId) return
+            queue = items
+            queueTitle = title
+            activeQueueId = active
+            instance?.applyQueue()
         }
 
         /** Signed out: the notification and the media session go, nothing of the account stays. */
         fun end() {
             current = null
+            queue = emptyList(); queueTitle = null; activeQueueId = MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
             instance?.let { svc ->
+                svc.applyQueue()
                 svc.handler.removeCallbacksAndMessages(null)
                 ServiceCompat.stopForeground(svc, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 svc.foreground = false

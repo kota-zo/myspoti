@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">フレンド</string>
     <string name="messages_title">メッセージ</string>
     <string name="messages_empty">まだ会話はありません。上の鉛筆アイコンから友達にメッセージを送りましょう。</string>
     <string name="messages_failed">Spotifyがメッセージを送信できませんでした。</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$sが%2$sを削除しました</string>
     <string name="messages_event_link">%1$sがリンクから参加しました</string>
     <string name="messages_event_reported">この会話は報告されました</string>
-    <string name="friends_title">友達のアクティビティ</string>
-    <string name="friends_now">今</string>
-    <string name="friends_empty">友達のアクティビティはまだありません。フォロー中で、Spotify で再生アクティビティを共有している友達がここに表示されます。</string>
-    <string name="friends_failed">Spotify から友達のアクティビティが届きませんでした。</string>
-    <string name="friends_refresh">更新</string>
+    <string name="friends_tab">フレンド</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.components.wideClickable
 import com.music.spotui.ui.theme.AppDestructive
 import com.music.spotui.ui.theme.tone
@@ -9,6 +10,7 @@ import com.music.spotui.ui.theme.headerTint
 import com.music.spotui.ui.theme.AppMuted
 
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.ui.res.stringResource
@@ -68,7 +70,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -102,6 +103,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.filled.AutoAwesome
 import app.myspoti.host.android.MyspotiRuntime
@@ -353,6 +355,15 @@ class ContextViewModel(
             val saved = SongPlayer.libraryContains(uris)
             savedUris.value = saved
             contextSaved.value = p.uri in saved
+            // Reported: a playlist in the Library with an empty heart, nothing to take it out with,
+            // until a pull-to-refresh of the Library. The list catches up by itself.
+            if (p.type == "playlist") {
+                val listed = withContext(Dispatchers.IO) { com.music.spotui.data.preferences.getCachedLibraryEntries(Graph.app) }
+                if (com.music.spotui.data.api.LibraryEdits.listedButNotSaved(p.uri, saved, listed)) {
+                    app.myspoti.host.android.Logbook.log("library: ${p.uri} listed but not saved, the list is read again")
+                    com.music.spotui.data.api.LibraryEdits.reloadSoon()
+                }
+            }
         }
         // A11: Spotify refuses an edit to a list the user cannot change, so the entry is only
         // offered where it would work (own and collaborative playlists, as Spotify itself).
@@ -426,6 +437,44 @@ class ContextViewModel(
         val updated = Response.Success(current.copy(tracks = current.tracks.toMutableList().apply { removeAt(at) }))
         _page.value = updated
         recent[k] = updated
+    }
+
+    // Moves are written one at a time, in the order they were made.
+    private val moveWrites = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * A row of this page's playlist moved by hand: the list takes its new order at once, then
+     * Spotify is told. A refusal puts the order back as it was and [onDone] gets false. Returns
+     * false when the page could not take the move (its rows changed under the drag).
+     */
+    fun moveRow(move: PlaylistReorder.RowMove, onDone: (Boolean) -> Unit): Boolean {
+        val k = key ?: return false
+        val current = (_page.value as? Response.Success)?.data ?: return false
+        val tracks = PlaylistReorder.applied(current.tracks, move) { it.rowUid } ?: return false
+        val updated = Response.Success(current.copy(tracks = tracks))
+        _page.value = updated
+        recent[k] = updated
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                moveWrites.withLock {
+                    runCatching { MyspotiRuntime.api.playlists.moveTracks(current.uri, listOf(move.uid), move.beforeUid) }.isSuccess
+                }
+            }
+            val id = current.uri.substringAfterLast(':')
+            if (ok) withContext(Dispatchers.IO) {
+                // The songs kept for this playlist (same count, so reused as they were) are read again,
+                // and its copies on storage take the new order.
+                Api.invalidatePlaylist(id)
+                val now = (_page.value as? Response.Success)?.data?.takeIf { it.uri == current.uri } ?: return@withContext
+                com.music.spotui.data.api.PagePrefetch.refreshed(id, now)
+                com.music.spotui.data.offline.OfflineCollections.sync(now)
+            } else if (_page.value === updated) {
+                _page.value = Response.Success(current)
+                recent[k] = Response.Success(current)
+            } else reload()
+            onDone(ok)
+        }
+        return true
     }
 
     /** A name or description just saved shows in the header at once; the page is read again behind it. */
@@ -524,14 +573,19 @@ fun ContextScreen(navController: NavController, type: String, id: String) {
     // During composition, so a cached page is there for the very first frame.
     remember(type, id) { vm.load(type, id) }
     val resp by vm.page.collectAsState()
-    Box(modifier = Modifier.fillMaxSize().background(PageBackground)) {
-        when (val r = resp) {
-            is Response.Loading -> Loader(SkeletonKind.Header)
-            is Response.Error -> com.music.spotui.ui.components.ErrorRetry(
-                stringResource(R.string.page_load_failed),
-                Modifier.align(Alignment.Center),
-            ) { vm.reload() }
-            is Response.Success -> ContextContent(navController, vm, r.data)
+    // The page fades in over its placeholder instead of replacing it in one frame.
+    com.music.spotui.ui.components.LoadedFade(resp is Response.Loading, Modifier.fillMaxSize().background(PageBackground)) { loading ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            // The placeholder fading out stays the placeholder, whatever the response is now.
+            if (loading) Loader(SkeletonKind.Header)
+            else when (val r = resp) {
+                is Response.Error -> com.music.spotui.ui.components.ErrorRetry(
+                    stringResource(R.string.page_load_failed),
+                    Modifier.align(Alignment.Center),
+                ) { vm.reload() }
+                is Response.Success -> ContextContent(navController, vm, r.data)
+                is Response.Loading -> Loader(SkeletonKind.Header)
+            }
         }
     }
 }
@@ -555,6 +609,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
     }
     val tint by androidx.compose.animation.animateColorAsState(tintTarget, androidx.compose.animation.core.tween(350), label = "tint")
     var menuSong by remember { mutableStateOf<SongsModel?>(null) }
+    var savedInSong by remember { mutableStateOf<SongsModel?>(null) }
     // "Find in Liked Songs / in playlist".
     var find by remember { mutableStateOf("") }
     // A song tapped in the found rows puts the keyboard away; the search and the list stay as they are.
@@ -653,6 +708,9 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
             }
         },
     )
+    savedInSong?.let { sel ->
+        com.music.spotui.ui.components.SavedInSheet(song = sel, context = context, onDismiss = { savedInSong = null })
+    }
     menuSong?.let { sel ->
         val inPlaylist = p.type == "playlist"
         val canRemove = inPlaylist && vm.editableContext.value
@@ -677,19 +735,36 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
             if (p.type == "liked" || p.type == "liked-artist") p.tracks.filter { SongPlayer.library["spotify:track:${it.spotifyTrackId}"] != false } else p.tracks
         }
     }
+    // An own playlist in its own order: its songs can be moved by hand, a handle on each while
+    // "Move" is on (asked on Discord).
+    var moving by remember(p.uri) { mutableStateOf(false) }
+    val canMove = remember(p, vm.editableContext.value, sort, find) {
+        PlaylistReorder.allowed(p.type, vm.editableContext.value, p.isBlend, sort.isCustom, p.complete, find, p.tracks.map { it.rowUid })
+    }
+    val reordering = moving && canMove
     // Unique and stable for a given list: a playlist can hold the same song twice (the id alone
     // is not unique) and the index changes at every sort (which would lose every item). Made with
     // the rows in one derived state: the list re-reads its rows outside composition (a like, a
     // search letter), and keys remembered apart from them could be one list behind (a crash).
-    val shown by remember(p, find, sort) {
+    // Rows that move are keyed by their own id, which goes with them wherever they are put.
+    val shown by remember(p, find, sort, reordering) {
         derivedStateOf {
             val found = if (findable) all.filter { com.music.spotui.ui.components.matchesFind(find, it.title, it.singer, it.album) } else all
-            com.music.spotui.ui.components.withRowKeys(if (findable) sort.apply(found) else found) { it.id.toString() }
+            com.music.spotui.ui.components.withRowKeys(if (findable) sort.apply(found) else found) { if (reordering) PlaylistReorder.key(it) else it.id.toString() }
         }
     }
     val rows = shown.first
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val drag = rememberPlaylistDrag(listState)
+    drag.rows = rows
+    drag.onDrop = { move ->
+        vm.moveRow(move) { ok ->
+            if (!ok) android.widget.Toast.makeText(context, context.getString(R.string.playlist_change_refused), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+    // The page has the new order (or had it put back): its own rows are shown again.
+    LaunchedEffect(p, reordering) { drag.settle() }
     val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
     val refreshing by vm.refreshing
     // The search field and the Blend line are folded away: the page opens on its songs. A pull
@@ -888,18 +963,40 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                         Spacer(Modifier.width(16.dp))
                         TrackSortButton(sort) { sort = it; TrackOrder.save(ctx, p.uri, it) }
                     }
+                    // "Move": a handle on each song, to put them in another order (again: done).
+                    if (canMove) {
+                        Spacer(Modifier.width(16.dp))
+                        Icon(Icons.Default.DragHandle,
+                            contentDescription = stringResource(if (moving) R.string.done else R.string.edit_playlist_items_move_chip),
+                            tint = if (moving) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                            modifier = Modifier.size(26.dp).pressable(0.9f) { moving = !moving })
+                    }
                     Spacer(Modifier.weight(1f))
                     val smart = SmartShuffle.on.value == p.uri
+                    // The glyph and its dot light up in a short fade instead of in one frame.
+                    val shuffleLit = shuffle || smart
+                    val shuffleTint by androidx.compose.animation.animateColorAsState(
+                        if (shuffleLit) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                        if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
+                        else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
+                        label = "shuffleTint",
+                    )
+                    val shuffleDot by androidx.compose.animation.core.animateFloatAsState(
+                        if (shuffleLit) 1f else 0f,
+                        if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
+                        else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
+                        label = "shuffleDot",
+                    )
                     Box {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_player_shuffle),
                         contentDescription = stringResource(if (smart) R.string.smart_shuffle_title else R.string.play_mode_item_shuffle_title),
-                        tint = if (shuffle || smart) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                        tint = shuffleTint,
                         modifier = Modifier
                             .size(26.dp)
                             .drawWithContent {
                                 drawContent()
-                                if (shuffle || smart) drawCircle(SpotifyGreen, radius = 2.dp.toPx(),
+                                if (shuffleDot > 0f) drawCircle(SpotifyGreen.copy(alpha = shuffleDot), radius = 2.dp.toPx(),
                                     center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height + 7.dp.toPx()))
                             }
                             .clickable(
@@ -938,8 +1035,8 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                             .clip(CircleShape)
                             .background(SpotifyGreen),
                     ) {
-                        Icon(
-                            painter = painterResource(id = if (isThisContext && playing) R.drawable.ic_playing else R.drawable.play_svgrepo_com),
+                        com.music.spotui.ui.components.PlayPauseIcon(
+                            playing = isThisContext && playing,
                             contentDescription = if (isThisContext && playing) stringResource(R.string.content_description_pause_button) else stringResource(R.string.content_description_play_button),
                             tint = Color.Black,
                             modifier = Modifier.size(24.dp),
@@ -980,9 +1077,14 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
         if (shown.first.isEmpty() && find.isNotBlank()) item(key = "find-empty") {
             com.music.spotui.ui.components.FindInListEmpty(stringResource(R.string.assisted_curation_search_empty_view_no_result_title, find.trim()))
         }
-        val (listed, keys) = shown
+        if (reordering) item(key = "reorder-hint") {
+            Text(stringResource(R.string.playlist_reorder_hint), color = AppMuted, fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        }
+        // While a song is moved: the rows in the order under the finger.
+        val (listed, keys) = drag.order?.takeIf { reordering }?.let { o -> o to o.map(PlaylistReorder::key) } ?: shown
         itemsIndexed(listed, key = { i, _ -> keys[i] }) { _, song ->
-            com.music.spotui.ui.components.SwipeToQueue(song, animatedRow()) { TrackRow(
+            com.music.spotui.ui.components.SwipeToQueue(song, if (reordering) movableRow(drag, song, tone(0xFF2A2A2A)) else animatedRow()) { TrackRow(
                 song = song,
                 showCover = p.type != "album",
                 isCurrent = song.id == currentSongId,
@@ -991,6 +1093,8 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                 addedBy = vm.adders.value.let { a -> a["row:" + song.rowUid] ?: a["song:" + song.spotifyTrackId] },
                 onClick = { dismissKeyboard(); if (SmartShuffle.on.value == p.uri) vm.playSmart(p, song) else vm.play(p, song, sort) },
                 onMore = { menuSong = song },
+                onSaved = { savedInSong = song },
+                handle = if (reordering) drag.handle(song.rowUid) else null,
             ) }
         }
         // "Recommended songs", as under an own playlist in the official apps (an empty one too).
@@ -1042,7 +1146,7 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
         }
         // Centred, as on the artist page.
         Text(p.name, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f).padding(end = 56.dp))
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f).padding(end = 56.dp).titleMarquee(iterations = 3))
     }
     // Opened from a collaborative-playlist invitation (…?pt=): the playlist is joined from here.
     val invite by com.music.spotui.data.api.InviteLinks.pending.collectAsState()
@@ -1248,7 +1352,11 @@ private fun TrackRow(
     offline: com.music.spotui.data.offline.OfflineStatus?,
     onClick: () -> Unit,
     onMore: () -> Unit,
+    /** The green check tapped: where the song is saved, to take it out (as in the official app). */
+    onSaved: () -> Unit = {},
     addedBy: app.myspoti.api.PlaylistMember? = null,
+    /** The song can be moved: a drag on this handle carries it. */
+    handle: Modifier? = null,
 ) {
     // A greyed row is still tried (see the click): the tap is followed by a check, not a refusal.
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -1316,13 +1424,19 @@ private fun TrackRow(
             Spacer(Modifier.width(14.dp))
         }
         if (saved) {
+            // A 40 dp target around the 20 dp disc: the disc alone was too small to hit (reported).
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(20.dp).clip(CircleShape).background(SpotifyGreen),
+                modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onSaved),
             ) {
-                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.liked_song), tint = Color.Black, modifier = Modifier.size(14.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(20.dp).clip(CircleShape).background(SpotifyGreen),
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = stringResource(R.string.liked_song), tint = Color.Black, modifier = Modifier.size(14.dp))
+                }
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(6.dp))
         }
         Icon(
             Icons.Default.MoreVert,
@@ -1332,6 +1446,15 @@ private fun TrackRow(
                 .size(24.dp)
                 ,
         )
+        handle?.let { h ->
+            Spacer(Modifier.width(12.dp))
+            Icon(
+                Icons.Default.DragHandle,
+                contentDescription = stringResource(R.string.edit_playlist_items_move_chip),
+                tint = AppText.copy(alpha = 0.7f),
+                modifier = h.size(28.dp),
+            )
+        }
     }
 }
 

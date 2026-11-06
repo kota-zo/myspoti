@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">好友</string>
     <string name="messages_title">消息</string>
     <string name="messages_empty">还没有对话。点击顶部的铅笔给好友写信吧。</string>
     <string name="messages_failed">Spotify 未发送你的消息。</string>

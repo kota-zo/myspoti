@@ -83,13 +83,16 @@ class LayerBackdrop internal constructor(
     internal var moves by androidx.compose.runtime.mutableIntStateOf(0)
 
     internal fun publish(source: Source) {
-        if (sources.lastOrNull() === source) layerCoordinates = source.coordinates
+        // Only the newest page owns the coordinates; one not laid out yet leaves them as they are (#172).
+        if (sources.lastOrNull() === source) source.coordinates?.let { layerCoordinates = it }
         moves++
     }
 
     internal fun retire(source: Source) {
         sources.remove(source)
-        layerCoordinates = sources.lastOrNull()?.coordinates
+        // Keep the latest valid coordinates when an outgoing source detaches during a tab transition (#172).
+        val remaining = sources.lastOrNull { it.coordinates != null }?.coordinates
+        if (remaining != null) layerCoordinates = remaining
         moves++
     }
 
@@ -113,6 +116,8 @@ class LayerBackdrop internal constructor(
      * transition both pages are drawn where they are this frame, so the glass sees what is on screen.
      */
     internal fun DrawScope.drawSources(offsetOf: (LayoutCoordinates) -> Offset) {
+        var drew = false
+        var holdover: Pair<LayoutCoordinates, GraphicsLayer>? = null
         for (s in sources.toList()) {
             val c = s.coordinates ?: continue
             val layer = s.layer ?: continue
@@ -122,7 +127,11 @@ class LayerBackdrop internal constructor(
             }
             if (!c.isAttached || layer.size.width <= 0) continue
             val a = s.alpha().coerceIn(0f, 1f)
-            if (a <= 0f) continue
+            if (a <= 0f) {
+                holdover = c to layer
+                continue
+            }
+            drew = true
             val o = offsetOf(c)
             withTransform({ translate(-o.x, -o.y) }) {
                 if (a >= 1f) drawLayer(layer)
@@ -133,6 +142,14 @@ class LayerBackdrop internal constructor(
                     drawLayer(layer)
                     canvas.restore()
                 }
+            }
+        }
+        if (!drew && holdover != null) {
+            // Draw the last valid frame if all sources are zero-alpha or unrecorded during cross-fade (#172).
+            val (c, layer) = holdover
+            val o = offsetOf(c)
+            withTransform({ translate(-o.x, -o.y) }) {
+                drawLayer(layer)
             }
         }
     }
@@ -149,14 +166,30 @@ class LayerBackdrop internal constructor(
                 with(obtainInverseLayerScope()) { inverseTransform(density, layerBlock) }
             }
         }) {
-            drawSources { src ->
+            val offsetOf: (LayoutCoordinates) -> Offset = { src ->
                 try {
                     src.localPositionOf(coordinates)
                 } catch (_: Exception) {
                     coordinates.positionInWindow() - src.positionInWindow()
                 }
             }
+            if (sources.isNotEmpty()) drawSources(offsetOf) else drawExported(offsetOf)
         }
+    }
+
+    /**
+     * A glass exported here (drawBackdrop's exportedBackdrop: the tab bar's glass, for its
+     * selection lens) records into [graphicsLayer] and sets [layerCoordinates], with no page source.
+     * Reported: a tap or a drag on the Liquid Glass tab bar left the selection pill fully see-through
+     * (the bare page, no glass) until it landed and the flat pill took over with a jump: only the
+     * page sources were drawn here, so the lens refracted the page, the fill and the tabs, never
+     * the bar's glass under them.
+     */
+    private fun DrawScope.drawExported(offsetOf: (LayoutCoordinates) -> Offset) {
+        val c = layerCoordinates ?: return
+        if (!c.isAttached || graphicsLayer.isReleased || graphicsLayer.size.width <= 0) return
+        val o = offsetOf(c)
+        withTransform({ translate(-o.x, -o.y) }) { drawLayer(graphicsLayer) }
     }
 
     private fun obtainInverseLayerScope(): InverseLayerScope {

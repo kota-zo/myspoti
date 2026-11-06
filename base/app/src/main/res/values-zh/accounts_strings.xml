@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">账号</string>
+    <string name="accounts_switch_row">切换账号</string>
+    <string name="accounts_switch_row_detail">此手机上的 Spotify 账号</string>
+    <string name="accounts_add">添加账号</string>
+    <string name="accounts_add_detail">打开 Spotify 登录；这里的账号保持登录</string>
+    <string name="accounts_add_single_detail">退出此账号并打开 Spotify 登录</string>
+    <string name="accounts_not_signed_in">未登录</string>
+    <string name="accounts_in_use">使用中</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">免费</string>
+    <string name="accounts_switch_title">切换到 %1$s？</string>
+    <string name="accounts_switch_text">播放会停止。下载和收听历史跟随各自的账号；扩展继续运行。</string>
+    <string name="accounts_switch_confirm">切换</string>
+    <string name="accounts_remove">移除</string>
+    <string name="accounts_remove_title">移除 %1$s？</string>
+    <string name="accounts_remove_text">其登录和网页数据将从此手机删除，收听历史也一并删除。其下载内容会被保留在一旁，再次添加该账号时会恢复。</string>
+    <string name="accounts_footer">每个账号在此手机上保持登录。切换会停止播放；下载和收听历史跟随各自的账号；扩展继续运行。</string>
+    <string name="accounts_single_footer">此手机的 WebView 一次只能保留一个账号：切换或添加账号会退出当前账号并打开 Spotify 登录。更新 Android System WebView 后可同时保持多个账号登录。</string>
+    <string name="accounts_back_to">已返回 %1$s</string>
+</resources>

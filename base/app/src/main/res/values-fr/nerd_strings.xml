@@ -54,4 +54,11 @@
     <string name="nerd_mirror_off">Désactivé</string>
     <string name="nerd_spotify_note">Le flux Spotify est chiffré dans la page : son codec et son débit exacts ne sont pas accessibles, seulement ce que la page annonce.</string>
     <string name="nerd_spotify_remote">Le son vient d’un autre appareil : ce téléphone ne fait que le commander.</string>
+    <string name="nerd_automix">AutoMix</string>
+    <string name="nerd_automix_blend">Fondu calé sur le tempo</string>
+    <string name="nerd_automix_cut">Coupe sur le temps</string>
+    <string name="nerd_automix_fade">Fondu</string>
+    <string name="nerd_automix_mixing">Mix en cours : %1$s</string>
+    <string name="nerd_automix_planned">%1$s à %2$s, %3$d s</string>
+    <string name="nerd_automix_waiting">Activé, aucun mix prévu pour l\'instant</string>
 </resources>

@@ -55,4 +55,11 @@
     <string name="nerd_mirror_off">Off</string>
     <string name="nerd_spotify_note">The Spotify stream is encrypted inside the page: its exact codec and bit rate are not accessible, only what the page announces.</string>
     <string name="nerd_spotify_remote">The sound comes from another device: this phone only commands it.</string>
+    <string name="nerd_automix">AutoMix</string>
+    <string name="nerd_automix_blend">Beat-matched blend</string>
+    <string name="nerd_automix_cut">Cut on the beat</string>
+    <string name="nerd_automix_fade">Fade</string>
+    <string name="nerd_automix_mixing">Mixing now: %1$s</string>
+    <string name="nerd_automix_planned">%1$s at %2$s, %3$d s</string>
+    <string name="nerd_automix_waiting">On, no mix planned yet</string>
 </resources>

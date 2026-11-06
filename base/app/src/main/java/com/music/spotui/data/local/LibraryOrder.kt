@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.music.spotui.data.entity.ArtistsModel
 import com.music.spotui.data.entity.LibraryEntry
 import java.text.Collator
 
@@ -96,5 +97,18 @@ object LibraryOrder {
         }
         // Items pinned on Spotify stay at the top, in the chosen order.
         return head + sorted.sortedBy { !it.pinned }
+    }
+
+    /**
+     * The followed artists in the chosen order: by name for "Alphabetical" and "Creator" (an
+     * artist is their own creator), else Spotify's own order, the most recently followed first
+     * (no date to sort by). Reported: the sort did nothing on the Artists chip.
+     */
+    fun arrangeArtists(artists: List<ArtistsModel>, sort: Sort): List<ArtistsModel> = when (sort) {
+        Sort.ALPHABETICAL, Sort.CREATOR -> {
+            val collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
+            artists.sortedWith { a, b -> collator.compare(a.name, b.name) }
+        }
+        else -> artists
     }
 }

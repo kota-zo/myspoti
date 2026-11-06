@@ -33,5 +33,5 @@ object PageDevice {
     fun commandLost() { commandLostAt = System.currentTimeMillis() }
 
     /** The page is going away (a reload asked for or started): its device is not one to command. */
-    fun pageGone() { _joined.value = false }
+    fun pageGone() { _joined.value = false; PageAuth.pageGone() }
 }

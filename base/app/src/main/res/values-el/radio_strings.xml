@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Ζωντανό ραδιόφωνο</string>
+    <string name="live_radio_subtitle">Διαδικτυακοί ραδιοφωνικοί σταθμοί, από τον δωρεάν κατάλογο radio-browser.info</string>
+    <string name="live_radio_search_hint">Αναζήτηση σταθμών</string>
+    <string name="live_radio_popular">Δημοφιλείς σταθμοί</string>
+    <string name="live_radio_search_results">Αποτελέσματα αναζήτησης</string>
+    <string name="live_radio_favorites">Αγαπημένα</string>
+    <string name="live_radio_favorite">Προσθήκη στα αγαπημένα</string>
+    <string name="live_radio_unfavorite">Αφαίρεση από τα αγαπημένα</string>
+    <string name="live_radio_no_results">Δεν βρέθηκαν σταθμοί</string>
+    <string name="live_radio_error">Δεν ήταν δυνατή η πρόσβαση στον κατάλογο ραδιοφώνου. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.</string>
+    <string name="live_radio_settings_title">Ζωντανό ραδιόφωνο</string>
+    <string name="live_radio_settings_detail">Προσθέτει έναν φάκελο Ζωντανού ραδιοφώνου στη Βιβλιοθήκη σου, κάτω από τα Τοπικά αρχεία. Οι αναζητήσεις πηγαίνουν στον κατάλογο radio-browser.info· το λογότυπο και η ροή κάθε σταθμού έρχονται από τον δικό του διακομιστή.</string>
+</resources>

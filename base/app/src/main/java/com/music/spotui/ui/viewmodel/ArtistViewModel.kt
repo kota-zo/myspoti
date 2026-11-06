@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.ArtistOverviewModel
-import com.music.spotui.data.entity.ArtistsModel
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.CurrentSongState
 import com.music.spotui.ui.repository.AppRepository
@@ -20,12 +19,6 @@ class ArtistViewModel constructor(private val repository: AppRepository = Graph.
     val currentSongPlayingState: State<Boolean> get() = currentSongState.playingState
     val currentSongId: State<Int> get() = currentSongState.songId
 
-
-    private val _songs : MutableStateFlow<Response<List<SongsModel>>> = MutableStateFlow(Response.Loading())
-    val songs : StateFlow<Response<List<SongsModel>>> = _songs
-
-    private val _artists : MutableStateFlow<Response<List<ArtistsModel>>> = MutableStateFlow(Response.Loading())
-    val artists : StateFlow<Response<List<ArtistsModel>>> = _artists
 
     private val _overview : MutableStateFlow<Response<ArtistOverviewModel>> = MutableStateFlow(Response.Loading())
     val overview : StateFlow<Response<ArtistOverviewModel>> = _overview
@@ -42,28 +35,9 @@ class ArtistViewModel constructor(private val repository: AppRepository = Graph.
         currentSongState.updateLikeState(likeState)
     }
 
-    private var loadedArtist: String? = null
-
-    // Ids of artists the user follows on Spotify, so the Follow button reflects
-    // the real account state (not just follows made from this app).
-    private val _followedArtistIds: MutableStateFlow<Set<String>> = MutableStateFlow(emptySet())
-    val followedArtistIds: StateFlow<Set<String>> = _followedArtistIds
-
     // No look-ups at creation: the page loads what it shows (follow state comes from
     // the library check in ArtistScreen).
 
-
-    // Loads this artist's top tracks (GraphQL, not rate-limited). Called by the
-    // screen with the artist name it was opened for.
-    fun loadArtistSongs(artistName: String) {
-        if (loadedArtist == artistName) return
-        loadedArtist = artistName
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.provideArtistSongs(artistName).collect { songs ->
-                _songs.value = songs as Response<List<SongsModel>>
-            }
-        }
-    }
 
     private var loadedOverview: String? = null
 
@@ -79,18 +53,7 @@ class ArtistViewModel constructor(private val repository: AppRepository = Graph.
                 _overview.value = overview
                 // A failed page may be loaded again (Try again, or opening it anew).
                 if (overview is Response.Error) loadedOverview = null
-                // Keep the legacy songs flow in sync (popular tracks) so any
-                // other consumer and the play/queue helpers still work.
-                if (overview is Response.Success) {
-                    _songs.value = Response.Success(overview.data.topTracks.map { it.song })
-                }
             }
-        }
-    }
-
-    private fun fetchArtists() = viewModelScope.launch(Dispatchers.IO) {
-        repository.provideArtists().collect{ artists ->
-            _artists.value = artists as Response<List<ArtistsModel>>
         }
     }
 }

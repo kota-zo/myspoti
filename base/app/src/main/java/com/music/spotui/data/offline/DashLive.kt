@@ -27,16 +27,22 @@ internal class DashLive(
         var at = head.size.toLong()
         for (i in segmentSizes.indices) { s[i] = at; at += segmentSizes[i] }
     }
-    /** Guards [cachedIndex], [cached] and [loading]; never held during a fetch. */
+    /** Guards [cached] and [loading]; never held during a fetch. */
     private val lock = Any()
-    private var cachedIndex = -1
-    private var cached: ByteArray = ByteArray(0)
+    /**
+     * The last segments read, for readers at different places: with only one kept, the player and the
+     * song's analysis took it from each other and fetched the same segments again and again (seen: 381
+     * fetches, 253 of them repeats, 155 MB in the first minute, while the page was trying to load).
+     */
+    private val cached = object : LinkedHashMap<Int, ByteArray>(KEPT_SEGMENTS + 1, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, ByteArray>?) = size > KEPT_SEGMENTS
+    }
     /** The segments being fetched: a read of one waits for that fetch instead of starting another. */
     private val loading = HashMap<Int, FutureTask<ByteArray>>()
 
     /** Fetches the first segment ahead, so the song starts without waiting for it. */
     fun warm() {
-        if (segmentUrls.isNotEmpty() && synchronized(lock) { cachedIndex < 0 }) segment(0)
+        if (segmentUrls.isNotEmpty() && synchronized(lock) { cached.isEmpty() }) segment(0)
     }
 
     /**
@@ -46,7 +52,7 @@ internal class DashLive(
      */
     private fun segment(i: Int): ByteArray {
         val task = synchronized(lock) {
-            if (cachedIndex == i) return cached
+            cached[i]?.let { return it }
             loading.getOrPut(i) { FutureTask { fetchChecked(i) } }
         }
         task.run() // nothing when another thread runs or ran it: then only waits for it below
@@ -61,8 +67,7 @@ internal class DashLive(
         }
         synchronized(lock) {
             loading.remove(i, task)
-            cached = bytes
-            cachedIndex = i
+            cached[i] = bytes
         }
         return bytes
     }
@@ -96,6 +101,8 @@ internal class DashLive(
     data class Plan(val initUrl: String, val segmentUrls: List<String>, val timescale: Long, val durations: LongArray)
 
     companion object {
+        /** Segments kept per song: two readers, each with the one it is on and the one before. */
+        private const val KEPT_SEGMENTS = 4
         // Segment sizes are asked all at once (same CDN host, kept-alive connections): ~4 rounds for a song.
         private const val PARALLEL = 16
         private val cache = object : LinkedHashMap<String, Pair<Long, DashLive>>(8, 0.75f, true) {

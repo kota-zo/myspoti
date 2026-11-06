@@ -98,6 +98,8 @@ object OfflineStore {
     val tracks: SnapshotStateMap<String, OfflineTrack> = mutableStateMapOf()
     /** Songs in the download queue, or whose last attempt did not succeed. */
     val status: SnapshotStateMap<String, OfflineStatus> = mutableStateMapOf()
+    /** The download sources a [OfflineStatus.Failed] song waits for (not answering, inactive, still starting), by track id. */
+    val notAnswering: SnapshotStateMap<String, String> = mutableStateMapOf()
 
     fun init(context: Context) {
         if (::root.isInitialized) return
@@ -160,6 +162,8 @@ object OfflineStore {
             if (kept.size != list.size) writeIndex()
             audioDir.listFiles()?.forEach { if (it.name !in names) it.delete() }
             coverDir.listFiles()?.forEach { if (it.name !in covers) it.delete() }
+            val lyrics = kept.map { lyricsName(it.trackId) }.toSet()
+            lyricsDir.listFiles()?.forEach { if (it.name !in lyrics) it.delete() }
         } else {
             val aside = keepAside(audioDir, names, File(recoveredDir, "audio")) + keepAside(coverDir, covers, File(recoveredDir, "covers"))
             if (aside > 0) runCatching { app.myspoti.host.android.Logbook.log("offline: download index not read in full; $aside files the index does not list kept in ${recoveredDir.name}/") }
@@ -181,6 +185,15 @@ object OfflineStore {
 
     val audioDir: File get() = File(root, "audio")
     val coverDir: File get() = File(root, "covers")
+    /** The lyrics kept with the downloaded songs (see LyricsApi.keepForOffline), one file each. */
+    private val lyricsDir: File get() = File(root, "lyrics")
+    private fun lyricsName(trackId: String) = "$trackId.json"
+
+    /** Where [trackId]'s lyrics are kept with its download; null for no id, one unfit for a file name, or before [init]. */
+    fun lyricsFile(trackId: String): File? =
+        if (!::root.isInitialized || !trackId.matches(SAFE_ID)) null else File(lyricsDir, lyricsName(trackId))
+
+    private val SAFE_ID = Regex("[A-Za-z0-9]{1,64}")
     private val indexFile: File get() = File(root, "index.json")
     /** The index before the last write, the fallback when [indexFile] is damaged. */
     private val backupFile: File get() = File(root, "index.json.bak")
@@ -210,6 +223,7 @@ object OfflineStore {
             val t = tracks.remove(trackId) ?: return
             File(audioDir, t.file).delete()
             if (t.cover.isNotBlank()) File(coverDir, t.cover).delete()
+            lyricsFile(trackId)?.delete()
             writeIndex()
             deleted(listOf(t))
         }
@@ -222,6 +236,7 @@ object OfflineStore {
             status.clear()
             audioDir.listFiles()?.forEach { it.delete() }
             coverDir.listFiles()?.forEach { it.delete() }
+            lyricsDir.listFiles()?.forEach { it.delete() }
             writeIndex()
             deleted(all)
         }
@@ -266,6 +281,7 @@ object OfflineStore {
         album = t.album,
         durationMs = t.durationMs,
         artUri = coverFile(t)?.let { Uri.fromFile(it) } ?: Uri.parse(app.myspoti.host.android.Covers.large(t.coverUrl)),
+        speech = t.isEpisode,
     )
 
     fun toSong(t: OfflineTrack) = SongsModel(

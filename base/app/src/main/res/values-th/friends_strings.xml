@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">กิจกรรมของเพื่อน</string>
+    <string name="friends_now">ตอนนี้</string>
+    <string name="friends_empty">ยังไม่มีกิจกรรมของเพื่อน เพื่อนที่คุณติดตามและแชร์กิจกรรมการฟังบน Spotify จะแสดงที่นี่</string>
+    <string name="friends_failed">Spotify ไม่ได้ส่งกิจกรรมของเพื่อนมา</string>
+    <string name="friends_refresh">รีเฟรช</string>
+</resources>

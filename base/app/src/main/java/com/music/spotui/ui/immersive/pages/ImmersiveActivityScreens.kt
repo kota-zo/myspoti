@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,10 +33,8 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,7 +79,6 @@ import com.music.spotui.ui.immersive.components.ImmersiveMessageState
 import com.music.spotui.ui.immersive.components.ImmersivePlayShuffleButtons
 import com.music.spotui.ui.immersive.components.ImmersiveSearchField
 import com.music.spotui.ui.immersive.components.ImmersiveSongRow
-import com.music.spotui.ui.immersive.components.ImmersiveSongRowSkeleton
 import com.music.spotui.ui.immersive.components.SectionHeader
 import com.music.spotui.ui.immersive.components.immersiveClickable
 import com.music.spotui.ui.immersive.components.immersiveSongListSkeleton
@@ -109,8 +105,8 @@ fun ImmersiveFriendsScreen(navController: NavController) {
     val now = remember(state) { System.currentTimeMillis() }
     ImmersivePage(
         title = stringResource(R.string.friends_title),
-        // A tab of its own: no back arrow.
-        onBack = null,
+        // Opened from Home's header (no longer a tab): back to it.
+        onBack = { navController.popBackStack() },
         actions = {
             com.music.spotui.ui.screens.MessagesButton(navController, Immersive.Text)
             ImmersiveBarAction(Icons.Rounded.Refresh, stringResource(R.string.friends_refresh), onClick = { state = null; attempt++ })
@@ -381,11 +377,7 @@ fun ImmersiveEpisodeScreen(navController: NavController, episodeId: String, fall
 /** The play queue route of the Immersive look: the song playing, then what is queued and what comes next. Swipe a row to remove it. */
 @Composable
 fun ImmersiveQueueScreen(navController: NavController) {
-    // Spotify's real queue, read from the engine's PlayerAPI while this screen is open.
-    DisposableEffect(Unit) {
-        SongPlayer.watchQueue(true)
-        onDispose { SongPlayer.watchQueue(false) }
-    }
+    // Spotify's real queue, pushed by the engine.
     val q by SongPlayer.engineQueue
     ImmersivePage(title = stringResource(R.string.action_queue_label), onBack = { navController.popBackStack() }) {
         q.current?.let { cur ->

@@ -33,6 +33,10 @@ import kotlinx.coroutines.sync.withLock
  * Everything runs on the main thread, on the two players' own events (and one slow drift check).
  */
 object ConnectMirror {
+    /** How long after a refused licence the page's own song changes are not followed. */
+    private const val LICENCE_SKIP_MS = 10_000L
+    private var ignoredLicenceSkips = 0
+
     private const val SPOTIFY_TRACK_PREFIX = "spotify:track:"
     /** A play is answered within that (the page loads the song, then reports it). */
     private const val PLAY_ECHO_MS = 6_000L
@@ -264,7 +268,15 @@ object ConnectMirror {
         // Recovering from an ad or a reload: a song other than the asked one is the player's own play, sent back.
         val sure = landed && SystemClock.elapsedRealtime() >= recoverUntil
         val repeats = LocalPlayer.repeatsCurrent()
-        when (val f = MirrorRules.onWeb(web, w, local, quiet, sure, predicted, previousUri, gap, wantAt, wantLength, recentUris(), repeats)) {
+        val f = MirrorRules.onWeb(web, w, local, quiet, sure, predicted, previousUri, gap, wantAt, wantLength, recentUris(), repeats)
+        // A song refused its licence makes the page skip on by itself, a song a second or so: taken for
+        // picks on another device, the local player followed and its songs switched at random (reported,
+        // free account, 403 ×42). Those moves stay the page's; the local song plays on.
+        if (MirrorRules.movesSong(f) && MyspotiRuntime.host.licenceRefusedWithin(LICENCE_SKIP_MS)) {
+            if (ignoredLicenceSkips++ % 10 == 0) log("the page went to ${web.uri} after a refused licence: not followed")
+            return
+        }
+        when (f) {
             Follow.Nothing -> {}
             // A play waits already (coalescing, backing off): not another one.
             Follow.Retry -> if (pendingContext != null) Unit else if (retries++ < MAX_RETRIES) {
@@ -358,8 +370,9 @@ object ConnectMirror {
         log("the page is back (ad over or reloaded): ${w.uri} played there again")
         landed = false; retries = 0; resends = 0; lastWeb = null; gapFrom = null
         recoverUntil = SystemClock.elapsedRealtime() + RECOVER_MS
-        // The track alone: the list the page had went with the ad's or the reload's own plays.
-        pendingContext = w.uri; newSong = false
+        // In the list the local queue came from, as at the start: the track alone would replace the
+        // list on Spotify for every other device (#144).
+        pendingContext = MirrorRules.playContext(LocalPlayer.contextUri, w.uri, missedContexts); newSong = false
         echo.sent(PLAY_ECHO_MS)
         main.removeCallbacks(sendPlay); main.postDelayed(sendPlay, START_COALESCE_MS)
     }
@@ -537,6 +550,16 @@ object ConnectMirror {
     /** Another device of the account took playback while mirrored: the local player stops, as it would have. */
     private fun wentAway() {
         if (!running || want?.paused != false) return
+        // The page just (re)loaded: Spotify still lists this phone's previous page device as the one
+        // playing until it is taken off (a second or two after a relaunch). That is not another device:
+        // seen as one, the extension's song was stopped right after a relaunch (reported). Checked
+        // again once the page has settled.
+        val left = recoverUntil - SystemClock.elapsedRealtime()
+        if (left > 0) {
+            log("another device seems to play while the page settles: checked again in ${left / 1000} s")
+            main.postDelayed({ if (page.playsElsewhere.value) wentAway() }, left + 500)
+            return
+        }
         log("another device took playback: the local player stops")
         handedAway = true
         // Ends the mirror too (SongPlayer.unmuteMirror); nothing to pause here, the page stands still.

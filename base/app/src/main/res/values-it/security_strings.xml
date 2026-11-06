@@ -2,5 +2,6 @@
 <resources>
     <string name="action_playback_mirror">Mantiene Spotify in riproduzione silenziosa qui; conta gli ascolti sul tuo account</string>
     <string name="action_attest">Dimostrare che è Myspoti</string>
+    <string name="action_ui_style">Cambiare l\'aspetto</string>
     <string name="mirror_indicator">Spotify rispecchiato da %1$s</string>
 </resources>

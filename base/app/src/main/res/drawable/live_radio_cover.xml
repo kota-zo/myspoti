@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Live Radio" cover: a white radio set on blue/teal (Material "radio", Apache 2.0), matching
+     the style of local_files_cover.xml / downloads_cover.xml so the pinned folder row looks native. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp" android:height="64dp"
+    android:viewportWidth="64" android:viewportHeight="64">
+    <path android:fillColor="#FF1C6E7A" android:pathData="M0,0h64v64h-64z" />
+    <group android:translateX="12" android:translateY="12" android:scaleX="1.65" android:scaleY="1.65">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M3.24,6.15L13,2L14,4L5.6,7.59L3.24,6.15zM20,8H5L3,11.5V20c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2v-10c0,-1.1 -0.9,-2 -2,-2zM7,17c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2 2,0.9 2,2 -0.9,2 -2,2zM20,20H5v-7h15v7z" />
+    </group>
+</vector>

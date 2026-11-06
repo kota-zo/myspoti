@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">ጓደኞች</string>
     <string name="messages_title">መልዕክቶች</string>
     <string name="messages_empty">እስካሁን ምንም ውይይት የለም። ከላይ ባለው እርሳስ ለጓደኛ ይጻፉ።</string>
     <string name="messages_failed">Spotify መልዕክቶችዎን አልላከም።</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s %2$sን አስወገደ</string>
     <string name="messages_event_link">%1$s በአገናኝ ተቀላቀለ</string>
     <string name="messages_event_reported">ውይይቱ ሪፖርት ተደርጓል</string>
-    <string name="friends_title">የጓደኞች እንቅስቃሴ</string>
-    <string name="friends_now">አሁን</string>
-    <string name="friends_empty">እስካሁን የጓደኞች እንቅስቃሴ የለም። የሚከተሏቸው እና በSpotify ላይ የማዳመጥ እንቅስቃሴያቸውን የሚያጋሩ ጓደኞች እዚህ ይታያሉ።</string>
-    <string name="friends_failed">Spotify የጓደኞችን እንቅስቃሴ አልላከም።</string>
-    <string name="friends_refresh">አድስ</string>
+    <string name="friends_tab">ጓደኞች</string>
 </resources>

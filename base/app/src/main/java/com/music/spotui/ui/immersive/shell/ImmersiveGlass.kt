@@ -28,8 +28,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.Density
@@ -360,13 +358,4 @@ internal class PageBackdrop(private val page: LayerBackdrop) : Backdrop {
 private fun LayoutCoordinates.findRoot(): LayoutCoordinates {
     var c = this
     while (true) c = c.parentCoordinates ?: return c
-}
-
-private fun LayoutCoordinates.isAncestorOf(other: LayoutCoordinates): Boolean {
-    var c: LayoutCoordinates? = other
-    while (c != null) {
-        if (c === this) return true
-        c = c.parentCoordinates
-    }
-    return false
 }

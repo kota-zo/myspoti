@@ -1,0 +1,10 @@
+{
+  "id": "io.github.test.romanize",
+  "name": "Sample Romanizer",
+  "version": "1.0.0",
+  "author": "Test",
+  "description": "A tiny romanizer for the runner's tests: the lines it knows, nothing for the others.",
+  "actions": [
+    { "name": "lyrics.romanize", "why": "Romanizes the few lines it knows" }
+  ]
+}

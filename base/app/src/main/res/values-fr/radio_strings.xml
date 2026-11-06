@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Radio en direct</string>
+    <string name="live_radio_subtitle">Stations de radio internet, depuis l’annuaire gratuit radio-browser.info</string>
+    <string name="live_radio_search_hint">Rechercher des stations</string>
+    <string name="live_radio_popular">Stations populaires</string>
+    <string name="live_radio_search_results">Résultats de recherche</string>
+    <string name="live_radio_favorites">Favoris</string>
+    <string name="live_radio_favorite">Ajouter aux favoris</string>
+    <string name="live_radio_unfavorite">Retirer des favoris</string>
+    <string name="live_radio_no_results">Aucune station trouvée</string>
+    <string name="live_radio_error">L’annuaire radio est inaccessible. Vérifiez votre connexion et réessayez.</string>
+    <string name="live_radio_settings_title">Radio en direct</string>
+    <string name="live_radio_settings_detail">Ajoute un dossier Radio en direct à Votre bibliothèque, sous Fichiers locaux. Les recherches vont à l’annuaire radio-browser.info ; le logo et le flux de chaque station viennent de son propre serveur.</string>
+</resources>

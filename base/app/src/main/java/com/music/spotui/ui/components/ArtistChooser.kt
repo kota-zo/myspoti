@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,7 +38,6 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
 import app.myspoti.api.ArtistRef
 import app.myspoti.host.android.MyspotiRuntime
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
@@ -100,7 +98,7 @@ object ArtistChooser {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalGlideComposeApi::class)
 @Composable
-fun ArtistChooserHost(navController: NavHostController) {
+fun ArtistChooserHost() {
     val artists = ArtistChooser.artists
     if (artists.isEmpty()) return
     val dismiss = { ArtistChooser.artists = emptyList() }

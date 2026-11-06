@@ -24,12 +24,15 @@ import app.myspoti.engine.R
 import com.music.spotui.data.preferences.EqPreset
 import com.music.spotui.data.preferences.EqualizerPref
 import com.music.spotui.di.EqBands
+import com.music.spotui.di.Spatial
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.look.ThinSlider
 import com.music.spotui.ui.screens.dbText
 import com.music.spotui.ui.screens.eqBandLabel
 import com.music.spotui.ui.screens.eqPresetLabel
 import com.music.spotui.ui.screens.speedText
+import com.music.spotui.ui.screens.widthStep
+import com.music.spotui.ui.screens.widthText
 
 /**
  * Settings > Playback > Equalizer (Immersive): the Classic page's settings (see EqualizerScreen)
@@ -76,6 +79,26 @@ fun ImmersiveEqualizerScreen(navController: NavController) {
             row {
                 ImmersiveGroupRow(stringResource(R.string.equalizer_reset), enabled = pref.enabled,
                     onClick = { pref.setPreset(ctx, EqPreset.FLAT) })
+            }
+        }
+        immersiveGroup("spatial", headerRes = R.string.spatial_title, footerRes = R.string.spatial_detail) {
+            row { ImmersiveSwitchRow(stringResource(R.string.spatial_enable), checked = pref.spatial, onChecked = { pref.setSpatial(ctx, it) }) }
+            row {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp)) {
+                    Text(stringResource(R.string.spatial_width), style = Immersive.Body.copy(color = if (pref.spatial) Immersive.Text else Immersive.TextTertiary),
+                        modifier = Modifier.width(64.dp))
+                    val min = Spatial.MIN_WIDTH
+                    val max = Spatial.MAX_WIDTH
+                    ThinSlider(
+                        value = (pref.spatialWidth - min) / (max - min),
+                        onValueChange = { if (pref.spatial) pref.setSpatialWidth(ctx, widthStep(min + it * (max - min)), save = false) },
+                        onValueChangeFinished = { pref.setSpatialWidth(ctx, pref.spatialWidth) },
+                        modifier = Modifier.weight(1f),
+                        activeColor = if (pref.spatial) Immersive.Accent else Immersive.TextTertiary,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(widthText(pref.spatialWidth), style = Immersive.Caption, modifier = Modifier.width(56.dp), textAlign = TextAlign.End)
+                }
             }
         }
         immersiveGroup("speed", headerRes = R.string.equalizer_speed, footerRes = R.string.equalizer_speed_detail) {

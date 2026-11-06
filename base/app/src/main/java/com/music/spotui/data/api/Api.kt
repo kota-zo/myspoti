@@ -78,8 +78,6 @@ class Api constructor(
         /** The new episodes list is asked for again only after this long (the shows are many queries). */
         private const val NEW_EPISODES_TTL_MS = 30 * 60_000L
         @Volatile var newEpisodes: Pair<Long, List<SongsModel>>? = null
-        /** "Recently played": Spotify's own list for the account, pinned in the library. */
-        const val RECENT_ID = "recently-played"
         /** Pages of 50 asked for a show's episodes / chapters, at most (500 rows). */
         const val MAX_EPISODE_PAGES = 10
         /** The page's collection set behind its "Mark as finished" menu. */
@@ -285,16 +283,6 @@ class Api constructor(
 
     // ── Home ──
 
-    /** New releases: albums from the home feed's music shelves. */
-    suspend fun getAlbums(): Flow<Response<List<AlbumsModel>>> = flow {
-        HomeCache.albums?.let { emit(Response.Success(it)) } ?: emit(Response.Loading())
-        if (!ready()) { if (HomeCache.albums == null) emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { newReleases() }.fold(
-            onSuccess = { HomeCache.albums = it; emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getAlbums failed", it); if (HomeCache.albums == null) emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
     /**
      * New releases for the "New releases" screen: albums from artists the user follows
      * (home shelves), then Spotify's new-release editorial playlists' albums.
@@ -323,24 +311,57 @@ class Api constructor(
 
     /**
      * Every show the user follows (library "Podcasts" filter), as library rows. The list is read
-     * page after page to its end: the Home podcasts shelf holds only the first 20.
+     * page after page to its end: the Home podcasts shelf holds only the first 20. Empty when it
+     * could not be read; [followedShows] tells that apart from no show followed.
      */
-    suspend fun getFollowedShows(): List<LibraryEntry> {
-        if (!ready()) return emptyList()
-        val out = ArrayList<LibraryEntry>()
-        var offset = 0
-        while (true) {
-            val page = runCatching { api.library.items(filter = LibraryFilter.PODCASTS, offset = offset, limit = 50) }.getOrNull() ?: break
-            page.items.filter { it.kind == MediaKind.SHOW }.forEach {
-                out += LibraryEntry(SHOW_PREFIX + it.uri.substringAfterLast(':'), it.name,
-                    context.getString(R.string.album_type_podcast) + (it.subtitle?.let { s -> " • $s" } ?: ""), cover(it.images), isPlaylist = false)
-            }
-            offset = page.nextOffset ?: break
+    suspend fun getFollowedShows(): List<LibraryEntry> = followedShows().getOrDefault(emptyList())
+
+    /**
+     * [getFollowedShows], failing when Spotify did not answer its first page (no session, an error):
+     * the Podcasts chip said "nothing followed" for an error and logged nothing (#136). A later
+     * page that fails ends the list with the shows already read.
+     *
+     * The "Podcasts" filter id was never captured (only Playlists, Artists and Albums were), and an
+     * id Spotify does not know answers an empty list, which the chip showed as "nothing followed"
+     * for accounts that follow shows (#136). So when the filter finds no show, the whole library
+     * is read and its shows kept: the unfiltered list carries them whatever the filters are called.
+     */
+    suspend fun followedShows(): Result<List<LibraryEntry>> {
+        if (!ready()) return Result.failure(IllegalStateException(notSignedIn()))
+        val filtered = readShows(LibraryFilter.PODCASTS)
+        val shows = if (filtered.getOrNull().isNullOrEmpty()) readShows(LibraryFilter.ALL).takeIf { it.isSuccess || filtered.isFailure } ?: filtered else filtered
+        val out = shows.getOrElse { return Result.failure(it) }.map {
+            LibraryEntry(SHOW_PREFIX + it.uri.substringAfterLast(':'), it.name,
+                context.getString(R.string.album_type_podcast) + (it.subtitle?.let { s -> " • $s" } ?: ""), cover(it.images), isPlaylist = false)
         }
-        if (out.isEmpty()) return out
+        if (out.isEmpty()) return Result.success(out)
         val news = LibraryEntry(NEW_EPISODES_ID, context.getString(R.string.new_episodes_title), context.getString(R.string.new_episodes_subtitle),
             out.first().coverUri, isPlaylist = true)
-        return listOf(news) + out
+        return Result.success(listOf(news) + out)
+    }
+
+    /**
+     * The shows of the library list read with [filter], page after page, and of the folders in it
+     * (a show filed in a folder is only listed inside it), three levels down at most; failing on
+     * a first page that fails.
+     */
+    private suspend fun readShows(filter: LibraryFilter, folderUri: String? = null, depth: Int = 0): Result<List<app.myspoti.api.LibraryItem>> {
+        val out = ArrayList<app.myspoti.api.LibraryItem>()
+        val folders = ArrayList<String>()
+        var offset = 0
+        while (true) {
+            val page = runCatching { api.library.items(filter = filter, folderUri = folderUri, offset = offset, limit = 50) }.getOrElse {
+                if (it is CancellationException) throw it
+                Log.e("Api", "getFollowedShows ($filter${folderUri?.let { f -> " in $f" }.orEmpty()}) failed at $offset", it)
+                if (offset == 0) return Result.failure(it)
+                null
+            } ?: break
+            out += page.items.filter { it.kind == MediaKind.SHOW }
+            folders += page.items.filter { it.kind == MediaKind.FOLDER }.map { it.uri }
+            offset = page.nextOffset ?: break
+        }
+        if (depth < 3) folders.distinct().forEach { f -> readShows(filter, f, depth + 1).getOrNull()?.let { out += it } }
+        return Result.success(out.distinctBy { it.uri })
     }
 
     /**
@@ -364,34 +385,15 @@ class Api constructor(
         return list
     }
 
-    /** The user's top artists. */
-    suspend fun getArtists(): Flow<Response<List<ArtistsModel>>> = flow {
-        HomeCache.artists?.let { emit(Response.Success(it)) } ?: emit(Response.Loading())
-        if (!ready()) { if (HomeCache.artists == null) emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { api.users.top(limit = 20).artists.map(::artistOf) }.fold(
-            onSuccess = { HomeCache.artists = it; emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getArtists failed", it); if (HomeCache.artists == null) emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** The user's top tracks. */
-    suspend fun getSongs(): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { api.users.top(limit = 50).tracks.map(::songOf) }.fold(
-            onSuccess = { emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getSongs failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** [facet]: "" (all), "music-chip", "podcasts-chip", "audiobooks-chip". */
+    /** [facet]: "" (all), "music-chip", "podcasts-chip", "audiobooks-chip", or a sub-chip Spotify sent (HomeSubChips). */
     suspend fun getHomeFeed(facet: String = ""): Flow<Response<HomeFeedModel>> = flow {
         val cached = if (facet.isEmpty()) HomeCache.home ?: diskHome() else HomeCache.facets[facet]
         cached?.let { emit(Response.Success(it)) } ?: emit(Response.Loading())
         if (!ready()) { if (cached == null) emit(Response.Error(notSignedIn())); return@flow }
-        val filter = app.myspoti.api.HomeFilter.entries.firstOrNull { it.facet == facet } ?: app.myspoti.api.HomeFilter.ALL
-        runCatching { api.home.feed(filter, itemsPerShelf = 20) }.fold(
+        // Any facet Spotify offers: a top chip, or one opened beside it (Music > Following).
+        runCatching { api.home.feed(facet, itemsPerShelf = 20) }.fold(
             onSuccess = { feed ->
+                com.music.spotui.data.entity.HomeSubChips.learn(feed.chips)
                 val sections = feed.shelves.mapNotNull { shelf ->
                     val items = shelf.items.distinctBy { it.uri }.mapNotNull(::homeItem)
                         .distinctBy { it::class.simpleName + "|" + it.name.lowercase() }
@@ -466,14 +468,6 @@ class Api constructor(
             onSuccess = { songs -> SongPlayer.registerContext(songs.map { it.url }, uri); emit(Response.Success(songs)) },
             onFailure = { Log.e("Api", "getShowEpisodes failed", it); emit(Response.Error(it.message ?: "error")) },
         )
-    }
-
-    /** Show header (name, publisher, cover). */
-    suspend fun getShow(showId: String): PodcastModel? {
-        if (!ready()) return null
-        return runCatching { api.podcasts.show("spotify:show:$showId") }.getOrNull()?.let {
-            PodcastModel(showId, it.name, it.publisher, big(it.images))
-        }
     }
 
     /**
@@ -638,9 +632,11 @@ class Api constructor(
         }
         val entries = runCatching {
             if (pageUri != null) {
+                // Shows, episodes and books too: the Podcasts and Documentaries pages hold little else
+                // and showed empty (reported). Each opens by the kind its uri says (categoryEntryRoute).
                 api.home.category(pageUri).shelves.flatMap { it.items }.distinctBy { it.uri }.mapNotNull { c ->
-                    if (c.kind != MediaKind.PLAYLIST && c.kind != MediaKind.ALBUM) return@mapNotNull null
-                    LibraryEntry(c.uri.substringAfterLast(':'), c.title, c.subtitle.orEmpty(), cover(c.images), isPlaylist = c.kind == MediaKind.PLAYLIST)
+                    if (c.kind !in CATEGORY_KINDS) return@mapNotNull null
+                    LibraryEntry(c.uri.substringAfterLast(':'), c.title, c.subtitle.orEmpty(), cover(c.images), isPlaylist = c.kind == MediaKind.PLAYLIST, uri = c.uri)
                 }
             } else api.search.playlists(genre, limit = 24).items.map(::playlistEntry)
         }
@@ -650,24 +646,14 @@ class Api constructor(
         )
     }
 
+    /** What a browse category page lists: the cards a tap can open. */
+    private val CATEGORY_KINDS = setOf(MediaKind.PLAYLIST, MediaKind.ALBUM, MediaKind.SHOW, MediaKind.EPISODE, MediaKind.AUDIOBOOK, MediaKind.CHAPTER)
+
     // ── Artists ──
 
     private suspend fun findArtist(name: String): Artist? {
         val hits = api.search.artists(name, limit = 5).items
         return hits.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: hits.firstOrNull()
-    }
-
-    suspend fun getArtistSongs(artistName: String): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (artistName.isBlank()) { emit(Response.Success(emptyList())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        runCatching {
-            val artist = findArtist(artistName) ?: return@runCatching emptyList()
-            api.catalog.artistTopTracks(artist.uri).map { songOf(it).let { s -> if (s.coverUri.isBlank()) s.copy(coverUri = cover(artist.images)) else s } }
-        }.fold(
-            onSuccess = { emit(Response.Success(it)) },
-            onFailure = { Log.e("Api", "getArtistSongs failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
     }
 
     /** The full artist page; [knownArtistId] avoids the fuzzy name lookup. */
@@ -885,20 +871,16 @@ class Api constructor(
         merged
     }.getOrNull()
 
+    private val LIKED_PAGE = 50
+
     /** The newest Liked Songs: one page of 50. */
     private suspend fun likedHead(): List<SongsModel> =
         api.library.likedTracks(0, 50).items.map { songOf(it.track).copy(addedAt = it.addedAt.orEmpty()) }
 
     private suspend fun allLiked(onPage: suspend (List<SongsModel>) -> Unit): List<SongsModel> {
-        val out = ArrayList<SongsModel>()
-        var offset = 0
-        while (true) {
-            val page = api.library.likedTracks(offset, 50)
-            out += page.items.map { songOf(it.track).copy(addedAt = it.addedAt.orEmpty()) }
-            onPage(out.toList())
-            offset = page.nextOffset ?: break
-        }
-        return out
+        fun songs(p: app.myspoti.api.Page<app.myspoti.api.SavedTrack>) = p.items.map { songOf(it.track).copy(addedAt = it.addedAt.orEmpty()) }
+        val first = api.library.likedTracks(0, LIKED_PAGE)
+        return PagedFetch.inOrder(songs(first), first.total, LIKED_PAGE, fetch = { o -> songs(api.library.likedTracks(o, LIKED_PAGE)) }, onBatch = onPage)
     }
 
     /**
@@ -1055,35 +1037,6 @@ class Api constructor(
         if (failed && songs.isEmpty()) emit(Response.Error(context.getString(R.string.couldnt_load, pl.name)))
     }
 
-    suspend fun getAlbumSongs(albumName: String, artist: String = ""): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (albumName.isBlank()) { emit(Response.Success(emptyList())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val id = resolveAlbumId(albumName, artist) ?: run { emit(Response.Success(emptyList())); return@flow }
-        runCatching { api.catalog.albumTracks("spotify:album:$id", 0, 50).items.map(::songOf) }.fold(
-            onSuccess = { songs -> SongPlayer.registerContext(songs.map { it.url }, "spotify:album:$id"); emit(Response.Success(songs)) },
-            onFailure = { Log.e("Api", "getAlbumSongs failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** A playlist's tracks, first page at once, then the rest. */
-    suspend fun getPlaylistSongs(playlistId: String): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (playlistId.isBlank()) { emit(Response.Success(emptyList())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val uri = "spotify:playlist:$playlistId"
-        val songs = ArrayList<SongsModel>()
-        var offset = 0
-        while (true) {
-            val page = runCatching { api.playlists.tracks(uri, offset, 100) }.getOrNull() ?: break
-            songs += withDeviceFiles(page.items.map(::songOf))
-            SongPlayer.registerContext(songs.map { it.url }, uri)
-            emit(Response.Success(songs.toList()))
-            offset = page.nextOffset ?: break
-        }
-        if (songs.isEmpty()) emit(Response.Error(context.getString(R.string.page_load_failed)))
-    }
-
     // ── Library ──
 
     private fun entryOf(item: app.myspoti.api.LibraryItem): LibraryEntry? = when (item.kind) {
@@ -1106,14 +1059,10 @@ class Api constructor(
     }
 
     private suspend fun libraryLevel(folderUri: String?, filter: LibraryFilter = LibraryFilter.ALL): List<app.myspoti.api.LibraryItem> {
-        val out = ArrayList<app.myspoti.api.LibraryItem>()
-        var offset = 0
-        repeat(40) {
-            val page = api.library.items(filter = filter, folderUri = folderUri, offset = offset, limit = 50)
-            out += page.items
-            offset = page.nextOffset ?: return out
-        }
-        return out
+        val first = api.library.items(filter = filter, folderUri = folderUri, offset = 0, limit = 50)
+        // 40 pages at most, as before (2,000 items); the rest four at a time instead of one by one.
+        return PagedFetch.inOrder(first.items, minOf(first.total, 40 * 50), 50,
+            fetch = { o -> api.library.items(filter = filter, folderUri = folderUri, offset = o, limit = 50).items })
     }
 
     /** Flat library (Android Auto, pickers): Liked Songs, playlists, then albums. */
@@ -1169,25 +1118,6 @@ class Api constructor(
         val map = java.util.concurrent.ConcurrentHashMap<String, Entry>()
     }
 
-    /** Liked Songs as playable songs; also keeps the local hearts in step. */
-    suspend fun getLikedSongs(): Flow<Response<List<SongsModel>>> = flow {
-        emit(Response.Loading())
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val liked = runCatching {
-            allLiked { emit(Response.Success(it)) }
-        }
-        if (liked.exceptionOrNull() is CancellationException) throw liked.exceptionOrNull()!!
-        liked.fold(
-            onSuccess = { songs ->
-                SongPlayer.registerLikedSongs(songs.map { it.url })
-                com.music.spotui.data.preferences.syncSpotifyLikedSongIds(context, songs.mapTo(HashSet()) { it.id.toString() }, complete = true)
-                LikedCache.tracks = songs
-                emit(Response.Success(songs))
-            },
-            onFailure = { emit(Response.Error(context.getString(R.string.couldnt_load, context.getString(R.string.collection_liked_songs_title)))) },
-        )
-    }
-
     /** The signed-in account (name, avatar, plan). Spotify does not give the e-mail to the Web Player. */
     suspend fun getAccount(): Flow<Response<com.music.spotui.data.entity.AccountModel>> = flow {
         emit(Response.Loading())
@@ -1199,22 +1129,6 @@ class Api constructor(
                 )))
             },
             onFailure = { Log.e("Api", "getAccount failed", it); emit(Response.Error(it.message ?: "error")) },
-        )
-    }
-
-    /** Playlist header by id. */
-    suspend fun getPlaylist(playlistId: String): Flow<Response<AlbumsModel>> = flow {
-        emit(Response.Loading())
-        if (playlistId.isBlank()) { emit(Response.Error("missing playlist id")); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        runCatching { api.playlists.playlist("spotify:playlist:$playlistId") }.fold(
-            onSuccess = { p ->
-                emit(Response.Success(AlbumsModel(
-                    id = stableId("playlist:${p.uri}"), artists = p.owner.orEmpty(), coverUri = big(p.images),
-                    name = p.name, time = stripHtml(p.description), spotifyId = playlistId,
-                )))
-            },
-            onFailure = { Log.e("Api", "getPlaylist failed", it); emit(Response.Error(it.message ?: "error")) },
         )
     }
 

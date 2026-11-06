@@ -235,7 +235,7 @@ class ExtensionRegistryTest {
         assertEquals(listOf("a", "c", "b"), r.byPriority("lyrics", ids) { it })
         r = r.move("lyrics", ids, "c", -5)
         assertEquals(listOf("c", "a", "b"), r.byPriority("lyrics", ids) { it })
-        // Another area keeps installation order; a newly installed one comes last.
+        // Another area keeps installation order; one not listed (not a fresh install) comes last.
         assertEquals(ids, r.byPriority("audio", ids) { it })
         assertEquals(listOf("c", "a", "b", "d"), r.byPriority("lyrics", ids + "d") { it })
         // Moving past the end, or an unknown id, changes nothing.
@@ -253,7 +253,7 @@ class ExtensionRegistryTest {
         r = r.move("audio.source", r.bySourceOrder("audio.source", "audio", ids) { it }, "qobuz", -2)
         assertEquals(listOf("qobuz", "deezer", "tidal"), r.bySourceOrder("audio.source", "audio", ids) { it })
         assertEquals(ids, r.bySourceOrder("download.source", "audio", ids) { it })
-        // A source installed later is asked last.
+        // A source not listed (it became one with an update) is asked last.
         assertEquals(listOf("qobuz", "deezer", "tidal", "new"), r.bySourceOrder("audio.source", "audio", ids + "new") { it })
         // Spotify is last until moved; moved first, it stays first and a new source goes after it.
         val line = ids + SPOTIFY_SOURCE
@@ -262,6 +262,33 @@ class ExtensionRegistryTest {
         r = r.move("audio.source", line, SPOTIFY_SOURCE, -3)
         assertEquals(listOf(SPOTIFY_SOURCE) + ids, r.bySourceOrder("audio.source", "audio", line) { it })
         assertEquals(listOf(SPOTIFY_SOURCE) + ids + "new", r.bySourceOrder("audio.source", "audio", ids + "new" + SPOTIFY_SOURCE) { it })
+    }
+
+    @Test fun aFreshInstallIsAskedFirstWhereverItActs() {
+        fun m(id: String, vararg actions: String) = Manifest(id, id, "1", author = "me", actions = actions.map { ActionRequest(it, "Because") })
+        val ids = listOf("tidal", "qobuz", "deezer")
+        // No order set yet: the new one first, the others behind it in installation order.
+        var r = Registry().firstOnInstall("new", m("new", "lyrics.provide", "audio.source", "network"))
+        assertEquals(listOf("new") + ids, r.byPriority("lyrics", ids + "new") { it })
+        assertEquals(listOf("new") + ids + SPOTIFY_SOURCE, r.bySourceOrder("audio.source", "audio", ids + "new" + SPOTIFY_SOURCE) { it })
+        // What it does not give keeps its order: downloads, home.
+        assertEquals(ids, r.bySourceOrder("download.source", "audio", ids) { it })
+        assertNull(r.priority["download.source"])
+        assertNull(r.priority["home"])
+        // The user's order: the new one above it all, Spotify moved first and the one active before included.
+        r = Registry(active = mapOf("download.source" to "deezer"))
+            .move("audio.source", ids + SPOTIFY_SOURCE, SPOTIFY_SOURCE, -3)
+            .move("lyrics", ids, "deezer", -2)
+            .firstOnInstall("dl", m("dl", "audio.source", "download.source", "lyrics.provide"))
+        assertEquals(listOf("dl", SPOTIFY_SOURCE) + ids, r.bySourceOrder("audio.source", "audio", ids + "dl" + SPOTIFY_SOURCE) { it })
+        assertEquals(listOf("dl", "deezer", "tidal", "qobuz"), r.bySourceOrder("download.source", "audio", ids + "dl") { it })
+        assertEquals(listOf("dl", "deezer", "tidal", "qobuz"), r.byPriority("lyrics", ids + "dl") { it })
+        // Moved down by the user, it stays there: only a fresh install puts it first, never twice listed.
+        r = r.move("lyrics", ids + "dl", "dl", 3)
+        assertEquals(listOf("deezer", "tidal", "qobuz", "dl"), r.byPriority("lyrics", ids + "dl") { it })
+        assertEquals(listOf("dl", "deezer", "tidal", "qobuz"), r.firstOnInstall("dl", m("dl", "lyrics.provide")).priority["lyrics"])
+        // Support actions alone: first of Other.
+        assertEquals(mapOf("other" to listOf("x.net")), Registry().firstOnInstall("x.net", m("x.net", "network", "storage")).priority)
     }
 
     @Test fun priorityIsKeptOnDiskAndForgetsAnUninstalledExtension() {

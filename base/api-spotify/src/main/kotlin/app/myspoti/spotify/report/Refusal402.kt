@@ -1,5 +1,7 @@
 package app.myspoti.spotify.report
 
+import app.myspoti.spotify.AccountPlan
+
 /**
  * The "402 summary" at the top of a diagnostic report: what one report from an account whose
  * Connect commands Spotify refuses (402 COMMAND_FAILED, some free accounts) must settle, in one
@@ -186,7 +188,8 @@ object Refusal402 {
         }
         out += "verdict" to verdict
         out += "account" to listOfNotNull(account ?: "unknown", installAge?.let { "app installed $it" }).joinToString(", ")
-        out += "ads" to "blocked by the app; ad breaks this session=$adBreaks, ad states left out=$adStatesLeftOut"
+        out += "ads" to if (AccountPlan.isPremium) "none (Premium)"
+            else "blocked by the app; ad breaks this session=$adBreaks, ad states left out=$adStatesLeftOut"
         out += "devices" to (firstCluster?.let { first -> if (first == lastCluster) first else "$first | last: $lastCluster" } ?: "no cluster seen")
         out += "timing" to listOfNotNull(
             "first command ${firstCommand ?: "none"}",

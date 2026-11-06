@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Draugų veikla</string>
+    <string name="friends_now">Dabar</string>
+    <string name="friends_empty">Draugų veiklos dar nėra. Čia rodomi draugai, kuriuos sekate ir kurie „Spotify“ bendrina savo klausymosi veiklą.</string>
+    <string name="friends_failed">„Spotify“ neatsiuntė draugų veiklos.</string>
+    <string name="friends_refresh">Atnaujinti</string>
+</resources>

@@ -4,6 +4,8 @@
  */
 package com.music.spotui.ui.immersive.screens
 
+import com.music.spotui.ui.immersive.shell.immersiveGlassSurface
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -47,7 +50,6 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -98,7 +100,6 @@ import com.music.spotui.data.local.LocalPlaylists
 import com.music.spotui.data.offline.OfflineCollections
 import com.music.spotui.data.offline.OfflineStatus
 import com.music.spotui.data.offline.OfflineStore
-import com.music.spotui.di.Graph
 import com.music.spotui.di.LocalPlayer
 import com.music.spotui.di.Palette
 import com.music.spotui.di.SongPlayer
@@ -131,11 +132,13 @@ import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.navigation.profileRoute
 import com.music.spotui.ui.screens.ContextViewModel
+import com.music.spotui.ui.screens.PlaylistReorder
 import com.music.spotui.ui.screens.SmartShuffle
+import com.music.spotui.ui.screens.movableRow
+import com.music.spotui.ui.screens.rememberPlaylistDrag
 import com.music.spotui.ui.screens.TrackOrder
 import com.music.spotui.ui.screens.TrackSort
 import com.music.spotui.ui.viewmodel.PlayerViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** The framed sleeve on a release page, as a fraction of the page width. */
@@ -275,9 +278,8 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
         },
         onLeave = { showMembers = false; leaveAsk = true },
     ) { showMembers = false }
-    if (leaveAsk) androidx.compose.material3.AlertDialog(
+    if (leaveAsk) ImmersiveAlertDialog(
         onDismissRequest = { leaveAsk = false },
-        containerColor = Immersive.Raised,
         title = { Text(stringResource(R.string.playlist_leave), color = Immersive.Text) },
         text = { Text(stringResource(R.string.playlist_leave_confirm, p.name), color = Immersive.TextSecondary) },
         confirmButton = {
@@ -335,9 +337,8 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
         onDeleted = { navController.navigateUp() },
         onProfile = { navController.navigate(profileRoute(it, p.ownerName)) },
     )
-    if (askRemoveDownloads) AlertDialog(
+    if (askRemoveDownloads) ImmersiveAlertDialog(
         onDismissRequest = { askRemoveDownloads = false },
-        containerColor = Immersive.Raised,
         title = { Text(stringResource(R.string.playlist_entity_remove_download_dialog_title), style = Immersive.Headline) },
         text = { Text(stringResource(R.string.playlist_entity_remove_download_dialog_description), style = Immersive.Subhead) },
         confirmButton = {
@@ -377,13 +378,21 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
             if (isLiked) p.tracks.filter { SongPlayer.library["spotify:track:${it.spotifyTrackId}"] != false } else p.tracks
         }
     }
+    // An own playlist in its own order: its songs can be moved by hand, a handle on each while
+    // "Move" is on, as on the Classic page.
+    var moving by remember(p.uri) { mutableStateOf(false) }
+    val canMove = remember(p, vm.editableContext.value, sort, find) {
+        PlaylistReorder.allowed(p.type, vm.editableContext.value, p.isBlend, sort.isCustom, p.complete, find, p.tracks.map { it.rowUid })
+    }
+    val reordering = moving && canMove
     // The rows and their keys in one derived state: the list re-reads its rows outside composition
     // (a search letter, the "×" of the search), and keys remembered apart from them were one list
-    // behind (a list that grows on the "×" ran out of keys: a crash).
-    val shown by remember(p, find, sort) {
+    // behind (a list that grows on the "×" ran out of keys: a crash). Rows that move are keyed by
+    // their own id, which goes with them wherever they are put.
+    val shown by remember(p, find, sort, reordering) {
         derivedStateOf {
             val found = if (findable) all.filter { matchesFind(find, it.title, it.singer, it.album) } else all
-            withRowKeys(if (findable) sort.apply(found) else found) { it.id.toString() }
+            withRowKeys(if (findable) sort.apply(found) else found) { if (reordering) PlaylistReorder.key(it) else it.id.toString() }
         }
     }
     val rows = shown.first
@@ -419,6 +428,15 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
     }
 
     val listState = rememberLazyListState()
+    val drag = rememberPlaylistDrag(listState)
+    drag.rows = rows
+    drag.onDrop = { move ->
+        vm.moveRow(move) { ok ->
+            if (!ok) Toast.makeText(context, context.getString(R.string.playlist_change_refused), Toast.LENGTH_SHORT).show()
+        }
+    }
+    // The page has the new order (or had it put back): its own rows are shown again.
+    LaunchedEffect(p, reordering) { drag.settle() }
     val findFocus = remember { FocusRequester() }
     val findStop = with(LocalDensity.current) { immersiveTopContentPadding().roundToPx() }
     // Opening the search carries the page up to it, so the field lands just clear of the bar with
@@ -462,6 +480,8 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                     onAskRemoveDownloads = { askRemoveDownloads = true },
                     members = crew,
                     onMembers = { showMembers = true },
+                    moving = moving.takeIf { canMove },
+                    onMove = { moving = !moving },
                 )
             }
             // Someone else's collaborative playlist this account was never invited to.
@@ -494,9 +514,18 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
             if (rows.isEmpty() && find.isNotBlank()) item(key = "find-empty") {
                 ImmersiveMessageState(stringResource(R.string.assisted_curation_search_empty_view_no_result_title, find.trim()))
             }
+            if (reordering) item(key = "reorder-hint") {
+                Text(
+                    stringResource(R.string.playlist_reorder_hint),
+                    style = Immersive.Caption.copy(color = Immersive.TextSecondary),
+                    modifier = Modifier.padding(horizontal = Immersive.Gutter, vertical = 6.dp),
+                )
+            }
             val numbered = p.type == "album"
-            itemsIndexed(shown.first, key = { i, _ -> shown.second[i] }) { index, song ->
-                Column {
+            // While a song is moved: the rows in the order under the finger.
+            val (listed, keys) = drag.order?.takeIf { reordering }?.let { o -> o to o.map(PlaylistReorder::key) } ?: shown
+            itemsIndexed(listed, key = { i, _ -> keys[i] }) { index, song ->
+                Column(if (reordering) movableRow(drag, song, Immersive.Raised) else Modifier) {
                     ImmersiveSwipeToQueue(song) {
                         ImmersiveSongRow(
                             song = song,
@@ -514,9 +543,18 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                             // (what Spotify last reported, the list's one batch check, the downloads kept on the phone).
                             liked = com.music.spotui.di.trackSaved(song.spotifyTrackId, savedTracks),
                             offline = OfflineStore.statusOf(song.spotifyTrackId),
-                            // Collaborative: the small face of who added the song.
-                            trailing = vm.adders.value.let { a -> a["row:" + song.rowUid] ?: a["song:" + song.spotifyTrackId] }?.let { m ->
-                                { com.music.spotui.ui.components.ProfileAvatar(m.imageUrl, m.name, 22.dp) }
+                            // Collaborative: the small face of who added the song. Being moved: its handle.
+                            trailing = vm.adders.value.let { a -> a["row:" + song.rowUid] ?: a["song:" + song.spotifyTrackId] }.let { m ->
+                                val face: @Composable () -> Unit = {
+                                    if (m != null) com.music.spotui.ui.components.ProfileAvatar(m.imageUrl, m.name, 22.dp)
+                                    if (reordering) Icon(
+                                        Icons.Rounded.DragHandle,
+                                        contentDescription = stringResource(R.string.edit_playlist_items_move_chip),
+                                        tint = Immersive.TextSecondary,
+                                        modifier = Modifier.padding(start = if (m != null) 8.dp else 0.dp).then(drag.handle(song.rowUid)).size(28.dp),
+                                    )
+                                }
+                                if (m == null && !reordering) null else face
                             },
                         )
                     }
@@ -642,6 +680,9 @@ private fun ContextHeader(
     onAskRemoveDownloads: () -> Unit,
     members: List<app.myspoti.api.PlaylistMember> = emptyList(),
     onMembers: () -> Unit = {},
+    /** Whether the songs' handles are out; null: the songs cannot be moved here (no "Move" button). */
+    moving: Boolean? = null,
+    onMove: () -> Unit = {},
 ) {
     val context = LocalContext.current
     Column(
@@ -801,6 +842,13 @@ private fun ContextHeader(
                     contentDescription = stringResource(R.string.smart_shuffle_title),
                     onClick = onToggleSmart,
                     tint = if (smart) Immersive.Accent else Immersive.Text,
+                )
+                // "Move": a handle on each song, to put them in another order (again: done).
+                if (moving != null) ImmersiveCircleButton(
+                    icon = Icons.Rounded.DragHandle,
+                    contentDescription = stringResource(if (moving) R.string.done else R.string.edit_playlist_items_move_chip),
+                    onClick = onMove,
+                    tint = if (moving) Immersive.Accent else Immersive.Text,
                 )
             }
         }
@@ -982,8 +1030,8 @@ private fun InviteJoinBar(vm: ContextViewModel, p: ContextPageModel, modifier: M
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Immersive.Raised)
+            // Floats over the list: glass, not an opaque card.
+            .immersiveGlassSurface(RoundedCornerShape(16.dp))
             .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
     ) {
         Text(stringResource(R.string.playlist_invite_banner), style = Immersive.Body, modifier = Modifier.weight(1f).padding(end = 12.dp))

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">친구</string>
     <string name="messages_title">메시지</string>
     <string name="messages_empty">아직 대화가 없습니다. 위쪽 연필 아이콘으로 친구에게 메시지를 보내 보세요.</string>
     <string name="messages_failed">Spotify가 메시지를 보내지 못했습니다.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s님이 %2$s님을 내보냈습니다</string>
     <string name="messages_event_link">%1$s님이 링크로 참여했습니다</string>
     <string name="messages_event_reported">대화가 신고되었습니다</string>
-    <string name="friends_title">친구 활동</string>
-    <string name="friends_now">지금</string>
-    <string name="friends_empty">아직 친구 활동이 없습니다. 팔로우하는 친구 중 Spotify에서 감상 활동을 공유하는 친구가 여기에 표시됩니다.</string>
-    <string name="friends_failed">Spotify에서 친구 활동을 보내지 않았습니다.</string>
-    <string name="friends_refresh">새로고침</string>
+    <string name="friends_tab">친구</string>
 </resources>

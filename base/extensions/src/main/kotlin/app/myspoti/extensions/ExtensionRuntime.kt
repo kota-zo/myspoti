@@ -261,6 +261,13 @@ class ExtensionRuntime(
                 try { return task.get(10, TimeUnit.MILLISECONDS) } catch (_: TimeoutException) { /* not its turn yet */ }
             }
             await(task, timeoutMs, began.get(), pause)
+        } catch (e: InterruptedException) {
+            // The caller gave up (a skip, a newer song): the call is stopped as well, or it kept the
+            // extension's only thread and the next song's lookup waited behind it. Running, it ends
+            // at the instruction observer's next look (it sees the interrupt) or at its next wait.
+            task.cancel(true)
+            Thread.currentThread().interrupt()
+            throw e
         } catch (e: TimeoutException) {
             task.cancel(true)
             fail("took longer than $timeoutMs ms", e, timeout = true)
@@ -304,6 +311,8 @@ class ExtensionRuntime(
         fun str(args: Array<Any?>, i: Int): String = args.getOrNull(i)?.takeUnless { it is Undefined }?.let { Context.toString(it) }.orEmpty()
 
         def("info", 0) { ExtJson.encodeToString(Info.serializer(), Info(manifest.id, manifest.name, manifest.version, has(Action.PLAYBACK_MIRROR), has(Action.ATTEST))) }
+        // No action needed; a host that fails or answers nothing gives the JVM's, never "".
+        def("locale", 0) { runCatching { host.locale() }.getOrNull()?.takeIf { it.isNotBlank() } ?: java.util.Locale.getDefault().toLanguageTag() }
         def("mayProvide", 1) { a ->
             val key = str(a, 0)
             val hook = Hook.of(key) ?: throw error("unknown hook \"$key\" (known: ${Hook.entries.joinToString { it.key }})")
@@ -642,6 +651,20 @@ class ExtensionRuntime(
     }
 
     private fun util(op: String, input: String): String = when (op) {
+        "sleep" -> {
+            val millis = input.toLongOrNull()?.takeIf { it >= 0 }?.coerceAtMost(MAX_SLEEP_MS)
+                ?: throw error("util.sleep: a non-negative integer number of milliseconds")
+            // A backoff is the script's time, unlike waiting for the user to confirm an action.
+            if (millis >= leftMs()) throw TimeLimit()
+            try {
+                host.sleep(millis)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw TimeLimit() // Neither close nor timeout may be swallowed by JS try/catch.
+            }
+            leftMs() // Also enforce the deadline if scheduling delayed the wake-up.
+            ""
+        }
         "base64Encode" -> java.util.Base64.getEncoder().encodeToString(input.toByteArray())
         "base64Decode" -> runCatching { String(java.util.Base64.getDecoder().decode(input)) }.getOrElse { throw error("base64Decode: not base64") }
         "md5" -> hex(MessageDigest.getInstance("MD5").digest(input.toByteArray()))
@@ -692,6 +715,8 @@ class ExtensionRuntime(
         const val MAX_NOTIFY_PER_HOUR = 5
         /** `http.all`: the most requests sent together. */
         const val MAX_PARALLEL = 4
+        /** `util.sleep`: a bounded synchronous backoff; never a timer or a wait on the app's main thread. */
+        const val MAX_SLEEP_MS = 2_000L
         private val CONTROLS = setOf("play", "pause", "next", "previous", "seek")
 
         private val PRELUDE: String = ExtensionRuntime::class.java.getResource("prelude.js")!!.readText()
@@ -709,7 +734,8 @@ class ExtensionRuntime(
 
             override fun observeInstructionCount(cx: Context, instructionCount: Int) {
                 val runtime = RUNNING.get() ?: return
-                if (System.nanoTime() > runtime.deadline) throw TimeLimit()
+                // Interrupted: its caller gave up and cancelled it (see run).
+                if (System.nanoTime() > runtime.deadline || Thread.currentThread().isInterrupted) throw TimeLimit()
             }
         }
 

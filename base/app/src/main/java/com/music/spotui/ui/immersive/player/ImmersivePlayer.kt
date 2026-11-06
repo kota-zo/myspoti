@@ -6,9 +6,10 @@
  * Changes: only the portrait layout is taken: the artwork with its step back on pause, the move
  * of the artwork to a small header (title beside it) when the lyrics or the queue open, the
  * title row with its round glyphs, the scrubber, transport, volume and bottom rows, and the
- * sheet's drag to close. The full-bleed banner, Canvas clips, track-swipe on the cover, version
- * switching, the lyric strip and the dock are left out. The landscape layout (cover beside the
- * controls) and the Canvas behind the player (with the cover opening into it) are Myspoti's own.
+ * sheet's drag to close. The full-bleed banner, Canvas clips, BitChord's track-swipe on the cover,
+ * version switching, the lyric strip and the dock are left out. The landscape layout (cover beside
+ * the controls), the Canvas behind the player (with the cover opening into it) and the swipe
+ * along the cover that changes track (the mini player's) are Myspoti's own.
  */
 package com.music.spotui.ui.immersive.player
 
@@ -24,11 +25,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -114,8 +116,12 @@ import com.music.spotui.ui.look.MeshPalette
 import com.music.spotui.ui.look.lerp
 import com.music.spotui.ui.components.SongBlend
 import com.music.spotui.ui.components.SongBlendCover
+import com.music.spotui.ui.components.mixSqueeze
+import com.music.spotui.ui.components.mixWave
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.look.rememberArtworkColors
 import com.music.spotui.ui.look.rememberPauseScale
+import kotlin.math.abs
 
 // Sizes and gaps of the portrait layout, as the player this follows has them.
 private val THUMB_SIZE = 54.dp
@@ -139,6 +145,8 @@ internal val PLAYER_MAX_WIDTH = 560.dp
 private const val PANEL_TRAVEL_MS = com.music.spotui.ui.immersive.motion.ImmersiveMotion.LONG_MS
 
 private val ArtCorner = RoundedCornerShape(8.dp)
+/** How much bigger the cover is on an AutoMix beat (the player draws in around it meanwhile). */
+private const val MIX_BEAT_GROW = 0.025f
 
 /** What the middle of the player shows. */
 private object Panel {
@@ -187,6 +195,42 @@ internal fun Modifier.dragToClose(): Modifier {
                 change.consume()
             }
             current.release(if (finished) velocity.calculateVelocity().y else 0f)
+        }
+    }
+}
+
+/** How far the cover is swiped along to change track (the mini player's distance). */
+private val TRACK_SWIPE_THRESHOLD = 72.dp
+
+/**
+ * A swipe along the cover changes track, as on the mini player: to the left the next song, to the
+ * right the previous one, past [TRACK_SWIPE_THRESHOLD]. Only a mostly sideways move is taken (and
+ * consumed); a vertical one is left untouched for [dragToClose] and a tap for the cover's click.
+ * Off while [enabled] is false (the cover is the header's thumbnail under an open panel).
+ */
+@Composable
+private fun Modifier.swipeToChangeTrack(enabled: Boolean, actions: ImmersivePlayerActions): Modifier {
+    val on by rememberUpdatedState(enabled)
+    val current by rememberUpdatedState(actions)
+    return pointerInput(Unit) {
+        val threshold = TRACK_SWIPE_THRESHOLD.toPx()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            if (!on) return@awaitEachGesture
+            val slopped = awaitTouchSlopOrCancellation(down.id) { change, _ ->
+                val moved = change.position - down.position
+                if (abs(moved.x) > abs(moved.y)) change.consume()
+            } ?: return@awaitEachGesture
+            var dragged = (slopped.position - down.position).x
+            val finished = drag(slopped.id) { change ->
+                dragged += change.positionChange().x
+                change.consume()
+            }
+            if (!finished) return@awaitEachGesture
+            when {
+                dragged <= -threshold -> current.next()
+                dragged >= threshold -> current.previous()
+            }
         }
     }
 }
@@ -260,7 +304,13 @@ fun ImmersivePlayer(
     // Back leaves the panel first; the sheet (outside) closes on the next one.
     BackHandler(enabled = panel != Panel.NONE) { panel = Panel.NONE }
 
-    BoxWithConstraints(modifier.fillMaxSize().background(Color.Black)) {
+    // The wave that leaves the cover when a mix is over, over everything.
+    // Not over an open panel: the lyrics or the queue drawing in and springing back with the mix
+    // moved the lines being read (reported as particularly bad on the lyrics). Nor over a Canvas:
+    // the clip stays full screen, so the controls sprang about over it and the wave crossed the
+    // video (reported as the end of the mix bugging on a Canvas).
+    val mixMotion = state.mixPulse.takeIf { panel == Panel.NONE && !canvasOn }
+    BoxWithConstraints(modifier.fillMaxSize().background(Color.Black).mixWave(mixMotion, Color.White)) {
         // Wider than tall (a phone on its side, a tablet), or a large portrait tablet: the cover
         // beside the controls. Very wide windows (DeX, large tablets): the lyrics and the queue
         // open in a third pane instead of over the cover.
@@ -289,6 +339,8 @@ fun ImmersivePlayer(
                     .background(CanvasShade),
             )
         }
+        // An AutoMix mix: the content draws in with it and springs back after it, the backdrop stays.
+        Box(Modifier.fillMaxSize().mixSqueeze(mixMotion)) {
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) LandscapePlayer(
                 state = state,
@@ -371,7 +423,8 @@ fun ImmersivePlayer(
                                 // With a Canvas, the sleeve opens into the clip: it grows and fades as the
                                 // clip comes in, and is the thumbnail again in the header.
                                 val opened = canvasOpen.value * (1f - p())
-                                val scale = (pauseScale.value + (1f - pauseScale.value) * p()) * (1f + CANVAS_COVER_GROW * opened)
+                                val beat = 1f + MIX_BEAT_GROW * (state.mixPulse?.level() ?: 0f) * (1f - p())
+                                val scale = (pauseScale.value + (1f - pauseScale.value) * p()) * (1f + CANVAS_COVER_GROW * opened) * beat
                                 scaleX = scale
                                 scaleY = scale
                                 alpha = 1f - opened
@@ -381,6 +434,7 @@ fun ImmersivePlayer(
                             }
                             .background(Color.Black.copy(alpha = 0.18f))
                             .dragToClose()
+                            .swipeToChangeTrack(enabled = panel == Panel.NONE, actions = actions)
                             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                 if (panel != Panel.NONE) panel = Panel.NONE
                             },
@@ -444,7 +498,8 @@ fun ImmersivePlayer(
                         .align(Alignment.CenterHorizontally),
                 ) {
                     PlayerControlsBlock(
-                        state = state, actions = actions, volume = volume, lyricsOpen = lyricsOpen, queueOpen = queueOpen, showVolume = true,
+                        state = state, actions = actions, volume = volume, lyricsOpen = lyricsOpen, queueOpen = queueOpen,
+                        showVolume = com.music.spotui.data.preferences.PlayerVolumePref.on,
                         // Lyrics and the queue are two things to show in one place: opening one closes the other.
                         onToggleLyrics = { panel = if (lyricsOpen) Panel.NONE else Panel.LYRICS },
                         onToggleQueue = { panel = if (queueOpen) Panel.NONE else Panel.QUEUE },
@@ -452,6 +507,7 @@ fun ImmersivePlayer(
                     )
                 }
             }
+        }
         }
     }
 
@@ -541,7 +597,7 @@ private fun RowScope.PlayerCredits(
     // a moment after the song starts), so its arrival fades in below the title and artist
     // instead of moving them.
     val sourceLabel = com.music.spotui.ui.components.playingSourceLabel()
-    val sourceShown = com.music.spotui.data.preferences.PlayerSourceLinePref.on
+    val sourceShown = com.music.spotui.data.preferences.PlayerSourceLinePref.shown
     val hasSource = sourceLabel.isNotBlank() && !state.adPlaying
     val sourceAlpha by animateFloatAsState(if (hasSource) 1f else 0f, tween(250), label = "sourceLine")
     val lineH = if (state.adPlaying) 24.sp else 22.sp
@@ -569,8 +625,9 @@ private fun RowScope.PlayerCredits(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f, fill = false)
-                    .then(if (scrolls) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openAlbum() },
+                    // The marquee inside the tap target: scrolling leaves the target as it was.
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openAlbum() }
+                    .titleMarquee(enabled = scrolls, iterations = Int.MAX_VALUE),
             )
             if (state.explicit && !state.adPlaying) {
                 Spacer(Modifier.width(6.dp))
@@ -596,8 +653,8 @@ private fun RowScope.PlayerCredits(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .then(if (scrolls) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openArtist() },
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openArtist() }
+                    .titleMarquee(enabled = scrolls, iterations = Int.MAX_VALUE),
             )
         }
         // What the sound is when Myspoti's own player plays it (an extension's stream, a
@@ -730,15 +787,17 @@ private fun LandscapePlayer(
                                 Modifier
                                     .size(side)
                                     .graphicsLayer {
-                                        // The pause step back, as in the portrait layout.
-                                        scaleX = pauseScale.value
-                                        scaleY = pauseScale.value
+                                        // The pause step back, as in the portrait layout, and the mix's beat.
+                                        val beat = 1f + MIX_BEAT_GROW * (state.mixPulse?.level() ?: 0f)
+                                        scaleX = pauseScale.value * beat
+                                        scaleY = pauseScale.value * beat
                                         shadowElevation = 10.dp.toPx()
                                         shape = ArtCorner
                                         clip = true
                                     }
                                     .background(Color.Black.copy(alpha = 0.18f))
-                                    .dragToClose(),
+                                    .dragToClose()
+                                    .swipeToChangeTrack(enabled = true, actions = actions),
                             ) {
                                 GlideImage(
                                     model = state.coverUrl.takeIf { it.isNotBlank() },
@@ -758,7 +817,7 @@ private fun LandscapePlayer(
             }
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 // The volume bar is the first thing to go when the window is low: the hardware keys do it too.
-                val showVolume = maxHeight >= LANDSCAPE_VOLUME_MIN_HEIGHT
+                val showVolume = com.music.spotui.data.preferences.PlayerVolumePref.on && maxHeight >= LANDSCAPE_VOLUME_MIN_HEIGHT
                 Column(Modifier.widthIn(max = PLAYER_MAX_WIDTH).verticalScroll(rememberScrollState())) {
                     Row(Modifier.fillMaxWidth().height(HEADER_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
                         PlayerCredits(state, actions, tint, scrolls = true, collapse = { 0f }, onMore = onMore, onSource = onSource, onSourceLong = onSourceLong)

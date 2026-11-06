@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Vrienden</string>
     <string name="messages_title">Berichten</string>
     <string name="messages_empty">Nog geen gesprekken. Schrijf een vriend via het potlood bovenaan.</string>
     <string name="messages_failed">Spotify heeft je berichten niet verstuurd.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s heeft %2$s verwijderd</string>
     <string name="messages_event_link">%1$s doet mee via een link</string>
     <string name="messages_event_reported">Het gesprek is gemeld</string>
-    <string name="friends_title">Vriendenactiviteit</string>
-    <string name="friends_now">Nu</string>
-    <string name="friends_empty">Nog geen vriendenactiviteit. Vrienden die je volgt en die hun luisteractiviteit op Spotify delen, verschijnen hier.</string>
-    <string name="friends_failed">Spotify heeft de vriendenactiviteit niet verstuurd.</string>
-    <string name="friends_refresh">Vernieuwen</string>
+    <string name="friends_tab">Vrienden</string>
 </resources>

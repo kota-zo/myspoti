@@ -5,6 +5,8 @@
  */
 package com.music.spotui.ui.immersive.pages
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
+import com.music.spotui.ui.immersive.sheets.ImmersiveGlassSheet
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.snap
@@ -35,10 +37,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -213,9 +213,8 @@ internal fun ImmersiveNameDialog(
     var text by remember { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    AlertDialog(
+    ImmersiveAlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Immersive.Raised,
         title = { Text(title, style = Immersive.Headline) },
         text = {
             Box(
@@ -255,11 +254,11 @@ internal fun ImmersiveNameDialog(
     )
 }
 
-/** A bottom sheet on the [Immersive.Raised] fill, the frame of every menu of these pages. */
+/** A bottom sheet on glass, the frame of every menu of these pages. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ImmersiveSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Immersive.Raised) {
+    ImmersiveGlassSheet(onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp), content = content)
     }
 }

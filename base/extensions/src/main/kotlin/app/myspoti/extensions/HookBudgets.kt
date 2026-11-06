@@ -7,6 +7,8 @@ package app.myspoti.extensions
 object HookBudgets {
     /** A lyrics hook call. */
     const val LYRICS = 8_000L
+    /** A lyrics-romanize hook call: every line of one song left to romanize. */
+    const val ROMANIZE = 8_000L
     /** An audio-source hook call. */
     const val AUDIO = 15_000L
     /** A download-source hook call (an extension may try several places). */
@@ -29,6 +31,7 @@ object HookBudgets {
     /** The budget of a call to [hook]. */
     fun of(hook: Hook): Long = when (hook) {
         Hook.LYRICS -> LYRICS
+        Hook.LYRICS_ROMANIZE -> ROMANIZE
         Hook.AUDIO_SOURCE -> AUDIO
         Hook.DOWNLOAD_SOURCE -> DOWNLOAD
         Hook.PAGE -> PAGE

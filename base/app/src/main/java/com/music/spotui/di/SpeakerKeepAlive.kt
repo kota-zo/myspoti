@@ -17,11 +17,15 @@ object SpeakerKeepAlive {
     private const val RATE = 48_000
     /** Pauses and song changes shorter than this keep the stream (and the output) open. */
     private const val LINGER_MS = 15_000L
+    /** A stream that failed is opened again after this long at the soonest. */
+    private const val RETRY_MS = 10_000L
 
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var track: AudioTrack? = null
     @Volatile private var feeder: Thread? = null
     private val release = Runnable { stop() }
+    /** When the last stream failed (see [start]); 0: none. */
+    @Volatile private var failedAt = 0L
 
     /** [playingHere]: music plays on this phone (not on a Connect device). */
     fun set(playingHere: Boolean) = main.post {
@@ -36,7 +40,11 @@ object SpeakerKeepAlive {
 
     private fun start() {
         if (track != null) return
-        val size = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        // A stream that just failed is not rebuilt on every state the page reports.
+        if (failedAt != 0L && android.os.SystemClock.elapsedRealtime() - failedAt < RETRY_MS) return
+        // A second of buffer, written half at a time: two wakes a second instead of 25 to 50 with the
+        // minimum buffer (silence needs no low latency).
+        val size = maxOf(AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT), RATE * 2)
         val t = runCatching {
             AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder()
@@ -49,15 +57,20 @@ object SpeakerKeepAlive {
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .build())
                 .setBufferSizeInBytes(size)
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_POWER_SAVING)
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
         }.getOrNull() ?: return
         track = t
         runCatching { t.play() }
         feeder = Thread({
-            val zeros = ByteArray(size)
+            val zeros = ByteArray(size / 2)
             // Blocking writes pace themselves on the output: no busy loop.
             while (track === t) if (t.write(zeros, 0, zeros.size) < 0) break
+            // The stream failed (the audio server restarted, the output went away): it is let go,
+            // and the next song playing opens a new one. Kept, it held its place for the rest of
+            // the session while feeding nothing, and nothing held the output open any more.
+            if (track === t) main.post { if (track === t) { failedAt = android.os.SystemClock.elapsedRealtime(); stop() } }
         }, "speaker-keepalive").apply { isDaemon = true; start() }
     }
 

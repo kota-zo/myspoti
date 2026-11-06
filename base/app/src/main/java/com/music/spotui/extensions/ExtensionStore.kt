@@ -129,7 +129,7 @@ object ExtensionStore {
                             gate.withPermit {
                                 runCatching {
                                     val text = f.manifestUrl()?.let { ExtensionUpdates.cached(it, Discovery.CACHE_MS, force = force) } ?: return@runCatching null
-                                    Manifest.parse(text).takeIf { it.problems().isEmpty() }?.let { Discovery.entry(f, it) }
+                                    Manifest.parse(text).takeIf { it.problems().isEmpty() }?.let { Discovery.entry(f, it.localized(Extensions.language())) }
                                 }.getOrNull()
                             }
                         }

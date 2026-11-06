@@ -1,5 +1,6 @@
 package com.music.spotui.data
 
+import com.music.spotui.data.entity.ArtistsModel
 import com.music.spotui.data.entity.LibraryEntry
 import com.music.spotui.data.local.LibraryOrder
 import com.music.spotui.data.local.LibraryOrder.Sort
@@ -38,4 +39,14 @@ class LibraryOrderTest {
         assertEquals(listOf("liked", "spotify:user:x:folder:1", "e", "a", "b"), ids(LibraryOrder.arrange(all, Sort.CREATOR, emptyList(), 1)))
 
     @Test fun folderKeyIsItsUri() = assertEquals("spotify:user:x:folder:1", LibraryOrder.key(f))
+
+    @Test
+    fun followedArtistsFollowTheSortByName() {
+        val artists = listOf(ArtistsModel("Zaz", ""), ArtistsModel("ABBA", ""), ArtistsModel("éric", ""))
+        assertEquals(listOf("ABBA", "éric", "Zaz"), LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.ALPHABETICAL).map { it.name })
+        assertEquals(listOf("ABBA", "éric", "Zaz"), LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.CREATOR).map { it.name })
+        // Spotify's order (the latest followed first) for the other sorts.
+        assertEquals(artists, LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.RECENTS))
+        assertEquals(artists, LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.CUSTOM))
+    }
 }

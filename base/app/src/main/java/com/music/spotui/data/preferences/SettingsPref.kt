@@ -16,6 +16,8 @@ private const val KEY_CROSSFADE = "crossfade_seconds"
 /** Extra lyrics sources (NetEase, Genius) when Spotify and LRCLIB have none. Off by default. */
 fun isLyricsExtraSources(c: Context): Boolean = prefs(c).getBoolean(KEY_LYRICS_EXTRA, false)
 fun setLyricsExtraSources(c: Context, v: Boolean) = prefs(c).edit().putBoolean(KEY_LYRICS_EXTRA, v).apply()
+/** The extra sources were turned off by hand (never touched: Genius is still the last resort). */
+fun isLyricsExtraSourcesOff(c: Context): Boolean = prefs(c).let { it.contains(KEY_LYRICS_EXTRA) && !it.getBoolean(KEY_LYRICS_EXTRA, false) }
 
 /** Lyrics timed word by word first (karaoke); off: line by line, Spotify's first. */
 fun isLyricsWordSync(c: Context): Boolean = prefs(c).getBoolean("lyrics_word_sync", true)
@@ -180,6 +182,39 @@ object CrossfadePref {
 }
 
 /**
+ * How the local player's songs follow each other: one choice over [CrossfadePref] and AutoMix,
+ * which never run together (AutoMix on, the crossfade's length is kept for later but unused).
+ * Spotify songs, which AutoMix cannot mix (the app never has the Web Player's audio), then change
+ * with a short fade of [SPOTIFY_FADE_SECONDS] rather than with that kept length (up to 12 s).
+ */
+object TransitionPref {
+    enum class Mode { OFF, CROSSFADE, AUTOMIX }
+
+    /** The Spotify songs' fade while AutoMix is on, seconds. */
+    const val SPOTIFY_FADE_SECONDS = 3
+
+    val mode: Mode get() = when {
+        com.music.spotui.automix.AutoMix.on -> Mode.AUTOMIX
+        CrossfadePref.seconds > 0 -> Mode.CROSSFADE
+        else -> Mode.OFF
+    }
+
+    fun set(c: Context, mode: Mode) {
+        val automix = mode == Mode.AUTOMIX
+        if (automix != com.music.spotui.automix.AutoMix.on) {
+            com.music.spotui.automix.AutoMix.set(automix)
+            com.music.spotui.di.LocalPlayer.autoMixChanged(automix)
+        }
+        when (mode) {
+            Mode.OFF -> CrossfadePref.set(c, 0)
+            // Back to the crossfade: its last length, 6 s the first time.
+            Mode.CROSSFADE -> if (CrossfadePref.seconds == 0) CrossfadePref.set(c, 6)
+            Mode.AUTOMIX -> Unit
+        }
+    }
+}
+
+/**
  * "Music videos": the video button in the player, the lookup behind it and a clip that starts
  * by itself on the next song. On by default; off, the player is audio (and Canvas) only.
  */
@@ -204,6 +239,9 @@ object HideDjPref {
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
         private set
 
+    /** Hidden here or by an extension's look (`home.dj`). */
+    val hidden: Boolean get() = on || com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.HOME_DJ)
+
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
@@ -217,7 +255,8 @@ fun getCrossfadeSeconds(c: Context): Int =
 fun applyCrossfade(seconds: Int) {
     val runtime = app.myspoti.host.android.MyspotiRuntime
     if (!runtime.isStarted) return
-    runtime.spotify.player.crossfadeSeconds = seconds
+    // AutoMix on: the crossfade length is only kept for later, the Spotify songs get a short fade.
+    runtime.spotify.player.crossfadeSeconds = if (com.music.spotui.automix.AutoMix.on) TransitionPref.SPOTIFY_FADE_SECONDS else seconds
 }
 
 fun getLyricTranslateLang(c: Context): String =
@@ -252,6 +291,9 @@ object PlayerLyricsCardPref {
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
 
+    /** Shown: on here and not hidden by an extension's look (`player.lyrics-card`). */
+    val shown: Boolean get() = on && !com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.PLAYER_LYRICS_CARD)
+
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
@@ -267,6 +309,9 @@ object PlayerSourceLinePref {
     private const val KEY = "player_source_line"
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
+
+    /** Shown: on here and not hidden by an extension's look (`player.source`). */
+    val shown: Boolean get() = on && !com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.PLAYER_SOURCE)
 
     fun set(c: Context, value: Boolean) {
         on = value
@@ -284,6 +329,9 @@ object PlayerCapsulePref {
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
 
+    /** Shown: on here and not hidden by an extension's look (`player.capsule`). */
+    val shown: Boolean get() = on && !com.music.spotui.extensions.ExtensionLook.hides(app.myspoti.extensions.UiPart.PLAYER_CAPSULE)
+
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
@@ -297,6 +345,54 @@ object PlayerCapsulePref {
  */
 object PlayerModesPref {
     private const val KEY = "immersive_player_modes"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Volume bar in the player" (Settings > Display, Immersive look): the volume slider under the
+ * transport. On by default; off, the phone's volume keys still do it, and the controls sit lower.
+ */
+object PlayerVolumePref {
+    private const val KEY = "immersive_player_volume"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Keep the screen on with lyrics" (Settings > Playback, both looks): while the lyrics are open
+ * the screen does not go dark, so the lines can be followed. On by default. Read as state by the
+ * lyrics of both looks.
+ */
+object LyricsKeepAwakePref {
+    private const val KEY = "lyrics_keep_screen_on"
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+    }
+}
+
+/**
+ * "Picture-in-picture" (Settings > Display, both looks): leaving the app while a song plays opens
+ * a small window with its cover, the line being sung and previous, play/pause and next buttons
+ * ([com.music.spotui.ui.components.SongPip]). Off by default: asked for on Discord, and "keep it
+ * optional" there too. A music video keeps its own window whatever this says.
+ */
+object SongPipPref {
+    private const val KEY = "song_pip"
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
         private set
 

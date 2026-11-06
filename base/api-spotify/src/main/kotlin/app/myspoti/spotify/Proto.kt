@@ -23,6 +23,7 @@ internal class ProtoMessage(private val fields: List<Pair<Int, Any>>) {
     fun timestampMs(): Long = (long(1) ?: 0) * 1000 + (long(2) ?: 0) / 1_000_000
 }
 
+/** Reads one message; a cut or unknown field throws [IllegalArgumentException], never an index error. */
 internal fun parseProto(b: ByteArray): ProtoMessage {
     val fields = ArrayList<Pair<Int, Any>>()
     var i = 0
@@ -30,6 +31,7 @@ internal fun parseProto(b: ByteArray): ProtoMessage {
         var v = 0L
         var shift = 0
         while (true) {
+            require(i < b.size && shift < 64) { "truncated varint" }
             val c = b[i++].toInt() and 0xFF
             v = v or ((c and 0x7F).toLong() shl shift)
             if (c < 0x80) return v
@@ -37,6 +39,7 @@ internal fun parseProto(b: ByteArray): ProtoMessage {
         }
     }
     fun fixed(size: Int): Long {
+        require(i + size <= b.size) { "truncated fixed$size" }
         var v = 0L
         for (k in 0 until size) v = v or ((b[i + k].toLong() and 0xFF) shl (8 * k))
         i += size
@@ -49,10 +52,10 @@ internal fun parseProto(b: ByteArray): ProtoMessage {
             0 -> fields += n to varint()
             1 -> fields += n to fixed(8)
             2 -> {
-                val len = varint().toInt()
-                require(len >= 0 && i + len <= b.size) { "truncated field $n" }
-                fields += n to b.copyOfRange(i, i + len)
-                i += len
+                val len = varint()
+                require(len >= 0 && len <= b.size - i) { "truncated field $n" }
+                fields += n to b.copyOfRange(i, i + len.toInt())
+                i += len.toInt()
             }
             5 -> fields += n to fixed(4)
             else -> throw IllegalArgumentException("wire type ${key and 7} of field $n")

@@ -44,18 +44,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -99,7 +95,6 @@ import com.music.spotui.data.entity.LibraryEntry
 import com.music.spotui.data.local.LibraryOrder
 import com.music.spotui.data.preferences.isLibraryGridView
 import com.music.spotui.data.preferences.setLibraryGridView
-import com.music.spotui.ui.components.Loader
 import com.music.spotui.ui.components.Snackbar
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.albumRoute
@@ -281,7 +276,8 @@ fun LibraryScreen(navController: NavController) {
         }
 
         val followedArtists by libraryViewModel.followedArtists.collectAsState()
-        val followedShows by libraryViewModel.followedShows.collectAsState()
+        val showsLoad by libraryViewModel.followedShows.collectAsState()
+        val followedShows = (showsLoad as? Response.Success)?.data.orEmpty()
         // The shows are only read once the Podcasts chip is chosen.
         androidx.compose.runtime.LaunchedEffect(chip) {
             if (chip == com.music.spotui.data.local.LibraryChip.PODCASTS) libraryViewModel.loadFollowedShows()
@@ -304,8 +300,10 @@ fun LibraryScreen(navController: NavController) {
                 // Liked Songs, Local Files and Downloaded stay on top; the rest follows the
                 // chosen sort. "Récents" is not here: it lives on the profile panel, as in the
                 // official app (it is the account's history, not a library folder).
+                val radioOn = com.music.spotui.radio.RadioFeaturePref.on
+                val radioName = stringResource(R.string.live_radio_title)
                 val rootPinned = ((entries as? Response.Success)?.data ?: emptyList())
-                    .indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + 2 + (if (hasDownloads) 1 else 0)
+                    .indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + 2 + (if (hasDownloads) 1 else 0) + (if (radioOn) 1 else 0)
                 val allEntries = ((entries as? Response.Success)?.data ?: emptyList()).map {
                     if (it.spotifyId == Api.HomeCache.LIKED_SONGS_ID) it.copy(name = likedName, subtitle = "") else it
                 }.let { list ->
@@ -313,6 +311,11 @@ fun LibraryScreen(navController: NavController) {
                     val local = com.music.spotui.data.entity.LibraryEntry(
                         spotifyId = Api.HomeCache.LOCAL_FILES_ID, name = localName, subtitle = "",
                         coverUri = "android.resource://${LocalContext.current.packageName}/drawable/local_files_cover", isPlaylist = true,
+                    )
+                    // Live Radio, right under Local Files — behind the Settings > Playback toggle.
+                    val radio = com.music.spotui.data.entity.LibraryEntry(
+                        spotifyId = com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID, name = radioName, subtitle = "",
+                        coverUri = "android.resource://${LocalContext.current.packageName}/drawable/live_radio_cover", isPlaylist = true,
                     )
                     // "Downloaded" right after it, once something was downloaded.
                     val downloads = com.music.spotui.data.entity.LibraryEntry(
@@ -326,7 +329,8 @@ fun LibraryScreen(navController: NavController) {
                             subtitle = localSubtitle, coverUri = "", isPlaylist = true,
                         )
                     }
-                    list.take(at) + local + (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
+                    list.take(at) + local + (if (radioOn) listOf(radio) else emptyList()) +
+                        (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
                 }.let { list ->
                     LibraryOrder.version
                     LibraryOrder.arrange(list, LibraryOrder.sort, LibraryOrder.custom(LibraryOrder.ROOT), rootPinned)
@@ -335,7 +339,8 @@ fun LibraryScreen(navController: NavController) {
                 val myId = com.music.spotui.data.api.ProfileCache.name?.let { com.music.spotui.data.api.ProfileCache.id }
                 val (chipEntries, chipArtists) = com.music.spotui.data.local.LibraryChips.apply(
                     chip, allEntries, followedArtists,
-                    setOf(Api.HomeCache.LIKED_SONGS_ID, Api.HomeCache.LOCAL_FILES_ID, Api.HomeCache.DOWNLOADS_ID),
+                    setOf(Api.HomeCache.LIKED_SONGS_ID, Api.HomeCache.LOCAL_FILES_ID, Api.HomeCache.DOWNLOADS_ID,
+                        com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID),
                     myId, followedShows, setOf(Api.HomeCache.EPISODES_ID),
                 )
                 val filteredEntries = if (searchQuery.isBlank()) chipEntries
@@ -343,15 +348,26 @@ fun LibraryScreen(navController: NavController) {
                         it.name.contains(searchQuery, ignoreCase = true) ||
                         it.subtitle.contains(searchQuery, ignoreCase = true)
                     }
-                val filteredArtists = if (searchQuery.isBlank()) chipArtists
-                    else chipArtists.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                val filteredArtists = LibraryOrder.arrangeArtists(chipArtists, LibraryOrder.sort).let { sorted ->
+                    if (searchQuery.isBlank()) sorted else sorted.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                }
                 // Moving rows only makes sense on the whole list.
                 val movable = searchQuery.isBlank() && chip == com.music.spotui.data.local.LibraryChip.ALL
-                if (gridView) LibraryGridScreen(PaddingValues(0.dp), filteredEntries, filteredArtists, navController,
-                    reorderLevel = if (movable) LibraryOrder.ROOT else null, pinned = rootPinned)
+                // The Podcasts chip waits for the shows, and says when none is followed or they could not be read (#136).
+                val podcasts = chip == com.music.spotui.data.local.LibraryChip.PODCASTS
+                val chipNote = when {
+                    !podcasts -> null
+                    showsLoad is Response.Error -> stringResource(R.string.library_podcasts_error)
+                    showsLoad is Response.Success && followedShows.isEmpty() && searchQuery.isBlank() -> stringResource(R.string.library_podcasts_empty)
+                    else -> null
+                }
+                val chipRetry: (() -> Unit)? = if (podcasts && showsLoad is Response.Error) { { libraryViewModel.loadFollowedShows() } } else null
+                if (podcasts && showsLoad is Response.Loading) LibrarySkeleton(PaddingValues(0.dp))
+                else if (gridView) LibraryGridScreen(PaddingValues(0.dp), filteredEntries, filteredArtists, navController,
+                    reorderLevel = if (movable) LibraryOrder.ROOT else null, pinned = rootPinned, note = chipNote, onRetry = chipRetry)
                 else SumUpLibraryScreen(PaddingValues(0.dp), filteredEntries, filteredArtists, navController,
                     reorderLevel = if (movable) LibraryOrder.ROOT else null, pinned = rootPinned,
-                    onChanged = { libraryViewModel.load() })
+                    onChanged = { libraryViewModel.load() }, note = chipNote, onRetry = chipRetry)
                 if (entries !is Response.Success) Box(modifier = Modifier.padding(20.dp, 100.dp)) { Snackbar(showMessage = stringResource(R.string.library_error)) }
             }
         }
@@ -418,10 +434,14 @@ fun SumUpLibraryScreen(
     pinned: Int = 0,
     /** A pin, move or delete changed the library: load it again. */
     onChanged: () -> Unit = {},
+    /** Said under the rows, in place of "Your Library is empty" (a chip with nothing of its own). */
+    note: String? = null,
+    /** With [note]: it tells a failure, and offers to try again. */
+    onRetry: (() -> Unit)? = null,
 ) {
     var itemMenu by remember { mutableStateOf<LibraryEntry?>(null) }
     itemMenu?.let { LibraryItemSheet(it, onDismiss = { itemMenu = null }, onChanged = onChanged) }
-    if (entries.isEmpty() && followedArtists.isEmpty()) {
+    if (entries.isEmpty() && followedArtists.isEmpty() && note == null) {
         Box(modifier = Modifier.padding(20.dp, 40.dp)) { Snackbar(showMessage = stringResource(R.string.library_empty)) }
         return
     }
@@ -593,6 +613,7 @@ fun SumUpLibraryScreen(
                 }
             }
         }
+        if (note != null) item(key = "library:note") { LibraryNote(note, onRetry) }
     }
     com.music.spotui.ui.components.FastScrollbar(listState, Modifier.align(Alignment.CenterEnd))
     }
@@ -605,6 +626,7 @@ fun LibraryEntryCover(entry: LibraryEntry, modifier: Modifier) {
     val drawn = when {
         entry.spotifyId == Api.HomeCache.DOWNLOADS_ID -> R.drawable.downloads_cover
         entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID || entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX) -> R.drawable.local_files_cover
+        entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID -> R.drawable.live_radio_cover
         entry.isFolder -> R.drawable.folder_cover
         else -> 0
     }
@@ -620,6 +642,7 @@ private fun prefetchLibraryEntry(entry: LibraryEntry) = when {
     LibraryEdits.isPending(entry.spotifyId) -> Unit
     entry.isFolder || entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX) || entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX) -> Unit
     entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID || entry.spotifyId == Api.HomeCache.DOWNLOADS_ID || entry.spotifyId == Api.HomeCache.EPISODES_ID || entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID -> Unit
+    entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID -> Unit
     entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID -> ContextViewModel.prefetch("liked", "")
     entry.isPlaylist -> ContextViewModel.prefetch("playlist", entry.spotifyId)
     else -> ContextViewModel.prefetch("album", entry.spotifyId)
@@ -633,6 +656,7 @@ private fun openLibraryEntry(entry: LibraryEntry, navController: NavController) 
     else if (entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX)) navController.navigate(showRoute(entry.spotifyId.removePrefix(Api.HomeCache.SHOW_PREFIX), entry.name))
     else if (entry.spotifyId == Api.HomeCache.DOWNLOADS_ID) navController.navigate(Routes.Downloads.route)
     else if (entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID) navController.navigate(Routes.LocalFiles.route)
+    else if (entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID) navController.navigate(Routes.LiveRadio.route)
     else if (entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
     else if (entry.spotifyId == Api.HomeCache.EPISODES_ID) navController.navigate(Routes.Episodes.route)
     else if (entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID) navController.navigate(Routes.NewEpisodes.route)
@@ -656,8 +680,11 @@ fun LibraryGridScreen(
     reorderLevel: String? = null,
     /** Entries at the top that never move (Liked Songs, Local Files, Downloaded). */
     pinned: Int = 0,
+    /** As in [SumUpLibraryScreen]. */
+    note: String? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
-    if (entries.isEmpty() && followedArtists.isEmpty()) {
+    if (entries.isEmpty() && followedArtists.isEmpty() && note == null) {
         Box(modifier = Modifier.padding(20.dp, 40.dp)) { Snackbar(showMessage = stringResource(R.string.library_empty)) }
         return
     }
@@ -816,6 +843,21 @@ fun LibraryGridScreen(
                     Text(text = stringResource(R.string.artist_subtitle), color = AppMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
                 }
             }
+        }
+        if (note != null) item(key = "library:note", span = { GridItemSpan(maxLineSpan) }) { LibraryNote(note, onRetry) }
+    }
+}
+
+/** A line under the library's rows: why a chip shows nothing, with "Try again" when it failed. */
+@Composable
+private fun LibraryNote(text: String, onRetry: (() -> Unit)?) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth().padding(20.dp, 24.dp),
+    ) {
+        Text(text = text, color = AppText, fontSize = 15.sp, textAlign = TextAlign.Center)
+        if (onRetry != null) androidx.compose.material3.TextButton(onClick = onRetry) {
+            Text(stringResource(R.string.home_retry), color = com.music.spotui.ui.theme.AppAccent)
         }
     }
 }

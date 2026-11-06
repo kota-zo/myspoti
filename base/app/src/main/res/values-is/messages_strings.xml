@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Vinir</string>
     <string name="messages_title">Skilaboð</string>
     <string name="messages_empty">Engin samtöl enn. Skrifaðu vini með blýantinum efst.</string>
     <string name="messages_failed">Spotify sendi ekki skilaboðin þín.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s fjarlægði %2$s</string>
     <string name="messages_event_link">%1$s bættist við með tengli</string>
     <string name="messages_event_reported">Samtalið var tilkynnt</string>
-    <string name="friends_title">Virkni vina</string>
-    <string name="friends_now">Núna</string>
-    <string name="friends_empty">Engin virkni vina enn. Vinir sem þú fylgir og deila hlustun sinni á Spotify birtast hér.</string>
-    <string name="friends_failed">Spotify sendi ekki virkni vina.</string>
-    <string name="friends_refresh">Endurnýja</string>
+    <string name="friends_tab">Vinir</string>
 </resources>

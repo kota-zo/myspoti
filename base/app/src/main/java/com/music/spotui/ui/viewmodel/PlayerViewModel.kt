@@ -7,18 +7,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.CurrentSongState
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.repository.AppRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -53,23 +48,8 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
     val likeState = currentSongState.likeState
 
 
-    private val _songs : MutableStateFlow<Response<List<SongsModel>>> = MutableStateFlow(Response.Loading())
-    val songs : StateFlow<Response<List<SongsModel>>> = _songs
-
-    val playingArtist by mutableStateOf(currentSongSinger.value)
 
 
-
-
-    //val songsResponse = (songs.value as Response.Success).data
-
-    // Resolve where we currently are in the queue. The stored index can be stale
-    // (e.g. queue swapped out), so match by song id first and fall back to the index.
-    private fun currentPositionIn(queueSongs: List<SongsModel>): Int {
-        val byId = queueSongs.indexOfFirst { it.id == currentSongId.value }
-        if (byId >= 0) return byId
-        return currentSongIndex.value.coerceIn(0, queueSongs.size - 1)
-    }
 
     // Spotify owns the queue (context + autoplay): skip in the engine.
     fun playNextSongs(queueSongs : List<SongsModel>, context: Context) {
@@ -129,30 +109,8 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
     fun goToArtist(trackId: String, fallbackName: String, navigate: (route: String) -> Unit) =
         com.music.spotui.ui.components.ArtistChooser.goForTrack(trackId, fallbackName, navigate)
 
-    /**
-     * Play the track at an absolute [index] in [queueSongs]. Used by the now-playing
-     * swipe pager, where the artwork follows the finger and settles on a chosen page.
-     * No-op if [index] is already the current track (prevents a feedback replay when
-     * the pager is merely snapping to reflect an external track change).
-     */
-    fun playSongAt(queueSongs: List<SongsModel>, index: Int, context: Context) {
-        if (index !in queueSongs.indices) return
-        val song = queueSongs[index]
-        if (song.id == currentSongId.value) return
-        updateSongState(song.coverUri, song.title, song.singer, true, song.id, index, song.album)
-        SongPlayer.playSong(song.url, context, songs = queueSongs)
-    }
-
     fun playPreviousSong(queueSongs : List<SongsModel>, context: Context) {
         SongPlayer.previous()
-    }
-
-    private fun fetchSongs() = viewModelScope.launch(Dispatchers.IO) {
-
-        repository.provideSongs().collect { songs ->
-            _songs.value = songs as Response<List<SongsModel>>
-
-        }
     }
     fun formatDuration(durationMillis: Long): String {
         val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis)

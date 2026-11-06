@@ -50,9 +50,12 @@ object LyricsApi {
     // "not found" is often just a timeout, not a fact.
     private class Miss(val at: Long = System.currentTimeMillis())
     private const val MISS_RETRY_MS = 120_000L
+    // The lyrics found while an extension had still not answered (cut short behind its other calls):
+    // shown, not stored, and the song asked again after MISS_RETRY_MS, when it may answer.
+    private class Partial(val lyrics: Lyrics, val at: Long = System.currentTimeMillis())
     // Newest MEMORY_MAX tracks only; the older ones are on storage (LyricsDisk) or asked for again.
     private const val MEMORY_MAX = 100
-    private val cache: MutableMap<String, Any> = java.util.Collections.synchronizedMap( // Lyrics | Miss
+    private val cache: MutableMap<String, Any> = java.util.Collections.synchronizedMap( // Lyrics | Partial | Miss
         object : LinkedHashMap<String, Any>(128, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Any>) = size > MEMORY_MAX
         }
@@ -67,26 +70,72 @@ object LyricsApi {
     /** Set by the settings: also ask NetEase and Genius when nothing better is found. */
     @Volatile var extraSources: Boolean = false
 
+    /**
+     * Set by the settings: the user turned the extra sources off by hand. Until then Genius is still
+     * asked as the last resort, when no other source (extensions included) has any lyrics.
+     */
+    @Volatile var extraSourcesOff: Boolean = false
+
     /** Set by the settings: lyrics timed word by word first (karaoke), line by line otherwise. */
     @Volatile var wordSync: Boolean = true
 
     /** How long a word-synced source is waited for before the line-synced ones answer instead. */
     private const val WORD_WAIT_MS = 4_000L
 
-    /** Lyrics to show while better ones are looked for (track key → Spotify's line-timed lyrics). */
+    /**
+     * The last lyrics shown while better ones are looked for (track key → the app's own lines); read
+     * a song's own with [earlyFor]: the next song's prefetch publishes its own a moment later.
+     */
     val early = kotlinx.coroutines.flow.MutableStateFlow<Pair<String, Lyrics>?>(null)
+    private val earlyByKey = java.util.concurrent.ConcurrentHashMap<String, Lyrics>()
+
+    /** What [track] can show while its lyrics are still looked for, or null. */
+    fun earlyFor(track: Track): Lyrics? = earlyByKey[track.key]
+
+    /** Lyrics of song [key] that got romanizations from an extension after they were shown: [before] became [after]. */
+    data class Romanized(val key: String, val before: Lyrics, val after: Lyrics)
+
+    /** The last [Romanized]: an open lyrics view still showing [Romanized.before] swaps it for [Romanized.after]. */
+    val romanized = kotlinx.coroutines.flow.MutableStateFlow<Romanized?>(null)
 
 
-    fun cached(track: Track): Lyrics? = cache[track.key] as? Lyrics
+    private fun showEarly(track: Track, lyrics: Lyrics) {
+        earlyByKey[track.key] = lyrics
+        early.value = track.key to lyrics
+    }
 
-    /** Warm the cache in the background (current track and the next one). */
-    fun prefetch(track: Track) {
-        if (track.title.isBlank() && track.trackId.isBlank()) return
-        val c = cache[track.key]
-        if (c is Lyrics) return
-        if (c is Miss && System.currentTimeMillis() - c.at < MISS_RETRY_MS) return
+    fun cached(track: Track): Lyrics? = when (val c = cache[track.key]) {
+        is Lyrics -> c
+        is Partial -> c.lyrics
+        else -> null
+    }
+
+    /** Whether [track]'s lyrics were found with every source's answer: nothing better is to come. */
+    fun settled(track: Track): Boolean = cache[track.key] is Lyrics
+
+    private fun wanted(track: Track): Boolean {
+        if (track.title.isBlank() && track.trackId.isBlank()) return false
+        return when (val c = cache[track.key]) {
+            is Lyrics -> false
+            is Miss -> System.currentTimeMillis() - c.at >= MISS_RETRY_MS
+            is Partial -> System.currentTimeMillis() - c.at >= MISS_RETRY_MS
+            else -> true
+        }
+    }
+
+    // The song to warm once a song's lyrics are found ([prefetch]'s `then`), by that song's key.
+    private val after = java.util.concurrent.ConcurrentHashMap<String, Track>()
+
+    /**
+     * Warm the cache in the background: [track] (the current one), then [then] (the next one) once
+     * [track]'s are found. An extension answers one call at a time: the next song's asked together
+     * with the playing one's went first at times, and the playing one's were cut short.
+     */
+    fun prefetch(track: Track, then: Track? = null) {
+        if (!wanted(track)) { after.remove(track.key); then?.let { prefetch(it) }; return }
+        if (then != null) after[track.key] = then
         if (inFlight.containsKey(track.key)) return
-        scope.launch { runCatching { fetch(track) } }
+        scope.launch { runCatching { fetch(track) }; after.remove(track.key)?.let { prefetch(it) } }
     }
 
     fun forget(track: Track) { cache.remove(track.key); health.forgetTrack(track.key); scope.launch { LyricsDisk.drop(track.key) } }
@@ -103,25 +152,44 @@ object LyricsApi {
      * lyrics found too, from memory and storage, so the new set of sources answers. Off the main thread.
      */
     fun sourcesChanged(keepFound: Boolean) {
-        if (keepFound) synchronized(cache) { cache.values.removeAll { it is Miss } }
+        if (keepFound) synchronized(cache) { cache.values.removeAll { it is Miss || it is Partial } }
         else { cache.clear(); LyricsDisk.clear() }
         health.forgetAll()
         sourcesTick.value++
     }
 
+    /** What is already here for [track], from memory or storage, whole: asks no one. */
+    fun known(track: Track): Lyrics? {
+        val found = when (val c = cache[track.key]) {
+            is Lyrics -> c
+            is Partial -> null
+            is Miss -> null
+            else -> LyricsDisk.read(track.key)
+        }
+        return found?.takeIf { it.synced && it.uncapped && !it.isEmpty }
+    }
+
     suspend fun fetch(track: Track): Lyrics? {
         when (val c = cache[track.key]) {
             is Lyrics -> return c
+            is Partial -> if (System.currentTimeMillis() - c.at < MISS_RETRY_MS) return c.lyrics
             is Miss -> if (System.currentTimeMillis() - c.at < MISS_RETRY_MS) return null
         }
         // One request per track even when the card and the full screen ask together.
         val job = synchronized(inFlight) {
             inFlight[track.key] ?: scope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) {
-                // Read on an earlier run: from storage, not asked for again.
-                LyricsDisk.read(track.key)?.also { cache[track.key] = it } ?: resolve(track)
+                // Read on an earlier run: from storage, not asked for again. A downloaded song's own
+                // (see [keepForOffline]) when there is no connection, or when nothing else had any.
+                (LyricsDisk.read(track.key)?.also { cache[track.key] = it }
+                    ?: (if (online()) null else kept(track))
+                    ?: resolve(track)
+                    ?: kept(track))?.also { romanizeLater(track, it) }
             }.also { created ->
                 inFlight[track.key] = created
-                created.invokeOnCompletion { inFlight.remove(track.key, created) }
+                created.invokeOnCompletion {
+                    inFlight.remove(track.key, created)
+                    after.remove(track.key)?.let { prefetch(it) }
+                }
                 created.start()
             }
         }
@@ -205,29 +273,71 @@ object LyricsApi {
         cache[track.key] = chosen
         LyricsDisk.write(track.key, chosen)
         Log.d("LyricsApi", "${track.title}: ${chosen.lines.size} lines from ${chosen.provider} (chosen: $sourceId)")
+        romanizeLater(track, chosen)
         chosen
     }
 
-    private suspend fun resolve(track: Track): Lyrics? = coroutineScope {
+    /**
+     * Asks the romanizing extensions, off the caller's path, for the lines of [lyrics] (just found
+     * or read from storage) that their source left in another script than Latin without a
+     * romanization: the lyrics show at once and the romanizations follow ([romanized]). They are
+     * kept, in memory and storage, only while [lyrics] are still the song's.
+     */
+    private fun romanizeLater(track: Track, lyrics: Lyrics) {
+        val wanted = LyricsRomanize.wanted(lyrics)
+        if (wanted.isEmpty() || !runCatching { com.music.spotui.extensions.Extensions.hasRomanizer() }.getOrDefault(false)) return
+        scope.launch {
+            val found = runCatching {
+                com.music.spotui.extensions.Extensions.romanizeFor(
+                    track.trackId, track.title, track.artist, track.album, track.durationMs, track.coverUrl, lyrics.language, wanted)
+            }.getOrDefault(emptyMap())
+            val updated = LyricsRomanize.apply(lyrics, found)
+            if (updated === lyrics) return@launch
+            // Another source picked or the song forgotten meanwhile: these were for lyrics no longer shown.
+            if (!cache.replace(track.key, lyrics, updated)) return@launch
+            LyricsDisk.write(track.key, updated)
+            romanized.value = Romanized(track.key, lyrics, updated)
+        }
+    }
+
+    private suspend fun resolve(track: Track): Lyrics? = try { coroutineScope {
         // Extensions that provide lyrics are asked at the same time as the app's own sources
         // (each within its time limit); the better answer is kept (LyricsMerge), Spotify's own
-        // complete lyrics first at the same level, and then the extensions are not waited for.
+        // complete lyrics first at the same level. Only when those have backing vocals too are
+        // the extensions not waited for. A failure: they did not answer in time (null: none had lyrics).
         val ext = if (extensionsAsked()) async {
             runCatching {
                 com.music.spotui.extensions.Extensions.lyricsFor(track.trackId, track.title, track.artist, track.album, track.durationMs, track.coverUrl)
-            }.getOrNull()
+            }
         } else null
         val own = if (wordSync) wordFirst(track) else fromSpotify(track) ?: lineFallbacks(track)
-        val fromExt = when {
+        val answer = when {
             ext == null -> null
-            own != null && com.music.spotui.extensions.LyricsMerge.rank(own) == 3 && com.music.spotui.extensions.LyricsMerge.isSpotifyComplete(own) -> { ext.cancel(); null }
-            else -> ext.await()
+            own != null && com.music.spotui.extensions.LyricsMerge.level(own) == 3 && com.music.spotui.extensions.LyricsMerge.isSpotifyComplete(own) &&
+                LyricsExtras.hasBacks(own) -> { ext.cancel(); null }
+            else -> {
+                // An extension's time counts from when its call runs, which can be a while behind its
+                // other calls: the app's own lines are shown meanwhile (reported: lyrics only after a refresh).
+                own?.let { showEarly(track, it) }
+                ext.await()
+            }
         }
-        val result = com.music.spotui.extensions.LyricsMerge.choose(own, fromExt)
-        cache[track.key] = result ?: Miss()
-        result?.let { LyricsDisk.write(track.key, it) }
-        Log.d("LyricsApi", "${track.title}: ${result?.let { "${it.lines.size} lines from ${it.provider}, synced=${it.synced}, words=${it.wordSynced}" } ?: "none"}")
+        var result = com.music.spotui.extensions.LyricsMerge.choose(own, answer?.getOrNull())
+        // Nothing anywhere: Genius's plain text, unless the user turned the extra sources off.
+        if (result == null && !extraSources && !extraSourcesOff)
+            result = asking("genius", track) { fromGenius(cleanTitle(track.title), track.artist.substringBefore(",").trim()) }
+        val pending = answer?.isFailure == true
+        cache[track.key] = when {
+            result == null -> Miss()
+            pending -> Partial(result)
+            else -> result
+        }
+        if (!pending) result?.let { LyricsDisk.write(track.key, it); keepIfDownloaded(track, it) }
+        Log.d("LyricsApi", "${track.title}: ${result?.let { "${it.lines.size} lines from ${it.provider}, synced=${it.synced}, words=${it.wordSynced}" } ?: "none"}" +
+            if (pending) " (the extensions did not answer in time)" else "")
         result
+    } } finally {
+        earlyByKey.remove(track.key)
     }
 
     /**
@@ -282,7 +392,7 @@ object LyricsApi {
                 ?.sortedByDescending { it.lastModified() }?.drop(MAX_FILES)?.forEach { it.delete() }
         }
 
-        private fun encode(l: Lyrics) = JSONObject()
+        fun encode(l: Lyrics) = JSONObject()
             .put("synced", l.synced).put("language", l.language).put("provider", l.provider)
             .put("trl", l.translationLanguage)
             .put("colors", l.colors?.let { JSONArray(listOf(it.background, it.text, it.highlight)) })
@@ -304,7 +414,7 @@ object LyricsApi {
         private fun wordsOf(wa: JSONArray?) = wa?.let { List(it.length()) { j -> it.getJSONArray(j).let { w -> LyricWord(w.getLong(0), w.getLong(1), w.getString(2)) } } }
 
         // Entries written before translations, voices and backing vocals existed lack their keys: they read as none.
-        private fun decode(o: JSONObject): Lyrics {
+        fun decode(o: JSONObject): Lyrics {
             val colors = o.optJSONArray("colors")?.let { LyricsColors(it.getInt(0), it.getInt(1), it.getInt(2)) }
             val lines = o.getJSONArray("lines").let { arr ->
                 List(arr.length()) { i ->
@@ -321,8 +431,83 @@ object LyricsApi {
         }
     }
 
+    /**
+     * The lyrics kept with a downloaded song (OfflineStore.lyricsFile), for as long as the song is:
+     * read when there is no connection or no source had any, and written again when found anew.
+     * Shown as a [Partial]: the song is looked up again a while later, when there may be a connection.
+     */
+    private fun kept(track: Track): Lyrics? = runCatching {
+        val f = com.music.spotui.data.offline.OfflineStore.lyricsFile(track.trackId)?.takeIf { it.isFile } ?: return null
+        LyricsDisk.decode(JSONObject(f.readText()))
+    }.getOrNull()?.takeUnless { it.isEmpty }?.also {
+        cache[track.key] = Partial(it)
+        Log.d("LyricsApi", "${track.title}: ${it.lines.size} lines kept with the download")
+    }
+
+    /** What can be kept with a download: lyrics with lines, not a Free account's cut-short preview. */
+    internal fun keepable(lyrics: Lyrics): Boolean = !lyrics.isEmpty && lyrics.uncapped
+
+    private fun keep(track: Track, lyrics: Lyrics) {
+        if (!keepable(lyrics)) return
+        runCatching {
+            val f = com.music.spotui.data.offline.OfflineStore.lyricsFile(track.trackId) ?: return
+            f.parentFile?.mkdirs()
+            com.music.spotui.data.writeTextSafely(f, LyricsDisk.encode(lyrics).toString(), sync = false)
+        }.onFailure { Log.w("LyricsApi", "could not keep lyrics with the download: ${it.javaClass.simpleName}") }
+    }
+
+    /** Lyrics found for a downloaded song replace the ones kept with it (the setting on). */
+    private fun keepIfDownloaded(track: Track, lyrics: Lyrics) {
+        if (!runCatching { com.music.spotui.data.preferences.LyricsOfflinePref.on &&
+                com.music.spotui.data.offline.OfflineStore.isDownloaded(track.trackId) }.getOrDefault(false)) return
+        keep(track, lyrics)
+    }
+
+    // Downloads ask for their lyrics one song at a time, behind what is shown: an extension answers one call at a time.
+    private val keeping = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * A song was just downloaded ("Download lyrics with songs" on): its lyrics are looked up the usual
+     * way ([fetch], the lyrics extensions included) and kept with the download, for playing offline.
+     */
+    fun keepForOffline(track: Track) {
+        if (track.trackId.isBlank()) return
+        scope.launch {
+            keeping.lock()
+            try {
+                val lyrics = runCatching { fetch(track) }.getOrNull() ?: return@launch
+                keep(track, lyrics)
+            } finally { keeping.unlock() }
+        }
+    }
+
+    private fun online(): Boolean =
+        runCatching { com.music.spotui.data.offline.OfflineStore.isOnline(com.music.spotui.di.Graph.app) }.getOrDefault(true)
+
     /** Whether lyrics extensions are installed and running (false in unit tests: no app). */
     private fun extensionsAsked(): Boolean = runCatching { com.music.spotui.extensions.Extensions.hasLyrics() }.getOrDefault(false)
+
+    /**
+     * [block] (blocking requests) waited for [ms] at most: a request going on past it is left to end
+     * on its own, its answer unused. A time limit around the request itself never cut it (nothing
+     * in it suspends), so a slow source held the lines of the next ones for up to 20 s.
+     */
+    private suspend fun <T> within(ms: Long, block: () -> T?): T? =
+        kotlinx.coroutines.withTimeoutOrNull(ms) { scope.async { block() }.await() }
+
+    /**
+     * [to] with the backing vocals (and the singers) of the first of [asked] that has them, put on
+     * the same lines, when [to] has none: Spotify never times them apart, LyricsPlus and lrc.red
+     * (Apple Music's) do, and they are asked anyway.
+     */
+    private suspend fun withBacks(to: Lyrics, vararg asked: kotlinx.coroutines.Deferred<Lyrics?>): Lyrics {
+        if (LyricsExtras.hasBacks(to)) return to
+        for (a in asked) {
+            val from = a.await()?.takeIf { LyricsExtras.hasBacks(it) } ?: continue
+            return LyricsExtras.carry(to, from)
+        }
+        return to
+    }
 
     /**
      * "Word by word" (the setting): the sources with each word's time come first — Spotify's own
@@ -338,16 +523,19 @@ object LyricsApi {
         val artist = track.artist.substringBefore(",").trim()
         val durationMs = track.durationMs
         val spotify = async { fromSpotify(track) }
-        val plus = async { kotlinx.coroutines.withTimeoutOrNull(WORD_WAIT_MS) { asking("lyricsplus", track) { fromLyricsPlus(asked, title, artist, durationMs) } } }
-        val red = async { kotlinx.coroutines.withTimeoutOrNull(WORD_WAIT_MS) { asking("lrcred", track) { fromLrcRed(asked, title, artist, durationMs) } } }
-        val kugou = async { kotlinx.coroutines.withTimeoutOrNull(WORD_WAIT_MS) { asking("kugou", track) { fromKugou(title, artist, durationMs) } } }
+        val plus = async { within(WORD_WAIT_MS) { asking("lyricsplus", track) { fromLyricsPlus(asked, title, artist, durationMs) } } }
+        val red = async { within(WORD_WAIT_MS) { asking("lrcred", track) { fromLrcRed(asked, title, artist, durationMs) } } }
+        val kugou = async { within(WORD_WAIT_MS) { asking("kugou", track) { fromKugou(title, artist, durationMs) } } }
         val sp = spotify.await()
-        if (sp != null && sp.wordSynced && sp.uncapped) return@coroutineScope sp.also { plus.cancel(); red.cancel(); kugou.cancel() }
-        // Shown at once while the word timings are looked for (reported: lyrics slow to come).
-        if (sp != null) early.value = track.key to sp
+        // Shown at once while the word timings or the backing vocals are looked for (reported: lyrics slow to come).
+        if (sp != null) showEarly(track, sp)
+        if (sp != null && sp.wordSynced && sp.uncapped) {
+            kugou.cancel()
+            return@coroutineScope withBacks(sp, plus, red)
+        }
         val words = (plus.await() ?: red.await() ?: kugou.await())?.takeIf { it.wordSynced }
         when {
-            words != null -> alignTo(words, sp)?.copy(colors = sp?.colors) ?: sp
+            words != null -> alignTo(words, sp)?.copy(colors = sp?.colors)?.let { withBacks(it, plus, red) } ?: sp
             sp != null -> sp
             else -> lineFallbacks(track)
         }
@@ -466,12 +654,14 @@ object LyricsApi {
 
     // ── 5. Genius (plain text from the song page) ──
     private fun fromGenius(title: String, artist: String): Lyrics? {
-        val search = httpGet("https://genius.com/api/search/song?per_page=5&q=${enc("$title $artist")}", timeoutMs = 6000, provider = "genius")
+        // Translation and romanization pages take some of the first hits.
+        val search = httpGet("https://genius.com/api/search/song?per_page=10&q=${enc("$title $artist")}", timeoutMs = 6000, provider = "genius")
             ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
         val hits = search.optJSONObject("response")?.optJSONArray("sections")?.optJSONObject(0)?.optJSONArray("hits") ?: return null
         for (i in 0 until hits.length()) {
             val r = hits.optJSONObject(i)?.optJSONObject("result") ?: continue
-            if (!isPlausibleMatch(r.optString("title"), r.optString("artist_names"), 0, title, artist, 0)) continue
+            val primary = r.optJSONObject("primary_artist")?.optString("name").orEmpty()
+            if (!geniusMatch(r.optString("title"), r.optString("artist_names"), primary, title, artist)) continue
             val html = httpGet(r.optString("url"), timeoutMs = 8000, provider = "genius") ?: continue
             val text = geniusText(html) ?: continue
             val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() && !(it.startsWith("[") && it.endsWith("]")) }
@@ -481,26 +671,64 @@ object LyricsApi {
         return null
     }
 
+    /**
+     * A Genius hit is the song: one of its artists is ours and its title is ours, either without
+     * what Genius adds in brackets ("Kendrick Lamar (Ft. Rihanna)", "IU (아이유)", a romanized title
+     * "夜に駆ける (Yoru Ni Kakeru)") or co-artists ("Stromae & Pomme"). The titles must still be the
+     * same ("Hello Again" is not "Hello"): Genius gives no length to tell two songs apart.
+     */
+    internal fun geniusMatch(candTitle: String, artistNames: String, primaryArtist: String, title: String, artist: String): Boolean {
+        val names = artistNames.replace(geniusAside, "")
+        val artists = names.split(',', '&', '/') + names + primaryArtist.replace(geniusAside, "")
+        if (matchKey(artist).isEmpty() || artists.none { it.isNotBlank() && LyricsMatch.sameArtist(it.trim(), artist) }) return false
+        fun bare(t: String) = cleanTitle(t).let { c -> matchKey(c.replace(lastAside, "")).ifEmpty { matchKey(c) } }
+        return overlaps(bare(candTitle), bare(title))
+    }
+
+    private val geniusAside = Regex("""\s*\([^)]*\)""")
+    private val lastAside = Regex("""\s*\([^)]*\)\s*$""")
+
     private val geniusContainer = Regex("<div[^>]*data-lyrics-container=\"true\"[^>]*>", RegexOption.IGNORE_CASE)
+    // Above the lyrics, in the first container: the contributors, the translations and the song's description.
+    private val geniusHeader = Regex("<div[^>]*data-exclude-from-selection=\"true\"[^>]*>", RegexOption.IGNORE_CASE)
+    // Built once: tidy() runs on every line of a parsed song and every word of a word-synced one.
+    private val spaces = Regex("\\s+")
+    private val htmlBreak = Regex("<br\\s*/?>", RegexOption.IGNORE_CASE)
+
+    /** Where the div whose content starts at [from] closes (nested divs balanced), or -1. */
+    private fun divEnd(html: String, from: Int): Int {
+        var depth = 1
+        var i = from
+        while (i < html.length) {
+            when {
+                html.startsWith("<div", i, ignoreCase = true) -> depth++
+                html.startsWith("</div", i, ignoreCase = true) -> { depth--; if (depth == 0) return i }
+            }
+            i++
+        }
+        return -1
+    }
+
+    /** [part] without Genius's header blocks (see [geniusHeader]). */
+    internal fun withoutGeniusHeader(part: String): String {
+        var out = part
+        while (true) {
+            val m = geniusHeader.find(out) ?: return out
+            val end = divEnd(out, m.range.last + 1).takeIf { it >= 0 } ?: return out
+            val close = out.indexOf('>', end).takeIf { it >= 0 } ?: return out
+            out = out.removeRange(m.range.first, close + 1)
+        }
+    }
 
     /** The lyrics containers of a Genius song page, as plain text (nested divs balanced). */
     internal fun geniusText(html: String): String? {
         val parts = geniusContainer.findAll(html).mapNotNull { m ->
-            var depth = 1
-            var i = m.range.last + 1
-            val start = i
-            while (i < html.length && depth > 0) {
-                when {
-                    html.startsWith("<div", i, ignoreCase = true) -> depth++
-                    html.startsWith("</div", i, ignoreCase = true) -> { depth--; if (depth == 0) return@mapNotNull html.substring(start, i) }
-                }
-                i++
-            }
-            null
+            val start = m.range.last + 1
+            divEnd(html, start).takeIf { it >= 0 }?.let { html.substring(start, it) }
         }.toList()
         if (parts.isEmpty()) return null
         return parts.joinToString("\n") { part ->
-            androidx.core.text.HtmlCompat.fromHtml(part.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n"), androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY)
+            androidx.core.text.HtmlCompat.fromHtml(withoutGeniusHeader(part).replace(htmlBreak, "\n"), androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY)
                 .toString()
         }.trim().takeIf { it.isNotEmpty() }
     }
@@ -605,7 +833,7 @@ object LyricsApi {
         agent?.trim()?.removePrefix("v")?.toIntOrNull()?.takeIf { it >= 0 }?.let { if (it >= 1000) 0 else it }
 
     /** Backing vocals as plain text: "(Woo-hoo)" → "Woo-hoo". */
-    private fun backingText(s: String): String? = s.replace(Regex("\\s+"), " ").trim().removeSurrounding("(", ")").trim().ifEmpty { null }
+    private fun backingText(s: String): String? = s.replace(spaces, " ").trim().removeSurrounding("(", ")").trim().ifEmpty { null }
 
     // ── Word by word: lrc.red (Apple Music TTML, found by ISRC) ──
     private fun fromLrcRed(asked: String, title: String, artist: String, durationMs: Long): Lyrics? {
@@ -632,7 +860,7 @@ object LyricsApi {
         p.setInput(java.io.StringReader(xml))
         fun attr(name: String) = p.getAttributeValue(null, name)
         fun lineKey() = (0 until p.attributeCount).firstOrNull { p.getAttributeName(it).let { n -> n == "key" || n.endsWith(":key") } }?.let { p.getAttributeValue(it) }
-        fun tidy(sb: CharSequence) = sb.toString().replace(Regex("\\s+"), " ").trim()
+        fun tidy(sb: CharSequence) = sb.toString().replace(spaces, " ").trim()
         // Head: only the first translation and the first transliteration, text by line key.
         val headTranslation = HashMap<String, String>(); val headRoman = HashMap<String, String>()
         var translationLanguage: String? = null

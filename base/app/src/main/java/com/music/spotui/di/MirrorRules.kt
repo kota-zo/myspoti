@@ -82,6 +82,9 @@ object MirrorRules {
      * [repeats]: the local song plays again at its end (repeat once still to replay it, or a queue
      * of one song repeated): the Web Player going on at the end is never followed, it is put back.
      */
+    /** Whether [f] takes the local player to another song (a pick, a next or a previous seen on the page). */
+    fun movesSong(f: Follow): Boolean = f is Follow.Play || f == Follow.Next || f == Follow.Previous
+
     fun onWeb(
         web: Web, want: Want, local: Local, quiet: Boolean, landed: Boolean, predictedMs: Long?,
         previousUri: String? = null, gapFromMs: Long? = null, wantAtMs: Long? = null, wantLengthMs: Long = 0,

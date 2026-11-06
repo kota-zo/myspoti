@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Subir</string>
     <string name="extensions_move_down">Descer</string>
     <string name="extension_off">Desativada</string>
-    <string name="extension_by">de %1$s</string>
     <string name="extension_changelog">Novidades</string>
     <string name="extension_update_from">Atualização disponível: %1$s → %2$s</string>
     <string name="extension_not_listed">Esta extensão não está nos seus repositórios (ou eles ainda estão carregando).</string>
@@ -96,6 +95,7 @@
     <string name="action_playback_queue">Editar a fila</string>
     <string name="action_playback_events">Saber o que você ouve</string>
     <string name="action_lyrics_provide">Fornecer letras</string>
+    <string name="action_lyrics_romanize">Romanizar letras</string>
     <string name="action_trackinfo_provide">Acrescentar detalhes das músicas</string>
     <string name="action_audio_source">Tocar áudio de outro lugar</string>
     <string name="action_download_source">Fornecer downloads</string>
@@ -244,4 +244,5 @@
     <string name="why_source_open_ok">Aberta em %1$d ms</string>
     <string name="why_source_skipped">ignorada: %1$s</string>
     <string name="why_source_title">Por que esta fonte?</string>
+    <string name="extensions_guide">Como instalar extensões</string>
 </resources>

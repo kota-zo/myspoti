@@ -9,6 +9,7 @@ import com.music.spotui.ui.immersive.shell.immersiveHazeSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import com.music.spotui.ui.components.arrivingRow
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,6 +99,8 @@ fun ImmersiveHomeScreen(navController: NavController) {
     val facet = homeViewModel.facet.value
     val context = LocalContext.current
     LaunchedEffect(Unit) { ProfileCache.ensure(context) }
+    // An old feed is read again when Home shows again (see HomeViewModel.refreshIfStale).
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { homeViewModel.refreshIfStale() }
 
     // Re-tapping the Home tab while on Home scrolls back to the top, as in the Classic screen.
     val listState = rememberLazyListState()
@@ -124,7 +129,7 @@ fun ImmersiveHomeScreen(navController: NavController) {
     }
 
     // Podcasts can be off: their shows and episodes then leave the feed.
-    val hideDj = com.music.spotui.data.preferences.HideDjPref.on
+    val hideDj = com.music.spotui.data.preferences.HideDjPref.hidden
     val sections = remember(feed, hideDj) { feed?.let { visibleSections(it) }.orEmpty().let { if (hideDj) it.withoutDj() else it } }
     // Only the untitled section the web home starts with is a shortcut grid; a titled lead
     // section is a carousel like any other.
@@ -154,35 +159,35 @@ fun ImmersiveHomeScreen(navController: NavController) {
             modifier = Modifier.fillMaxSize().immersiveHazeSource().immersiveChromeScroll(),
         ) {
             item(key = "home:facets") {
-                ImmersiveChipRow {
-                    ImmersiveChip(stringResource(R.string.filter_chip_all_label), selected = facet.isEmpty()) {
-                        if (facet.isNotEmpty()) homeViewModel.selectFacet(facet)
-                    }
-                    ImmersiveChip(stringResource(R.string.recents_content_filter_music), selected = facet == "music-chip") {
-                        homeViewModel.selectFacet("music-chip")
-                    }
-                    if (Features.PODCASTS) {
-                        ImmersiveChip(stringResource(R.string.ad_category_title_podcasts), selected = facet == "podcasts-chip") {
-                            homeViewModel.selectFacet("podcasts-chip")
-                        }
-                        ImmersiveChip(stringResource(R.string.audiobooks_title), selected = facet == "audiobooks-chip") {
-                            homeViewModel.selectFacet("audiobooks-chip")
-                        }
-                    }
-                }
+                ImmersiveHomeFacets(
+                    facet,
+                    labels = mapOf(
+                        "" to stringResource(R.string.filter_chip_all_label),
+                        "music-chip" to stringResource(R.string.recents_content_filter_music),
+                        "podcasts-chip" to stringResource(R.string.ad_category_title_podcasts),
+                        "audiobooks-chip" to stringResource(R.string.audiobooks_title),
+                    ),
+                    podcasts = Features.PODCASTS,
+                    select = homeViewModel::selectFacet,
+                )
             }
             when {
                 feed != null && feed.sections.isNotEmpty() -> {
                     shortcuts?.let { tiles ->
                         item(key = "home:shortcuts") {
-                            ShortcutGrid(navController, tiles, playingContext)
+                            // The feed fades in over its placeholder (see immersiveFeedSkeleton).
+                            Box(arrivingRow()) {
+                                ShortcutGrid(navController, tiles, playingContext)
+                            }
                         }
                     }
                     carousels.forEachIndexed { index, section ->
                         item(key = "home:section:$index:${section.title}") {
                             // The lead carousel gets the big cards, unless it is a row of artists.
                             val hero = index == 0 && section.items.none { it is HomeItem.Artist }
-                            if (hero) HeroSection(navController, section, playingContext) else ShelfSection(navController, section, playingContext)
+                            Box(arrivingRow()) {
+                                if (hero) HeroSection(navController, section, playingContext) else ShelfSection(navController, section, playingContext)
+                            }
                         }
                     }
                     // Sections from extensions (home.sections), after Spotify's own.
@@ -200,9 +205,16 @@ fun ImmersiveHomeScreen(navController: NavController) {
                 }
             }
         }
-        // The greeting and the profile disc on floating glass; the feed scrolls under it.
+        // The greeting, the bell and the profile disc on floating glass; the feed scrolls under it.
         ImmersiveFloatingHeader(title, collapse = rememberTopBarCollapse(listState, 24.dp)) {
+            // Friend activity, out of the tab bar: beside the profile, as Spotify has it.
+            com.music.spotui.ui.immersive.shell.ImmersiveBarAction(
+                androidx.compose.ui.graphics.vector.ImageVector.vectorResource(R.drawable.ic_friends_big),
+                contentDescription = stringResource(R.string.friends_title),
+                onClick = { navController.navigate(com.music.spotui.ui.navigation.Routes.Friends.route) },
+            )
             val size = LocalBarControlSize.current
+            WhatsNewBell(size) { navController.navigate(Routes.WhatsNew.route) }
             // The tap area is the header's full height and reaches past the disc toward the
             // title, so the small disc of the minimized bar is still easy to hit.
             Box(
@@ -220,6 +232,25 @@ fun ImmersiveHomeScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+/** The bell left of the profile disc: opens "What's New". Its tap area is the header's full height, as the disc's is. */
+@Composable
+private fun WhatsNewBell(size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .height(ImmersiveHeaderContentHeight)
+            .width(size)
+            .immersiveClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.Rounded.NotificationsNone,
+            contentDescription = stringResource(R.string.whats_new_title),
+            tint = Immersive.Text,
+            modifier = Modifier.size(size * 0.55f),
+        )
     }
 }
 

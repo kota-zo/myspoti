@@ -536,37 +536,28 @@ has joined: joining one's own invitation returned a `playlist_uri` that `fetchPl
 
 The Blend page itself (members, taste match, rename, leave) uses calls the Web Player has no
 screen for; they are the ones Spotify's mobile apps make for that page. The two reads were
-checked live on a real two-member Blend (21/10), and rename; leave was not sent yet:
+checked live on a real two-member Blend (21/10), and rename; leaving is sent by the app, its
+answer not captured:
 
 | Call | Answer |
 |---|---|
 | `GET /v3/get-invitation/{playlistId}` | `200 {title, button_text, invitation_link, members[{name, image_url, hash, username}]}` (`image_url` may be `""`) |
 | `GET /v3/data-stories/{playlistId}` | `200 {intro_story{title1{text,text_color}, subtitle1, background_color, audio_uri}, stories[{story_type, title, subtitle, body, image, background_color, button{navigation_uri}}]}` |
 | `PUT blend-writer/v1/rename/{playlistId}` `{"name":…}` | `200`, empty body (checked with the Blend's own name) |
-| `PUT /v1/leave` `{"playlist_uri":"spotify:playlist:…"}` | not sent yet |
+| `PUT /v1/leave` `{"playlist_uri":"spotify:playlist:…"}` | answer not captured (sent when leaving a Blend; nothing in it is read) |
 
 `blend-writer` is a sibling of `blend-invitation` on the same host. The texts (titles, button
 words, story lines) come translated in the account's language.
 
-## Gaps (not captured)
+## Gaps
 
-- Remove tracks from a playlist: GraphQL `removeFromPlaylist {playlistUri, uids}` removes
-  exactly the rows named by `uid` (checked live: the same song twice has two uids, removing
-  one leaves the other). Never address a row by its track uri.
-- Reorder tracks (`MOV`, or `addToPlaylist`/move with `fromUid`; unknown).
-- Delete a playlist (for an own playlist the Web Player probably only does the rootlist
-  `REM`; not confirmed).
-- Folders: create, rename, move items into folders, rootlist folder markers, and
-  `libraryV3` with `folderUri`/`expandedFolders`/`flatten` set.
-- `libraryV3` with a filter or another sort: the variable names for the selected filter
-  and sort (`order` is null by default, no filter key was sent) are not known.
-- Pin / unpin in Your Library.
-- Change description, cover image, public/private, collaborative.
-- `applyCurations` with `CURATE` (adding through the heart sheet), multi-playlist curations.
-- Liked Songs for podcasts (`YOUR_EPISODES_V2`), shows, audiobooks.
+`removeFromPlaylist`, `MOV` (both `moveTracks` and drag-and-drop), playlist delete, folders
+(`libraryV3`'s `folderUri`/`expandedFolders`/`flatten`, the rootlist folder markers and
+`RootlistAPI` create/rename/remove), `libraryV3` filters and sorts, pin/unpin, and a
+playlist's description, cover, access and collaborators are all implemented in
+`base/api-spotify` now (see `SpotifyLibrary`). Rows are addressed by `uid`, never by track
+uri: the same song twice has two. What is still missing:
+
+- `applyCurations` with `CURATE` (adding through the heart sheet), multi-playlist curations
+  (Myspoti saves with `addToLibrary` instead).
 - Error responses (rate limit, revision conflict, permission denied).
-
-## TODO
-
-- TODO: libraryV3 filters and sorts — capture a session with a filter chip and each sort order to get the variable names.
-- TODO: rootlist folders — capture folder create/move to see folder markers in rootlist `items` and the `changes` ops.

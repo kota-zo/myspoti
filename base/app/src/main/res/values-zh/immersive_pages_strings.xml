@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_pages_songs">歌曲</string>
-    <string name="immersive_pages_artists">艺人</string>
-    <string name="immersive_pages_albums">专辑</string>
-    <string name="immersive_pages_unknown_artist">未知艺人</string>
-    <string name="immersive_pages_unknown_album">未知专辑</string>
     <string name="immersive_pages_name_hint">名称</string>
-    <string name="immersive_pages_play_group">播放 %1$s</string>
 </resources>

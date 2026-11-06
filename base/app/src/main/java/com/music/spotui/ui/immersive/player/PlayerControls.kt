@@ -12,13 +12,12 @@
  */
 package com.music.spotui.ui.immersive.player
 
+import com.music.spotui.ui.components.zoneOn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -137,10 +136,15 @@ internal fun PlayerScrubber(
         ThinSlider(
             value = { frame.value; scrub.shown(state.positionMs(), state.durationMs) },
             onValueChange = scrub::drag,
-            onValueChangeFinished = { scrub.release { onSeek((it * state.durationMs).toLong()) } },
+            onValueChangeFinished = { scrub.release { onSeek((it * (state.seekLengthMs?.invoke() ?: state.durationMs)).toLong()) } },
             loading = state.buffering && !scrub.scrubbing,
+            // AutoMix: the mix's stretch in the accent from the moment it is planned, beating while it plays.
+            mixZone = { state.mixCue?.zoneOn(state.durationMs, incomingShown = state.blend?.outgoingWords == false) },
+            mixColor = com.music.spotui.ui.immersive.Immersive.Accent,
         )
         ScrubTimes(frame, scrub, state)
+        com.music.spotui.ui.components.PlaybackSpeedNote(LocalPlayerTint.current.copy(alpha = 0.8f), com.music.spotui.ui.immersive.Immersive.Accent,
+            Modifier.align(Alignment.CenterHorizontally).offset(y = (-4).dp))
     }
 }
 
@@ -251,7 +255,9 @@ internal fun TransportRow(
             heightScale = PLAYER_SKIP_HEIGHT_SCALE,
             onClick = onPrevious,
         )
-        if (isLoading) {
+        // The spinner and the button hand over in a short fade, not in one frame.
+        com.music.spotui.ui.components.LoadedFade(isLoading) { loading ->
+        if (loading) {
             // Same footprint as the play/pause target: a smaller box would shunt everything below it.
             Box(Modifier.size(playTouch), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(38.dp))
@@ -264,6 +270,7 @@ internal fun TransportRow(
                 touchSize = playTouch,
                 onClick = onPlayPause,
             )
+        }
         }
         TransportGlyph(
             icon = Icons.Rounded.SkipNext,
@@ -301,19 +308,19 @@ private fun TransportGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier
-                .size(size)
-                .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
-        )
+        // Play and pause swap as in the Classic player (the skip glyphs never change).
+        com.music.spotui.ui.components.GlyphSwap(icon) { glyph ->
+            Icon(
+                imageVector = glyph,
+                contentDescription = contentDescription,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(size)
+                    .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
+            )
+        }
     }
 }
-
-/** ThinSlider's fixed touch target at the volume bar's size: 10dp + 22dp. */
-internal val VOLUME_ROW_HEIGHT = 32.dp
 
 /** The volume bar between its two speaker glyphs. */
 @Composable
@@ -478,7 +485,7 @@ internal fun PlayerActionRow(
     onOpenDevices: () -> Unit,
 ) {
     val modes = com.music.spotui.data.preferences.PlayerModesPref.on
-    val capsule = com.music.spotui.data.preferences.PlayerCapsulePref.on
+    val capsule = com.music.spotui.data.preferences.PlayerCapsulePref.shown
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(if (modes) 3 else 2)
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)

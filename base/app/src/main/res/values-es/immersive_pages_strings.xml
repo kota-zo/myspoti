@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_pages_songs">Canciones</string>
-    <string name="immersive_pages_artists">Artistas</string>
-    <string name="immersive_pages_albums">Álbumes</string>
-    <string name="immersive_pages_unknown_artist">Artista desconocido</string>
-    <string name="immersive_pages_unknown_album">Álbum desconocido</string>
     <string name="immersive_pages_name_hint">Nombre</string>
-    <string name="immersive_pages_play_group">Reproducir %1$s</string>
 </resources>

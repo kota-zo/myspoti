@@ -36,6 +36,11 @@ object Graph {
         com.music.spotui.data.offline.PodcastDownloader.resumePending()
         // Installed extensions: each enabled one loads in its own sandbox, off the main thread.
         com.music.spotui.extensions.Extensions.init(application)
+        // Live Radio: its own setting and favorites file (see com.music.spotui.radio).
+        com.music.spotui.radio.RadioFeaturePref.init(application)
+        com.music.spotui.radio.RadioFavoritesStore.init(application)
+        // SponsorBlock for podcasts: idle until turned on in the settings.
+        com.music.spotui.podcast.SponsorSkip.init()
     }
 
     val api: Api by lazy { Api(app) }

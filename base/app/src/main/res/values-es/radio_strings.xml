@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Radio en directo</string>
+    <string name="live_radio_subtitle">Emisoras de radio por internet, del directorio gratuito radio-browser.info</string>
+    <string name="live_radio_search_hint">Buscar emisoras</string>
+    <string name="live_radio_popular">Emisoras populares</string>
+    <string name="live_radio_search_results">Resultados de búsqueda</string>
+    <string name="live_radio_favorites">Favoritas</string>
+    <string name="live_radio_favorite">Añadir a favoritas</string>
+    <string name="live_radio_unfavorite">Quitar de favoritas</string>
+    <string name="live_radio_no_results">No se encontraron emisoras</string>
+    <string name="live_radio_error">No se pudo contactar con el directorio de radio. Comprueba tu conexión e inténtalo de nuevo.</string>
+    <string name="live_radio_settings_title">Radio en directo</string>
+    <string name="live_radio_settings_detail">Añade una carpeta Radio en directo a Tu biblioteca, bajo Archivos locales. Las búsquedas van al directorio radio-browser.info; el logo y la emisión de cada emisora vienen de su propio servidor.</string>
+</resources>

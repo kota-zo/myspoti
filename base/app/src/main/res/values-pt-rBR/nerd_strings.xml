@@ -54,4 +54,11 @@
     <string name="nerd_mirror_off">Desligado</string>
     <string name="nerd_spotify_note">O stream do Spotify é criptografado dentro da página: seu codec e taxa de bits exatos não são acessíveis, apenas o que a página informa.</string>
     <string name="nerd_spotify_remote">O som vem de outro dispositivo: este celular apenas o controla.</string>
+    <string name="nerd_automix">AutoMix</string>
+    <string name="nerd_automix_blend">Mixagem no tempo</string>
+    <string name="nerd_automix_cut">Corte na batida</string>
+    <string name="nerd_automix_fade">Fade</string>
+    <string name="nerd_automix_mixing">Mixando: %1$s</string>
+    <string name="nerd_automix_planned">%1$s em %2$s, %3$d s</string>
+    <string name="nerd_automix_waiting">Ativado, nenhuma mixagem prevista ainda</string>
 </resources>

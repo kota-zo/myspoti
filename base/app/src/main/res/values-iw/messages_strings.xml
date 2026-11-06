@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">חברים</string>
     <string name="messages_title">הודעות</string>
     <string name="messages_empty">אין עדיין שיחות. אפשר לכתוב לחבר בעזרת העיפרון למעלה.</string>
     <string name="messages_failed">Spotify לא שלח את ההודעות שלך.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s הסיר/ה את %2$s</string>
     <string name="messages_event_link">%1$s הצטרף/ה דרך קישור</string>
     <string name="messages_event_reported">השיחה דווחה</string>
-    <string name="friends_title">פעילות חברים</string>
-    <string name="friends_now">עכשיו</string>
-    <string name="friends_empty">אין עדיין פעילות של חברים. חברים שאתם עוקבים אחריהם ומשתפים את פעילות ההאזנה שלהם ב-Spotify יופיעו כאן.</string>
-    <string name="friends_failed">Spotify לא שלח את פעילות החברים.</string>
-    <string name="friends_refresh">רענון</string>
+    <string name="friends_tab">חברים</string>
 </resources>

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Arkadaşlar</string>
     <string name="messages_title">Mesajlar</string>
     <string name="messages_empty">Henüz sohbet yok. Üstteki kalemle bir arkadaşına yaz.</string>
     <string name="messages_failed">Spotify mesajlarını göndermedi.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s, %2$s kişisini çıkardı</string>
     <string name="messages_event_link">%1$s bir bağlantıyla katıldı</string>
     <string name="messages_event_reported">Sohbet şikayet edildi</string>
-    <string name="friends_title">Arkadaş etkinliği</string>
-    <string name="friends_now">Şimdi</string>
-    <string name="friends_empty">Henüz arkadaş etkinliği yok. Takip ettiğin ve Spotify\'da dinleme etkinliğini paylaşan arkadaşların burada görünür.</string>
-    <string name="friends_failed">Spotify arkadaş etkinliğini göndermedi.</string>
-    <string name="friends_refresh">Yenile</string>
+    <string name="friends_tab">Arkadaşlar</string>
 </resources>

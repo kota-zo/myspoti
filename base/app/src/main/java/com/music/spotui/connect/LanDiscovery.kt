@@ -94,7 +94,8 @@ object LanDiscovery {
             if (info == null) { log("a device on the network did not answer getInfo"); return@launch }
             // Brand, model and the kind of login only: no name, id or account.
             log("found ${info.brand.ifBlank { "?" }} ${info.model.ifBlank { "" }} (login ${info.tokenType.ifBlank { "?" }}, zeroconf ${info.version.ifBlank { "?" }}, " +
-                "${if (info.activeUser.isBlank()) "no user" else "a user"} logged in)")
+                "${if (info.activeUser.isBlank()) "no user" else "a user"} logged in, availability ${info.availability.ifBlank { "-" }}, " +
+                "key ${if (info.publicKey == Zeroconf.INVALID_KEY) "INVALID" else if (info.publicKey.isBlank()) "none" else "valid"}, spotifyError ${info.spotifyError})")
             val d = LanDevice(s.serviceName, host, s.port, Zeroconf.path(cpath), info)
             main.post {
                 val at = devices.indexOfFirst { it.info.deviceId == info.deviceId }

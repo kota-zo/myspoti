@@ -4,10 +4,12 @@
  * Modified for Myspoti, 2026-10.
  *
  * Changes: only the slider and its loading sheen (lines 54-245 and the sheen it draws);
- * the Automix beat pulse, the mix crossfade and the transition window are left out.
+ * the Automix beat pulse, the mix crossfade and the transition window are left out (Myspoti's
+ * own AutoMix stretch is drawn by ui/components/AutoMixVisuals.kt).
  */
 package com.music.spotui.ui.look
 
+import com.music.spotui.ui.components.drawMixZone
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -34,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,8 +105,16 @@ fun ThinSlider(
     activeHeight: Dp = 12.dp,
     activeColor: Color = Color.White.copy(alpha = 0.92f),
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
+    /** An AutoMix mix's stretch of the bar (fractions), read in the draw; null with none. */
+    mixZone: () -> ClosedFloatingPointRange<Float>? = { null },
+    mixColor: Color = Color.White,
+    /** The mix's beat, 0..1, read in the draw: the stretch thickens and glows with it. */
 ) {
     var dragging by remember { mutableStateOf(false) }
+    // The gesture loop below starts once; it calls the latest callbacks, not the first ones (a
+    // seek computed with the song shown when the player opened went past a shorter song's end).
+    val change by rememberUpdatedState(onValueChange)
+    val finished by rememberUpdatedState(onValueChangeFinished)
     val height by animateDpAsState(
         targetValue = if (dragging) activeHeight else idleHeight,
         animationSpec = spring(
@@ -148,7 +159,7 @@ fun ThinSlider(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     dragging = true
-                    onValueChange((down.position.x / size.width).coerceIn(0f, 1f))
+                    change((down.position.x / size.width).coerceIn(0f, 1f))
 
                     while (true) {
                         val event = awaitPointerEvent()
@@ -158,13 +169,13 @@ fun ThinSlider(
                             break
                         }
                         if (pointer.positionChanged()) {
-                            onValueChange((pointer.position.x / size.width).coerceIn(0f, 1f))
+                            change((pointer.position.x / size.width).coerceIn(0f, 1f))
                             pointer.consume()
                         }
                     }
 
                     dragging = false
-                    onValueChangeFinished?.invoke()
+                    finished?.invoke()
                 }
             },
         contentAlignment = Alignment.Center,
@@ -192,6 +203,9 @@ fun ThinSlider(
                     ),
                     cornerRadius = radius,
                 )
+            }
+            mixZone()?.let { z ->
+                drawMixZone(z, value().coerceIn(0f, 1f) * fillFactor, size.height / 2f, size.height, mixColor)
             }
         }
         // Composed only while loading. The infinite animation therefore costs no

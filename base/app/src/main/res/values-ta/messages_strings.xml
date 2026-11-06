@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">நண்பர்கள்</string>
     <string name="messages_title">மெசேஜ்கள்</string>
     <string name="messages_empty">இன்னும் உரையாடல்கள் இல்லை. மேலே உள்ள பென்சிலைக் கொண்டு நண்பருக்கு எழுதுங்கள்.</string>
     <string name="messages_failed">Spotify உங்கள் மெசேஜ்களை அனுப்பவில்லை.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s, %2$s ஐ அகற்றினார்</string>
     <string name="messages_event_link">%1$s இணைப்பு மூலம் இணைந்தார்</string>
     <string name="messages_event_reported">உரையாடல் புகாரளிக்கப்பட்டது</string>
-    <string name="friends_title">நண்பர்களின் செயல்பாடு</string>
-    <string name="friends_now">இப்போது</string>
-    <string name="friends_empty">இதுவரை நண்பர்களின் செயல்பாடு இல்லை. நீங்கள் பின்தொடரும், Spotify இல் தாங்கள் கேட்பதைப் பகிரும் நண்பர்கள் இங்கே தோன்றுவார்கள்.</string>
-    <string name="friends_failed">Spotify நண்பர்களின் செயல்பாட்டை அனுப்பவில்லை.</string>
-    <string name="friends_refresh">புதுப்பி</string>
+    <string name="friends_tab">நண்பர்கள்</string>
 </resources>

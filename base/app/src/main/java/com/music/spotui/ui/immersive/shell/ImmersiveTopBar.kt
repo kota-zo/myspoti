@@ -6,7 +6,6 @@
 package com.music.spotui.ui.immersive.shell
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -36,16 +35,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.RectangleShape
 import com.music.spotui.ui.immersive.motion.ImmersiveMotion
 import com.music.spotui.ui.look.rememberReduceMotion
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.components.wideClickable
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -54,7 +55,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -73,8 +73,11 @@ val ImmersiveTopBarContentHeight = 52.dp
 /** The breathing room between the bar's bottom edge and the first thing under it. */
 val ImmersiveTopBarContentGap = 12.dp
 
-/** How much of each end of the bar is spoken for, so a long title truncates instead of running under it. */
+/** The start of the bar the back button takes (gutter and disc), kept free of the title. */
 private val TitleInset = 64.dp
+
+/** The space between the title and the actions pill, which it truncates before. */
+private val TitleGap = 8.dp
 
 /** The back and action targets: a 44 dp circle, as the floating controls of the official bars. */
 private val BarControlSize = 44.dp
@@ -154,63 +157,83 @@ fun ImmersiveTopBar(
 ) {
     val page = LocalImmersiveBackdrop.current
     val controlSize = rememberBarControlSize()
+    val titleShown by remember(collapse) { derivedStateOf { collapse() >= 0.99f } }
     Box(modifier = modifier.fillMaxWidth().holdsTouches()) {
         // The glass panel hanging from the top (rounded bottom corners), fading in with the collapse.
         ImmersiveTopGlass(collapse, Modifier.matchParentSize(), hazeState)
-        Box(
+        Layout(
+            contents = listOf<@Composable () -> Unit>(
+                {
+                    Text(
+                        text = title,
+                        style = Immersive.Headline.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        // Scrolls once the title has faded in (it is invisible, and still, before).
+                        modifier = Modifier.graphicsLayer { alpha = collapse() }.titleMarquee(enabled = titleShown, iterations = 3),
+                    )
+                },
+                {
+                    if (onBack != null) {
+                        val backSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .padding(start = Immersive.Gutter)
+                                // Taps around the disc count too, out to the screen edge and the bar's height.
+                                .wideClickable(horizontal = Immersive.Gutter, vertical = 12.dp, interactionSource = backSource, onClick = onBack)
+                                .size(controlSize)
+                                .immersiveGlassSurface(CircleShape, hazeState, interactionSource = backSource),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                                contentDescription = stringResource(R.string.immersive_shell_back),
+                                tint = Immersive.Text,
+                                modifier = Modifier.size(controlSize * 0.64f),
+                            )
+                        }
+                    }
+                },
+                {
+                    if (actions != null) {
+                        Row(
+                            modifier = Modifier
+                                .padding(end = Immersive.Gutter)
+                                .immersiveGlassSurface(CircleShape, hazeState)
+                                // Keep the right edge fixed while a new action opens room to its left.
+                                .animateContentSize(
+                                    animationSpec = ImmersiveMotion.sizeSpring(),
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CompositionLocalProvider(LocalBarControlSize provides controlSize) { actions() }
+                        }
+                    }
+                },
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(ImmersiveTopBarContentHeight),
-        ) {
-            Text(
-                text = title,
-                style = Immersive.Headline.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    // The same room on both sides: the title is centred within this padded box,
-                    // so an inset that differs end to end would move it off the bar's centre.
-                    .padding(horizontal = TitleInset)
-                    .fillMaxWidth()
-                    .graphicsLayer { alpha = collapse() },
-            )
-            if (onBack != null) {
-                val backSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = Immersive.Gutter)
-                        // Taps around the disc count too, out to the screen edge and the bar's height.
-                        .wideClickable(horizontal = Immersive.Gutter, vertical = 12.dp, interactionSource = backSource, onClick = onBack)
-                        .size(controlSize)
-                        .immersiveGlassSurface(CircleShape, hazeState, interactionSource = backSource),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.immersive_shell_back),
-                        tint = Immersive.Text,
-                        modifier = Modifier.size(controlSize * 0.64f),
-                    )
-                }
-            }
-            if (actions != null) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = Immersive.Gutter)
-                        .immersiveGlassSurface(CircleShape, hazeState)
-                        // Keep the right edge fixed while a new action opens room to its left.
-                        .animateContentSize(
-                            animationSpec = ImmersiveMotion.sizeSpring(),
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CompositionLocalProvider(LocalBarControlSize provides controlSize) { actions() }
-                }
+        ) { (titles, backs, pills), constraints ->
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val back = backs.firstOrNull()?.measure(loose)
+            // Measured here, in the layout pass, so the title follows the pill's size spring
+            // frame by frame without a recomposition, and never sees a width from the frame before.
+            val pill = pills.firstOrNull()?.measure(loose)
+            val width = constraints.maxWidth
+            val height = constraints.maxHeight
+            val start = if (back != null) TitleInset.roundToPx() else Immersive.Gutter.roundToPx()
+            val end = if (pill != null) pill.width + TitleGap.roundToPx() else Immersive.Gutter.roundToPx()
+            val text = titles.first().measure(loose.copy(maxWidth = (width - start - end).coerceAtLeast(0)))
+            layout(width, height) {
+                // On the bar's centre while the title fits between equal insets; a longer one moves
+                // towards the roomier end just enough to keep clear of the other, truncating at worst.
+                val centred = (width - text.width) / 2
+                val x = centred.coerceIn(start, (width - end - text.width).coerceAtLeast(start))
+                text.placeRelative(x, (height - text.height) / 2)
+                back?.placeRelative(0, (height - back.height) / 2)
+                pill?.placeRelative(width - pill.width, (height - pill.height) / 2)
             }
         }
     }

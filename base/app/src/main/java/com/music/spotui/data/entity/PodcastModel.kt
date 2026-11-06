@@ -13,9 +13,8 @@ data class PodcastModel(
     val coverUri: String,
     /** Show description ("About" tab, episode page header). */
     val description: String = "",
-    /** Average rating and how many people gave it (0 = none shown). */
+    /** Average rating (0 = none shown). */
     val rating: Double = 0.0,
-    val ratingCount: Int = 0,
     /** Spotify's own follow state for this show. */
     val saved: Boolean = false,
     /** Audiobooks: authors and narrators, empty for a podcast. */

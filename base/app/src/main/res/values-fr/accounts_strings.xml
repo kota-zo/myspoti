@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Comptes</string>
+    <string name="accounts_switch_row">Changer de compte</string>
+    <string name="accounts_switch_row_detail">Vos comptes Spotify sur ce téléphone</string>
+    <string name="accounts_add">Ajouter un compte</string>
+    <string name="accounts_add_detail">Ouvre la connexion Spotify ; les comptes déjà ici restent connectés</string>
+    <string name="accounts_add_single_detail">Déconnecte ce compte et ouvre la connexion Spotify</string>
+    <string name="accounts_not_signed_in">Non connecté</string>
+    <string name="accounts_in_use">Utilisé</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Gratuit</string>
+    <string name="accounts_switch_title">Passer à %1$s ?</string>
+    <string name="accounts_switch_text">La lecture s\'arrête. Les téléchargements et l\'historique d\'écoute suivent leur propre compte ; les extensions continuent de fonctionner.</string>
+    <string name="accounts_switch_confirm">Changer</string>
+    <string name="accounts_remove">Retirer</string>
+    <string name="accounts_remove_title">Retirer %1$s ?</string>
+    <string name="accounts_remove_text">Sa connexion et ses données web sont supprimées de ce téléphone, avec son historique d\'écoute. Ses téléchargements sont mis de côté et reviennent si vous l\'ajoutez à nouveau.</string>
+    <string name="accounts_footer">Chaque compte reste connecté sur ce téléphone. Changer de compte arrête la lecture ; les téléchargements et l\'historique d\'écoute suivent leur compte ; les extensions continuent de fonctionner.</string>
+    <string name="accounts_single_footer">La WebView de ce téléphone ne garde qu\'un compte à la fois : changer ou ajouter un compte déconnecte celui-ci et ouvre la connexion Spotify. Mettre à jour Android System WebView permet de garder plusieurs comptes connectés.</string>
+    <string name="accounts_back_to">Retour à %1$s</string>
+</resources>

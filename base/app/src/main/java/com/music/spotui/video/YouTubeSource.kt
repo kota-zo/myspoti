@@ -117,6 +117,9 @@ object YouTubeSource {
         }
     }
 
+    /** Plain YouTube videos for [query] (a podcast episode's upload, for SponsorBlock); blocking, call off the main thread. */
+    fun searchVideos(query: String): List<Hit> = search(query, YoutubeSearchQueryHandlerFactory.VIDEOS)
+
     private fun elided(s: String) = s.replace(Regex("""(?<=\p{L})['’](?=\p{L})"""), "")
 
     /** The YouTube Music "song" of the track (Topic / art track), duration within 3 s. */
@@ -151,18 +154,12 @@ object YouTubeSource {
      */
     suspend fun videoCandidates(title: String, artist: String, durationMs: Long): List<Hit> = coroutineScope {
         val main = artist.substringBefore(",").trim()
-        val a = norm(main)
         val music = async(Dispatchers.IO) { runInterruptible { search("$title $main", YoutubeSearchQueryHandlerFactory.MUSIC_VIDEOS) } }
         val plain = async(Dispatchers.IO) { runInterruptible { search("$title $main clip officiel official video", YoutubeSearchQueryHandlerFactory.VIDEOS) } }
-        (music.await().take(6) + plain.await().take(8))
-            .distinctBy { it.url }
-            .filter { h ->
-                val sec = h.durationSec * 1000
-                titleMatches(h.name, title) && !excluded.containsMatchIn(h.name) &&
-                    (durationMs <= 0 || (sec >= durationMs - 10_000 && sec <= durationMs + 240_000))
-            }
-            // Same artist (in the channel or the title) first, then the search order.
-            .sortedBy { h -> if (norm(h.uploader).contains(a) || norm(h.name).contains(a)) 0 else 1 }
+        val pool = (music.await().take(6) + plain.await().take(8)).distinctBy { it.url }
+        // Artist, title, no other version, length near the track's; the official clips first (MusicVideoMatch).
+        MusicVideoMatch.rank(title, artist, durationMs, pool.map { MusicVideoMatch.Entry(it.name, it.uploader, it.durationSec) })
+            .map { pool[it] }
     }
 
     /** A YouTube upload of the plain song (official audio) when YouTube Music has none. */

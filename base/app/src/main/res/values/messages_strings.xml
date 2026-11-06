@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Friends tab and Spotify's Messages (EN; FR in values-fr). -->
+<!-- Spotify's Messages (EN; FR in values-fr). -->
 <resources>
-    <string name="friends_tab">Friends</string>
     <string name="messages_title">Messages</string>
     <string name="messages_empty">No conversations yet. Write to a friend with the pencil at the top.</string>
     <string name="messages_failed">Spotify didn\'t send your messages.</string>

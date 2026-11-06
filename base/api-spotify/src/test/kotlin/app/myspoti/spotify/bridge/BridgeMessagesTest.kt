@@ -86,6 +86,17 @@ class BridgeMessagesTest {
         }
     }
 
+    @Test fun `the Premium flag reaches the page at each injection`() = runBlocking {
+        val host = TellingHost { "true" }
+        val bridge = Bridge(host, scope)
+        host.messages.subscriptionCount.first { it > 0 }
+        app.myspoti.spotify.AccountPlan.set(true)
+        try { bridge.inject() } finally { app.myspoti.spotify.AccountPlan.set(null) }
+        assertEquals(true, "window.__mspKeepAds = true;" in host.scripts.last())
+        bridge.inject()
+        assertEquals(true, "window.__mspKeepAds = false;" in host.scripts.last())
+    }
+
     @Test fun `a call is made for the page of its generation`() = runBlocking {
         val host = TellingHost { "true" }
         val bridge = Bridge(host, scope)

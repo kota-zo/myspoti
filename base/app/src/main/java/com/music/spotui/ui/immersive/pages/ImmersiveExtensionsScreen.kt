@@ -1,5 +1,6 @@
 package com.music.spotui.ui.immersive.pages
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,6 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -283,6 +283,7 @@ private fun EmptyState() {
     Column(Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.extensions_empty_title), style = Immersive.BodyStrong)
         Text(stringResource(R.string.extensions_empty_body), style = Immersive.Subhead, modifier = Modifier.padding(top = 4.dp))
+        com.music.spotui.ui.screens.GuideLink(Modifier.padding(top = 10.dp)) { Text(it, style = Immersive.BodyStrong, color = Immersive.Accent) }
     }
 }
 
@@ -471,9 +472,8 @@ private fun InstalledRow(
         m?.let { ActionIcons(it.asks().filter { a -> a.key in e.granted }) }
         extra()
     }
-    if (askUninstall) AlertDialog(
+    if (askUninstall) ImmersiveAlertDialog(
         onDismissRequest = { askUninstall = false },
-        containerColor = Immersive.Raised,
         text = { Text(stringResource(R.string.extension_uninstall_confirm, e.name), style = Immersive.Body) },
         confirmButton = {
             TextButton(onClick = {

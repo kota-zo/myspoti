@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Amici</string>
     <string name="messages_title">Messaggi</string>
     <string name="messages_empty">Ancora nessuna conversazione. Scrivi a un amico con la matita in alto.</string>
     <string name="messages_failed">Spotify non ha inviato i tuoi messaggi.</string>

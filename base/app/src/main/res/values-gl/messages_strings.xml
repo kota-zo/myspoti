@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Amigos</string>
     <string name="messages_title">Mensaxes</string>
     <string name="messages_empty">Aínda non hai conversas. Escríbelle a un amigo co lapis de arriba.</string>
     <string name="messages_failed">Spotify non enviou as túas mensaxes.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s quitou a %2$s</string>
     <string name="messages_event_link">%1$s uniuse cunha ligazón</string>
     <string name="messages_event_reported">A conversa foi denunciada</string>
-    <string name="friends_title">Actividade dos amigos</string>
-    <string name="friends_now">Agora</string>
-    <string name="friends_empty">Aínda non hai actividade dos amigos. Aquí aparecen os amigos que segues e que comparten a súa actividade de escoita en Spotify.</string>
-    <string name="friends_failed">Spotify non enviou a actividade dos amigos.</string>
-    <string name="friends_refresh">Actualizar</string>
+    <string name="friends_tab">Amigos</string>
 </resources>

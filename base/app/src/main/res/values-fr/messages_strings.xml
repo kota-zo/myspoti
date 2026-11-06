@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Amis</string>
     <string name="messages_title">Messages</string>
     <string name="messages_empty">Aucune conversation pour l\'instant. Écrivez à un ami avec le crayon en haut.</string>
     <string name="messages_failed">Spotify n\'a pas envoyé vos messages.</string>

@@ -11,13 +11,15 @@ import org.junit.Test
 class SandboxTest {
     private val track = TrackInfo("abc", "spotify:track:abc", "Song", "Artist", listOf("Artist"), "Album", 180_000)
 
-    private class FakeHost : Host {
+    private class FakeHost(val sleeper: ((Long) -> Unit)? = null) : Host {
         val requests = mutableListOf<HttpRequest>()
         val logs = mutableListOf<String>()
+        val sleeps = mutableListOf<Long>()
         val store = MemoryStorage()
         var answer = HttpResponse(200, mapOf("content-type" to "application/json"), """{"ok":1}""")
         override fun http(extensionId: String, request: HttpRequest): HttpResponse { requests += request; return answer }
         override fun log(extensionId: String, message: String) { logs += message }
+        override fun sleep(millis: Long) { sleeps += millis; sleeper?.invoke(millis) ?: super.sleep(millis) }
         override fun storage(extensionId: String): Storage = store
         override fun setting(extensionId: String, key: String): String? = if (key == "lang") "\"fr\"" else null
         override fun nowPlaying(): String = """{"title":"Now"}"""
@@ -114,6 +116,21 @@ class SandboxTest {
         rt.close()
     }
 
+    @Test fun aCallItsCallerGaveUpOnFreesTheThreadForTheNext() {
+        // The first call never ends by itself; its caller is interrupted (a skip) long before its time.
+        val rt = runtime("let n = 0; myspoti.provide('lyrics', function () { if (n++ === 0) { while (true) {} } return { v: n }; });")
+        val caller = Thread { runCatching { rt.call(Hook.LYRICS, track.toJson(), 20_000) } }
+        caller.start()
+        Thread.sleep(300)
+        caller.interrupt()
+        caller.join(2_000)
+        val started = System.currentTimeMillis()
+        val answer = rt.call(Hook.LYRICS, track.toJson(), 5_000)
+        assertTrue("the next call waited behind the abandoned one", System.currentTimeMillis() - started < 2_000)
+        assertTrue(answer!!.contains("2"))
+        rt.close()
+    }
+
     @Test fun aCallCutShortByCloseIsNotTheScriptsFailure() {
         val rt = runtime("myspoti.provide('lyrics', function () { while (true) {} });")
         Thread { Thread.sleep(200); rt.close() }.start()
@@ -199,7 +216,60 @@ class SandboxTest {
     }
 
     @Test fun featuresNameWhatThisAppUnderstands() {
-        assertEquals("""{"v":"audio.manifest,audio.expires,audio.quality,audio.source,audio.ahead,http.all,status,raw.base64,results,download.transform,audio.transform,sources.race,settings.section"}""", eval("return myspoti.features.join(',');"))
+        assertEquals("""{"v":"audio.manifest,audio.expires,audio.quality,audio.source,audio.ahead,http.all,status,raw.base64,results,download.transform,audio.transform,sources.race,settings.section,util.sleep,lyrics.romanize"}""", eval("return myspoti.features.join(',');"))
+    }
+
+    @Test fun sleepCapsBackoffWithoutNeedingPermissions() {
+        val host = FakeHost(sleeper = {})
+        val out = eval("return [0, 1, 2000, 1000000000000].map(function (ms) { return typeof myspoti.util.sleep(ms); }).join(',');", host, granted = setOf("lyrics.provide"))
+        assertEquals("""{"v":"undefined,undefined,undefined,undefined"}""", out)
+        assertEquals(listOf(0L, 1L, 2000L, 2000L), host.sleeps)
+    }
+
+    @Test fun sleepRejectsInvalidDurationsBeforeCallingTheHost() {
+        val host = FakeHost(sleeper = {})
+        val out = eval("""
+            return [-1, NaN, Infinity, 1.5, '5', null, undefined].every(function (ms) {
+              try { myspoti.util.sleep(ms); return false; }
+              catch (e) { return e instanceof TypeError && e.message.indexOf('util.sleep') >= 0; }
+            });
+        """, host)
+        assertEquals("""{"v":true}""", out)
+        assertTrue(host.sleeps.isEmpty())
+    }
+
+    @Test fun sleepCannotOverrunOrCatchTheHooksDeadline() {
+        val host = FakeHost(sleeper = { fail("a wait beyond the deadline reached the host") })
+        runtime("myspoti.provide('lyrics', function () { try { myspoti.util.sleep(2000); } catch (e) { return { plain: 'caught' }; } return { plain: 'done' }; });", host = host).use { rt ->
+            try {
+                rt.call(Hook.LYRICS, track.toJson(), 100)
+                fail("a wait past the hook's deadline answered")
+            } catch (e: ExtensionException) {
+                assertTrue(e is ExtensionTimeout)
+            }
+        }
+        assertTrue(host.sleeps.isEmpty())
+    }
+
+    @Test fun closeInterruptsSleepAndCannotBeSwallowedByTheScript() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val host = FakeHost(sleeper = { millis -> entered.countDown(); Thread.sleep(millis) })
+        val rt = runtime("myspoti.provide('lyrics', function () { try { myspoti.util.sleep(2000); } catch (e) { return { plain: 'caught' }; } return { plain: 'done' }; });", host = host)
+        val result = java.util.concurrent.atomic.AtomicReference<Result<String?>>()
+        val caller = Thread { result.set(runCatching { rt.call(Hook.LYRICS, track.toJson(), 5_000) }) }.apply { start() }
+        try {
+            assertTrue("sleep was never reached", entered.await(1, java.util.concurrent.TimeUnit.SECONDS))
+            rt.close()
+            caller.join(1_000)
+            assertFalse("sleep ignored the runtime shutdown", caller.isAlive)
+            val failure = result.get()?.exceptionOrNull()
+            assertTrue(failure is ExtensionException)
+            assertEquals("stopped", failure?.message)
+            assertNull(rt.lastError)
+        } finally {
+            rt.close()
+            caller.join(1_000)
+        }
     }
 
     @Test fun localMuteFeatureIsListedOnlyWhenMirrorIsGranted() {

@@ -14,6 +14,9 @@ import java.util.zip.ZipOutputStream
  * `LICENSE`. Nothing else is read.
  */
 class ExtensionPackage(val manifest: Manifest, val script: String, val icon: ByteArray?, val sha256: String) {
+    /** The same package with its manifest's texts in [tag] ([Manifest.localized]). */
+    fun localized(tag: String): ExtensionPackage = manifest.localized(tag).let { if (it === manifest) this else ExtensionPackage(it, script, icon, sha256) }
+
     companion object {
         const val MAX_ZIP = 2 * 1024 * 1024
         const val MAX_SCRIPT = 1024 * 1024

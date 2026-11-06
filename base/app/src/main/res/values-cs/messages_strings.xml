@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Přátelé</string>
     <string name="messages_title">Zprávy</string>
     <string name="messages_empty">Zatím žádné konverzace. Napište příteli pomocí tužky nahoře.</string>
     <string name="messages_failed">Spotify vaše zprávy neodeslal.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s odebral(a) %2$s</string>
     <string name="messages_event_link">%1$s se připojil(a) přes odkaz</string>
     <string name="messages_event_reported">Konverzace byla nahlášena</string>
-    <string name="friends_title">Aktivita přátel</string>
-    <string name="friends_now">Teď</string>
-    <string name="friends_empty">Zatím žádná aktivita přátel. Zobrazí se tu přátelé, které sledujete a kteří na Spotify sdílejí, co poslouchají.</string>
-    <string name="friends_failed">Spotify neposlal aktivitu přátel.</string>
-    <string name="friends_refresh">Obnovit</string>
+    <string name="friends_tab">Přátelé</string>
 </resources>

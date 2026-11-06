@@ -2,7 +2,7 @@
 
 An extension is a small JavaScript file plus a `manifest.json`. Myspoti runs it in a sandbox. What
 it may do is a list of **actions** from a closed catalogue the app defines (section 4): provide
-lyrics or song details, add Home sections, search results, menu entries or player buttons (as
+lyrics, their romanization or song details, add Home sections, search results, menu entries or player buttons (as
 native blocks the app draws itself, section 3), give a song's audio or download files, show its own
 web page, sign in on a website, react to the song playing, and, if the user allows it, read or change the signed-in
 Spotify account. Each action has a fixed icon, a short label, a level (normal or critical) and the
@@ -10,6 +10,9 @@ API it unlocks; the user sees them as icons, each with your reason, before insta
 
 This page documents what the build ships (API version 1). Nothing here is a promise about
 anything else.
+
+Look-only extensions (colours, hidden parts, tab order, text size, fixed Home blocks, all declared
+in the manifest and applied by the app) are described in [UI-LOOKS.md](UI-LOOKS.md).
 
 Feature-gated media transforms and concurrent source resolution are described in
 [SOURCE-PIPELINES.md](SOURCE-PIPELINES.md). Providers and recording matching remain
@@ -94,7 +97,8 @@ action it lists, or is not installed. The official repository is suggested, neve
 search, Menus & player, Library & Spotify, Pages & more. Each area opens with a **Built-in** row (a
 dropdown of what Myspoti does there by itself, e.g. Lyrics: Spotify, LRCLIB, NetEase, KuGou,
 Lyrics+, Genius; built-in sources are not extensions), then the extensions acting there with their
-switch and action icons, in the user's order (arrows; installation order until moved). That order
+switch and action icons, in the user's order (arrows). A newly installed extension is placed first in each area and in
+the audio and download source orders it gives; an update keeps the user's order. That order
 is the one the area asks them in (section 3) and the one the playback arbiter uses. The Built-in row says in
 one plain sentence what the app already does there; an area no extension acts in says "No
 extension — the app already does: …". Nothing is ever installed without the install prompt, and
@@ -122,11 +126,40 @@ extensions did there ("Lyrics of X from Y", "Skipped by Z") with a one-tap Turn 
 | `replaces` | string[] | `[]` | Extension ids this one takes the place of (10 at most): installing it offers to turn them off. |
 | `conflictsWith` | string[] | `[]` | Extension ids that must not run with this one (10 at most): the user picks which to keep. Either side declaring it is enough. |
 | `icon` | string | none | A `.png` at the root of the package (square, 256 px or less). Without it, `icon.png` is used if the package has one, else a tile with the name's first letter. |
-| `category` | string | `other` | Where the store files it, one of a fixed list: `lyrics` (needs `lyrics.provide` or `trackinfo.provide`), `playback` (Playback & audio: a `playback.*`, `audio.source` or `player.buttons` action), `library` (`library.read`, `library.write` or `playlists.write`), `discovery` (`home.sections`, `search.provide` or `spotify.catalog`), `stats` (`playback.events` or `library.read`), `look` (Look & feel: a blocks action or `webview.page`), `social` (`network`, `library.read` or `spotify.catalog`), `tools`, `other`. A category the actions do not fit, or an unknown one, is filed under `other` (`myspoti-ext check` says so); an extension with `download.source` is always under `tools`. `tags` are shown and found by the search, not filtered on. |
+| `category` | string | `other` | Where the store files it, one of a fixed list: `lyrics` (needs `lyrics.provide`, `lyrics.romanize` or `trackinfo.provide`), `playback` (Playback & audio: a `playback.*`, `audio.source` or `player.buttons` action), `library` (`library.read`, `library.write` or `playlists.write`), `discovery` (`home.sections`, `search.provide` or `spotify.catalog`), `stats` (`playback.events` or `library.read`), `look` (Look & feel: a blocks action, `webview.page` or `ui.style`), `social` (`network`, `library.read` or `spotify.catalog`), `tools`, `other`. A category the actions do not fit, or an unknown one, is filed under `other` (`myspoti-ext check` says so); an extension with `download.source` is always under `tools`. `tags` are shown and found by the search, not filtered on. |
 | `tags` | string[] | `[]` | 8 at most, each 1 to 24 characters: lower case letters, digits, spaces, `-`. The store's search finds them. |
 | `minAppVersion` | string | none | The oldest Myspoti it works on (`"2.0.2"`, `"2.0.2-beta.4"`), compared like semantic versions (a release is newer than its betas). An older Myspoti shows "Requires Myspoti 2.0.2 or newer" and does not install it. |
 | `changelog` | string | `""` | What changed in this version, 2000 characters at most: shown on the store page and before an update. |
+| `ui` | object | none | The look the extension gives the app, with the `ui.style` action: see [UI-LOOKS.md](UI-LOOKS.md). Ignored without that action (and by an older app). |
 | `welcome` | object | none | `{ "message": "...", "steps": ["...", "..."] }`, shown once right after the first install (not on updates): what the extension does (600 characters at most) and what is left to do (5 steps at most, 160 characters each). Older apps ignore it. |
+| `translations` | object | `{}` | The texts people see, in other languages, by language tag (`"fr"`, `"pt-BR"`; 80 at most). Below. Older apps ignore it. |
+
+`translations` lets the store, the install prompt and the extension's page speak the user's
+language, with no action to ask. Each language may give any of `name`, `description`,
+`changelog`, `welcome`, `actions` (an action's name → its reason, 80 characters) and `settings`
+(a setting's key → `{ "label", "description", "options" }`, `options` being the labels of a
+choice's options in their order). What a language leaves out stays the manifest's own text.
+Myspoti shows the language picked in its settings (the phone's when it follows the phone): `pt-BR`
+takes `pt-BR`, then `pt`, then another `pt-…`, then the manifest's own texts. A choice's values do
+not change: `myspoti.settings.get('quality')` still gives `"lossless"` when the user ticked
+"Sans perte". The reasons the user accepted are weighed on the manifest's own `why`, so a new
+translation never asks the user again. An action or a setting the manifest does not have, or a
+number of option labels that is not the number of options, refuses the package.
+
+```json
+"translations": {
+  "fr": {
+    "description": "Des paroles synchronisées d'example.com.",
+    "actions": { "lyrics.provide": "Paroles synchronisées d'example.com" },
+    "settings": { "quality": { "label": "Qualité", "options": ["Sans perte", "Haute"] } }
+  },
+  "pt-BR": { "description": "Letras sincronizadas do example.com." }
+}
+```
+
+Texts your script makes (blocks, outcomes, `notify`, your page) follow `myspoti.locale` (section 3),
+also with no action to ask. A sign-in page opened with `myspoti.auth.open` is asked in the same
+language (`Accept-Language`), so a site that has it shows it.
 
 An action entry: `{ "name": "...", "why": "...", "hosts": [...] }`.
 
@@ -240,6 +273,7 @@ player.buttons action in the manifest`):
 | Hook | Action | Input | Answer |
 |---|---|---|---|
 | `lyrics` | `lyrics.provide` | track | lyrics (below) |
+| `lyrics-romanize` | `lyrics.romanize` | `{ track, language?, lines }` | romanizations, by line (below) |
 | `audio-source` | `audio.source` | track | `{ url, … }` |
 | `download-source` | `download.source` | track + quality | files |
 | `trackinfo` | `trackinfo.provide` | track | blocks, under the song's credits |
@@ -252,9 +286,10 @@ player.buttons action in the manifest`):
 | `tap` | any blocks action | `{ action, surface, context }` | nothing (the app asks the blocks again) |
 | `status` | none | `{}` | `{ live, detail? }` (below) |
 
-The lyrics, song details, Home, search, menu and player hooks are **additive**: every extension is
-asked, the answers merged in the area's order (lyrics: the best, ties to the higher one). Audio and
-downloads are **ordered**: asked one after the other in the user's order until one answers (section 4.2). Registering twice replaces. Returning
+The lyrics, romanization, song details, Home, search, menu and player hooks are **additive**: every extension is
+asked, the answers merged in the area's order (lyrics: the best, ties to the higher one;
+romanizations: each extension is sent the lines the ones before it left without one). Audio and
+downloads are **ordered**: asked one after the other in the user's order until one answers (section 4.2); for downloads the file that fits the quality best goes first (`download-source` below). Registering twice replaces. Returning
 `null`/`undefined` means "no answer": the app goes on without this extension. A throw is a
 failure (recorded as the extension's last error, shown on its page; 3 in a row turn it off). A
 timeout, or an `http` error your script did not catch (DNS, connection, timeout), is a **network**
@@ -307,6 +342,40 @@ is for scripts that are not Latin (Japanese, Korean, Chinese, Cyrillic...). An o
 simply does not read these fields.
 
 Action: `lyrics.provide` (normal). Usually you also need `network`.
+
+### `lyrics-romanize`
+
+Asked once a song's lyrics are found, whatever their source, for the lines written in another
+script than Latin (Japanese, Korean, Chinese, Cyrillic, Greek...) that the source left without a
+`romanization`. The lyrics show at once; the romanizations join them when they come and are kept
+with them. A romanization the source gave (Apple Music, NetEase, a lyrics extension) is never asked
+for nor replaced.
+
+```js
+// input
+{ track: { id, uri, title, … },                  // the track every hook receives
+  language: 'ja',                                // optional: the lyrics' language, when their source says it
+  lines: [ { index: 3, text: '夢ならば' }, … ] }  // only the lines to romanize, by index in the song
+
+// answer
+{ lines: [ { index: 3, romanization: 'yume naraba' }, … ] }
+```
+
+Answer the lines you can, by `index`, and leave the others out; return `null` when you have none.
+An index that was not asked, a line that is not an object, an `index` that is not a whole number,
+a `romanization` that is not a text or is blank, and an index already answered are ignored, never
+an error; an answer that is not an object with `lines` is a failure. A romanization is trimmed, 500
+characters at most, and dropped when it only repeats its line. A line with no letter outside Latin
+(`♪`, `(ooh)`, English) is never sent, and a song without one is not asked at all. Several
+romanizers are asked in the lyrics area's order, each one sent only the lines the ones before it
+left without one: one for Japanese and one for Korean complete each other. The time limit (section
+7) covers every line of the song in one call.
+
+Feature `lyrics.romanize`. Like any action it does not know, an older Myspoti refuses a package
+that asks this one (section 2).
+
+Action: `lyrics.romanize` (normal). It needs no other action: ask `network` only if your
+romanizer calls a server.
 
 ### `audio-source`
 
@@ -417,13 +486,17 @@ described by one `SegmentTemplate` with `initialization`, `media` using `$Number
 `SegmentTimeline`; Myspoti fetches the segments with your `headers` and joins them into one FLAC
 file. Anything else a service needs (another manifest layout, decryption, an API call per
 segment, a token refresh) is yours to do: hand over a plain file `url`, or a manifest in that form.
-Myspoti tries the files in your order and keeps the first that passes the checks: a FLAC must be
+Myspoti keeps the first file that passes the checks: a FLAC must be
 a real FLAC file (its header is read), an `m4a` or `mp3` must hold an audio track the phone can
 read, and the length must be the song's (Spotify's duration): not shorter by more than 5 s
 (previews are refused) nor longer by more than 15 s (another version). `m4a` and `mp3` are kept as
-served. A format outside the list, a private address or a missing `format` is an error. The
-extensions are asked in the user's order for downloads (section 4.2); the first one that answers
-wins. Time limit: 30 s (the desktop runner: the same).
+served. A format outside the list, a private address or a missing `format` is an error. All
+download extensions are asked at once; their files are tried best fit to `quality` first (hi-res:
+more than 16-bit or 48 kHz; cd: a 16-bit FLAC; small: a file kept as served), then a file found by
+ISRC, then the user's order for downloads (section 4.2), then your own order. When none of them can
+be used, the files of the extensions that answered later are tried. Once one extension has
+answered, a slower one is waited for 2 s (8 s when nothing fits the quality yet); its files still
+come next if needed. Time limit: 30 s (the desktop runner: the same).
 
 ### `status`
 
@@ -704,6 +777,7 @@ until the user accepts them all with the same tick.
 | `playback.queue` | QueueMusic | Edit the queue | normal | shared | `spotify.player` addToQueue, playNext, moveInQueue, removeFromQueue, clearQueue |
 | `playback.events` | GraphicEq | Know what you play | normal | shared | `myspoti.player.current()`, `myspoti.on('track' \| 'playback')`, `spotify.player` state, queue, volume, media (`myspoti.spotify.media`) |
 | `lyrics.provide` | Lyrics | Provide lyrics | normal | additive, takeover | `lyrics` hook |
+| `lyrics.romanize` | Abc | Romanize lyrics | normal | additive, takeover | `lyrics-romanize` hook |
 | `trackinfo.provide` | Info | Add song details | normal | additive, takeover | `trackinfo` hook |
 | `audio.source` | Headphones | Play audio from elsewhere | **critical** | ordered, takeover | `audio-source` hook |
 | `download.source` | Download | Provide downloads | **critical** | ordered, takeover | `download-source` hook |
@@ -723,6 +797,7 @@ until the user accepts them all with the same tick.
 | `webview.auth` | Key | Sign in on a website | **critical** | takeover | `myspoti.auth.open`, `auth` event |
 | `storage` | Save | Keep its own data | normal | shared | `myspoti.storage` (512 KB) |
 | `attest` | Fingerprint | Prove this is Myspoti | normal | shared | `myspoti.attest` (section 10) |
+| `ui.style` | Palette | Change the look | normal | takeover | manifest `ui`: colours, hidden parts, tab order, text size, Home blocks ([UI-LOOKS.md](UI-LOOKS.md)); never on a protected surface (4.3) |
 
 ### 4.1 Old manifests
 
@@ -739,7 +814,7 @@ migrated the same way when the app starts.
 
 ### 4.2 Living together
 
-- **Additive** actions (lyrics, song details, Home, search, menus, player): every extension adds;
+- **Additive** actions (lyrics, romanizations, song details, Home, search, menus, player): every extension adds;
   answers are merged in the area's order, duplicates dropped, quotas per extension (section 3).
 - **Ordered** actions (`audio.source`, `download.source`): every source is asked in the order the
   user sets in Settings (Playback, Downloads), each action its own order, until one answers. A new
@@ -791,8 +866,9 @@ A script that throws while loading fails to load, with `file:line` in the messag
 | Call | Notes |
 |---|---|
 | `myspoti.apiVersion` | `1`. |
+| `myspoti.locale` | The language Myspoti shows, as a BCP 47 tag: `"fr"`, `"pt-BR"`, `"zh-TW"`. Below. |
 | `myspoti.extension` | `{ id, name, version }` from the manifest. |
-| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
+| `myspoti.features` | What this Myspoti understands beyond the first API: `audio.manifest`, `audio.expires`, `audio.quality`, `audio.ahead` (section 3, `audio-source`), `http.all`, `status` (section 3), `results` (section 3, "Outcomes"), `settings.section` (section 2: a setting's `section`, `role`, `perNetwork`), `util.sleep`, `lyrics.romanize` (section 3, `lyrics-romanize`), `attest` (section 10, only when the user granted it). Missing on an older Myspoti: test `myspoti.features && myspoti.features.indexOf(name) >= 0`. |
 | `myspoti.provide(hook, fn)` | Section 3. |
 | `myspoti.on('track' \| 'playback', fn)` | Section 3. Needs `playback.events`. |
 | `myspoti.on('auth', fn)` | Section 3, sign in. Needs `webview.auth`. |
@@ -818,6 +894,16 @@ A script that throws while loading fails to load, with `file:line` in the messag
 | `myspoti.util.base64Encode(s)` / `base64Decode(s)` | UTF-8 text. Decode throws on bad input. |
 | `myspoti.util.md5(s)`, `sha1(s)`, `sha256(s)` | Lower-case hex. |
 | `myspoti.util.hmacSha256(key, text)` | Lower-case hex. |
+| `myspoti.util.sleep(ms)` | Synchronous backoff on the extension thread, with no permission required. `ms` must be a finite, non-negative integer; values above 2000 are capped to 2000 ms. Returns `undefined`. Counts against the current hook/event time limit and stops on cancellation. An older host has no method: check `myspoti.util && typeof myspoti.util.sleep === 'function'` or the `util.sleep` feature before use. |
+
+`myspoti.locale` needs no action. It is the language picked in Myspoti's settings, or the
+phone's when the app follows the phone, so it is never empty. It is read again each time you
+read it: after the user changes the language, the next read gives the new one, without a reload.
+Read it where you build text (a block, a setting's answer, your page's first message) rather
+than once at load. It is the app's language, not the lyrics translation target, which the
+reader picks apart (section 3, `translationLanguage`). An older Myspoti has no `locale` (`undefined`), so fall
+back: `var lang = myspoti.locale || 'en';`. Compare its first part to pick your strings:
+`lang.split('-')[0]`.
 
 `myspoti.player` (needs `playback.events` / `playback.control`) is Myspoti's own player. The
 Spotify account's player (what the Web Player is playing) is `myspoti.spotify.player`, with the
@@ -1242,13 +1328,14 @@ is. `playlists.setCover` takes a JPEG as base64.
 | What | Limit |
 |---|---|
 | Loading the script (its top level; compiling it is not counted) | 3 s |
-| A hook call | One table for the app and the desktop runner (`HookBudgets`): 8 s for `lyrics`, 15 s for `audio-source`, 30 s for `download-source`, 3 s for blocks hooks, `tap` and `message`, 5 s for `page` and `status` |
+| A hook call | One table for the app and the desktop runner (`HookBudgets`): 8 s for `lyrics` and `lyrics-romanize`, 15 s for `audio-source`, 30 s for `download-source`, 3 s for blocks hooks, `tap` and `message`, 5 s for `page` and `status` |
 | A `track` or `playback` event | 3 s |
 | A `setting` or `online` event | 30 s |
 | An `auth` event | 10 s |
 | Script work | Checked every 5000 instructions against the call's time; a loop cannot hold the thread. A call that runs over is abandoned, and it cannot be caught by `try/catch`. The next call waits behind it on the extension's own thread, never on the app's. |
 | Recursion | 800 interpreter frames |
 | Time spent waiting for the user to confirm | Not counted |
+| `myspoti.util.sleep(ms)` | At most 2000 ms per call, counted in the current hook/event budget; never extends its deadline |
 | `myspoti.http` | 120 requests/min, 5 MB per response, 20 s per request, https only; `http.all`: 4 at once |
 | `myspoti.spotify` | 60 calls/min, 256 KB of arguments, 1000 items per list, 2 MB per answer |
 | `myspoti.attest` | `sign` 120/min and 64 KB of text; `enroll` 5/hour and a challenge of 128 bytes |
@@ -1278,6 +1365,7 @@ to the confirmation prompt below. Give absolute paths.)
 | `check <folder\|zip>` | Package validity only: prints the manifest's problems (`✗ ...`, e.g. a missing or too long `why`), says when it is an old manifest, loads the script, prints the hooks it provides and each action as the user sees it (icon name, label, level, why). It never calls a hook. Exit 1 on a problem. |
 | `test <folder\|zip> --scenario file.json [--state file.json]` | Runs a scenario (below): hook calls, events and page messages in order with the app's time limits, requests answered or broken by rules, storage kept across steps. Prints each step (`✓`/`✗`, outcome, time); exit 1 when a step failed. |
 | `run <folder\|zip> lyrics --title T --artist A [options]` | Calls the hook and prints what it answered, parsed the way the app parses it (lines, `synced`, `word by word`, or the audio URL and headers). |
+| `run <folder\|zip> lyrics-romanize --title T --artist A --lines FILE [--language L]` | Sends the lines of FILE (the song, one line per row) the app would send, the ones in another script than Latin by their index, and prints each next to the romanization the app keeps. |
 | `run <folder\|zip> audio-source ...` | Same for the audio hook. |
 | `run <folder\|zip> download-source ... [--quality hi-res\|cd\|small]` | Same for the download hook: prints the files, best first, as the app reads them (default quality `cd`). |
 | `run <folder\|zip> audio-source ... [--ahead true]` | Asks for a song's audio (with `ahead: true` when given) and prints the answer as the app reads it: address or manifest, `expiresInMs`, quality. |
@@ -1367,8 +1455,9 @@ A scenario is a JSON file:
   default; 429 when only `retryAfter` is given, in seconds, sent as `Retry-After`), `headers` and
   `body` (text, or JSON written as text). `times: n` applies a rule to n requests only. Requests no
   rule matches go to the network, or fail as a DNS error with `"offline": true`.
-- **Steps**: `{ hook, input?, track?, quality?, ahead?, data?, action?, query?, cancelAtMs? }` calls
-  a hook (the input is built as the app builds it unless `input` is given); `cancelAtMs` ends the
+- **Steps**: `{ hook, input?, track?, quality?, ahead?, data?, action?, query?, lines?, language?, cancelAtMs? }` calls
+  a hook (the input is built as the app builds it unless `input` is given; `lines`, the song's lines,
+  and `language` for `lyrics-romanize`); `cancelAtMs` ends the
   call at that time (outcome `cancelled`). `{ event, input? }` delivers an event. `{ message }` is
   your page posting to you; what you answer or post back is the page's. `{ wait: ms }` waits.
   `{ storage: { key: value \| null } }` checks your storage.

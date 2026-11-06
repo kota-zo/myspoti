@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Prieteni</string>
     <string name="messages_title">Mesaje</string>
     <string name="messages_empty">Nicio conversație încă. Scrie-i unui prieten cu creionul de sus.</string>
     <string name="messages_failed">Spotify nu ți-a trimis mesajele.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s l-a eliminat pe %2$s</string>
     <string name="messages_event_link">%1$s s-a alăturat printr-un link</string>
     <string name="messages_event_reported">Conversația a fost raportată</string>
-    <string name="friends_title">Activitatea prietenilor</string>
-    <string name="friends_now">Acum</string>
-    <string name="friends_empty">Încă nu există activitate a prietenilor. Aici apar prietenii pe care îi urmărești și care își partajează activitatea de ascultare pe Spotify.</string>
-    <string name="friends_failed">Spotify nu a trimis activitatea prietenilor.</string>
-    <string name="friends_refresh">Reîmprospătează</string>
+    <string name="friends_tab">Prieteni</string>
 </resources>

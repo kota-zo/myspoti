@@ -13,9 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -57,7 +56,7 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var playlists by remember { mutableStateOf<List<EditablePlaylist>?>(null) }
+    var playlists by remember { mutableStateOf(EditablePlaylists.cachedWithCovers()) }
     var query by remember { mutableStateOf("") }
     var reading by remember { mutableStateOf(false) }
     var asking by remember { mutableStateOf<Pair<EditablePlaylist, MergePlan>?>(null) }
@@ -122,7 +121,7 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
 
     asking?.let { (target, plan) ->
         val some = plan.someDuplicate
-        AlertDialog(
+        LookAlertDialog(
             // Outside the dialog: nothing is added (the Web Player's onOutside).
             onDismissRequest = { asking = null; onDismiss() },
             containerColor = tone(0xFF282828),
@@ -156,6 +155,10 @@ fun AlbumOptionsSheet(albumUri: String, name: String, known: com.music.spotui.da
             QueueListRows(albumUri, known, onDismiss)
             // Liked Songs has no playlist to copy from: only the albums.
             if (albumUri.startsWith("spotify:album:")) OptionRow(Icons.Outlined.AddCircleOutline, stringResource(R.string.context_menu_add_to_playlist)) { adding = true }
+            // Shared as a playlist is: its Spotify Code and its link (reported: only songs could be shared).
+            if (albumUri.startsWith("spotify:album:")) OptionRow(Icons.Outlined.QrCode2, stringResource(R.string.context_menu_share)) {
+                SpotifyCode.show(ShareTarget(albumUri, name, known?.ownerName.orEmpty(), known?.coverUri.orEmpty())); onDismiss()
+            }
         }
     }
 }

@@ -19,6 +19,8 @@ class HomeViewModel constructor(private val repository: AppRepository = Graph.re
     /** Selected home chip ("" = All). */
     val facet = androidx.compose.runtime.mutableStateOf("")
     private var homeJob: kotlinx.coroutines.Job? = null
+    /** When the feed was last asked for. */
+    private var fetchedAt = 0L
 
     init {
         fetchHome()
@@ -47,18 +49,34 @@ class HomeViewModel constructor(private val repository: AppRepository = Graph.re
         fetchHome()
     }
 
+    /**
+     * Home shown again (back on its tab, the app reopened): read again once it is older than
+     * [STALE_MS], behind the feed shown. It was read once per launch, and an app kept open for
+     * days showed the same releases and picks (reported: nothing new to discover).
+     */
+    fun refreshIfStale() {
+        if (System.currentTimeMillis() - fetchedAt >= STALE_MS) fetchHome()
+    }
+
+    /**
+     * The chip [f] tapped: it is picked, or unpicked when it already was: a sub-chip (Following) goes
+     * back to its parent (Music), a top chip back to everything.
+     */
     fun selectFacet(f: String) {
-        facet.value = if (facet.value == f) "" else f
+        facet.value = if (facet.value != f) f
+            else com.music.spotui.data.entity.HomeSubChips.parentOf(f)?.takeIf { it != f } ?: ""
         fetchHome()
     }
 
     private companion object {
         val RETRY_DELAYS_MS = longArrayOf(2_000, 5_000, 15_000, 30_000)
+        const val STALE_MS = 30 * 60_000L
     }
 
     private fun fetchHome() {
         homeJob?.cancel()
         val f = facet.value
+        fetchedAt = System.currentTimeMillis()
         homeJob = viewModelScope.launch(Dispatchers.IO) {
             repository.provideHomeFeed(f).collect { feed ->
                 _home.value = feed

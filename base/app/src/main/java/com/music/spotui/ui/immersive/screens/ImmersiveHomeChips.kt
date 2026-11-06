@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -58,12 +60,13 @@ internal fun ImmersiveChipRow(
 internal fun ImmersiveChip(
     label: String,
     selected: Boolean,
+    shape: androidx.compose.ui.graphics.Shape = ChipShape,
     onClick: () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     Box(
         modifier = Modifier
-            .clip(ChipShape)
+            .clip(shape)
             .background(if (selected) Immersive.Text else Immersive.Raised)
             // Only a pill that is not already selected has anything to report: re-tapping the
             // current one changes nothing, so buzzing for it would be feedback for a no-op.
@@ -81,5 +84,54 @@ internal fun ImmersiveChip(
             ),
             maxLines = 1,
         )
+    }
+}
+
+/** The left half of two chips joined (a picked chip and the one it opened), and the right one. */
+private val JoinedStart = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, topEnd = 4.dp, bottomEnd = 4.dp)
+private val JoinedEnd = RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 12.dp, bottomEnd = 12.dp)
+
+/**
+ * The Home facets as Spotify shows them: All, Music, Podcasts, Audiobooks; once one is picked, a
+ * close chip, the picked one, and joined to it the chips it opens (Following: only what the user
+ * follows), which slide out of it. A label Spotify sent is shown as it came (in the app's language).
+ */
+@Composable
+internal fun ImmersiveHomeFacets(facet: String, labels: Map<String, String>, podcasts: Boolean, select: (String) -> Unit) {
+    val parent = com.music.spotui.data.entity.HomeSubChips.parentOf(facet) ?: facet
+    val subs = com.music.spotui.data.entity.HomeSubChips.byParent[parent].orEmpty()
+    ImmersiveChipRow {
+        if (facet.isEmpty()) {
+            ImmersiveChip(labels[""].orEmpty(), selected = true) {}
+            for (id in listOfNotNull("music-chip", "podcasts-chip".takeIf { podcasts }, "audiobooks-chip".takeIf { podcasts })) {
+                ImmersiveChip(labels[id].orEmpty(), selected = false) { select(id) }
+            }
+            return@ImmersiveChipRow
+        }
+        // Back to everything.
+        Box(
+            Modifier.clip(ChipShape).background(Immersive.Raised).clickable(role = Role.Button) { select("") }
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.Rounded.Close, contentDescription = labels[""],
+                tint = Immersive.Text, modifier = Modifier.size(18.dp),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            ImmersiveChip(labels[parent] ?: subs.firstOrNull { it.first == parent }?.second.orEmpty(), selected = true,
+                shape = if (subs.isEmpty()) ChipShape else JoinedStart) { select(parent) }
+            subs.forEachIndexed { i, (id, label) ->
+                // Slides out of the picked chip the first time it shows.
+                val shown = androidx.compose.runtime.remember(id) { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+                androidx.compose.animation.AnimatedVisibility(
+                    visibleState = shown,
+                    enter = androidx.compose.animation.expandHorizontally(expandFrom = Alignment.Start) + androidx.compose.animation.fadeIn(),
+                ) {
+                    ImmersiveChip(label, selected = facet == id,
+                        shape = if (i == subs.lastIndex) JoinedEnd else RoundedCornerShape(4.dp)) { select(id) }
+                }
+            }
+        }
     }
 }

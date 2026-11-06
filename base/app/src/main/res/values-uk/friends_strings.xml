@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Активність друзів</string>
+    <string name="friends_now">Зараз</string>
+    <string name="friends_empty">Поки що немає активності друзів. Тут з’являться друзі, на яких ви підписані й які діляться в Spotify тим, що слухають.</string>
+    <string name="friends_failed">Spotify не надіслав активність друзів.</string>
+    <string name="friends_refresh">Оновити</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Aktibidad ng mga kaibigan</string>
+    <string name="friends_now">Ngayon</string>
+    <string name="friends_empty">Wala pang aktibidad ng mga kaibigan. Lalabas dito ang mga kaibigang fina-follow mo na nagbabahagi ng kanilang pakikinig sa Spotify.</string>
+    <string name="friends_failed">Hindi ipinadala ng Spotify ang aktibidad ng mga kaibigan.</string>
+    <string name="friends_refresh">I-refresh</string>
+</resources>

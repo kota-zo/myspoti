@@ -74,4 +74,20 @@ class UpdateCheckerTest {
             {"name":"myspoti-stable-2.2.1.apk","browser_download_url":"https://x/stable.apk"}]}""")
         assertEquals("https://x/stable.apk", UpdateChecker.apkAsset(single, beta = false, abis = listOf("armeabi-v7a")))
     }
+    @Test fun findsTheClearlyNamedApks() {
+        val r = org.json.JSONObject("""{"tag_name":"v2.4.0","assets":[
+            {"name":"Myspoti-2.4.0-TV.apk","browser_download_url":"https://x/tv.apk"},
+            {"name":"Myspoti-2.4.0-universal.apk","browser_download_url":"https://x/universal.apk"},
+            {"name":"Myspoti-2.4.0-ARMv7.apk","browser_download_url":"https://x/v7.apk"},
+            {"name":"Myspoti-2.4.0-ARMv8.apk","browser_download_url":"https://x/v8.apk"},
+            {"name":"myspoti-stable-2.4.0-arm64-v8a.apk","browser_download_url":"https://x/legacy-v8.apk"}]}""")
+        assertEquals("https://x/v8.apk", UpdateChecker.apkAsset(r, beta = false, abis = listOf("arm64-v8a", "armeabi-v7a", "armeabi")))
+        assertEquals("https://x/v7.apk", UpdateChecker.apkAsset(r, beta = false, abis = listOf("armeabi-v7a", "armeabi")))
+        // A stable release has no beta APK.
+        assertEquals("", UpdateChecker.apkAsset(r, beta = true, abis = listOf("arm64-v8a")))
+        val b = org.json.JSONObject("""{"tag_name":"v2.4.0-beta.2","assets":[
+            {"name":"Myspoti-Beta-2.4.0-beta.2-ARMv8.apk","browser_download_url":"https://x/b8.apk"}]}""")
+        assertEquals("https://x/b8.apk", UpdateChecker.apkAsset(b, beta = true, abis = listOf("arm64-v8a")))
+        assertEquals("", UpdateChecker.apkAsset(b, beta = false, abis = listOf("arm64-v8a")))
+    }
 }

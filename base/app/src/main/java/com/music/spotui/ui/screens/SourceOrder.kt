@@ -147,7 +147,7 @@ private fun SourceRow(
         AnimatedVisibility(open) {
             Column(Modifier.fillMaxWidth().padding(start = 86.dp, end = 20.dp, bottom = 6.dp)) {
                 Text(stringResource(R.string.sources_detail_version, e.version, e.author.ifBlank { "—" }), style = look.line)
-                pkg?.manifest?.declared()?.firstOrNull { it.name == action.key }?.why?.takeIf { it.isNotBlank() }?.let {
+                pkg?.manifest?.let { m -> m.declared().firstOrNull { it.name == action.key }?.let(m::whyShown) }?.takeIf { it.isNotBlank() }?.let {
                     Text(it, style = look.line, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
                 last?.let {
@@ -160,4 +160,18 @@ private fun SourceRow(
             }
         }
     }
+}
+
+/**
+ * The order of the source [action] in one line ("Tidal › Spotify"), for a row that leads to it;
+ * null with no extension in it.
+ */
+@Composable
+internal fun sourceLineSummary(action: Action): String? {
+    val registry by Extensions.registry.collectAsState()
+    val line = remember(registry, action) { Extensions.sourceLine(action) }
+    if (line.none { it != SPOTIFY_SOURCE }) return null
+    val spotify = stringResource(R.string.sources_spotify)
+    val names = line.take(3).map { if (it == SPOTIFY_SOURCE) spotify else registry.find(it)?.name ?: it }
+    return names.joinToString(" › ") + if (line.size > 3) " …" else ""
 }

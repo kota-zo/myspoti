@@ -24,7 +24,9 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bolt
@@ -142,6 +144,7 @@ fun actionIcon(a: Action?): ImageVector = when (a) {
     Action.PLAYBACK_MIRROR -> Icons.Rounded.VolumeOff
     Action.PLAYBACK_EVENTS -> Icons.Rounded.GraphicEq
     Action.LYRICS_PROVIDE -> Icons.Rounded.Lyrics
+    Action.LYRICS_ROMANIZE -> Icons.Rounded.Abc
     Action.TRACKINFO_PROVIDE -> Icons.Rounded.Info
     Action.AUDIO_SOURCE -> Icons.Rounded.Headphones
     Action.DOWNLOAD_SOURCE -> Icons.Rounded.Download
@@ -161,6 +164,7 @@ fun actionIcon(a: Action?): ImageVector = when (a) {
     Action.WEBVIEW_AUTH -> Icons.Rounded.Key
     Action.STORAGE -> Icons.Rounded.Save
     Action.ATTEST -> Icons.Rounded.Fingerprint
+    Action.UI_STYLE -> Icons.Rounded.Palette
     null -> Icons.Rounded.Extension
 }
 
@@ -170,6 +174,7 @@ fun actionLabel(a: Action?): Int = when (a) {
     Action.PLAYBACK_MIRROR -> R.string.action_playback_mirror
     Action.PLAYBACK_EVENTS -> R.string.action_playback_events
     Action.LYRICS_PROVIDE -> R.string.action_lyrics_provide
+    Action.LYRICS_ROMANIZE -> R.string.action_lyrics_romanize
     Action.TRACKINFO_PROVIDE -> R.string.action_trackinfo_provide
     Action.AUDIO_SOURCE -> R.string.action_audio_source
     Action.DOWNLOAD_SOURCE -> R.string.action_download_source
@@ -189,6 +194,7 @@ fun actionLabel(a: Action?): Int = when (a) {
     Action.WEBVIEW_AUTH -> R.string.action_webview_auth
     Action.STORAGE -> R.string.action_storage
     Action.ATTEST -> R.string.action_attest
+    Action.UI_STYLE -> R.string.action_ui_style
     null -> R.string.action_unknown
 }
 

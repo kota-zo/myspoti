@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Abangane</string>
     <string name="messages_title">Imilayezo</string>
     <string name="messages_empty">Azikabikho izingxoxo. Bhalela umngane ngepensela ngenhla.</string>
     <string name="messages_failed">I-Spotify ayiyithumelanga imilayezo yakho.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">U-%1$s ususe u-%2$s</string>
     <string name="messages_event_link">U-%1$s ujoyine ngesixhumanisi</string>
     <string name="messages_event_reported">Ingxoxo ibikiwe</string>
-    <string name="friends_title">Umsebenzi wabangane</string>
-    <string name="friends_now">Manje</string>
-    <string name="friends_empty">Akukho msebenzi wabangane okwamanje. Abangane obalandelayo abaphana ngomsebenzi wabo wokulalela ku-Spotify bavela lapha.</string>
-    <string name="friends_failed">I-Spotify ayithumelanga umsebenzi wabangane.</string>
-    <string name="friends_refresh">Vuselela</string>
+    <string name="friends_tab">Abangane</string>
 </resources>

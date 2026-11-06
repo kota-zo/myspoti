@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Mga Kaibigan</string>
     <string name="messages_title">Mga Mensahe</string>
     <string name="messages_empty">Wala pang usapan. Sumulat sa kaibigan gamit ang lapis sa itaas.</string>
     <string name="messages_failed">Hindi naipadala ng Spotify ang mga mensahe mo.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">Inalis ni %1$s si %2$s</string>
     <string name="messages_event_link">Sumali si %1$s gamit ang link</string>
     <string name="messages_event_reported">Ini-report ang usapan</string>
-    <string name="friends_title">Aktibidad ng mga kaibigan</string>
-    <string name="friends_now">Ngayon</string>
-    <string name="friends_empty">Wala pang aktibidad ng mga kaibigan. Lalabas dito ang mga kaibigang fina-follow mo na nagbabahagi ng kanilang pakikinig sa Spotify.</string>
-    <string name="friends_failed">Hindi ipinadala ng Spotify ang aktibidad ng mga kaibigan.</string>
-    <string name="friends_refresh">I-refresh</string>
+    <string name="friends_tab">Mga Kaibigan</string>
 </resources>

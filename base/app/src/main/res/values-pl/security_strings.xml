@@ -2,5 +2,6 @@
 <resources>
     <string name="action_playback_mirror">Utrzymuje ciche odtwarzanie Spotify tutaj; liczy odtworzenia na Twoim koncie</string>
     <string name="action_attest">Potwierdzić, że to Myspoti</string>
+    <string name="action_ui_style">Zmienić wygląd</string>
     <string name="mirror_indicator">Spotify odzwierciedlane przez %1$s</string>
 </resources>

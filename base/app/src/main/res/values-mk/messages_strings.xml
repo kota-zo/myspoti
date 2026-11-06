@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Пријатели</string>
     <string name="messages_title">Пораки</string>
     <string name="messages_empty">Сѐ уште нема разговори. Пишете му на пријател со моливот горе.</string>
     <string name="messages_failed">Spotify не ги испрати вашите пораки.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s го отстрани %2$s</string>
     <string name="messages_event_link">%1$s се приклучи преку линк</string>
     <string name="messages_event_reported">Разговорот беше пријавен</string>
-    <string name="friends_title">Активност на пријатели</string>
-    <string name="friends_now">Сега</string>
-    <string name="friends_empty">Сè уште нема активност на пријатели. Тука се прикажуваат пријателите што ги следите и што споделуваат што слушаат на Spotify.</string>
-    <string name="friends_failed">Spotify не ја испрати активноста на пријателите.</string>
-    <string name="friends_refresh">Освежи</string>
+    <string name="friends_tab">Пријатели</string>
 </resources>

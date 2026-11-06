@@ -46,6 +46,6 @@ object SectionSettings {
         val s = m.qualitySetting(section) ?: return null
         val v = s.value(stored, metered)?.let { runCatching { kotlinx.serialization.json.Json.parseToJsonElement(it) }.getOrNull() }
             ?.let { runCatching { (it as kotlinx.serialization.json.JsonPrimitive).content }.getOrNull() } ?: return null
-        return "${s.label}: $v"
+        return "${s.label}: ${s.optionLabel(v)}"
     }
 }

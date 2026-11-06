@@ -21,6 +21,18 @@ data class LocalTrack(
     val artUri: Uri,
     /** The file's folder on the phone, e.g. "Music/Album/" (MediaStore relative path). */
     val folder: String = "",
+    /**
+     * A Live Radio station (radio/ module) wrapped as a one-item "queue", not a file on this
+     * phone: [id] is below both MediaStore's ids and the downloads' (see RadioPlayer.stableId)
+     * and [uri] is the stream's address. This is how Radio shows in the mini player,
+     * the full player, the notification and the lock screen exactly as a Local Files song does,
+     * with no separate player or session of its own.
+     */
+    val isRadio: Boolean = false,
+    /** MediaStore's track number (disc × 1000 + track), 0 unknown (streams and downloads have none). */
+    val trackNo: Int = 0,
+    /** A podcast episode or an audiobook (spoken word): AutoMix leaves it whole unless asked. */
+    val speech: Boolean = false,
 )
 
 /** The device's music files, read through MediaStore (no file access beyond audio). */
@@ -48,12 +60,12 @@ object LocalMusic {
     private suspend fun allTracks(context: Context, refresh: Boolean = false): List<LocalTrack> = withContext(Dispatchers.IO) {
         if (!hasPermission(context)) return@withContext emptyList()
         cache?.takeIf { !refresh }?.let { return@withContext it }
-        val collection = if (Build.VERSION.SDK_INT >= 29) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         val projection = arrayOf(
             MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.RELATIVE_PATH,
+            MediaStore.Audio.Media.RELATIVE_PATH, MediaStore.Audio.Media.TRACK,
+            MediaStore.Audio.Media.IS_PODCAST, MediaStore.Audio.Media.IS_AUDIOBOOK,
         )
         val out = ArrayList<LocalTrack>()
         // Android's index decides what is "music": a phone full of recorded or downloaded audio can
@@ -77,6 +89,9 @@ object LocalMusic {
             val iDur = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val iAlbumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val iPath = c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+            val iTrack = c.getColumnIndex(MediaStore.Audio.Media.TRACK)
+            val iPodcast = c.getColumnIndex(MediaStore.Audio.Media.IS_PODCAST)
+            val iBook = c.getColumnIndex(MediaStore.Audio.Media.IS_AUDIOBOOK)
             while (c.moveToNext()) {
                 val id = c.getLong(iId)
                 val artist = c.getString(iArtist)?.takeIf { it != MediaStore.UNKNOWN_STRING }.orEmpty()
@@ -89,6 +104,8 @@ object LocalMusic {
                     durationMs = c.getLong(iDur),
                     artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), c.getLong(iAlbumId)),
                     folder = if (iPath >= 0) c.getString(iPath).orEmpty() else "",
+                    trackNo = if (iTrack >= 0 && !c.isNull(iTrack)) c.getInt(iTrack).coerceAtLeast(0) else 0,
+                    speech = (iPodcast >= 0 && c.getInt(iPodcast) != 0) || (iBook >= 0 && c.getInt(iBook) != 0),
                 )
             }
         }

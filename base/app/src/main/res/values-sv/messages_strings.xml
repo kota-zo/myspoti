@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Vänner</string>
     <string name="messages_title">Meddelanden</string>
     <string name="messages_empty">Inga konversationer än. Skriv till en vän med pennan högst upp.</string>
     <string name="messages_failed">Spotify skickade inte dina meddelanden.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s tog bort %2$s</string>
     <string name="messages_event_link">%1$s gick med via en länk</string>
     <string name="messages_event_reported">Konversationen anmäldes</string>
-    <string name="friends_title">Vänaktivitet</string>
-    <string name="friends_now">Nu</string>
-    <string name="friends_empty">Ingen vänaktivitet än. Vänner du följer som delar sin lyssningsaktivitet på Spotify visas här.</string>
-    <string name="friends_failed">Spotify skickade inte vänaktiviteten.</string>
-    <string name="friends_refresh">Uppdatera</string>
+    <string name="friends_tab">Vänner</string>
 </resources>

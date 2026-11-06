@@ -1,5 +1,6 @@
 package app.myspoti.spotify.bridge
 
+import app.myspoti.spotify.AccountPlan
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
@@ -104,8 +105,10 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
         logger?.let { log ->
             if (type == "state") {
                 val s = msg["state"] as? JsonObject
-                val line = "page state: " + (s?.get("track") as? JsonObject)?.get("name") + " paused=" + s?.get("isPaused") + " buffering=" + s?.get("isBuffering")
-                if (stateWorthLogging(line, s?.get("track")?.toString() + s?.get("isPaused"))) log(line)
+                val line = "page state: " + (s?.get("track") as? JsonObject)?.get("name") + " paused=" + s?.get("isPaused") + " buffering=" + s?.get("isBuffering") + " repeat=" + s?.get("repeat")
+                // The track's uri, not the whole track: serializing it here cost more than the line.
+                val key = ((s?.get("track") as? JsonObject)?.get("uri") as? JsonPrimitive)?.contentOrNull + s?.get("isPaused") + ":" + s?.get("repeat")
+                if (stateWorthLogging(line, key)) log(line)
             } else if (type == "result") {
                 // Results are logged by call(); never write their values (tokens) here.
             } else if (type == "net" && !netWorthLogging(msg)) {
@@ -138,7 +141,8 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
         // re-announces only when the host is not ready (a page it thought it had lost).
         // The page's generation goes in with it: a call made for a page that went away is refused
         // by the next one (see [call]) instead of running there.
-        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; ${BridgeScript.source}")
+        // The account's plan as known now (see AccountPlan): on Premium the page's ad managers are left on.
+        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; window.__mspKeepAds = ${AccountPlan.isPremium}; ${BridgeScript.source}")
     }
 
     /**

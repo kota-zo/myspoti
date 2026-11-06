@@ -117,9 +117,18 @@ object LibraryEdits {
         reloadSoon()
     }
 
+    /** The Library still lists a playlist Spotify says is not in it: a list older than the answer. */
+    internal fun listedButNotSaved(uri: String, saved: Set<String>, listed: List<com.music.spotui.data.entity.LibraryEntry>): Boolean =
+        uri !in saved && listed.any { it.uri == uri }
+
     /** A change written elsewhere (a Blend joined): the library is read again a few times, the first read can still be the old one. */
     fun reloadSoon() {
         scope.launch { for (wait in longArrayOf(1_500, 3_500, 7_000)) { delay(wait); _reloads.tryEmit(Unit) } }
+    }
+
+    /** [uri] is back in the library (followed or saved again): an earlier removal no longer covers the list. */
+    fun dropRemovals(uri: String) {
+        if (pending.removeAll { (it.edit as? Remove)?.uri == uri }) version.value++
     }
 
     /** The write failed: the list goes back to what it was. */

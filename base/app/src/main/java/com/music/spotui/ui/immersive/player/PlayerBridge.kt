@@ -58,6 +58,11 @@ data class ImmersivePlayerState(
     /** The playhead in milliseconds, read per frame (SongPlayer.getCurrentPosition()). */
     val positionMs: () -> Long = { 0L },
     val durationMs: Long = 0L,
+    /**
+     * The length of the song a seek moves, read at the drop. Not [durationMs]: during a mix that is
+     * the outgoing song's, and it follows the engine a poll late.
+     */
+    val seekLengthMs: (() -> Long)? = null,
     val shuffle: Boolean = false,
     /** Smart shuffle is on for the list that plays. */
     val smart: Boolean = false,
@@ -79,6 +84,9 @@ data class ImmersivePlayerState(
      * blend; until half way [title], [artist] and the times are still the outgoing song's.
      */
     val blend: com.music.spotui.ui.components.SongBlend? = null,
+    /** An AutoMix mix planned or playing (see [com.music.spotui.ui.components.rememberMixCue]), and its beat. */
+    val mixCue: com.music.spotui.di.LocalPlayer.MixCue? = null,
+    val mixPulse: com.music.spotui.ui.components.MixPulse? = null,
 )
 
 /** What the player does; nothing here touches the UI, the screen owns its sheets and panels. */
@@ -144,6 +152,8 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
     // The words follow what is heard: the song going out until half way through a crossfade.
     val blend = com.music.spotui.ui.components.rememberSongBlend()
     val outgoing = blend?.takeIf { it.outgoingWords }
+    val mixCue = com.music.spotui.ui.components.rememberMixCue()
+    val mixPulse = com.music.spotui.ui.components.rememberMixPulse(mixCue)
     val state = ImmersivePlayerState(
         title = outgoing?.song?.title ?: title,
         artist = outgoing?.song?.artist ?: singer,
@@ -154,6 +164,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
         buffering = buffering,
         positionMs = remember(outgoing) { outgoing?.let { o -> { o.positionMs() } } ?: { SongPlayer.getCurrentPosition() } },
         durationMs = outgoing?.song?.durationMs ?: duration,
+        seekLengthMs = SongPlayer::getDuration,
         shuffle = shuffle,
         smart = smart,
         repeatMode = repeat,
@@ -165,6 +176,8 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
         deviceName = device,
         song = if (title.isBlank()) null else nowPlayingSong(vm),
         blend = blend,
+        mixCue = mixCue,
+        mixPulse = mixPulse,
     )
 
     // Read at the moment of the tap, not captured: the lambdas below live as long as the screen.

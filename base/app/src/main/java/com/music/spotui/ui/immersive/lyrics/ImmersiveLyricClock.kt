@@ -59,6 +59,9 @@ private const val PAUSED_POLL_MS = 120L
 
 private fun playerPosition(): Long = SongPlayer.getCurrentPosition().coerceAtLeast(0L)
 
+/** Where the song whose words are shown is: during the first half of a mix, the song going out. */
+internal var lyricsPosition: () -> Long = ::playerPosition
+
 /**
  * The song position, ticking every frame while [playing].
  *
@@ -69,14 +72,14 @@ private fun playerPosition(): Long = SongPlayer.getCurrentPosition().coerceAtLea
  */
 @Composable
 internal fun rememberLyricsPlayhead(trackKey: Any, playing: Boolean): LyricsPlayhead {
-    val head = remember(trackKey) { LyricsPlayhead(playerPosition()) }
+    val head = remember(trackKey) { LyricsPlayhead(lyricsPosition()) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(head, playing, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (!playing) {
                 // Not moving: each reading is the truth, including a seek made while paused.
                 while (isActive) {
-                    val position = playerPosition()
+                    val position = lyricsPosition()
                     head.engine.hold(position, nanosToMs(System.nanoTime()))
                     head.clock.longValue = position
                     head.lastReadMs = position
@@ -92,7 +95,7 @@ internal fun rememberLyricsPlayhead(trackKey: Any, playing: Boolean): LyricsPlay
                         // System.nanoTime clock; anywhere it is not, the real clock is used.
                         val system = System.nanoTime()
                         val now = nanosToMs(if (abs(system - frameNanos) < SAME_CLOCK_NANOS) frameNanos else system)
-                        val position = playerPosition()
+                        val position = lyricsPosition()
                         // To play but loading (a seek into a stream, its start): the position stands
                         // still, and so do the words. Carried on at the learned rate, they ran ahead
                         // of the song by the whole wait (seconds with an extension's stream) and then

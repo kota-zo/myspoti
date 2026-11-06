@@ -10,6 +10,7 @@ import app.myspoti.api.TimeRange
 import app.myspoti.api.TopContent
 import app.myspoti.api.Track
 import app.myspoti.api.UserRef
+import app.myspoti.spotify.gql.Gql
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -82,19 +83,38 @@ internal fun listeningFeed(body: ByteArray): List<FeedEntry> =
  * Names and covers of any uris (tracks, episodes, playlists, albums, artists, users) in one
  * `fetchEntitiesForRecentlyPlayed` call per 50, by uri: each its `*ResponseWrapper`.
  */
-internal suspend fun lookupEntities(gql: app.myspoti.spotify.gql.Gql, uris: Collection<String>): Map<String, JsonElement> =
+internal suspend fun lookupEntities(gql: Gql, uris: Collection<String>): Map<String, JsonElement> =
     uris.distinct().chunked(50).flatMap { chunk ->
         gql.query("fetchEntitiesForRecentlyPlayed", vars("uris" to chunk)).list("data.lookup")
     }.mapNotNull { w -> (w.str("_uri") ?: w.str("data.uri"))?.let { it to w } }.toMap()
 
 /** Users' profile pictures in one `lookupEntityImages` call per 50 (the lookup above has none), by uri. */
-internal suspend fun lookupAvatars(gql: app.myspoti.spotify.gql.Gql, userUris: Collection<String>): Map<String, String> =
+internal suspend fun lookupAvatars(gql: Gql, userUris: Collection<String>): Map<String, String> =
     userUris.distinct().chunked(50).flatMap { chunk ->
         gql.query("lookupEntityImages", vars("uris" to chunk)).list("data.lookupEntities")
     }.mapNotNull { e ->
         val url = e.list("visualIdentityTrait.squareCoverImage.image.data.sources").firstOrNull().str("url") ?: return@mapNotNull null
         e.str("uri")?.let { it to url }
     }.toMap()
+
+/**
+ * The feed's rows with what [lookupEntities] and [lookupAvatars] found: a track as the buddylist
+ * gives it, anything else (an episode) by its name with its show as the "artist".
+ */
+internal fun feedActivity(feed: List<FeedEntry>, entities: Map<String, JsonElement>, avatars: Map<String, String>): List<FriendActivity> =
+    feed.map { f ->
+        val item = entities[f.itemUri]
+        val itemCard = card(item)
+        FriendActivity(
+            user = UserRef(f.userUri, entities[f.userUri].str("data.name")?.takeIf { it.isNotBlank() } ?: f.userUri.substringAfterLast(':'), avatars[f.userUri]),
+            track = track(item.obj("data")) ?: itemCard?.let { c -> Track(c.uri, c.title, 0, listOfNotNull(c.subtitle?.let { ArtistRef("", it) }), null) },
+            contextUri = f.contextUri ?: f.itemUri.takeIf { !it.startsWith("spotify:track:") },
+            timestampMs = f.timestampMs,
+            contextName = f.contextUri?.let { card(entities[it])?.title },
+            trackImageUrl = itemCard?.images?.minByOrNull { it.width ?: Int.MAX_VALUE }?.url,
+            playing = f.playing,
+        )
+    }
 
 /** A looked-up user's display name, or their id. */
 internal fun userName(entities: Map<String, JsonElement>, userUri: String): String =

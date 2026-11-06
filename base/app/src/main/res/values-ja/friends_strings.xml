@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">友達のアクティビティ</string>
+    <string name="friends_now">今</string>
+    <string name="friends_empty">友達のアクティビティはまだありません。フォロー中で、Spotify で再生アクティビティを共有している友達がここに表示されます。</string>
+    <string name="friends_failed">Spotify から友達のアクティビティが届きませんでした。</string>
+    <string name="friends_refresh">更新</string>
+</resources>

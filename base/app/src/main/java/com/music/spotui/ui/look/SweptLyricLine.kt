@@ -65,14 +65,8 @@ private fun isRtl(text: String): Boolean {
 private fun alignsRight(text: String, alignEnd: Boolean, laneLocked: Boolean): Boolean =
     if (laneLocked) alignEnd else isRtl(text)
 
-/**
- * How far back the part of the playing line that hasn't been sung yet is held.
- *
- * The one-line strip gets less of a gap than the full panel: it is one line of
- * small type with nothing around it to compare against.
- */
+/** How far back the part of the playing line that hasn't been sung yet is held. */
 const val UNSUNG_ALPHA = 0.45f
-const val UNSUNG_ALPHA_STRIP = 0.55f
 
 /**
  * The bloom behind the line being sung, at its very strongest.

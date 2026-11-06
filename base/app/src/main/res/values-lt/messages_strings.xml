@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Draugai</string>
     <string name="messages_title">Žinutės</string>
     <string name="messages_empty">Pokalbių dar nėra. Parašykite draugui pieštuku viršuje.</string>
     <string name="messages_failed">Spotify neišsiuntė jūsų žinučių.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s pašalino %2$s</string>
     <string name="messages_event_link">%1$s prisijungė per nuorodą</string>
     <string name="messages_event_reported">Apie pokalbį pranešta</string>
-    <string name="friends_title">Draugų veikla</string>
-    <string name="friends_now">Dabar</string>
-    <string name="friends_empty">Draugų veiklos dar nėra. Čia rodomi draugai, kuriuos sekate ir kurie „Spotify“ bendrina savo klausymosi veiklą.</string>
-    <string name="friends_failed">„Spotify“ neatsiuntė draugų veiklos.</string>
-    <string name="friends_refresh">Atnaujinti</string>
+    <string name="friends_tab">Draugai</string>
 </resources>

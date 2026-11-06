@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Bạn bè</string>
     <string name="messages_title">Tin nhắn</string>
     <string name="messages_empty">Chưa có cuộc trò chuyện nào. Hãy viết cho bạn bè bằng nút bút chì ở trên.</string>
     <string name="messages_failed">Spotify chưa gửi tin nhắn của bạn.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s đã xóa %2$s</string>
     <string name="messages_event_link">%1$s đã tham gia qua liên kết</string>
     <string name="messages_event_reported">Cuộc trò chuyện đã bị báo cáo</string>
-    <string name="friends_title">Hoạt động của bạn bè</string>
-    <string name="friends_now">Bây giờ</string>
-    <string name="friends_empty">Chưa có hoạt động nào của bạn bè. Những người bạn bạn theo dõi và chia sẻ hoạt động nghe nhạc trên Spotify sẽ xuất hiện ở đây.</string>
-    <string name="friends_failed">Spotify không gửi hoạt động của bạn bè.</string>
-    <string name="friends_refresh">Làm mới</string>
+    <string name="friends_tab">Bạn bè</string>
 </resources>

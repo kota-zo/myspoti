@@ -31,7 +31,7 @@ object PlaylistMerge {
     }
 
     /** Local files cannot be added by uri: they are left out of an album or playlist add. */
-    fun addable(uris: List<Uri>): List<Uri> = uris.filter { !it.startsWith("spotify:local:") }
+    fun addable(uris: List<Uri>): List<Uri> = uris.filterNot(LocalFile::isLocal)
 
     /** Reads every page ([page] gets the offset to read) and returns the song uris in order. */
     suspend fun readAll(page: suspend (offset: Int) -> Page<Track>): List<Uri> {

@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -55,42 +57,6 @@ import com.music.spotui.ui.immersive.shell.backdrop.shadow.ShadowElement
 private val DefaultHighlight = { Highlight.Default }
 private val DefaultShadow = { Shadow.Default }
 private val DefaultOnDrawBackdrop: DrawScope.(DrawScope.() -> Unit) -> Unit = { it() }
-
-fun Modifier.drawPlainBackdrop(
-    backdrop: Backdrop,
-    shape: () -> Shape,
-    effects: BackdropEffectScope.() -> Unit,
-    layerBlock: (GraphicsLayerScope.() -> Unit)? = null,
-    exportedBackdrop: LayerBackdrop? = null,
-    onDrawBehind: (DrawScope.() -> Unit)? = null,
-    onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit = DefaultOnDrawBackdrop,
-    onDrawSurface: (DrawScope.() -> Unit)? = null,
-    onDrawFront: (DrawScope.() -> Unit)? = null
-): Modifier {
-    val shapeProvider = ShapeProvider(shape)
-    return this
-        .then(
-            if (layerBlock != null) {
-                Modifier.graphicsLayer(layerBlock)
-            } else {
-                Modifier
-            }
-        )
-        .then(
-            DrawBackdropElement(
-                backdrop = backdrop,
-                shapeProvider = shapeProvider,
-                effects = effects,
-                layerBlock = layerBlock,
-                exportedBackdrop = exportedBackdrop,
-                onDrawBehind = onDrawBehind,
-                onDrawBackdrop = onDrawBackdrop,
-                onDrawSurface = onDrawSurface,
-                onDrawFront = onDrawFront,
-                backdropScale = 1f
-            )
-        )
-}
 
 fun Modifier.drawBackdrop(
     backdrop: Backdrop,
@@ -385,11 +351,20 @@ private class DrawBackdropNode(
 
         exportedBackdrop?.graphicsLayer?.let { layer ->
             recordLayer(this@DrawBackdropNode, layer) {
-                onDrawBehind?.invoke(this)
-                drawRecordedBackdrop()
-                onDrawSurface?.invoke(this)
-                onDrawFront?.invoke(this)
+                // Inside the surface's own shape, as on screen: a lens lifted past the bar's edge
+                // would otherwise show the blur's padding as a square of glass around it.
+                val clip = androidx.compose.ui.graphics.Path().apply {
+                    addOutline(shapeProvider.shape.createOutline(size, layoutDirection, this@recordLayer))
+                }
+                clipPath(clip) {
+                    onDrawBehind?.invoke(this)
+                    drawRecordedBackdrop()
+                    onDrawSurface?.invoke(this)
+                    onDrawFront?.invoke(this)
+                }
             }
+            // Signal readers (e.g. the lifted selection pill) to redraw over the newly recorded bar glass (#172).
+            exportedBackdrop?.moves = (exportedBackdrop?.moves ?: 0) + 1
         }
     }
 
@@ -403,6 +378,8 @@ private class DrawBackdropNode(
                 }
             }
             exportedBackdrop?.layerCoordinates = coordinates
+            // Invalidate readers when the exported surface moves or repositions (#172).
+            exportedBackdrop?.moves = (exportedBackdrop?.moves ?: 0) + 1
         }
     }
 

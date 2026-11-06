@@ -6,11 +6,8 @@ import com.music.spotui.ui.theme.AppText
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,20 +21,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.BluetoothAudio
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderColors
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,77 +39,85 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
-import com.music.spotui.data.preferences.addLikedSongId
-import com.music.spotui.data.preferences.isSongLiked
-import com.music.spotui.data.preferences.removeLikedSongId
 import com.music.spotui.di.Palette
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.theme.AppBackground
-import com.music.spotui.ui.theme.GridBackground
 import com.music.spotui.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.delay
 
 /**
  * Loading placeholder, as in the official app: static grey shapes of the page to
  * come, no spinner. Shown only if loading lasts (cached pages appear without it),
- * and never animated (no frames spent while waiting).
+ * with a short fade in, then still (no frames spent while waiting).
  */
 @Composable
 fun Loader(kind: SkeletonKind = SkeletonKind.List) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(200); visible = true }
+    val shown = placeholderAlpha()
     Column(
         Modifier
             .fillMaxSize()
             .background(Color(AppBackground.toArgb()))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        if (!visible) return@Column
+        if (shown.value == 0f) return@Column
         val tile = tone(0xFF242424)
         val line = tone(0xFF2A2A2A)
-        when (kind) {
-            SkeletonKind.Home -> {
-                repeat(4) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        repeat(2) { Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
+        // The shapes fade in, the page's background stays opaque under them.
+        Column(Modifier.fillMaxWidth().graphicsLayer { alpha = shown.value }) {
+            when (kind) {
+                SkeletonKind.Home -> {
+                    repeat(4) {
+                        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            repeat(2) { Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
+                        }
+                    }
+                    repeat(2) {
+                        Box(Modifier.padding(top = 24.dp, bottom = 12.dp).width(180.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).background(line))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            repeat(3) { Box(Modifier.size(140.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
+                        }
                     }
                 }
-                repeat(2) {
-                    Box(Modifier.padding(top = 24.dp, bottom = 12.dp).width(180.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).background(line))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        repeat(3) { Box(Modifier.size(140.dp).clip(RoundedCornerShape(4.dp)).background(tile)) }
-                    }
+                SkeletonKind.Header -> {
+                    Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp, bottom = 20.dp).size(220.dp).clip(RoundedCornerShape(4.dp)).background(tile))
+                    Box(Modifier.width(200.dp).height(22.dp).clip(RoundedCornerShape(4.dp)).background(line))
+                    Box(Modifier.padding(top = 10.dp, bottom = 20.dp).width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(line))
+                    SkeletonRows(tile, line, 6)
                 }
+                SkeletonKind.List -> SkeletonRows(tile, line, 9)
             }
-            SkeletonKind.Header -> {
-                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp, bottom = 20.dp).size(220.dp).clip(RoundedCornerShape(4.dp)).background(tile))
-                Box(Modifier.width(200.dp).height(22.dp).clip(RoundedCornerShape(4.dp)).background(line))
-                Box(Modifier.padding(top = 10.dp, bottom = 20.dp).width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(line))
-                SkeletonRows(tile, line, 6)
-            }
-            SkeletonKind.List -> SkeletonRows(tile, line, 9)
         }
     }
+}
+
+/**
+ * The opacity of a loading placeholder: 0 for its first 200 ms (a quick load shows nothing),
+ * then a short fade in instead of a pop. At once under "Remove animations".
+ */
+@Composable
+private fun placeholderAlpha(): androidx.compose.runtime.State<Float> {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(200); visible = true }
+    val reduce = com.music.spotui.ui.look.rememberReduceMotion()
+    return androidx.compose.animation.core.animateFloatAsState(
+        if (visible) 1f else 0f,
+        if (reduce) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(Motion.FADE_MS),
+        label = "placeholder",
+    )
 }
 
 enum class SkeletonKind { List, Home, Header }
@@ -130,10 +129,9 @@ enum class SkeletonKind { List, Home, Header }
  */
 @Composable
 fun SkeletonList(count: Int = 6, round: Boolean = false, modifier: Modifier = Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(200); visible = true }
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        if (!visible) return@Column
+    val shown = placeholderAlpha()
+    Column(modifier.fillMaxWidth().graphicsLayer { alpha = shown.value }.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        if (shown.value == 0f) return@Column
         if (round) repeat(count) {
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(tone(0xFF242424)))
@@ -146,10 +144,9 @@ fun SkeletonList(count: Int = 6, round: Boolean = false, modifier: Modifier = Mo
 /** Lyrics loading: lines of grey bars of varied widths, in the lyrics' own colour. */
 @Composable
 fun SkeletonLyrics(color: Color, modifier: Modifier = Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(200); visible = true }
-    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
-        if (!visible) return@Column
+    val shown = placeholderAlpha()
+    Column(modifier.fillMaxWidth().graphicsLayer { alpha = shown.value }.padding(horizontal = 24.dp, vertical = 16.dp)) {
+        if (shown.value == 0f) return@Column
         for (w in floatArrayOf(0.85f, 0.6f, 0.75f, 0.5f, 0.9f, 0.65f, 0.7f, 0.45f)) {
             Box(Modifier.padding(vertical = 9.dp).fillMaxWidth(w).height(22.dp).clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.18f)))
         }
@@ -171,7 +168,7 @@ private fun SkeletonRows(tile: Color, line: Color, count: Int) {
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-fun MiniPlayer(navController: NavHostController) {
+fun MiniPlayer() {
     val vm : PlayerViewModel = viewModel()
     val songTitle = vm.currentSongTitle.value
     val songSinger = vm.currentSongSinger.value
@@ -317,13 +314,17 @@ fun MiniPlayer(navController: NavHostController) {
                     Column(modifier = Modifier.padding(start = 12.dp, end = 8.dp)
                         .graphicsLayer { alpha = if (page == 1) blend?.wordsAlpha() ?: 1f else 1f }) {
                         if (remote == null) {
-                            Text(text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(
+                                text = if (adPlaying) stringResource(R.string.ad_playing) else (m.title), color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                // Once per song then rests: the mini player is always on screen.
+                                modifier = Modifier.titleMarquee(iterations = 1),
+                            )
                             if (!adPlaying) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 // The artist yields the width: the output's name stays whole.
                                 Text(
                                     text = m.singer, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, lineHeight = 15.sp,
                                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f, fill = false),
+                                    modifier = Modifier.weight(1f, fill = false).titleMarquee(iterations = 1),
                                 )
                                 // The extension the sound comes from, discreet, as the output's name.
                                 playingExtensionName()?.let { name ->
@@ -361,7 +362,7 @@ fun MiniPlayer(navController: NavHostController) {
                                 fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, softWrap = false,
                                 // Scrolls once per track then rests: an endless marquee in the always-visible
                                 // mini player made the whole app redraw at 120 Hz without pause.
-                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 2_000),
+                                modifier = Modifier.titleMarquee(iterations = 1),
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = com.music.spotui.ui.theme.AppAccent, modifier = Modifier.size(14.dp))
@@ -418,35 +419,6 @@ fun MiniPlayer(navController: NavHostController) {
             drawRect(Color.White.copy(alpha = 0.25f))
             drawRect(Color.White, size = size.copy(width = size.width * p))
         }
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomSlider(
-    modifier: Modifier = Modifier,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
-    steps: Int = 0,
-    colors: SliderColors = SliderDefaults.colors(),
-) {
-    Box(
-        //contentAlignment = Alignment.BottomEnd,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(0.dp)
-
-    ) {
-
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            steps = steps,
-            colors = colors,
-        )
     }
 }
 

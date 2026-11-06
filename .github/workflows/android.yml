@@ -110,20 +110,13 @@ jobs:
           MYSPOTI_KEY_PASSWORD: ${{ contains(github.ref_name, '-') && secrets.MYSPOTI_KEY_PASSWORD || secrets.MYSPOTI_STABLE_KEY_PASSWORD }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          # One APK per ABI, same versionCode (a phone installs only its own; the app's update check
-          # picks it, UpdateChecker.apkAsset): myspoti-beta-2.2.1-beta.1-arm64-v8a.apk,
-          # myspoti-stable-2.2.1-armeabi-v7a.apk... Obtainium filters on the channel and the ABI.
-          # Each APK leaves apk/release/, which the next assembleRelease empties.
-          CHANNEL=stable; case "$VERSION" in *-*) CHANNEL=beta ;; esac
-          mkdir -p app/build/release-apks
-          for ABI in arm64-v8a armeabi-v7a; do
-            ./gradlew assembleRelease \
-              -Pabis="$ABI" \
-              -PappVersionName="$VERSION" \
-              -PappVersionCode="$((1000 + GITHUB_RUN_NUMBER))" \
-              -PupdateRepo="$GITHUB_REPOSITORY"
-            mv app/build/outputs/apk/release/app-release.apk "app/build/release-apks/myspoti-$CHANNEL-$VERSION-$ABI.apk"
-          done
+          # One build, every APK (ABI splits), same versionCode, named by :app:collectApks:
+          # Myspoti-2.4.0-ARMv8.apk, -ARMv7.apk, -universal.apk, -TV.apk (betas: Myspoti-Beta-...).
+          # The app's update check picks this phone's one (UpdateChecker.apkAsset).
+          ./gradlew assembleRelease :app:collectApks \
+            -PappVersionName="$VERSION" \
+            -PappVersionCode="$((1000 + GITHUB_RUN_NUMBER))" \
+            -PupdateRepo="$GITHUB_REPOSITORY"
 
       # This version's section of CHANGELOG.md becomes the release description.
       - name: Release notes
@@ -142,7 +135,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v3
         with:
-          files: base/app/build/release-apks/myspoti-*.apk
+          files: base/app/build/release-apks/*.apk
           body_path: base/release-notes.md
           generate_release_notes: true
           # "v2.0.0-beta.1": a pre-release, offered only to beta builds.

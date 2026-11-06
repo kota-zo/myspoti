@@ -32,7 +32,8 @@ import sys
 import time
 import uuid
 
-ADB = os.environ.get("ADB") or shutil.which("adb") or "adb"
+# The SDK's own adb, as the other tools (cdp.py) find it, when none is on the PATH.
+ADB = os.environ.get("ADB") or shutil.which("adb") or os.path.expanduser("~/android-sdk/platform-tools/adb")
 # The app's own wait for a hook (download-source) is 30 s.
 DEFAULT_TIMEOUT = 40.0
 

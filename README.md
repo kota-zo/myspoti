@@ -14,6 +14,8 @@
   <a href="https://github.com/kota-zo/myspoti/releases/latest"><b>⬇ Download the latest APK</b></a>
 </p>
 
+<p align="center"><sub>The Immersive look and many ideas come from <a href="https://github.com/kushagrasinghx/BitChord">BitChord</a>: see <a href="#bitchord">Credits</a>.</sub></p>
+
 <p align="center">
   <a href="https://ko-fi.com/myspoti"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Support Myspoti on Ko-fi" height="56"></a>
   <a href="https://github.com/sponsors/kota-zo"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor kota-zo on GitHub" height="56"></a>
@@ -44,11 +46,17 @@ Under the hood, the official Spotify Web Player plays the music, hidden inside t
 
 New versions are offered inside the app: one tap downloads and installs them.
 
-Each release carries one APK per architecture: `arm64-v8a` for almost every phone from the last ten years, `armeabi-v7a` for older or entry-level 32-bit phones (an app such as CPU-Z or Device Info shows which one yours is; when in doubt, take `arm64-v8a`, and if it refuses to install, `armeabi-v7a`). The in-app update picks the right one by itself.
+Each release carries four APKs:
+- `Myspoti-<version>-ARMv8.apk`: almost every phone from the last ten years (64-bit). When in doubt, take this one.
+- `Myspoti-<version>-ARMv7.apk`: older or entry-level 32-bit phones (an app such as CPU-Z or Device Info shows which one yours is; if ARMv8 refuses to install, take this one).
+- `Myspoti-<version>-universal.apk`: both in one, larger.
+- `Myspoti-<version>-TV.apk`: Android TV and Google TV (the same app; on a TV it opens its TV screens).
 
-Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta app are two apps and each release carries their APKs named for the channel and the architecture):
-- **Stable** (`app.myspoti.stable`): leave "Include prereleases" off and set the APK filter to `^myspoti-stable-.*-arm64-v8a\.apk$` (or `-armeabi-v7a` on a 32-bit phone).
-- **Beta** (`app.myspoti`): turn "Include prereleases" on and set the APK filter to `^myspoti-beta-.*-arm64-v8a\.apk$` (or `-armeabi-v7a` on a 32-bit phone).
+Betas are `Myspoti-Beta-<version>-...`. The in-app update picks the right one by itself.
+
+Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta app are two apps):
+- **Stable** (`app.myspoti.stable`): leave "Include prereleases" off and set the APK filter to `^Myspoti-[0-9].*-ARMv8\.apk$` (or `-ARMv7`, `-TV`).
+- **Beta** (`app.myspoti`): turn "Include prereleases" on and set the APK filter to `^Myspoti-Beta-.*-ARMv8\.apk$` (or `-ARMv7`, `-TV`).
 - Betas are named `<next version>-beta.<n>` (`2.2.1-beta.1`, then `2.2.1-beta.2`...), marked prerelease on GitHub, and always newer than the last stable.
 
 ## What you get
@@ -82,11 +90,13 @@ Obtainium (add `https://github.com/kota-zo/myspoti`; the stable app and the beta
 - Installing shows what an extension will do (each action with its author's reason, the critical ones marked) and asks for one tick: you install it on your own responsibility. An extension gets every action it lists, or is not installed; an update that asks for more waits for your OK and shows only what changes.
 - With an audio-source extension on, every song you play (from a list, search, an artist, Recents, a link or shuffle) is asked there first, and plays on Spotify when it has nothing.
 - An extension can bring its own settings to Settings, Playback or Downloads (its quality, per network if it likes): the first source of the order shows its own, and an extension above Spotify replaces Spotify's quality settings there.
+- New to extensions? [The user guide](docs/extensions/GUIDE.md): the kinds, installing one, the order of the sources, and what to do when one does not work (Android Auto and Android TV too).
 - For authors: [the extensions API](docs/extensions/API.md), and a desktop runner to test without a phone.
 
 **And also**
 - Your recap: your top songs, artists and albums, kept on your phone.
-- 11 languages: English, French, German, Spanish, Italian, Portuguese, Brazilian Portuguese, Greek, Russian, Polish and Chinese (Simplified).
+- **Live Radio**, off until you turn it on (Settings, Playback): internet radio from the free [Radio Browser](https://www.radio-browser.info) directory, https streams only, favorites kept on your phone. Searches go to Radio Browser, and each station's logo and stream come from that station's own server.
+- 69 languages and regional variants, following the phone or picked by hand.
 - Data saver, battery saver, AMOLED black, accent colour.
 
 ## New since 1.1
@@ -130,7 +140,7 @@ Two looks, switched in Settings, Display.
 
 **Do downloads count in my Wrapped?** They always count in Myspoti's own recap. With **Sync downloaded songs with Spotify** (Settings → Playback, on by default), a downloaded song played online also plays muted on Spotify so your other devices see and control it; whether Spotify counts that play is up to Spotify and not guaranteed. Offline, or with the setting off, the file plays only from the phone and nothing is reported. Streamed songs and music videos count as usual.
 
-**What leaves my phone?** Your plays go to Spotify. Lyrics are looked up on lyrics sites, song meanings on Genius, translations on Google Translate, music videos on YouTube, and downloads on the hosts your download-source extension names (shown before you install it). Nothing is sent to the developer.
+**What leaves my phone?** Your plays go to Spotify. Lyrics are looked up on lyrics sites, song meanings on Genius, translations on Google Translate, music videos on YouTube, and downloads on the hosts your download-source extension names (shown before you install it). Live Radio, once turned on, searches [Radio Browser](https://www.radio-browser.info) and loads each station's logo and stream from that station's own server. Nothing is sent to the developer.
 
 ## Not included
 
@@ -151,11 +161,14 @@ News, help and ideas: the [Discord server](https://discord.gg/jXKnGVFnGS). Bugs 
 
 ## For developers
 
-The Android project is in `base/`, split in two:
+The Android project is in `base/`, in seven Gradle modules:
 
 - **`:api`** is the contract the UI talks to: plain Kotlin models and interfaces (player, search, catalog, library, playlists, home, podcasts, users, lyrics, devices, Jam).
 - **`:api-spotify`** implements it on Spotify's Web Player. Playback stays in the official player, in a hidden WebView (`:host-android`), driven by a small bridge script. Catalog, search and library calls go straight to Spotify's servers. When Spotify ships a new Web Player, the app reads its new operation list by itself.
+- **`:host-android`** is that WebView, plus the playback service (media session, notification, Android Auto browsing) and the app's Android-only pieces (logbook, covers).
 - **`:host-cdp`** runs the same API on desktop Chrome, so the whole API is tested against the real Web Player without a phone.
+- **`:extensions`** is the sandbox third-party scripts run in (manifest, permissions, catalogue), plain JVM: an extension runs the same on a desktop. **`:extensions-cli`** is that desktop runner.
+- **`:app`** is the Compose UI, in its Classic and Immersive looks.
 
 More: [`base/api-spotify/README.md`](base/api-spotify/README.md) and [`docs/api`](docs/api).
 
@@ -178,9 +191,20 @@ Every push builds and tests on GitHub Actions. A `vX.Y.Z` tag publishes a stable
 
 ## Credits
 
+### BitChord
+
+Myspoti owes a lot to [BitChord](https://github.com/kushagrasinghx/BitChord) by kushagrasinghx and its contributors (GPL-3.0-or-later), in code and in ideas:
+- **The Immersive look** is ported from it: the player and its mesh backdrop, the swept word-by-word lyrics, the queue panel, the glass tab bar, the top bars, the sheets, the motion and the Home, Search, Library, artist, album, playlist, profile and podcast pages.
+- **The equalizer** of the songs the app plays itself: its filters and the way a change glides.
+- **Ideas** that shaped the app, DJ-style transitions between songs first of all: Myspoti's AutoMix is its own code, but the idea and the way the mix shows in the player come from BitChord's Automix.
+
+Every file taken from BitChord keeps its GPL-3.0-or-later header and names the BitChord file it comes from; the full list is in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md#bitchord--gpl-30-or-later). Thank you, BitChord.
+
+### Others
+
 - UI derived from [Spotui](https://github.com/Spotui/Spotui) / [Metrolist](https://github.com/MetrolistGroup/Metrolist) (GPL-3.0); Spotui also gave the DASH-to-FLAC remux.
-- The Immersive look (player, lyrics, queue, glass tab bar and pages) is ported from [BitChord](https://github.com/kushagrasinghx/BitChord) (GPL-3.0-or-later).
 - [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) (GPL-3.0): music videos.
+- [Reorderable](https://github.com/Calvin-LL/Reorderable) (Apache-2.0): dragging the rows of the queue.
 - Lyrics: [LRCLIB](https://lrclib.net), LyricsPlus, lrc.red, Kugou and NetEase; song meanings: [Genius](https://genius.com).
 - [Material Icons](https://github.com/google/material-design-icons) (Apache 2.0) and the [Manrope](https://github.com/googlefonts/manrope) font (SIL OFL 1.1, see `base/licenses/`).
 

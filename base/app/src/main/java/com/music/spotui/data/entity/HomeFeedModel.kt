@@ -11,6 +11,24 @@ data class HomeFeedModel(
     val sections: List<HomeSection> = emptyList(),
 )
 
+/**
+ * The chips Spotify opens beside a home chip once it is picked (Music > Following, Podcasts >
+ * Following), by the parent's facet, as the last feeds told: (facet, label). Compose state.
+ */
+object HomeSubChips {
+    val byParent = androidx.compose.runtime.mutableStateMapOf<String, List<Pair<String, String>>>()
+
+    /** The chip [facet] opens under, itself when it has sub-chips; null for "All" and a chip with none. */
+    fun parentOf(facet: String): String? =
+        if (facet in byParent) facet else byParent.entries.firstOrNull { e -> e.value.any { it.first == facet } }?.key
+
+    fun learn(chips: List<app.myspoti.api.HomeChip>) {
+        val found = chips.filter { it.subChips.isNotEmpty() }.associate { c -> c.id to c.subChips.map { it.id to it.label } }
+        if (found.isEmpty()) return
+        android.os.Handler(android.os.Looper.getMainLooper()).post { found.forEach { (k, v) -> if (byParent[k] != v) byParent[k] = v } }
+    }
+}
+
 @kotlinx.serialization.Serializable
 data class HomeSection(
     val title: String,

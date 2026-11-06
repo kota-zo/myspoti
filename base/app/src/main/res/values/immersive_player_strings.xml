@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="immersive_player_close">Close the player</string>
     <string name="immersive_player_play">Play</string>
     <string name="immersive_player_pause">Pause</string>
     <string name="immersive_player_previous">Previous</string>
@@ -22,7 +21,5 @@
     <string name="immersive_player_volume_down">Volume down</string>
     <string name="immersive_player_volume_up">Volume up</string>
     <string name="immersive_player_ad">Advertisement</string>
-    <string name="immersive_player_explicit">Explicit</string>
     <string name="immersive_player_added_to_liked">Added to Liked Songs</string>
-    <string name="immersive_player_mini_player">Open the player</string>
 </resources>

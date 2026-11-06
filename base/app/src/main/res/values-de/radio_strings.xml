@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_radio_title">Live Radio</string>
+    <string name="live_radio_subtitle">Internetradiosender aus dem kostenlosen Verzeichnis radio-browser.info</string>
+    <string name="live_radio_search_hint">Sender suchen</string>
+    <string name="live_radio_popular">Beliebte Sender</string>
+    <string name="live_radio_search_results">Suchergebnisse</string>
+    <string name="live_radio_favorites">Favoriten</string>
+    <string name="live_radio_favorite">Zu Favoriten hinzufügen</string>
+    <string name="live_radio_unfavorite">Aus Favoriten entfernen</string>
+    <string name="live_radio_no_results">Keine Sender gefunden</string>
+    <string name="live_radio_error">Das Radioverzeichnis ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="live_radio_settings_title">Live Radio</string>
+    <string name="live_radio_settings_detail">Fügt deiner Mediathek unter Lokale Dateien einen Live Radio-Ordner hinzu. Suchen gehen an das Verzeichnis radio-browser.info; Logo und Stream eines Senders kommen von dessen eigenem Server.</string>
+</resources>

@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Textes des pages de bibliothèque du look Immersive : Récents, Téléchargé, Fichiers locaux, dossiers, Nouveautés (français). -->
 <resources>
-    <string name="immersive_pages_songs">Titres</string>
-    <string name="immersive_pages_artists">Artistes</string>
-    <string name="immersive_pages_albums">Albums</string>
-    <string name="immersive_pages_unknown_artist">Artiste inconnu</string>
-    <string name="immersive_pages_unknown_album">Album inconnu</string>
     <string name="immersive_pages_name_hint">Nom</string>
-    <string name="immersive_pages_play_group">Lire %1$s</string>
 </resources>

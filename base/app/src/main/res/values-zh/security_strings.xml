@@ -2,5 +2,6 @@
 <resources>
     <string name="action_playback_mirror">在此静音播放 Spotify;会在你的账户上计入收听次数</string>
     <string name="action_attest">证明这是 Myspoti</string>
+    <string name="action_ui_style">更改外观</string>
     <string name="mirror_indicator">Spotify 由 %1$s 镜像</string>
 </resources>

@@ -6,6 +6,9 @@ import android.content.Intent
 import android.util.Log
 import app.myspoti.extensions.ExtensionPackage
 import app.myspoti.host.android.MyspotiRuntime
+import com.music.spotui.data.api.Response
+import com.music.spotui.data.entity.ContextPageModel
+import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.extensions.Extensions
 import com.music.spotui.extensions.Grants
@@ -13,8 +16,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -194,7 +199,44 @@ class CliReceiver : BroadcastReceiver() {
                 put("bytes", values.entries.sumOf { it.key.length + it.value.length })
             }
         }
-        is CliCommand.Play -> onMain { SongPlayer.playSong(c.uri, contextUri = c.context); JsonNull }
+        is CliCommand.Play -> {
+            // With a context, its songs too, as Android Auto and the phone give them: an audio-source
+            // extension plays the list on from the song, under its name. `songs` says how many were
+            // handed over (0: none, or a list without the song, which then plays alone as before).
+            val page = c.context?.let { pageOf(it) }
+            val songs = page?.tracks?.takeIf { it.isNotEmpty() }
+            onMain {
+                page?.let { SongPlayer.registerContextName(it.uri, it.name) }
+                SongPlayer.playSong(c.uri, contextUri = c.context, songs = songs)
+            }
+            val id = c.uri.substringAfterLast(':')
+            if (c.context == null) JsonNull else buildJsonObject { put("songs", songs?.takeIf { l -> l.any { it.spotifyTrackId == id } }?.size ?: 0) }
+        }
+        is CliCommand.AutoMixSet -> onMain {
+            c.on?.let { com.music.spotui.automix.AutoMix.set(it); com.music.spotui.di.LocalPlayer.autoMixChanged(it) }
+            JsonPrimitive(com.music.spotui.di.LocalPlayer.autoMixState())
+        }
+        is CliCommand.AutoMixSegue -> onMain {
+            c.on?.let { com.music.spotui.automix.AutoMix.changeSegue(it) }
+            JsonPrimitive(com.music.spotui.automix.AutoMix.segue)
+        }
+        is CliCommand.JamJoin -> jamJson(MyspotiRuntime.api.jam.join(c.token))
+        CliCommand.JamStatus -> { MyspotiRuntime.api.jam.refresh(); jamJson(MyspotiRuntime.api.jam.session.value) }
+        CliCommand.JamLeave -> { MyspotiRuntime.api.jam.leave(); JsonNull }
+        CliCommand.AutoMixStatus -> onMain {
+            buildJsonObject {
+                put("state", com.music.spotui.di.LocalPlayer.autoMixState())
+                put("journal", JsonArray(com.music.spotui.automix.AutoMix.journalLines().takeLast(30).map(::JsonPrimitive)))
+            }
+        }
+        is CliCommand.AutoMixFiles -> {
+            val all = com.music.spotui.data.local.LocalMusic.tracks(ctx, refresh = true)
+            // Each name: a piece of "folder + title" (e.g. "Spotiflaccc/24").
+            val picked = c.names.map { n -> all.firstOrNull { (it.folder + it.title).contains(n, ignoreCase = true) }
+                ?: throw CliError("automix.files: no phone song matches $n") }
+            onMain { com.music.spotui.di.LocalPlayer.play(picked, 0, context = "AutoMix test"); JsonArray(picked.map { JsonPrimitive(it.title) }) }
+        }
+        is CliCommand.AutoMixSeek -> onMain { com.music.spotui.di.LocalPlayer.seekTo(c.ms); JsonNull }
         CliCommand.Pause -> onMain { SongPlayer.pause(by = "cli"); JsonNull }
         CliCommand.Resume -> onMain { SongPlayer.play(by = "cli"); JsonNull }
         CliCommand.Next -> onMain { SongPlayer.next(); JsonNull }
@@ -219,6 +261,30 @@ class CliReceiver : BroadcastReceiver() {
         return CliMask.knownSecrets(m?.settings.orEmpty(), Extensions.settingValues(id), Extensions.storageValues(id))
     }
 
+    /**
+     * The playlist, album or Liked Songs [uri], read to its last song (or what came within
+     * [READ_MS]); null when it cannot be read. Seen in review: stopped at its first answer, a big
+     * playlist gave its first 100 songs and registered only those as the list (SongPlayer.rowIndex).
+     */
+    private suspend fun pageOf(uri: String): ContextPageModel? {
+        val api = Graph.api
+        val id = uri.substringAfterLast(':')
+        val flow = when {
+            uri.startsWith("spotify:album:") -> api.getAlbumPage(id)
+            uri == "spotify:collection:tracks" -> api.getLikedPage()
+            uri.startsWith("spotify:playlist:") -> api.getPlaylistPage(id)
+            else -> return null
+        }
+        var read: ContextPageModel? = null
+        runCatching { withTimeoutOrNull(READ_MS) { flow.first { it is Response.Error || (it as? Response.Success)?.data?.also { p -> read = p }?.complete == true } } }
+        return read
+    }
+
+    private fun jamJson(s: app.myspoti.api.JamSession?): JsonElement = if (s == null) JsonNull else buildJsonObject {
+        put("id", s.id); put("token", s.joinToken ?: ""); put("host", s.isHost); put("queueOnly", s.queueOnly); put("listensHere", s.listensHere)
+        put("members", JsonArray(s.members.map { m -> JsonPrimitive(m.name + if (m.host) " (host)" else "") }))
+    }
+
     private suspend fun <T> onMain(block: () -> T): T = withContext(Dispatchers.Main) { block() }
 
     companion object {
@@ -226,6 +292,9 @@ class CliReceiver : BroadcastReceiver() {
 
         /** The error of a command this build does not have (tools/myspoti-cli exits with 5 on it). */
         const val DISABLED = "disabled in this build"
+
+        /** How long `play` waits for its context's songs (Android Auto's own wait), within the CLI's 40 s. */
+        private const val READ_MS = 15_000L
 
         /** Debug and beta builds; the manifest leaves the receiver off in the others too. */
         val enabled: Boolean get() = app.myspoti.engine.BuildConfig.DEBUG || com.music.spotui.data.api.UpdateChecker.isBeta

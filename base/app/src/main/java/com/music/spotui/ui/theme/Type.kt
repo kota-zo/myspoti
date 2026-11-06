@@ -25,23 +25,30 @@ private fun sans(weight: Int) = Font(
     ),
 )
 
-val AppSans = FontFamily(sans(400), sans(500), sans(600), sans(700), sans(800), sans(900))
-/** Headings: the same family, heavier cuts. */
-val AppSansTitle = AppSans
+private val ownSans = FontFamily(sans(400), sans(500), sans(600), sans(700), sans(800), sans(900))
+
+/** The app's font: Manrope, or the phone's system font when chosen in the settings (AppFontPref). */
+val AppSans: FontFamily get() = if (com.music.spotui.data.preferences.AppFontPref.system) FontFamily.Default else ownSans
 
 // Kept as an alias so existing references (Theme.kt etc.) don't break.
-val Montserrat = AppSans
+val Montserrat: FontFamily get() = AppSans
 
-private val base = TextStyle(fontFamily = AppSans)
-private val title = TextStyle(fontFamily = AppSansTitle, fontWeight = FontWeight.Bold)
+private fun typography(family: FontFamily): Typography {
+    val base = TextStyle(fontFamily = family)
+    val title = TextStyle(fontFamily = family, fontWeight = FontWeight.Bold)
+    return Typography(
+        displayLarge = title, displayMedium = title, displaySmall = title,
+        headlineLarge = title, headlineMedium = title, headlineSmall = title,
+        titleLarge = base.copy(fontWeight = FontWeight.Bold),
+        titleMedium = base.copy(fontWeight = FontWeight.Bold),
+        titleSmall = base.copy(fontWeight = FontWeight.Bold),
+        bodyLarge = base.copy(fontSize = 16.sp, lineHeight = 24.sp),
+        bodyMedium = base, bodySmall = base,
+        labelLarge = base, labelMedium = base, labelSmall = base,
+    )
+}
 
-val Typography = Typography(
-    displayLarge = title, displayMedium = title, displaySmall = title,
-    headlineLarge = title, headlineMedium = title, headlineSmall = title,
-    titleLarge = base.copy(fontWeight = FontWeight.Bold),
-    titleMedium = base.copy(fontWeight = FontWeight.Bold),
-    titleSmall = base.copy(fontWeight = FontWeight.Bold),
-    bodyLarge = base.copy(fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = base, bodySmall = base,
-    labelLarge = base, labelMedium = base, labelSmall = base,
-)
+private val ownTypography by lazy { typography(ownSans) }
+private val systemTypography by lazy { typography(FontFamily.Default) }
+
+val Typography: Typography get() = if (com.music.spotui.data.preferences.AppFontPref.system) systemTypography else ownTypography

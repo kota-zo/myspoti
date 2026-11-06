@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import app.myspoti.engine.R
+import com.music.spotui.automix.AutoMix
 import com.music.spotui.cast.CastPlayback
 import com.music.spotui.data.offline.OfflineStore
 import com.music.spotui.data.preferences.CrossfadePref
@@ -127,8 +128,10 @@ internal object NerdStats {
         row(R.string.nerd_buffer, LocalPlayer.bufferedAheadMs()?.let { c.getString(R.string.nerd_buffer_value, it / 1000.0) })
         row(R.string.nerd_state, LocalPlayer.playbackState())
         rows += outputRows(c)
+        // AutoMix: the mix ahead or playing, else why the next song will not be mixed. It replaces the crossfade.
+        if (AutoMix.on) row(R.string.nerd_automix, autoMixState(c))
         row(R.string.nerd_processing, listOfNotNull(
-            CrossfadePref.seconds.takeIf { it > 0 }?.let { c.getString(R.string.nerd_crossfade, it) },
+            CrossfadePref.seconds.takeIf { it > 0 && !AutoMix.on }?.let { c.getString(R.string.nerd_crossfade, it) },
             if (LocalPlayer.fadeProgress() < 1f) c.getString(R.string.nerd_fading) else null,
             com.music.spotui.data.preferences.EqualizerPref.takeIf { it.enabled }?.let {
                 c.getString(R.string.nerd_equalizer, c.getString(com.music.spotui.ui.screens.eqPresetLabel(it.preset)))
@@ -137,6 +140,23 @@ internal object NerdStats {
             if (com.music.spotui.data.preferences.EqualizerPref.skipSilence) c.getString(R.string.nerd_skip_silence) else null,
         ).joinToString(" · ").ifBlank { c.getString(R.string.nerd_processing_none) })
         return NerdSection(c.getString(R.string.nerd_section_exo), rows)
+    }
+
+    /** AutoMix's next transition as [LocalPlayer.mixCue] has it ("Blend at 3:12, 16 s"), or the reason there is none. */
+    private fun autoMixState(c: Context): String {
+        val cue = LocalPlayer.mixCue.value
+        if (cue != null) {
+            val style = c.getString(when (cue.style) {
+                app.myspoti.automix.MixPlan.Style.BLEND -> R.string.nerd_automix_blend
+                app.myspoti.automix.MixPlan.Style.CUT -> R.string.nerd_automix_cut
+                else -> R.string.nerd_automix_fade
+            })
+            if (cue.mixing) return c.getString(R.string.nerd_automix_mixing, style)
+            val at = cue.exitMs / 1000
+            return c.getString(R.string.nerd_automix_planned, style, "%d:%02d".format(Locale.US, at / 60, at % 60),
+                ((cue.endMs - cue.exitMs) / 1000).toInt().coerceAtLeast(1))
+        }
+        return com.music.spotui.ui.components.autoMixReasonText(AutoMix.whyNot())?.let(c::getString) ?: c.getString(R.string.nerd_automix_waiting)
     }
 
     /** The bit depth a PCM encoding says, or null (a compressed format, or none reported). */
@@ -197,6 +217,8 @@ internal object NerdStats {
         }
         // The level the page is given (the lowest one while it only mirrors), and what it says it plays aloud.
         rows += c.getString(R.string.nerd_requested) to c.getString(streamingLabel(StreamingQuality.of(page.streamingLevel)))
+        // AutoMix on while Spotify plays: why its songs are not mixed.
+        if (!local && AutoMix.on) com.music.spotui.ui.components.autoMixReasonText(AutoMix.whyNot())?.let { rows += c.getString(R.string.nerd_automix) to c.getString(it) }
         if (!local) {
             val (bitrate, mime) = page.audioInfo()
             rows += c.getString(R.string.nerd_page_reports) to

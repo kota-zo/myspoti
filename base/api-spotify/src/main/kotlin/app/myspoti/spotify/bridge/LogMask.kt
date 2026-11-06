@@ -34,7 +34,19 @@ object LogMask {
 
     /** [text] redacted, then cut to [max] characters with the number cut. */
     fun shown(text: String, max: Int = 200): String {
-        val clean = redact(text)
-        return if (clean.length <= max) clean else clean.take(max) + "… (+${clean.length - max})"
+        // A bridge answer can be tens of kilobytes (a queue dump, a playlist body) while only the
+        // head is ever read: masking the tail costs milliseconds on the main thread for characters
+        // that are thrown away.
+        val head = text.take(max * 4)
+        var clean = redact(head)
+        var size = if (head.length == text.length) clean.length else text.length
+        // A value cut at the end of the head is no longer matched whole (a blob under 120 characters,
+        // an address without its domain) and stays as it is. When masking shrank the head so much that
+        // this tail could reach the kept characters, the whole text is masked instead.
+        if (head.length < text.length && clean.length < max * 3) {
+            clean = redact(text)
+            size = clean.length
+        }
+        return if (size <= max) clean else clean.take(max) + "… (+${size - max})"
     }
 }

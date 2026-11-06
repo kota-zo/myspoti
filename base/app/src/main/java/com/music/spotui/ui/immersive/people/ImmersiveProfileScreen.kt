@@ -1,5 +1,6 @@
 package com.music.spotui.ui.immersive.people
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
@@ -248,9 +248,8 @@ fun ImmersiveProfileScreen(navController: NavController, userId: String, userNam
             )
         }
     }
-    if (blockAsk) AlertDialog(
+    if (blockAsk) ImmersiveAlertDialog(
         onDismissRequest = { blockAsk = false },
-        containerColor = Immersive.Raised,
         title = { Text(stringResource(R.string.profile_block_title, displayName.ifEmpty { userId }), style = Immersive.Headline) },
         text = { Text(stringResource(R.string.profile_block_confirm, displayName.ifEmpty { userId }), style = Immersive.Subhead) },
         confirmButton = {

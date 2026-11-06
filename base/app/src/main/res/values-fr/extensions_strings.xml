@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Monter</string>
     <string name="extensions_move_down">Descendre</string>
     <string name="extension_off">Désactivée</string>
-    <string name="extension_by">par %1$s</string>
     <string name="extension_changelog">Nouveautés</string>
     <string name="extension_update_from">Mise à jour disponible : %1$s → %2$s</string>
     <string name="extension_not_listed">Cette extension n\'est pas dans vos dépôts (ou ils sont encore en chargement).</string>
@@ -96,6 +95,7 @@
     <string name="action_playback_queue">Modifier la file d\'attente</string>
     <string name="action_playback_events">Savoir ce que vous écoutez</string>
     <string name="action_lyrics_provide">Fournir des paroles</string>
+    <string name="action_lyrics_romanize">Romaniser les paroles</string>
     <string name="action_trackinfo_provide">Ajouter des infos sur le titre</string>
     <string name="action_audio_source">Lire l\'audio d\'ailleurs</string>
     <string name="action_download_source">Fournir les téléchargements</string>
@@ -244,4 +244,5 @@
     <string name="ext_setting_cell">%1$s · Données mobiles</string>
     <string name="why_source_ext_quality">Son réglage : %1$s (%2$s)</string>
     <string name="extensions_unreadable_file">Le fichier n\'a pas pu être lu</string>
+    <string name="extensions_guide">Comment installer des extensions</string>
 </resources>

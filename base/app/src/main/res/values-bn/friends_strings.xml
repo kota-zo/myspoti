@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">বন্ধুদের অ্যাক্টিভিটি</string>
+    <string name="friends_now">এখন</string>
+    <string name="friends_empty">এখনও বন্ধুদের কোনো অ্যাক্টিভিটি নেই। আপনি যাদের ফলো করেন এবং যারা Spotify-এ তাদের শোনার অ্যাক্টিভিটি শেয়ার করেন, তারা এখানে দেখাবে।</string>
+    <string name="friends_failed">Spotify বন্ধুদের অ্যাক্টিভিটি পাঠায়নি।</string>
+    <string name="friends_refresh">রিফ্রেশ করুন</string>
+</resources>

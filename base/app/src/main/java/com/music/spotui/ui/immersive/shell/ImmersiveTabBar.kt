@@ -180,10 +180,11 @@ internal fun rememberTabNavigation(navController: NavController): TabNavigation 
     return TabNavigation(selectedTab, onTabClick, fullScreen)
 }
 
-private val TabRoutes = listOf(Routes.Home.route, Routes.Search.route, Routes.Library.route, Routes.Friends.route)
+// Friend activity is not a tab any more: it opens from Home's header, as in Spotify.
+private val TabRoutes = listOf(Routes.Home.route, Routes.Search.route, Routes.Library.route)
 
 /** The tabs the bar shows. */
-internal val TabItems = listOf(Routes.Home, Routes.Library, Routes.Friends, Routes.Search)
+internal val TabItems = listOf(Routes.Home, Routes.Library, Routes.Search)
 
 /** The tab bar itself (pill and Search circle), filling the width [modifier] leaves it. */
 @Composable
@@ -217,7 +218,7 @@ internal fun TabBarContent(
             contentKey = selectedTab,
         ) {
             // Search is the odd one out: a circle of its own beside the pill.
-            listOf(Routes.Home, Routes.Library, Routes.Friends).forEach { item ->
+            listOf(Routes.Home, Routes.Library).forEach { item ->
                 val tint = if (selectedTab == item.route) Immersive.Accent else Immersive.Text.copy(alpha = 0.65f)
                 tab(
                     key = item.route,
@@ -229,8 +230,8 @@ internal fun TabBarContent(
                             color = tint,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            // Three tabs in the pill: a long label (Bibliothèque, with large text) shrinks a little
-                            // before it is cut, and keeps clear of the tab's rounded ends, which clip its first and last letters.
+                            // Three tabs in the pill: a long label (Bibliothèque, with large text) shrinks a little before it is cut,
+                            // and keeps clear of the tab's rounded ends, which clip its first and last letters.
                             autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 11.sp, stepSize = 0.5.sp),
                             modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP).padding(horizontal = 6.dp),
                         )

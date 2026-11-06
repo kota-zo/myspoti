@@ -220,10 +220,20 @@ interface Playlists {
 
 interface Home {
     suspend fun feed(filter: HomeFilter = HomeFilter.ALL, itemsPerShelf: Int = 10): HomeFeed
+    /** The feed of any facet Spotify offers, a sub-chip's too ([HomeChip.id], e.g. Music > Following). */
+    suspend fun feed(facet: String, itemsPerShelf: Int = 10): HomeFeed =
+        feed(HomeFilter.entries.firstOrNull { it.facet == facet } ?: HomeFilter.ALL, itemsPerShelf)
     suspend fun categories(): List<Category>
     suspend fun category(uri: Uri): BrowsePage
     /** New releases from the artists the user follows, newest first ("What's new"). */
     suspend fun whatsNew(offset: Int = 0, limit: Int = 50): Page<Album>
+    /**
+     * The "What's New" feed in full: the releases of the followed artists and the episodes of the
+     * followed shows, each with its seen state (see [whatsNewSections]).
+     */
+    suspend fun whatsNewFeed(offset: Int = 0, limit: Int = 50, content: WhatsNewContent = WhatsNewContent.ALL): Page<WhatsNewItem>
+    /** Marks entries of the feed seen ([WhatsNewItem.id]), as opening the Web Player's page does. */
+    suspend fun markWhatsNewSeen(ids: List<String>)
 }
 
 interface Podcasts {
@@ -341,7 +351,6 @@ interface Jam {
     suspend fun end()
     suspend fun inviteLink(): String?
     suspend fun removeMember(userUri: Uri)
-    suspend fun setQueueOnly(on: Boolean)
     suspend fun setParticipantVolumeControl(on: Boolean)
 }
 

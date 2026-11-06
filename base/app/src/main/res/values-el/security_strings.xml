@@ -2,5 +2,6 @@
 <resources>
     <string name="action_playback_mirror">Κρατά το Spotify να παίζει αθόρυβα εδώ· μετρά ακροάσεις στον λογαριασμό σας</string>
     <string name="action_attest">Απόδειξη ότι είναι το Myspoti</string>
+    <string name="action_ui_style">Αλλαγή εμφάνισης</string>
     <string name="mirror_indicator">Spotify σε αντικατοπτρισμό από %1$s</string>
 </resources>

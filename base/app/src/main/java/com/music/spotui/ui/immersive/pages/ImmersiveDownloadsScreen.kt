@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -184,7 +183,8 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
                     val line = when (status) {
                         OfflineStatus.Unavailable -> stringResource(R.string.download_unavailable)
                         OfflineStatus.Failed ->
-                            stringResource(R.string.download_badge_error_content_description) + " · " + stringResource(R.string.download_retry)
+                            (OfflineStore.notAnswering[r.trackId]?.let { stringResource(R.string.download_source_not_answering, it) }
+                                ?: stringResource(R.string.download_badge_error_content_description)) + " · " + stringResource(R.string.download_retry)
                         else -> stringResource(R.string.download_notification_downloading)
                     }
                     ImmersiveListRow(

@@ -49,6 +49,53 @@ class ZeroconfTest {
         assertEquals("Pixel", fields["deviceName"])
     }
 
+    @Test fun aCodeDeviceIsToldWhatSonosIsSent() {
+        val info = Zeroconf.parseInfo(sonosInfo.replace("2.7.1", "2.9.0"))!!
+        assertTrue(info.wantsCode)
+        val text = String(Zeroconf.addUserCodeRequest("192.168.1.5", 1400, "/spotifyzc", "me", "me", "AQC+/=", info, "Pixel"), Charsets.UTF_8)
+        val (head, body) = text.split("\r\n\r\n")
+        assertTrue(head.startsWith("POST /spotifyzc?action=addUser HTTP/1.1"))
+        assertTrue(head.contains("Content-Length: ${body.toByteArray().size}"))
+        val fields = body.split('&').associate { it.substringBefore('=') to java.net.URLDecoder.decode(it.substringAfter('='), "UTF-8") }
+        assertEquals("addUser", fields["action"])
+        assertEquals("2.9.0", fields["version"])
+        assertEquals("authorization_code", fields["tokenType"])
+        assertEquals("", fields["clientKey"])
+        assertEquals("me", fields["userName"])
+        assertEquals("me", fields["loginId"])
+        assertEquals("AQC+/=", fields["blob"])
+        assertEquals("Pixel", fields["deviceName"])
+        assertEquals("e51f224d70d3df8c10d5e456b6ab98229715fe7e", fields["deviceId"])
+        assertEquals("2.7.1", fields(Zeroconf.addUserCodeRequest("h", 1, "/", "u", "u", "c", info.copy(version = ""), "P"))["version"])
+    }
+
+    private fun fields(request: ByteArray) = String(request, Charsets.UTF_8).substringAfter("\r\n\r\n").split('&')
+        .associate { it.substringBefore('=') to java.net.URLDecoder.decode(it.substringAfter('='), "UTF-8") }
+
+    @Test fun aDeviceStillStartingIsSeen() {
+        val i = Zeroconf.parseInfo("""{"status":101,"deviceID":"d","clientID":"c","tokenType":"authorization_code","availability":"NOT-LOADED","publicKey":"SU5WQUxJRA==","spotifyError":0}""")!!
+        assertEquals("NOT-LOADED", i.availability)
+        assertEquals(Zeroconf.INVALID_KEY, i.publicKey)
+        assertTrue(i.starting)
+        assertFalse(i.copy(availability = "", publicKey = "abc").starting)
+        assertTrue(i.copy(availability = "").starting)
+        assertEquals(0, Zeroconf.parseInfo(sonosInfo)!!.spotifyError)
+        assertFalse(Zeroconf.parseInfo("""{"status":101,"deviceID":"d","tokenType":"accesstoken"}""")!!.wantsCode)
+    }
+
+    @Test fun codeAnswers() {
+        assertEquals(Zeroconf.CodeAnswer.ACCEPTED, Zeroconf.codeAnswer(200, """{"status":101,"statusString":"OK"}"""))
+        assertEquals(Zeroconf.CodeAnswer.ACCEPTED, Zeroconf.codeAnswer(200, "}"))
+        assertEquals(Zeroconf.CodeAnswer.LOGIN_FAILED, Zeroconf.codeAnswer(200, """{"status":202,"statusString":"ERROR-LOGIN-FAILED","spotifyError":0}"""))
+        assertEquals(Zeroconf.CodeAnswer.INVALID_KEY, Zeroconf.codeAnswer(200, """{"status":203,"statusString":"ERROR-INVALID-PUBLICKEY"}"""))
+        assertEquals(Zeroconf.CodeAnswer.GROUPED, Zeroconf.codeAnswer(500, ""))
+        assertEquals(Zeroconf.CodeAnswer.GROUPED, Zeroconf.codeAnswer(500, """{"status":102}"""))
+        assertEquals(Zeroconf.CodeAnswer.REFUSED, Zeroconf.codeAnswer(200, """{"status":103,"statusString":"ERROR-INVALID-ARGUMENTS"}"""))
+        assertEquals(Zeroconf.CodeAnswer.REFUSED, Zeroconf.codeAnswer(404, ""))
+        assertEquals("status 202 ERROR-LOGIN-FAILED spotifyError 7", Zeroconf.answerSummary("""{"status":202,"statusString":"ERROR-LOGIN-FAILED","spotifyError":7}"""))
+        assertEquals("not JSON len=1", Zeroconf.answerSummary("}"))
+    }
+
     @Test fun responsesAreReadWithAndWithoutChunks() {
         val plain = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello".toByteArray()
         assertEquals(200 to "hello", Zeroconf.parseResponse(plain))

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Amigos</string>
     <string name="messages_title">Mensagens</string>
     <string name="messages_empty">Ainda não há conversas. Escreva para um amigo com o lápis lá em cima.</string>
     <string name="messages_failed">O Spotify não enviou suas mensagens.</string>

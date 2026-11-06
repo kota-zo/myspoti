@@ -13,6 +13,7 @@
 package com.music.spotui.ui.immersive.lyrics
 
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material.icons.rounded.Translate
 import com.music.spotui.ui.components.secondaryClick
 import android.os.Build
@@ -58,6 +59,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableLongState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -71,15 +73,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -87,6 +89,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -96,7 +99,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.myspoti.engine.R
 import com.music.spotui.data.entity.LyricLine
@@ -157,16 +159,29 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
     val context = androidx.compose.ui.platform.LocalContext.current
     val vm: LyricsViewModel = viewModel()
     val song = Graph.currentSongState
+    // An AutoMix mix or a crossfade: the words of the song going out until half way, at its own
+    // position, as the title and the cover (SongBlend). Switched at the start, the new song's words
+    // ran over the old song still heard for the whole mix (reported, worst with long mixes).
+    val blend = com.music.spotui.ui.components.rememberSongBlend()
+    val hold = blend?.outgoingWords == true
     val title = song.title.value
     val artist = song.singer.value
     // currentTrackId is plain data, not Compose state: a skip whose title and artist are the same
     // (or that reports its id after them) would never re-run this. The playing item's uri is state.
     val playingUri = SongPlayer.nowPlaying.value.uri
-    LaunchedEffect(title, artist, playingUri, SongPlayer.currentTrackId) {
-        SongPlayer.currentLyricsTrack()?.let(vm::load)
+    // Loaded as the Classic look does: read again when the lyrics extensions changed (they finish
+    // starting after the app: the song not found by then stayed so until the panel was reopened).
+    val state = com.music.spotui.ui.screens.rememberLyricsState(vm, title, artist, hold)
+    com.music.spotui.ui.screens.KeepScreenOnForLyrics(Graph.currentSongState.playingState.value && state is LyricsViewModel.State.Loaded)
+    val liveKey = "$playingUri|${SongPlayer.currentTrackId}|$title|$artist"
+    // A plain holder (not state): the key of the words shown before the mix began.
+    val heldKey = androidx.compose.runtime.remember { arrayOf(liveKey) }
+    if (!hold) heldKey[0] = liveKey
+    val trackKey = if (hold) heldKey[0] else liveKey
+    DisposableEffect(hold, blend) {
+        lyricsPosition = if (hold && blend != null) ({ blend.positionMs().coerceAtLeast(0L) }) else ({ SongPlayer.getCurrentPosition().coerceAtLeast(0L) })
+        onDispose { lyricsPosition = { SongPlayer.getCurrentPosition().coerceAtLeast(0L) } }
     }
-    val state by vm.state.collectAsState()
-    val trackKey = "$playingUri|${SongPlayer.currentTrackId}|$title|$artist"
     val selecting by vm.selecting.collectAsState()
     val picked by vm.picked.collectAsState()
     // Back and closing the panel end the picking before anything else.
@@ -198,22 +213,37 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
                         translations = current.translations.takeIf { current.showTranslation },
                         romanizing = LyricsRomanizationPref.on && current.lyrics.hasRomanization,
                     )
-                    // The Classic screen's translation, with its language setting and its service: the
-                    // lyrics are only sent when it is tapped. Not offered for a song already in that language.
+                    // The romanization, when the lyrics have one, then the Classic screen's translation,
+                    // with its language setting and its service: the lyrics are only sent when it is
+                    // tapped. Not offered for a song already in that language.
                     val target = com.music.spotui.ui.components.readerLanguage()
-                    if (!selecting && !LyricsViewModel.sameLanguage(current.sourceLanguage, target)) {
+                    val canRomanize = current.lyrics.hasRomanization
+                    val canTranslate = !LyricsViewModel.sameLanguage(current.sourceLanguage, target)
+                    if (!selecting && (canRomanize || canTranslate)) {
                         val layoutDirection = LocalLayoutDirection.current
-                        TranslateToggle(
-                            on = current.showTranslation,
-                            loading = current.translating && current.translationRequested,
-                            onClick = { vm.toggleTranslation(target) },
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(
                                     top = contentPadding.calculateTopPadding(),
                                     end = Immersive.Gutter + contentPadding.calculateEndPadding(layoutDirection),
                                 ),
-                        )
+                        ) {
+                            if (canRomanize) LyricsToggle(
+                                icon = Icons.Rounded.Abc,
+                                description = stringResource(R.string.lyrics_romanize),
+                                on = LyricsRomanizationPref.on,
+                                onClick = { LyricsRomanizationPref.set(context, !LyricsRomanizationPref.on) },
+                            )
+                            if (canTranslate) LyricsToggle(
+                                icon = Icons.Rounded.Translate,
+                                description = stringResource(R.string.lyrics_fullscreen_chip_label_translate),
+                                on = current.showTranslation,
+                                loading = current.translating && current.translationRequested,
+                                onClick = { vm.toggleTranslation(target) },
+                            )
+                        }
                     }
                     if (selecting) ShareBar(
                         canShare = picked != null,
@@ -227,9 +257,16 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
     }
 }
 
-/** A round toggle over the lyrics, lit white while the translation is showing; a spinner while it is fetched. */
+/** A round toggle over the lyrics, lit white while what it shows is on; a spinner while that is fetched. */
 @Composable
-private fun TranslateToggle(on: Boolean, loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LyricsToggle(
+    icon: ImageVector,
+    description: String,
+    on: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    loading: Boolean = false,
+) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -242,8 +279,8 @@ private fun TranslateToggle(on: Boolean, loading: Boolean, onClick: () -> Unit, 
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
         } else {
             Icon(
-                Icons.Rounded.Translate,
-                contentDescription = stringResource(R.string.lyrics_fullscreen_chip_label_translate),
+                icon,
+                contentDescription = description,
                 tint = if (on) Color.Black else Color.White,
                 modifier = Modifier.size(20.dp),
             )
@@ -653,7 +690,9 @@ private fun PanelRow(
     // clears and the old one blurs back in the same short tween. Reduce motion drops blur.
     val focusStep = (if (focusLine < 0) 0 else abs(index - focusLine))
         .coerceAtMost(LINE_FALLOFF_BLUR.lastIndex)
-    val blur by animateDpAsState(
+    // These three animate on every line change: they are read in the row's layer (see `shape`),
+    // so a line settling redraws the rows it touches without recomposing them and their text.
+    val blur = animateDpAsState(
         targetValue = when {
             !synced || !blurOk || browsing || (focusLine >= 0 && index == focusLine) -> 0.dp
             else -> LINE_FALLOFF_BLUR[focusStep]
@@ -661,7 +700,7 @@ private fun PanelRow(
         animationSpec = tween(BLUR_SWITCH_MS, easing = LYRIC_EASING),
         label = "lyricBlur",
     )
-    val lineAlpha by animateFloatAsState(
+    val lineAlpha = animateFloatAsState(
         targetValue = when {
             !synced -> 0.95f
             isActive || selected -> 1f
@@ -697,7 +736,7 @@ private fun PanelRow(
     var pressAt by remember { mutableStateOf(Offset.Zero) }
     var pressWidth by remember { mutableStateOf(0) }
     val density = LocalDensity.current
-    val scale by animateFloatAsState(
+    val scale = animateFloatAsState(
         targetValue = when {
             pressed -> PRESSED_SCALE
             isActive || !synced -> 1f
@@ -722,12 +761,12 @@ private fun PanelRow(
     val shape = Modifier
         .fillMaxWidth()
         .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
+            scaleX = scale.value
+            scaleY = scale.value
             // Anchored to the left edge (the right one for the second singer), so the words don't
             // slide sideways under the highlight.
             transformOrigin = TransformOrigin(if (lane == true) 1f else 0f, 0.5f)
-            alpha = lineAlpha
+            alpha = lineAlpha.value
             // Held back against the list's own movement: the list has already taken this row
             // part of the way, so giving back what it has not earned yet is what leaves it
             // trailing. Rows with nothing to catch up on never read the clock at all.
@@ -740,8 +779,10 @@ private fun PanelRow(
                         LYRIC_EASING.transform(((elapsed - staggerDelay) / run.durationMs).coerceIn(0f, 1f))
                     )
             }
+            // What Modifier.blur does, with its radius read here instead of at composition.
+            val radius = blur.value.toPx()
+            renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
         }
-        .blur(blur, BlurredEdgeTreatment.Unbounded)
         .clip(RoundedCornerShape(10.dp))
         .background(pickedFill)
         .then(if (onNote != null) Modifier.drawWithCache {
@@ -801,7 +842,9 @@ private fun PanelRow(
                 )
             }
             // Under the words, smaller and dimmer, and they take the row's blur and brightness with
-            // them: the backing vocals, then the romanization, then the translation.
+            // them: the backing vocals, then the romanization, then the translation. The romanization
+            // in italics and the translation a little apart: one says how the line sounds, the other
+            // what it means.
             val romanized = row.romanization.takeIf { romanizing }
             if (row.background != null) {
                 PanelBackground(
@@ -813,9 +856,9 @@ private fun PanelRow(
             if (romanized != null) {
                 Text(
                     text = romanized,
-                    style = secondaryStyle(TRANSLATION_STYLE, lane),
+                    style = secondaryStyle(ROMANIZATION_STYLE, lane),
                     color = Immersive.TextSecondary,
-                    modifier = Modifier.fillMaxWidth().padding(start = GLOW_ROOM, end = GLOW_ROOM, bottom = if (translation != null) 4.dp else GLOW_ROOM),
+                    modifier = Modifier.fillMaxWidth().padding(start = GLOW_ROOM, end = GLOW_ROOM, bottom = if (translation != null) 10.dp else GLOW_ROOM),
                 )
             }
             if (translation != null) {
@@ -852,6 +895,9 @@ private fun ShareBar(canShare: Boolean, onCancel: () -> Unit, onShare: () -> Uni
 
 /** A translated line: well below the lyric's 30 sp, so the sung words stay the focus. */
 private val TRANSLATION_STYLE = Immersive.Lyric.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+
+/** A romanized line: a translation's size, in italics as a transliteration is set, so the two never read alike. */
+private val ROMANIZATION_STYLE = TRANSLATION_STYLE.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
 
 /** The backing vocals: a little smaller than a translation, and drawn dimmer still (see [PanelBackground]). */
 private val BACKGROUND_STYLE = Immersive.Lyric.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
@@ -1105,8 +1151,8 @@ private fun GapRow(
     row: PanelLine,
     clock: MutableLongState,
     isActive: Boolean,
-    blur: Dp,
-    lineAlpha: Float,
+    blur: State<Dp>,
+    lineAlpha: State<Float>,
     onSeek: (Long) -> Unit,
 ) {
     val until = row.untilMs
@@ -1136,7 +1182,12 @@ private fun GapRow(
     ) {
         Box(
             modifier = Modifier
-                .blur(blur, BlurredEdgeTreatment.Unbounded)
+                // Its own layer, outside the clip and the grow below: the dots blur at the full
+                // radius and the blur bleeds past the rounded rect, as a sung line's does.
+                .graphicsLayer {
+                    val radius = blur.value.toPx()
+                    renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
+                }
                 .clip(RoundedCornerShape(10.dp))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                     onSeek(row.timeMs)
@@ -1150,7 +1201,7 @@ private fun GapRow(
                     scaleX = grow
                     scaleY = grow
                     transformOrigin = TransformOrigin(0f, 0.5f)
-                    alpha = lineAlpha * swell
+                    alpha = lineAlpha.value * swell
                 }
                 .drawBehind {
                     val span = (until - row.timeMs).coerceAtLeast(1L)

@@ -37,6 +37,11 @@ the defaults (the beta is `-p app.myspoti`).
 | `ext.why [n]` | The last `n` (1 by default, 20 at most) plays through the extensions: sources asked, outcome and time, skipped and why, chosen, how its address opened, announced and detected quality, fallback, error. Addresses without query, masked. Debug builds only. |
 | `play <spotify:…> [context]`, `pause`, `resume`, `next`, `previous` | The player's own commands. |
 | `nav <route>` | The open screen navigates to a route (`settings`, `extensions`, `extension/<id>`, `queue`…). |
+| `automix [on\|off]` | Turns AutoMix on or off (as the setting) and prints where it stands. |
+| `automix.segue [on\|off]` | Turns the plan-based transitions on or off (`docs/automix/segue-design.md`) and prints where they stand. |
+| `automix.status` | AutoMix's state (deck, plan, position) and its journal's last 30 lines: analyses, plans, the deck's distance to its place once a second during a mix, the mix's largest gap. See `docs/automix/README.md`. |
+| `automix.files <piece> <piece>…` | Plays the phone songs whose folder + title contains each piece, in that order, as the local queue (e.g. `Spotiflaccc/24`). |
+| `automix.seek <ms>` | Moves in the local player's song. |
 
 ## What never leaves the phone
 

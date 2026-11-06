@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Λογαριασμοί</string>
+    <string name="accounts_switch_row">Αλλαγή λογαριασμού</string>
+    <string name="accounts_switch_row_detail">Οι λογαριασμοί σας Spotify σε αυτό το τηλέφωνο</string>
+    <string name="accounts_add">Προσθήκη λογαριασμού</string>
+    <string name="accounts_add_detail">Ανοίγει τη σύνδεση του Spotify· οι λογαριασμοί εδώ παραμένουν συνδεδεμένοι</string>
+    <string name="accounts_add_single_detail">Αποσυνδέει αυτόν τον λογαριασμό και ανοίγει τη σύνδεση του Spotify</string>
+    <string name="accounts_not_signed_in">Μη συνδεδεμένος</string>
+    <string name="accounts_in_use">Σε χρήση</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Δωρεάν</string>
+    <string name="accounts_switch_title">Αλλαγή σε %1$s;</string>
+    <string name="accounts_switch_text">Η αναπαραγωγή σταματά. Οι λήψεις και το ιστορικό ακρόασης ακολουθούν τον δικό τους λογαριασμό· οι επεκτάσεις συνεχίζουν να λειτουργούν.</string>
+    <string name="accounts_switch_confirm">Αλλαγή</string>
+    <string name="accounts_remove">Αφαίρεση</string>
+    <string name="accounts_remove_title">Αφαίρεση %1$s;</string>
+    <string name="accounts_remove_text">Η σύνδεση και τα δεδομένα web του διαγράφονται από αυτό το τηλέφωνο, μαζί με το ιστορικό ακρόασης. Οι λήψεις του φυλάσσονται και επιστρέφουν αν τον προσθέσετε ξανά.</string>
+    <string name="accounts_footer">Κάθε λογαριασμός παραμένει συνδεδεμένος σε αυτό το τηλέφωνο. Η αλλαγή σταματά την αναπαραγωγή· οι λήψεις και το ιστορικό ακρόασης ακολουθούν τον λογαριασμό τους· οι επεκτάσεις συνεχίζουν να λειτουργούν.</string>
+    <string name="accounts_single_footer">Το WebView αυτού του τηλεφώνου κρατά έναν λογαριασμό τη φορά: η αλλαγή ή η προσθήκη λογαριασμού αποσυνδέει αυτόν και ανοίγει τη σύνδεση του Spotify. Με ενημέρωση του Android System WebView μένουν συνδεδεμένοι πολλοί λογαριασμοί.</string>
+    <string name="accounts_back_to">Επιστροφή σε %1$s</string>
+</resources>

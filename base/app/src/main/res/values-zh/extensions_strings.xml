@@ -78,7 +78,6 @@
     <string name="extensions_move_up">上移</string>
     <string name="extensions_move_down">下移</string>
     <string name="extension_off">已关闭</string>
-    <string name="extension_by">作者：%1$s</string>
     <string name="extension_changelog">更新内容</string>
     <string name="extension_update_from">有可用更新：%1$s → %2$s</string>
     <string name="extension_not_listed">你的仓库中没有此扩展（或仓库仍在加载）。</string>
@@ -96,6 +95,7 @@
     <string name="action_playback_queue">编辑播放队列</string>
     <string name="action_playback_events">获知你在播放什么</string>
     <string name="action_lyrics_provide">提供歌词</string>
+    <string name="action_lyrics_romanize">罗马化歌词</string>
     <string name="action_trackinfo_provide">添加歌曲详情</string>
     <string name="action_audio_source">从其他来源播放音频</string>
     <string name="action_download_source">提供下载</string>
@@ -244,4 +244,5 @@
     <string name="why_source_open_ok">%1$d 毫秒内打开</string>
     <string name="why_source_skipped">已跳过：%1$s</string>
     <string name="why_source_title">为什么是这个来源？</string>
+    <string name="extensions_guide">如何安装扩展</string>
 </resources>

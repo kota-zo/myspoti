@@ -52,7 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
@@ -60,6 +59,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.di.Haptics
 import com.music.spotui.di.SongPlayer
+import com.music.spotui.ui.components.titleMarquee
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.shell.immersiveGlassSurface
 import com.music.spotui.ui.navigation.PlayerSheet
@@ -82,7 +82,7 @@ private val TRACK_SWIPE_THRESHOLD = 72.dp
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modifier) {
+fun ImmersiveMiniPlayer(modifier: Modifier = Modifier) {
     val vm: PlayerViewModel = viewModel()
     // A crossfade: the words stay the outgoing song's until half way (see SongBlend).
     val blend = com.music.spotui.ui.components.rememberSongBlend()
@@ -131,12 +131,19 @@ fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modif
                 style = Immersive.BodyStrong.copy(fontSize = 15.sp, lineHeight = 19.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                // Once per song then rests: the mini player is always on screen.
+                modifier = Modifier.titleMarquee(iterations = 1),
             )
             if (!adPlaying) {
-                Text(text = singer, style = Immersive.Subhead.copy(lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = singer, style = Immersive.Subhead.copy(lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.titleMarquee(iterations = 1),
+                )
             }
         }
-        if (buffering) {
+        // The spinner and the button hand over in a short fade, not in one frame.
+        com.music.spotui.ui.components.LoadedFade(buffering) { loading ->
+        if (loading) {
             Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Immersive.Text, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
             }
@@ -150,13 +157,17 @@ fun ImmersiveMiniPlayer(navController: NavController, modifier: Modifier = Modif
                 },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = stringResource(if (playing) R.string.immersive_player_pause else R.string.immersive_player_play),
-                    tint = Immersive.Text,
-                    modifier = Modifier.size(GLYPH_SIZE),
-                )
+                // Play and pause swap as in the full player.
+                com.music.spotui.ui.components.GlyphSwap(playing) { on ->
+                    Icon(
+                        imageVector = if (on) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = stringResource(if (on) R.string.immersive_player_pause else R.string.immersive_player_play),
+                        tint = Immersive.Text,
+                        modifier = Modifier.size(GLYPH_SIZE),
+                    )
+                }
             }
+        }
         }
         Box(
             Modifier.size(GLYPH_SLOT).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {

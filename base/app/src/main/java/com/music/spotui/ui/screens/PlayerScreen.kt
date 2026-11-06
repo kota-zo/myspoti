@@ -1,6 +1,10 @@
 package com.music.spotui.ui.screens
 
-import androidx.compose.material.icons.filled.Check
+import com.music.spotui.ui.components.drawMixZone
+import com.music.spotui.ui.components.mixBeat
+import com.music.spotui.ui.components.mixSqueeze
+import com.music.spotui.ui.components.mixWave
+import com.music.spotui.ui.components.zoneOn
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.onSizeChanged
@@ -10,20 +14,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.positionChange
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.outlined.AddCircleOutline
@@ -32,7 +26,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,59 +39,34 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderColors
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.music.spotui.ui.components.pressable
+import com.music.spotui.ui.components.titleMarquee
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.foundation.pager.HorizontalPager
@@ -115,7 +83,6 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -129,21 +96,13 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import app.myspoti.engine.R
-import com.music.spotui.data.api.Response
 import com.music.spotui.data.entity.SongsModel
-import com.music.spotui.data.preferences.addLikedSongId
-import com.music.spotui.data.preferences.getLikedSongIds
-import com.music.spotui.data.preferences.getSongsByIds
-import com.music.spotui.data.preferences.isSongLiked
-import com.music.spotui.data.preferences.removeLikedSongId
 import com.music.spotui.di.Palette
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.ui.components.Snackbar
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.albumRoute
 import com.music.spotui.ui.navigation.artistRoute
 import com.music.spotui.ui.theme.AppBackground
-import com.music.spotui.ui.theme.AppPalette
 import com.music.spotui.ui.viewmodel.PlayerViewModel
 import com.music.spotui.ui.viewmodel.confirmedTrackIdForDisplay
 import com.music.spotui.ui.viewmodel.confirmedTrackIdFromUri
@@ -195,7 +154,6 @@ fun PlayerScreen(navController: NavController) {
             navController = navController,
             playerViewModel = playerViewModel,
             context = context,
-            isLiked = isLiked,
             onDismiss = { showMenu = false },
             onOpenQueue = { showQueue = true },
         )
@@ -240,6 +198,9 @@ fun PlayerScreen(navController: NavController) {
     // this one with the fade's progress, the words and times switch once, half way.
     val blend = com.music.spotui.ui.components.rememberSongBlend()
     val outgoing = blend?.takeIf { it.outgoingWords }?.song
+    // An AutoMix mix planned or playing: its stretch on the seek bar, the cover beating with it.
+    val mixCue = com.music.spotui.ui.components.rememberMixCue()
+    val mixPulse = com.music.spotui.ui.components.rememberMixPulse(mixCue)
     // The backdrop's colour when the fade began, before this song's took over.
     val outgoingBackdrop = remember(blend) { backdropColor }
 
@@ -340,8 +301,6 @@ fun PlayerScreen(navController: NavController) {
             androidx.compose.animation.core.tween((CANVAS_FADE_MS * left).toInt(), easing = androidx.compose.animation.core.FastOutSlowInEasing),
         )
     }
-    val canvasAlpha = canvasProgress.value
-    val coverAlpha = 1f - canvasProgress.value
     // A tap on the Canvas no longer needs its own mode: the immersive view below handles both
     // cases (Canvas playing or plain cover), so the Canvas-only fade ("chrome") is gone.
     // Music video (YouTube, synced to the Spotify playback): looked up for every track
@@ -413,7 +372,9 @@ fun PlayerScreen(navController: NavController) {
                 url = canvasUrl,
                 onFirstFrame = { canvasShown = true },
                 playing = songPlayingState && !showLyrics && !audioBuffering,
-                modifier = Modifier.fillMaxSize().alpha(canvasAlpha),
+                // Read in the layer: the fade then changes the alpha only, without recomposing
+                // the whole player for each of its frames.
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = canvasProgress.value },
             )
             // Darker than the clip itself while the player shows over it, so the text reads;
             // gone when the Canvas is shown alone.
@@ -422,7 +383,7 @@ fun PlayerScreen(navController: NavController) {
                     .fillMaxSize()
                     // Lighter dim in the immersive view: the clip is the page there, only the
                     // compact strip needs something to sit on.
-                    .alpha(canvasAlpha * if (immersive) 0.35f else 1f)
+                    .graphicsLayer { alpha = canvasProgress.value * if (immersive) 0.35f else 1f }
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -442,6 +403,9 @@ fun PlayerScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { val r = reveal(); alpha = r; translationY = (1f - r) * revealShift }
+                // An AutoMix mix: the player draws in with it, springs back after it, and a wave leaves the cover.
+                .mixSqueeze(mixPulse)
+                .mixWave(mixPulse, Color.White, androidx.compose.ui.geometry.Offset(0.5f, 0.3f))
                 .nestedScroll(pullToClose.connection)
                 .statusBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -552,6 +516,10 @@ fun PlayerScreen(navController: NavController) {
                 // Immersive: the artwork fills the screen instead of sitting in a square.
                 modifier = if (immersive) Modifier.fillMaxSize()
                     else Modifier.fillMaxWidth().aspectRatio(1f),
+                // A Live Radio station is a "queue" of one with nothing to swipe to: without this the
+                // artwork could be dragged onto a page falling back to the very same cover.
+                // (Read again each time np changes, which a station starting does.)
+                userScrollEnabled = com.music.spotui.radio.RadioPlayer.current() == null,
             ) { page ->
                 val cover = when (page) {
                     0 -> np.prev?.coverUri
@@ -565,8 +533,10 @@ fun PlayerScreen(navController: NavController) {
                             // Normal layout keeps the inset, rounded cover.
                             else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
                             .graphicsLayer {
-                                alpha = coverAlpha
-                                val grow = 1f + (1f - coverAlpha) * 0.06f
+                                val shown = 1f - canvasProgress.value
+                                alpha = shown
+                                val beat = if (page == 1) 1f + 0.025f * (mixPulse?.level() ?: 0f) else 1f
+                                val grow = (1f + (1f - shown) * 0.06f) * beat
                                 scaleX = grow; scaleY = grow
                             },
                         model = app.myspoti.host.android.Covers.large(cover),
@@ -577,7 +547,8 @@ fun PlayerScreen(navController: NavController) {
                         blend,
                         (if (immersive) Modifier.fillMaxSize()
                             else Modifier.padding(horizontal = coverInset).aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
-                            .graphicsLayer { alpha = coverAlpha },
+                            .graphicsLayer { alpha = 1f - canvasProgress.value }
+                            .mixBeat(mixPulse),
                     )
                 }
             }
@@ -661,6 +632,7 @@ fun PlayerScreen(navController: NavController) {
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .padding(top = 11.dp),
+                    mixZone = { mixCue?.zoneOn(duration, incomingShown = blend != null && outgoing == null) },
                 )
                 Row(
                     modifier = Modifier
@@ -680,7 +652,9 @@ fun PlayerScreen(navController: NavController) {
                     )
                 }
 
-                PlayerFull(songPlayingState, playerViewModel, context, isLiked, shuffle, repeat, queueSongs)
+                com.music.spotui.ui.components.PlaybackSpeedNote(Color.White.copy(alpha = 0.8f), com.music.spotui.ui.theme.AppAccent,
+                    Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp))
+                PlayerFull(songPlayingState, playerViewModel, context, shuffle, repeat, queueSongs)
 
                 PlayerConnectRow(
                     context = context,
@@ -731,7 +705,7 @@ fun PlayerScreen(navController: NavController) {
         // artwork only, so a swipe there cannot pull a card up under the compact strip.
         if (!immersive) item {
             // T4: no lyrics card during an ad break — the song it belongs to is not what plays.
-            if (!audioBuffering && !adPlaying && com.music.spotui.data.preferences.PlayerLyricsCardPref.on) InlineLyrics(
+            if (!audioBuffering && !adPlaying && com.music.spotui.data.preferences.PlayerLyricsCardPref.shown) InlineLyrics(
                 title = songTitle,
                 artist = songSinger,
                 album = playerViewModel.currentSongAlbum.value,
@@ -818,6 +792,7 @@ private fun ImmersiveStrip(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.titleMarquee(iterations = 1),
                 )
                 if (artists.isNotBlank()) Text(
                     text = artists,
@@ -825,6 +800,7 @@ private fun ImmersiveStrip(
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.titleMarquee(iterations = 1),
                 )
             }
             LikeButton(liked = liked, size = 26.dp, onClick = onLike)
@@ -988,6 +964,7 @@ fun PlayerTopBar(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.titleMarquee(iterations = 3),
             )
         }
         Icon(
@@ -1112,13 +1089,14 @@ fun PlayerInfo(
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp).graphicsLayer { alpha = textAlpha.value * wordsAlpha() }) {
             Text(
                 modifier = Modifier
-                    // A few passes, after the sheet has settled (not an endless 120 Hz animation).
-                    .basicMarquee(iterations = 3, initialDelayMillis = 1_500, repeatDelayMillis = 2_500)
                     // Nothing to open during an ad: the title would lead to the previous song.
                     .then(if (onTitleClick != null && !adPlaying) Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { onTitleClick() } else Modifier),
+                    ) { onTitleClick() } else Modifier)
+                    // A few passes, after the sheet has settled (not an endless 120 Hz animation);
+                    // inside the tap target, which scrolling leaves as it was.
+                    .titleMarquee(iterations = 3),
                 text = if (adPlaying) stringResource(R.string.ad_playing) else songTitle,
                 color = Color.White,
                 fontSize = 22.sp,
@@ -1140,10 +1118,10 @@ fun PlayerInfo(
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = if (onArtistClick != null) Modifier.clickable(
+                    modifier = (if (onArtistClick != null) Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { onArtistClick() } else Modifier,
+                    ) { onArtistClick() } else Modifier).titleMarquee(iterations = 3),
                 )
             }
         }
@@ -1184,6 +1162,9 @@ fun SpotifySeekBar(
     onDrag: (Float) -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
+    /** An AutoMix mix's stretch of the bar (fractions), read in the draw; null with none. */
+    mixZone: () -> ClosedFloatingPointRange<Float>? = { null },
+    /** The mix's beat, 0..1, read in the draw. */
 ) {
     var widthPx by remember { mutableStateOf(1f) }
     val seekDescription = stringResource(R.string.playback_seek_description)
@@ -1233,30 +1214,8 @@ fun SpotifySeekBar(
         val f = fraction().coerceIn(0f, 1f)
         drawLine(Color.White.copy(alpha = 0.3f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
         drawLine(Color.White, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width * f, y), track, androidx.compose.ui.graphics.StrokeCap.Round)
+        mixZone()?.let { drawMixZone(it, f, y, track * 1.5f, com.music.spotui.ui.theme.AppAccent) }
         drawCircle(Color.White, radius = 5.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * f, y))
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomSlider(
-    modifier: Modifier = Modifier,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: (() -> Unit)? = null,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
-    steps: Int = 0,
-    colors: SliderColors = SliderDefaults.colors(),
-) {
-    Box(modifier = modifier.height(10.dp)) {
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = valueRange,
-            steps = steps,
-            colors = colors,
-        )
     }
 }
 
@@ -1265,7 +1224,6 @@ fun PlayerFull(
     songPlayingState: Boolean,
     playerViewModel: PlayerViewModel,
     context: Context,
-    isLiked: MutableState<Boolean>,
     shuffle: Boolean,
     repeat: Boolean,
     queueSongs: List<SongsModel>
@@ -1456,7 +1414,7 @@ fun PlayerConnectRow(
                 var nerd by remember { mutableStateOf(false) }
                 if (quality) com.music.spotui.ui.components.QualitySheet { quality = false }
                 if (nerd) com.music.spotui.ui.components.StatsForNerdsSheet { nerd = false }
-                if (source.isNotBlank() && com.music.spotui.data.preferences.PlayerSourceLinePref.on) Text(
+                if (source.isNotBlank() && com.music.spotui.data.preferences.PlayerSourceLinePref.shown) Text(
                     text = source,
                     color = com.music.spotui.ui.theme.AppMuted,
                     fontSize = 11.sp,
@@ -1535,7 +1493,6 @@ fun PlayerOptionsSheet(
     navController: NavController,
     playerViewModel: PlayerViewModel,
     context: Context,
-    isLiked: MutableState<Boolean>,
     onDismiss: () -> Unit,
     onOpenQueue: (() -> Unit)? = null,
 ) {
@@ -1638,45 +1595,6 @@ fun AddButton(song: () -> SongsModel, liked: Boolean, size: androidx.compose.ui.
     }
 }
 
-@Composable
-fun PlayerMenuRow(
-    icon: ImageVector,
-    label: String,
-    iconTint: Color = Color.White,
-    enabled: Boolean = true,
-    trailingArrow: Boolean = false,
-    onClick: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 20.dp, vertical = 14.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            tint = if (enabled) iconTint else Color.Gray,
-            modifier = Modifier.size(22.dp),
-            contentDescription = null
-        )
-        Spacer(modifier = Modifier.width(20.dp))
-        Text(
-            text = label,
-            color = if (enabled) Color.White else Color.Gray,
-            fontSize = 15.sp,
-            modifier = Modifier.weight(1f)
-        )
-        if (trailingArrow) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp),
-                contentDescription = null
-            )
-        }
-    }
-}
 /**
  * Plays a Spotify Canvas clip: a short, muted, looping video filling the
  * now-playing background, on the shared [CanvasPlayer] (separate from the audio engine),

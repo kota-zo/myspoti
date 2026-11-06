@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Draugi</string>
     <string name="messages_title">Ziņas</string>
     <string name="messages_empty">Vēl nav sarunu. Uzraksti draugam ar zīmuli augšā.</string>
     <string name="messages_failed">Spotify nenosūtīja tavas ziņas.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s noņēma %2$s</string>
     <string name="messages_event_link">%1$s pievienojās ar saiti</string>
     <string name="messages_event_reported">Par sarunu tika ziņots</string>
-    <string name="friends_title">Draugu aktivitāte</string>
-    <string name="friends_now">Tagad</string>
-    <string name="friends_empty">Draugu aktivitātes vēl nav. Šeit redzami draugi, kuriem sekojat un kuri Spotify kopīgo savu klausīšanās aktivitāti.</string>
-    <string name="friends_failed">Spotify nenosūtīja draugu aktivitāti.</string>
-    <string name="friends_refresh">Atsvaidzināt</string>
+    <string name="friends_tab">Draugi</string>
 </resources>

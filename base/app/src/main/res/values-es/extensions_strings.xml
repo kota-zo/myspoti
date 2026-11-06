@@ -78,7 +78,6 @@
     <string name="extensions_move_up">Subir</string>
     <string name="extensions_move_down">Bajar</string>
     <string name="extension_off">Desactivada</string>
-    <string name="extension_by">de %1$s</string>
     <string name="extension_changelog">Novedades</string>
     <string name="extension_update_from">Actualización disponible: %1$s → %2$s</string>
     <string name="extension_not_listed">Esta extensión no está en tus repositorios (o todavía se están cargando).</string>
@@ -96,6 +95,7 @@
     <string name="action_playback_queue">Editar la cola</string>
     <string name="action_playback_events">Saber lo que reproduces</string>
     <string name="action_lyrics_provide">Proporcionar letras</string>
+    <string name="action_lyrics_romanize">Romanizar letras</string>
     <string name="action_trackinfo_provide">Añadir detalles de canciones</string>
     <string name="action_audio_source">Reproducir audio de otro origen</string>
     <string name="action_download_source">Proporcionar descargas</string>
@@ -244,4 +244,5 @@
     <string name="why_source_open_ok">Abierta en %1$d ms</string>
     <string name="why_source_skipped">omitida: %1$s</string>
     <string name="why_source_title">¿Por qué esta fuente?</string>
+    <string name="extensions_guide">Cómo instalar extensiones</string>
 </resources>

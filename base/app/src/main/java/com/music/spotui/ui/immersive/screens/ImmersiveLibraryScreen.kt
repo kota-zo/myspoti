@@ -8,7 +8,6 @@ package com.music.spotui.ui.immersive.screens
 
 import com.music.spotui.ui.immersive.shell.immersiveHazeSource
 import com.music.spotui.ui.immersive.shell.immersiveChromeScroll
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
@@ -151,7 +150,8 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     val entries by vm.entries.collectAsState()
     val account by vm.account.collectAsState()
     val followedArtists by vm.followedArtists.collectAsState()
-    val followedShows by vm.followedShows.collectAsState()
+    val showsLoad by vm.followedShows.collectAsState()
+    val followedShows = (showsLoad as? Response.Success)?.data.orEmpty()
     val context = LocalContext.current
     LaunchedEffect(Unit) { ProfileCache.ensure(context) }
 
@@ -197,9 +197,10 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     // The kind and search filters only run again when their inputs change, not on every recomposition.
     // Read through the name, which redraws the screen once the account is known.
     val myId = ProfileCache.name?.let { ProfileCache.id }
-    val (shownEntries, shownArtists) = remember(kind, allEntries, followedArtists, followedShows, searchQuery, myId) {
+    val artistSort = LibraryOrder.sort
+    val (shownEntries, shownArtists) = remember(kind, allEntries, followedArtists, followedShows, searchQuery, myId, artistSort) {
         val (byKind, artists) = LibraryChips.apply(
-            kind, allEntries, followedArtists, LIBRARY_SONG_IDS, myId, followedShows, setOf(Api.HomeCache.EPISODES_ID),
+            kind, allEntries, LibraryOrder.arrangeArtists(followedArtists, artistSort), LIBRARY_SONG_IDS, myId, followedShows, setOf(Api.HomeCache.EPISODES_ID),
         )
         if (searchQuery.isBlank()) byKind to artists
         else byKind.filter {
@@ -208,6 +209,14 @@ fun ImmersiveLibraryScreen(navController: NavController) {
     }
     // Only the whole library, unfiltered, can be put in a new order.
     val reorderLevel = if (kind == LibraryChip.ALL && searchQuery.isBlank()) LibraryOrder.ROOT else null
+    // The Podcasts chip waits for the shows, and says when none is followed or they could not be read (#136).
+    val podcasts = kind == LibraryChip.PODCASTS
+    val showsLoading = podcasts && showsLoad is Response.Loading
+    val showsFailed = podcasts && showsLoad is Response.Error
+    val chipEmpty = if (podcasts && showsLoad is Response.Success && followedShows.isEmpty() && searchQuery.isBlank())
+        stringResource(R.string.library_podcasts_empty) else null
+    val chipError = if (showsFailed) stringResource(R.string.library_podcasts_error) else null
+    val retry: () -> Unit = { if (showsFailed) vm.loadFollowedShows(); if (entries !is Response.Success) vm.load() }
 
     val title = stringResource(R.string.navigationbar_musicappitems_yourlibrary_title)
     val listState = rememberLazyListState()
@@ -238,31 +247,35 @@ fun ImmersiveLibraryScreen(navController: NavController) {
         onRefresh = { vm.refresh() },
         modifier = Modifier.fillMaxSize(),
       ) {
-        if (gridView && !loading) {
+        if (gridView && !loading && !showsLoading) {
             LibraryGrid(
                 gridState = gridState,
                 header = header,
                 entries = shownEntries,
                 artists = shownArtists,
-                loadFailed = entries !is Response.Success,
-                onRetry = { vm.load() },
+                loadFailed = entries !is Response.Success || showsFailed,
+                onRetry = retry,
                 navController = navController,
                 reorderLevel = reorderLevel,
                 pinned = pinned,
+                emptyText = chipEmpty,
+                errorText = chipError,
             )
         } else {
             LibraryList(
                 listState = listState,
                 header = header,
-                loading = loading,
+                loading = loading || showsLoading,
                 entries = shownEntries,
                 artists = shownArtists,
-                loadFailed = !loading && entries !is Response.Success,
-                onRetry = { vm.load() },
+                loadFailed = !loading && (entries !is Response.Success || showsFailed),
+                onRetry = retry,
                 navController = navController,
                 reorderLevel = reorderLevel,
                 pinned = pinned,
                 onMenu = { itemMenu = it },
+                emptyText = chipEmpty,
+                errorText = chipError,
             )
         }
       }
@@ -310,7 +323,10 @@ fun ImmersiveLibraryScreen(navController: NavController) {
 }
 
 /** The library rows that hold songs rather than a playlist, for [LibraryChips.apply]. */
-private val LIBRARY_SONG_IDS = setOf(Api.HomeCache.LIKED_SONGS_ID, Api.HomeCache.LOCAL_FILES_ID, Api.HomeCache.DOWNLOADS_ID)
+private val LIBRARY_SONG_IDS = setOf(
+    Api.HomeCache.LIKED_SONGS_ID, Api.HomeCache.LOCAL_FILES_ID, Api.HomeCache.DOWNLOADS_ID,
+    com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID,
+)
 
 /** The collapse fraction (0..1) of a grid page, as [rememberTopBarCollapse] gives a list's. */
 @Composable
@@ -336,17 +352,25 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
     val downloadsName = stringResource(R.string.collection_downloaded)
     val localSubtitle = stringResource(R.string.assisted_curation_search_playlist) + " • " + stringResource(R.string.local_playlist_subtitle)
     val likedName = stringResource(R.string.collection_liked_songs_title)
+    val radioName = stringResource(R.string.live_radio_title)
     val packageName = LocalContext.current.packageName
     val hasDownloads = com.music.spotui.data.offline.OfflineStore.tracks.isNotEmpty() ||
         com.music.spotui.data.offline.OfflineDownloader.requests.isNotEmpty()
+    val radioOn = com.music.spotui.radio.RadioFeaturePref.on
     val base = (entries as? Response.Success)?.data ?: emptyList()
-    val rootPinned = base.indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + 2 + (if (hasDownloads) 1 else 0)
+    val rootPinned = base.indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + 2 +
+        (if (radioOn) 1 else 0) + (if (hasDownloads) 1 else 0)
     val all = base.map {
         if (it.spotifyId == Api.HomeCache.LIKED_SONGS_ID) it.copy(name = likedName, subtitle = "") else it
     }.let { list ->
         val local = LibraryEntry(
             spotifyId = Api.HomeCache.LOCAL_FILES_ID, name = localName, subtitle = "",
             coverUri = "android.resource://$packageName/drawable/local_files_cover", isPlaylist = true,
+        )
+        // Live Radio, right under Local Files — behind the Settings > Playback toggle.
+        val radio = LibraryEntry(
+            spotifyId = com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID, name = radioName, subtitle = "",
+            coverUri = "android.resource://$packageName/drawable/live_radio_cover", isPlaylist = true,
         )
         val downloads = LibraryEntry(
             spotifyId = Api.HomeCache.DOWNLOADS_ID, name = downloadsName, subtitle = "", coverUri = "", isPlaylist = true,
@@ -359,7 +383,8 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
                 subtitle = localSubtitle, coverUri = "", isPlaylist = true,
             )
         }
-        list.take(at) + local + (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
+        list.take(at) + local + (if (radioOn) listOf(radio) else emptyList()) +
+            (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
     }.let { list ->
         LibraryOrder.version
         LibraryOrder.arrange(list, LibraryOrder.sort, LibraryOrder.custom(LibraryOrder.ROOT), rootPinned)
@@ -447,6 +472,7 @@ internal fun Modifier.immersiveBleed(inset: Dp): Modifier = layout { measurable,
 private fun prefetchLibraryEntry(entry: LibraryEntry) = when {
     entry.isFolder || entry.spotifyId.startsWith(LOCAL_PLAYLIST_PREFIX) || entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX) -> Unit
     entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID || entry.spotifyId == Api.HomeCache.DOWNLOADS_ID || entry.spotifyId == Api.HomeCache.EPISODES_ID || entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID -> Unit
+    entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID -> Unit
     entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID -> ContextViewModel.prefetch("liked", "")
     entry.isPlaylist -> ContextViewModel.prefetch("playlist", entry.spotifyId)
     else -> ContextViewModel.prefetch("album", entry.spotifyId)
@@ -458,6 +484,7 @@ private fun openLibraryEntry(entry: LibraryEntry, navController: NavController) 
     else if (entry.spotifyId.startsWith(Api.HomeCache.SHOW_PREFIX)) navController.navigate(showRoute(entry.spotifyId.removePrefix(Api.HomeCache.SHOW_PREFIX), entry.name))
     else if (entry.spotifyId == Api.HomeCache.DOWNLOADS_ID) navController.navigate(Routes.Downloads.route)
     else if (entry.spotifyId == Api.HomeCache.LOCAL_FILES_ID) navController.navigate(Routes.LocalFiles.route)
+    else if (entry.spotifyId == com.music.spotui.radio.RadioFeaturePref.LIBRARY_ENTRY_ID) navController.navigate(Routes.LiveRadio.route)
     else if (entry.spotifyId == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
     else if (entry.spotifyId == Api.HomeCache.EPISODES_ID) navController.navigate(Routes.Episodes.route)
     else if (entry.spotifyId == Api.HomeCache.NEW_EPISODES_ID) navController.navigate(Routes.NewEpisodes.route)
@@ -480,6 +507,8 @@ internal fun LibraryList(
     reorderLevel: String?,
     pinned: Int,
     onMenu: (LibraryEntry) -> Unit,
+    emptyText: String? = null,
+    errorText: String? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -555,7 +584,7 @@ internal fun LibraryList(
                 immersiveLibrarySkeleton()
                 return@LazyColumn
             }
-            if (entries.isEmpty() && artists.isEmpty() && !loadFailed) {
+            if (entries.isEmpty() && artists.isEmpty() && !loadFailed && emptyText == null) {
                 item(key = "library:empty") { ImmersiveMessageState(stringResource(R.string.library_empty)) }
             }
             itemsIndexed(rows, key = { _, e -> LibraryOrder.key(e) }) { index, entry ->
@@ -628,10 +657,12 @@ internal fun LibraryList(
                     }
                 }
             }
+            // A chip with nothing of its own (no show followed) says so under the rows it keeps.
+            if (emptyText != null && !loadFailed) item(key = "library:chip-empty") { ImmersiveMessageState(emptyText) }
             if (loadFailed) {
                 item(key = "library:error") {
                     ImmersiveMessageState(
-                        message = stringResource(R.string.library_error),
+                        message = errorText ?: stringResource(R.string.library_error),
                         actionLabel = stringResource(R.string.home_retry),
                         onAction = onRetry,
                     )
@@ -690,6 +721,8 @@ private fun LibraryGrid(
     navController: NavController,
     reorderLevel: String?,
     pinned: Int,
+    emptyText: String? = null,
+    errorText: String? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -769,7 +802,7 @@ private fun LibraryGrid(
         item(key = "library:header", span = { GridItemSpan(maxLineSpan) }) {
             Box(Modifier.immersiveBleed(Immersive.Gutter)) { header() }
         }
-        if (entries.isEmpty() && artists.isEmpty() && !loadFailed) {
+        if (entries.isEmpty() && artists.isEmpty() && !loadFailed && emptyText == null) {
             item(key = "library:empty", span = { GridItemSpan(maxLineSpan) }) {
                 ImmersiveMessageState(stringResource(R.string.library_empty))
             }
@@ -854,10 +887,13 @@ private fun LibraryGrid(
                 }
             }
         }
+        if (emptyText != null && !loadFailed) {
+            item(key = "library:chip-empty", span = { GridItemSpan(maxLineSpan) }) { ImmersiveMessageState(emptyText) }
+        }
         if (loadFailed) {
             item(key = "library:error", span = { GridItemSpan(maxLineSpan) }) {
                 ImmersiveMessageState(
-                    message = stringResource(R.string.library_error),
+                    message = errorText ?: stringResource(R.string.library_error),
                     actionLabel = stringResource(R.string.home_retry),
                     onAction = onRetry,
                 )

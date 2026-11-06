@@ -6,6 +6,7 @@ import app.myspoti.api.LibraryFilter
 import app.myspoti.api.LibrarySort
 import app.myspoti.api.MediaKind
 import app.myspoti.api.TimeRange
+import app.myspoti.api.WhatsNewContent
 import app.myspoti.spotify.SpotifyApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +76,16 @@ class LiveDomainsTest {
         assertTrue(news.items.all { it.uri.startsWith("spotify:album:") && it.name.isNotBlank() })
         val page = api.home.category(categories.first().uri)
         assertTrue(page.title.isNotBlank() && page.shelves.isNotEmpty())
+    }
+
+    // Reads only: the entries' seen state is left as it was (no markWhatsNewSeen).
+    @Test
+    fun `what's new feed holds albums and episodes, per pill`() = live {
+        val all = api.home.whatsNewFeed(0, 20)
+        assertTrue(all.items.all { it.id.isNotBlank() && (it.album != null) != (it.episode != null) })
+        assertTrue(all.items.all { it.uri.startsWith("spotify:album:") || it.uri.startsWith("spotify:episode:") })
+        assertTrue(api.home.whatsNewFeed(0, 20, WhatsNewContent.MUSIC).items.all { it.album != null })
+        assertTrue(api.home.whatsNewFeed(0, 20, WhatsNewContent.PODCASTS).items.all { it.episode != null })
     }
 
     @Test

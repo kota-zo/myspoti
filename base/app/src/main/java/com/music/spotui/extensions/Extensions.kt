@@ -34,6 +34,7 @@ import app.myspoti.extensions.Host
 import app.myspoti.extensions.HttpRequest
 import app.myspoti.extensions.HttpResponse
 import app.myspoti.extensions.LyricsResult
+import app.myspoti.extensions.Romanize
 import app.myspoti.extensions.Manifest
 import app.myspoti.extensions.Snapshot
 import app.myspoti.extensions.SpotifyCall
@@ -45,6 +46,7 @@ import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import com.music.spotui.data.entity.Lyrics
 import com.music.spotui.di.SongPlayer
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -86,14 +88,25 @@ import java.util.concurrent.ConcurrentHashMap
  * the sandbox does not expect), never the app.
  */
 object Extensions {
-    /** No download source had the song and one could not answer now: the song is worth trying again. */
-    class NotAnswering(message: String) : java.io.IOException(message)
+    /**
+     * No download source had the song and one could not answer now, or was not asked: the song is
+     * worth trying again. [sources]: the names of those sources, for the song's row.
+     */
+    class NotAnswering(message: String, val sources: List<String> = emptyList()) : java.io.IOException(message)
 
     // Every hook's time is in [HookBudgets], shared with the desktop runner (`myspoti-ext`).
     /** A lyrics hook call. */
     const val LYRICS_MS = HookBudgets.LYRICS
+    /** A lyrics-romanize hook call. */
+    const val ROMANIZE_MS = HookBudgets.ROMANIZE
     /** An audio-source hook call. */
     const val AUDIO_MS = HookBudgets.AUDIO
+    /**
+     * An audio-source call for a song the user just picked: past it Spotify plays the song (seen:
+     * a source whose server timed out held the tap silent 12 s, up to [AUDIO_MS]). The extension
+     * is asked again for the next songs; one timing out several times in a row is set aside a while.
+     */
+    const val PICK_AUDIO_MS = 5_000L
     /** A download-source hook call (an extension may try several places). */
     const val DOWNLOAD_MS = HookBudgets.DOWNLOAD
     private const val TRACK_MS = HookBudgets.TRACK
@@ -126,8 +139,8 @@ object Extensions {
     val logTick = MutableStateFlow(0L)
 
     /**
-     * The running extensions giving songs' audio, download files and lyrics, in the order they are
-     * asked; [ready]: the ones on at launch have all been started. [refreshProvided] keeps it in step
+     * The running extensions giving songs' audio, download files, lyrics and lyrics' romanizations,
+     * in the order they are asked; [ready]: the ones on at launch have all been started. [refreshProvided] keeps it in step
      * when one loads or stops (installed, updated, turned on or off, removed), its status changes or
      * the user's order changes; what depends on it (the player's routing, downloads, lyrics) reacts
      * at once, without a restart ([providersChanged]).
@@ -135,6 +148,7 @@ object Extensions {
     data class Provided(
         val audio: List<String> = emptyList(), val download: List<String> = emptyList(),
         val lyrics: List<String> = emptyList(), val ready: Boolean = false,
+        val romanize: List<String> = emptyList(),
     )
     private val _provided = MutableStateFlow(Provided())
     val provided: StateFlow<Provided> = _provided.asStateFlow()
@@ -168,7 +182,20 @@ object Extensions {
             File(dir, "inbox").takeIf { it.exists() }?.deleteRecursively()
             ExtensionUpdates.readCachedBlocks()
             // One after the other, their sources asked only once all are loaded: a cold start is busy enough.
-            _registry.value.extensions.filter { it.enabled }.forEach { start(it, probe = false) }
+            // The audio sources first, then downloads and lyrics, then the rest: a song asked at launch
+            // waits for the audio sources only, not for a slow extension of another kind before them.
+            val on = _registry.value.extensions.filter { it.enabled }.sortedBy {
+                when {
+                    Action.AUDIO_SOURCE.key in it.granted -> 0
+                    Action.DOWNLOAD_SOURCE.key in it.granted -> 1
+                    Action.LYRICS_PROVIDE.key in it.granted -> 2
+                    else -> 3
+                }
+            }
+            val (audio, rest) = on.partition { Action.AUDIO_SOURCE.key in it.granted }
+            audio.forEach { start(it, probe = false) }
+            audioStarted.complete(Unit)
+            rest.forEach { start(it, probe = false) }
             started.complete(Unit)
             refreshProvided()
             probeAll()
@@ -178,6 +205,8 @@ object Extensions {
         watchPlayback()
         watchNetwork()
         watchStatus()
+        // Look-only extensions (ui.style): their colours, hidden parts and order, applied by the app.
+        ExtensionLook.watch()
         watchProvided()
     }
 
@@ -191,6 +220,7 @@ object Extensions {
             val now = Provided(
                 providing(Hook.AUDIO_SOURCE).map { it.first }, providing(Hook.DOWNLOAD_SOURCE).map { it.first },
                 providing(Hook.LYRICS).map { it.first }, started.isCompleted,
+                romanize = providing(Hook.LYRICS_ROMANIZE).map { it.first },
             )
             if (now == _provided.value) return
             if (now.audio != _provided.value.audio || now.download != _provided.value.download) misses.clear()
@@ -210,13 +240,14 @@ object Extensions {
      * launch (the extensions on before load then, nothing was asked of them yet) but for the misses.
      */
     private fun providersChanged(before: Provided, now: Provided) {
-        Logbook.log("ext: sources now: audio ${now.audio.ifEmpty { "none" }}, downloads ${now.download.ifEmpty { "none" }}, lyrics ${now.lyrics.ifEmpty { "none" }}")
+        Logbook.log("ext: sources now: audio ${now.audio.ifEmpty { "none" }}, downloads ${now.download.ifEmpty { "none" }}, lyrics ${now.lyrics.ifEmpty { "none" }}, romanize ${now.romanize.ifEmpty { "none" }}")
         if (now.audio != before.audio && before.ready) {
             val added = now.audio.filter { it !in before.audio }
             main.post { runCatching { com.music.spotui.di.SongPlayer.audioSourcesChanged(added, now.audio.isNotEmpty()) }
                 .onFailure { Logbook.log("audio: sources changed, player not updated: $it") } }
         }
-        if (now.lyrics != before.lyrics) com.music.spotui.data.api.LyricsApi.sourcesChanged(keepFound = !before.ready)
+        // A romanizer added or gone changes the lyrics as much as a source: they are read again with it.
+        if (now.lyrics != before.lyrics || now.romanize != before.romanize) com.music.spotui.data.api.LyricsApi.sourcesChanged(keepFound = !before.ready)
         // Lists kept downloaded skipped their songs for want of a source: synced now.
         if (before.ready && before.download.isEmpty() && now.download.isNotEmpty())
             com.music.spotui.data.offline.OfflineCollections.refreshAll(ctx, force = true)
@@ -278,9 +309,18 @@ object Extensions {
 
     fun manifest(id: String): Manifest? = pkg(id)?.manifest
 
-    fun pkg(id: String): ExtensionPackage? = packages[id] ?: runCatching {
+    fun pkg(id: String): ExtensionPackage? = (packages[id] ?: runCatching {
         ExtensionPackage.read(File(dir, "$id/package.zip").readBytes())
-    }.getOrNull()?.let { packages.putIfAbsent(id, it) ?: it } // an install's newer package is never replaced by an older read
+    }.getOrNull()?.let { packages.putIfAbsent(id, it) ?: it }) // an install's newer package is never replaced by an older read
+        ?.let { p -> val tag = language(); if (p.manifest.shownIn == tag) p else p.localized(tag).also { packages.replace(id, p, it) } }
+
+    /**
+     * The language the app shows, as a BCP 47 tag: the one picked in the settings, else the app's
+     * configuration (the phone's, or on Android 13+ the per-app one). What `myspoti.locale` gives
+     * and what manifests are shown in ([Manifest.localized]).
+     */
+    fun language(): String = if (!::ctx.isInitialized) java.util.Locale.getDefault().toLanguageTag()
+        else com.music.spotui.data.AppLanguage.current(ctx).ifEmpty { ctx.resources.configuration.locales[0].toLanguageTag() }
 
     fun isRunning(id: String) = runtimes.containsKey(id)
 
@@ -351,7 +391,8 @@ object Extensions {
                 rawGrants = (before?.rawGrants.orEmpty() +
                     if (app.myspoti.extensions.Action.SPOTIFY_RAW.key in granted) p.manifest.declaredWrites() else emptyList()).distinct(),
             )
-            update { it.put(e) }
+            // A fresh install is asked first wherever it acts; an update keeps the user's order.
+            update { r -> r.put(e).let { if (before == null) it.firstOnInstall(id, p.manifest) else it } }
             e to before
         }
         failures.reset(id)
@@ -364,7 +405,7 @@ object Extensions {
     suspend fun uninstall(id: String) = withContext(Dispatchers.IO) {
         stop(id)
         update { it.remove(id) }
-        packages.remove(id); stores.remove(id); settings.remove(id); logs.remove(id)
+        packages.remove(id); stores.remove(id); settings.keys.removeAll { it.endsWith("\u0000$id") }; logs.remove(id)
         clearError(id)
         runningSha.remove(id)
         ExtensionAudio.forgetAll()
@@ -676,11 +717,15 @@ object Extensions {
     suspend fun blocks(hook: Hook, surface: Surface, input: String): Conflicts.Shown<String> {
         if (!isReady || guard.suspended) return Conflicts.Shown(emptyList(), emptyList())
         val providers = providing(hook)
-        if (providers.isEmpty()) return Conflicts.Shown(emptyList(), emptyList())
+        // Home blocks a look declares (ui.blocks.home): fixed, nothing to ask.
+        val declared = if (surface == Surface.HOME) ExtensionLook.applied.homeBlocks.mapNotNull { (id, json) ->
+            runCatching { id to Blocks.parse(json, surface) }.getOrNull()
+        } else emptyList()
+        if (providers.isEmpty() && declared.isEmpty()) return Conflicts.Shown(emptyList(), emptyList())
         val answers = kotlinx.coroutines.coroutineScope {
             providers.map { (id, rt) -> async { id to (callHook(id, rt, hook, input, BLOCKS_MS) { Blocks.parse(it, surface) } ?: emptyList()) } }.map { it.await() }
         }
-        return Conflicts.merge(answers, surface)
+        return Conflicts.merge(answers + declared, surface)
     }
 
     /** A block of [id] with an action was tapped on [surface]; [context]: what the place is about (JSON). */
@@ -715,15 +760,31 @@ object Extensions {
 
     fun hasLyrics(): Boolean { providedState.value; return isReady && providing(Hook.LYRICS).isNotEmpty() }
 
+    fun hasRomanizer(): Boolean { providedState.value; return isReady && providing(Hook.LYRICS_ROMANIZE).isNotEmpty() }
+
     /**
      * An audio-source extension is asked for songs: one runs and is not inactive, or one that is on
      * is still being started at launch (the song then waits for it, see [audio]).
      */
-    fun hasAudioSource(): Boolean { providedState.value; return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource()) }
+    fun hasAudioSource(): Boolean {
+        providedState.value
+        // A Jam member's songs play on the host's device, sent there by Spotify: none through an extension here.
+        if (app.myspoti.host.android.MyspotiRuntime.isStarted && app.myspoti.host.android.MyspotiRuntime.spotify.jam.member) return false
+        return isReady && (providing(Hook.AUDIO_SOURCE).isNotEmpty() || startingAudioSource())
+    }
+
+    /** The audio-source extensions on at launch are still being started. */
+    fun starting(): Boolean = !audioStarted.isCompleted
+
+    /** Waits up to [ms] for the audio-source extensions on at launch to be started; true once they are. */
+    suspend fun awaitStarted(ms: Long): Boolean = audioStarted.isCompleted || withTimeoutOrNull(ms) { audioStarted.await() } != null
+
+    /** An audio-source extension is turned on (running or not yet): a session of theirs goes back to them. */
+    fun audioSourceOn(): Boolean = isReady && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
 
     /** The app is still starting the extensions on at launch, an audio source among them. */
     private fun startingAudioSource(): Boolean =
-        !started.isCompleted && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
+        !audioStarted.isCompleted && _registry.value.extensions.any { it.enabled && Action.AUDIO_SOURCE.key in it.granted }
 
     /**
      * Why no audio-source extension is asked for a song while some are on ("x skipped (inactive:
@@ -748,14 +809,28 @@ object Extensions {
     private fun startingDownloadSource(): Boolean =
         !started.isCompleted && _registry.value.extensions.any { it.enabled && Action.DOWNLOAD_SOURCE.key in it.granted }
 
+    /** One extension's answer for a download: its files, best first as it gave them. */
+    class DownloadOffer(val extensionId: String, val name: String, val files: List<DownloadFile>)
+
     /**
-     * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`), best first,
-     * from the first extension (priority order) that has any, with that extension's id and name.
-     * A source set aside for a while ([SourceCooldown]) is not asked. Null when no source has the song;
-     * [NotAnswering] when none had it and one could not answer (busy, a timeout, set aside).
+     * The files [track] can be downloaded from in [quality] (`hi-res`, `cd`, `small`): every
+     * download extension is asked at once, and [use] gets their answers in rounds
+     * ([HookDispatch.inRounds]): the ones that fit [quality] best first ([fit], up to [bestFit]),
+     * ties in the user's order, until it saves a file (non-null). A slow extension holds a round
+     * back for [graceMs] at most once another has answered; its answer still comes in a later
+     * round. A source set aside for a while ([SourceCooldown]) is not asked. Null when every source asked said it
+     * does not have the song, or [use] took none of their files; [NotAnswering] when none had it and one could not
+     * answer (busy, a timeout, set aside) or was not asked (its `status` said inactive, still starting: [downloadNotAsked]).
      */
-    suspend fun downloadFiles(track: TrackInfo, quality: String): Triple<String, String, List<DownloadFile>>? {
-        if (!isReady) return null
+    suspend fun <T : Any> download(
+        track: TrackInfo,
+        quality: String,
+        fit: (List<DownloadFile>) -> Int,
+        bestFit: Int,
+        graceMs: (bestSoFar: Int) -> Long,
+        use: suspend (List<DownloadOffer>) -> T?,
+    ): T? {
+        if (!isReady) throw NotAnswering("extensions not started yet")
         // Asked right after launch (downloads resumed from the last session): the extensions still
         // loading are waited for, rather than the song marked unavailable for want of a source.
         if (!started.isCompleted) {
@@ -766,23 +841,52 @@ object Extensions {
         val input = DownloadQuery.toJson(track, quality)
         probeStale(Hook.DOWNLOAD_SOURCE)
         val answers = ConcurrentHashMap<String, Outcome>()
-        val found = HookDispatch.firstInOrder(available(Hook.DOWNLOAD_SOURCE)) { (id, rt) ->
-            val a = ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }
-            answers[id] = a.outcome
-            a.value
+        var offered = false
+        val taken = HookDispatch.inRounds(
+            available(Hook.DOWNLOAD_SOURCE),
+            ask = { (id, rt) ->
+                val a = ask(id, rt, Hook.DOWNLOAD_SOURCE, input, DOWNLOAD_MS) { DownloadFile.parseList(it).takeIf { l -> l.isNotEmpty() } }
+                answers[id] = a.outcome
+                a.value?.also { files -> log(id, "download files for ${track.title} ($quality, ${a.ms} ms): ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}") }
+            },
+            fit = fit, bestFit = bestFit, graceMs = graceMs,
+        ) { round ->
+            offered = true
+            use(round.map { (c, files) -> DownloadOffer(c.first, c.second.manifest.name, files) })
         }
-        if (found == null) {
+        if (taken == null && !offered) {
             // A source that could not answer (busy, a timeout, a rate limit, set aside) has not said the song is not
-            // there: told apart from "no source has it", so the song is retried instead of marked unavailable.
+            // there, nor has one on that was not asked: told apart from "no source has it", so the song is retried
+            // instead of marked unavailable.
             val silent = providing(Hook.DOWNLOAD_SOURCE).map { it.first }.mapNotNull { id ->
-                cooldown.reason(id)?.let { "$id set aside: $it" } ?: answers[id]?.takeIf { it.silent }?.let { "$id ${it.describe()}" }
+                (cooldown.reason(id)?.let { "$id set aside: $it" } ?: answers[id]?.takeIf { it.silent }?.let { "$id ${it.describe()}" })?.let { id to it }
+            } + downloadNotAsked()
+            if (silent.isNotEmpty()) {
+                val why = silent.joinToString("; ") { it.second }
+                Logbook.log("download: ${track.title} not found, not marked unavailable: $why")
+                throw NotAnswering(why, silent.map { (id, _) -> manifest(id)?.name ?: id }.distinct())
             }
-            if (silent.isNotEmpty()) throw NotAnswering(silent.joinToString("; "))
         }
-        return found?.let { (c, files) ->
-            log(c.first, "download files for ${track.title}: ${files.joinToString { "${it.format}/${it.bitDepth ?: "-"}" }}")
-            did(Area.AUDIO, c.first, "Download of ${track.title} from ${c.second.manifest.name}")
-            Triple(c.first, c.second.manifest.name, files)
+        return taken
+    }
+
+    /** [extensionId]'s file of [title] was saved: shown in its activity. */
+    fun downloaded(extensionId: String, title: String) {
+        did(Area.AUDIO, extensionId, "Download of $title from ${manifest(extensionId)?.name ?: extensionId}")
+    }
+
+    /**
+     * The download sources on that [providing] leaves out, with why ("x inactive: …", "x still starting"):
+     * their `status` said they do not answer now, or they are not running yet. Neither said a song is not there.
+     */
+    private fun downloadNotAsked(): List<Pair<String, String>> = _registry.value.let { r ->
+        line(r, Action.DOWNLOAD_SOURCE).mapNotNull(r::find).filter { it.enabled }.mapNotNull { e ->
+            val rt = runtimes[e.id]
+            when {
+                rt == null -> "${e.id} still starting".takeIf { Action.DOWNLOAD_SOURCE.key in e.granted }
+                rt.provides(Hook.DOWNLOAD_SOURCE) && health.inactive(e.id) -> "${e.id} inactive: ${health.last(e.id)?.detail ?: "no detail"}"
+                else -> null
+            }?.let { e.id to it }
         }
     }
 
@@ -793,6 +897,30 @@ object Extensions {
         return HookDispatch.bestInOrder(available(Hook.LYRICS), LyricsMerge::rank) { (id, rt) ->
             ask(id, rt, Hook.LYRICS, input, LYRICS_MS) { LyricsResult.parse(it, rt.manifest.name) }.value?.let(LyricsMerge::toLyrics)
         }?.let { (c, l) -> log(c.first, "lyrics for ${track.title}: ${l.lines.size} lines"); did(Area.LYRICS, c.first, "Lyrics of ${track.title} from ${c.second.manifest.name}"); l }
+    }
+
+    /**
+     * Romanizations of [lines] (index → text) from the extensions romanizing lyrics, in the lyrics
+     * area's order: each one is sent only the lines the ones before it left without one, so
+     * romanizers of different scripts complete each other. Index → romanization, empty when none
+     * answers. Each call has its own time limit, so a slow one keeps what the others gave.
+     */
+    suspend fun romanize(track: TrackInfo, language: String?, lines: Map<Int, String>): Map<Int, String> {
+        if (!isReady || lines.isEmpty()) return emptyMap()
+        val found = LinkedHashMap<Int, String>()
+        for ((id, rt) in available(Hook.LYRICS_ROMANIZE)) {
+            val missing = lines.filterKeys { it !in found }
+            if (missing.isEmpty()) break
+            val got = withTimeoutOrNull(ROMANIZE_MS + 1_000) {
+                ask(id, rt, Hook.LYRICS_ROMANIZE, Romanize.request(track, language, missing), ROMANIZE_MS) { raw ->
+                    Romanize.parse(raw).filterKeys { it in missing }.ifEmpty { null }
+                }.value
+            } ?: continue
+            found.putAll(got)
+            log(id, "romanized ${got.size} of ${missing.size} lines of ${track.title}")
+            did(Area.LYRICS, id, "Romanized ${got.size} lines of ${track.title}")
+        }
+        return found
     }
 
     /**
@@ -809,14 +937,21 @@ object Extensions {
             attempts.update(attempt) { it.copy(fallback = "Spotify: no extension had it under a minute ago, not asked again") }
             return null
         }
-        // Picked right after launch: the extensions still loading are waited for, not skipped.
-        if (!started.isCompleted) {
+        // Picked right after launch: the audio sources still loading are waited for, not skipped.
+        if (!audioStarted.isCompleted) {
             val t0 = System.currentTimeMillis()
-            val loaded = withTimeoutOrNull(START_AUDIO_MS) { started.await() } != null
-            Logbook.log("audio: extensions not loaded yet, waited ${System.currentTimeMillis() - t0} ms${if (loaded) "" else " (still loading)"}")
+            val loaded = withTimeoutOrNull(START_AUDIO_MS) { audioStarted.await() } != null
+            Logbook.log("audio: audio sources not loaded yet, waited ${System.currentTimeMillis() - t0} ms${if (loaded) "" else " (still loading)"}")
         }
         // The same song as a download asks with: its ISRC, which an extension matches recordings by.
-        val input = AudioQuery.toJson(withIsrc(track), ahead)
+        val withIsrc = withIsrc(track)
+        // Without it the sources would say "not found" (they match by it): not a miss of the song,
+        // nothing recorded, the caller falls back for now and the song is asked again later.
+        if (withIsrc.isrc.isNullOrBlank() && !app.myspoti.host.android.MyspotiRuntime.api.ready.value) {
+            attempts.update(attempt) { it.copy(fallback = "Spotify: no ISRC yet (Spotify not ready)") }
+            return null
+        }
+        val input = AudioQuery.toJson(withIsrc, ahead)
         probeStale(Hook.AUDIO_SOURCE)
         val skipped = mutableListOf<PlayAttempt.Ask>()
         _registry.value.extensions.filter { it.enabled && health.inactive(it.id) && runtimes[it.id]?.provides(Hook.AUDIO_SOURCE) == true }
@@ -834,14 +969,15 @@ object Extensions {
         Logbook.log("audio: asked ${asked.joinToString { it.first }} for $label")
         val t0 = System.currentTimeMillis()
         val answers = ConcurrentHashMap<String, PlayAttempt.Ask>()
-        val found = HookDispatch.firstInOrder(asked) { (id, rt) ->
+        // All asked at once; a slow source above one that answered is waited for briefly, not to its limit.
+        val found = HookDispatch.firstInOrderWithin(asked, AUDIO_GRACE_MS) { (id, rt) ->
             val a = ask(id, rt, Hook.AUDIO_SOURCE, input, timeoutMs, AudioStream::parse)
             answers[id] = PlayAttempt.Ask(id, a.outcome.key, a.ms, detail = a.outcome.detail)
             a.value
         }
         val ms = System.currentTimeMillis() - t0
         // A source cut short because one above it answered was not needed.
-        val all = skipped + asked.map { (id, _) -> answers[id] ?: PlayAttempt.Ask(id, Outcome.Skipped().key, ms, "not needed: a source above answered") }
+        val all = skipped + asked.map { (id, _) -> answers[id] ?: PlayAttempt.Ask(id, Outcome.Skipped().key, ms, "not needed: another source answered first") }
         if (found == null) {
             Logbook.log("audio: no extension had $label ($ms ms)"); misses.record(track.id, ahead)
             attempts.update(attempt) { it.copy(asked = all, fallback = "Spotify: no extension had it") }
@@ -905,11 +1041,32 @@ object Extensions {
     /** [track] with its ISRC from Spotify's catalogue when it lacks one (kept; at most 3 s to ask). */
     private suspend fun withIsrc(track: TrackInfo): TrackInfo {
         if (!track.isrc.isNullOrBlank() || track.id.isBlank()) return track
-        val known = isrcs[track.id] ?: runCatching {
-            kotlinx.coroutines.withTimeout(3_000) { app.myspoti.host.android.MyspotiRuntime.api.catalog.isrc("spotify:track:${track.id}") }
-        }.getOrNull()?.let(com.music.spotui.data.offline.OfflineDownloader::normalizeIsrc)?.also { isrcs[track.id] = it }
+        // Kept on disk: right after a relaunch Spotify's page is not ready for a second or two, the
+        // ISRC lookup failed, and an extension that matches by ISRC (the Tidal pool) said "not found"
+        // at once: the resume went to Spotify (reported, again and again). A song never seen waits
+        // for Spotify to be ready instead.
+        val known = isrcs[track.id] ?: savedIsrc(track.id)?.also { isrcs[track.id] = it } ?: runCatching {
+            kotlinx.coroutines.withTimeout(ISRC_WAIT_MS) {
+                val api = app.myspoti.host.android.MyspotiRuntime.api
+                api.ready.first { it }
+                api.catalog.isrc("spotify:track:${track.id}")
+            }
+        }.getOrNull()?.let(com.music.spotui.data.offline.OfflineDownloader::normalizeIsrc)?.also { isrcs[track.id] = it; saveIsrc(track.id, it) }
+        if (known == null) Logbook.log("audio: no ISRC for ${track.title} (Spotify not ready)")
         return if (known == null) track else track.copy(isrc = known)
     }
+
+    private val isrcPrefs get() = com.music.spotui.di.Graph.app.getSharedPreferences("extension_isrcs", 0)
+    private fun savedIsrc(id: String): String? = runCatching { isrcPrefs.getString(id, null) }.getOrNull()
+    private fun saveIsrc(id: String, isrc: String) {
+        runCatching {
+            val p = isrcPrefs
+            // A few thousand songs at most: forgotten all at once past that (each is a short string).
+            if (p.all.size > 3_000) p.edit().clear().apply()
+            p.edit().putString(id, isrc).apply()
+        }
+    }
+    private const val ISRC_WAIT_MS = 10_000L
 
     /** For the player's loading thread (never the main one). */
     fun audioBlocking(track: TrackInfo, ahead: Boolean = false): AudioStream? = runBlocking(Dispatchers.IO) { audio(track, ahead = ahead) }
@@ -925,9 +1082,6 @@ object Extensions {
 
     /** The user dismissed [id]'s sign-in notice (it comes back at its next `sign-in` answer). */
     fun dismissSignIn(id: String) { _signIns.value = _signIns.value - id }
-
-    /** Why [id] is set aside now ("rate-limited, 42 s left"), or null. */
-    fun cooldownOf(id: String): String? = cooldown.reason(id)
 
     /** [providing] without the sources set aside ([cooldown]); each one skipped is logged and added to [skipped]. */
     private fun available(hook: Hook, skipped: MutableList<PlayAttempt.Ask>? = null): List<Pair<String, ExtensionRuntime>> =
@@ -1022,6 +1176,8 @@ object Extensions {
     private const val START_WAIT_MS = 20_000L
     /** How long a song picked right after launch waits for them (then plays from Spotify). */
     private const val START_AUDIO_MS = 5_000L
+    /** How long a source above one that answered is still waited for (see [HookDispatch.firstInOrderWithin]). */
+    private const val AUDIO_GRACE_MS = 1_500L
     /** How old a probe may be: asked again after it while the app is in sight or plays, and before a source is asked. */
     private const val STATUS_EVERY_MS = 5 * 60_000L
     private val SOURCE_HOOKS = setOf(Hook.AUDIO_SOURCE, Hook.DOWNLOAD_SOURCE)
@@ -1069,16 +1225,22 @@ object Extensions {
     private fun probeAll() = runtimes.forEach { (id, rt) -> scope.launch { probe(id, rt) } }
 
     /**
-     * Before [hook] is asked: its extensions probed [STATUS_EVERY_MS] ago or more are probed again,
-     * together, within [STATUS_MS]. One never probed (its probe at launch is on its way) is not
-     * waited for: it is in use until a probe says otherwise.
+     * Before [hook] is asked: its extensions probed [STATUS_EVERY_MS] ago or more are probed again.
+     * Only those whose last probe said inactive are waited for (together, within [STATUS_MS]): one
+     * back on may answer this request. A live one is probed behind the request instead of before
+     * it, which held the first song after 5 min idle a whole `status` round trip (up to 5.5 s).
+     * One never probed (its probe at launch is on its way) is not waited for: it is in use until a
+     * probe says otherwise.
      */
     private suspend fun probeStale(hook: Hook) {
         val due = _registry.value.extensions.mapNotNull { e ->
             runtimes[e.id]?.takeIf { e.enabled && it.provides(hook) && health.last(e.id) != null && health.stale(e.id, STATUS_EVERY_MS) }?.let { e.id to it }
         }
         if (due.isEmpty()) return
-        withTimeoutOrNull(STATUS_MS + 500) { kotlinx.coroutines.coroutineScope { due.map { (id, rt) -> async { probe(id, rt) } }.forEach { it.await() } } }
+        val (wait, behind) = due.partition { (id, _) -> health.inactive(id) }
+        behind.forEach { (id, rt) -> scope.launch { probe(id, rt) } }
+        if (wait.isEmpty()) return
+        withTimeoutOrNull(STATUS_MS + 500) { kotlinx.coroutines.coroutineScope { wait.map { (id, rt) -> async { probe(id, rt) } }.forEach { it.await() } } }
     }
 
     /** Every minute, the probes [STATUS_EVERY_MS] old are asked again while the app is in sight or plays. */
@@ -1151,7 +1313,8 @@ object Extensions {
             var idle = 0
             var listening = false
             while (true) {
-                kotlinx.coroutines.delay(1_000)
+                // Once a second while something plays; nothing playing (stopped for 3 s), every 3 s.
+                kotlinx.coroutines.delay(if (idle >= 3) 3_000 else 1_000)
                 if (runtimes.values.none { it.listens(ExtensionRuntime.EVENT_PLAYBACK) }) {
                     if (listening) { playback.observe(null, System.currentTimeMillis()); listening = false }
                     continue
@@ -1304,6 +1467,8 @@ object Extensions {
     private val startLocks = ConcurrentHashMap<String, Any>()
     /** The extensions on at launch have all been started (or failed to). */
     private val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+    /** The audio-source extensions on at launch have been started (they start first). */
+    private val audioStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
 
     /**
      * Starts [e] unless that very package already runs. One start of an extension at a time: an
@@ -1417,7 +1582,38 @@ object Extensions {
     }
 
     private fun logOf(id: String) = logs.getOrPut(id) { ExtensionLog(File(dir, "$id/log.txt")) }
-    private fun settingsOf(id: String) = settings.getOrPut(id) { FileStore(File(dir, "$id/settings.json")) }
+    /**
+     * [id]'s settings as the Spotify account in use has them (asked: the extensions' settings follow
+     * the account): the first account's `settings.json`, another's `settings-<profile>.json`, made
+     * from the first account's at its first read so the extension goes on as it was set.
+     */
+    private fun settingsOf(id: String): FileStore {
+        val profile = com.music.spotui.data.preferences.ProfilePrefs.profile()
+        return settings.getOrPut("$profile\u0000$id") {
+            val first = File(dir, "$id/settings.json")
+            if (profile == app.myspoti.host.android.AccountList.DEFAULT_PROFILE) return@getOrPut FileStore(first)
+            val own = File(dir, "$id/settings-" + profile.filter { it.isLetterOrDigit() || it == '-' || it == '_' } + ".json")
+            if (!own.exists() && first.exists()) runCatching { first.copyTo(own) }
+            FileStore(own)
+        }
+    }
+
+    /**
+     * Another Spotify account took over: each extension on hears its settings as that account has
+     * them (as it hears a change made in its page), its status is asked again (its sign-in may
+     * differ), and who gives what is read again.
+     */
+    fun profileChanged() {
+        if (!isReady) return
+        _registry.value.extensions.filter { it.enabled }.forEach { e ->
+            val keys = settingsOf(e.id).all().keys.map { app.myspoti.extensions.Setting.baseKey(it) }.distinct()
+            if (keys.isNotEmpty()) scope.launch { keys.forEach { sendSetting(e.id, it, pressed = false) } }
+            health.forget(e.id)
+            runtimes[e.id]?.let { rt -> scope.launch { probe(e.id, rt) } }
+        }
+        _statuses.value = health.inactiveNow()
+        refreshProvided()
+    }
     private fun storeOf(id: String) = stores.getOrPut(id) { FileStore(File(dir, "$id/storage.json")) }
 
     /** Replaces [file] whole or throws, never losing the old one (see [com.music.spotui.data.writeBytesSafely]). */
@@ -1444,6 +1640,10 @@ object Extensions {
         override fun metered(): Boolean = com.music.spotui.data.DataSaver.metered
 
         override fun nowPlaying(): String? = currentTrack()?.toJson()
+
+        // The language picked in the settings, else the app's configuration: the phone's, or on
+        // Android 13+ the per-app one when no screen is open to answer for AppCompat.
+        override fun locale(): String = language()
 
         override fun control(extensionId: String, action: String, argument: Long?): Boolean {
             if (!arbitrate(extensionId, action)) return false
@@ -1539,10 +1739,25 @@ object Extensions {
             api.raw.request(method, url, body, headers).let { app.myspoti.extensions.RawRequest.response(it.status, it.headers, it.body) }
     }
 
-    /** Lyrics asked with a time limit of their own, for the app's lyrics resolver. */
-    suspend fun lyricsFor(trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? =
-        if (!hasLyrics()) null
-        else withTimeoutOrNull(LYRICS_MS + 1_000) { lyrics(trackInfo(trackId, title, artist, album, durationMs, cover)) }
+    /**
+     * Lyrics asked for the app's lyrics resolver. Each extension's time counts from when its call
+     * runs, which may wait up to 30 s behind its earlier calls (ExtensionRuntime's queue: a song's
+     * audio looked up, the next song's lyrics); counted from the request, its answer was cut short.
+     * The limit here only ends a call past both, by an exception: the resolver then knows the
+     * extensions did not answer in time, where null is that none had lyrics.
+     */
+    suspend fun lyricsFor(trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?): Lyrics? {
+        if (!hasLyrics()) return null
+        val queueMs = 30_000L
+        return kotlinx.coroutines.withTimeout(queueMs + 2 * LYRICS_MS + 1_000) { lyrics(trackInfo(trackId, title, artist, album, durationMs, cover)) }
+    }
+
+    /** [romanize] for the app's lyrics resolver: [lines] of the song's lyrics, in [language] when their source said it. */
+    suspend fun romanizeFor(
+        trackId: String, title: String, artist: String, album: String, durationMs: Long, cover: String?,
+        language: String?, lines: Map<Int, String>,
+    ): Map<Int, String> =
+        if (!hasRomanizer()) emptyMap() else romanize(trackInfo(trackId, title, artist, album, durationMs, cover), language, lines)
 
     /** The running extensions giving lyrics, in their order: (id, name). For the "Try another source" list. */
     fun lyricsSources(): List<Pair<String, String>> =

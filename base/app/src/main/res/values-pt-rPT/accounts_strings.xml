@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several Spotify accounts kept on the phone: Settings > Accounts and the sheet behind the avatar. -->
+<resources>
+    <string name="accounts_title">Contas</string>
+    <string name="accounts_switch_row">Mudar de conta</string>
+    <string name="accounts_switch_row_detail">As suas contas Spotify neste telemóvel</string>
+    <string name="accounts_add">Adicionar conta</string>
+    <string name="accounts_add_detail">Abre o início de sessão do Spotify; as contas aqui continuam ligadas</string>
+    <string name="accounts_add_single_detail">Termina a sessão desta conta e abre o início de sessão do Spotify</string>
+    <string name="accounts_not_signed_in">Sem sessão iniciada</string>
+    <string name="accounts_in_use">Em uso</string>
+    <string name="accounts_plan_premium">Premium</string>
+    <string name="accounts_plan_free">Free</string>
+    <string name="accounts_switch_title">Mudar para %1$s?</string>
+    <string name="accounts_switch_text">A reprodução para. As transferências e o histórico de audição seguem a sua própria conta; as extensões continuam a funcionar.</string>
+    <string name="accounts_switch_confirm">Mudar</string>
+    <string name="accounts_remove">Remover</string>
+    <string name="accounts_remove_title">Remover %1$s?</string>
+    <string name="accounts_remove_text">A sessão e os dados web são apagados deste telemóvel, com o histórico de audição. As transferências ficam guardadas à parte e voltam se a adicionar de novo.</string>
+    <string name="accounts_footer">Cada conta continua com sessão iniciada neste telemóvel. Mudar de conta interrompe a reprodução; as transferências e o histórico de audição seguem a sua conta; as extensões continuam a funcionar.</string>
+    <string name="accounts_single_footer">O WebView deste telemóvel guarda uma conta de cada vez: mudar ou adicionar uma conta termina a sessão desta e abre o início de sessão do Spotify. Atualizar o Android System WebView permite manter várias contas ligadas.</string>
+    <string name="accounts_back_to">De volta a %1$s</string>
+</resources>

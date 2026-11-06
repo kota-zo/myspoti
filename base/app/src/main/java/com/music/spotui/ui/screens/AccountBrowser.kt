@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
@@ -21,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Spotify's account pages (plan, privacy, apps, devices) in a browser that shares the
- * app's sign-in: WebViews of one app share cookies, so no second login.
+ * app's sign-in: WebViews on the same profile (the active account's) share cookies, so no second login.
  */
 class AccountBrowser : ComponentActivity() {
     private lateinit var web: WebView
@@ -30,9 +29,12 @@ class AccountBrowser : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         web = WebView(this).apply {
+            // The active account's WebView profile, before anything else: its sign-in is the one shared.
+            val host = app.myspoti.host.android.MyspotiRuntime.host
+            host.useProfile(this)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+            host.cookies().setAcceptThirdPartyCookies(this, true)
             webViewClient = WebViewClient()
         }
         val url = intent.getStringExtra(EXTRA_URL) ?: ACCOUNT_URL

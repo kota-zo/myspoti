@@ -1,5 +1,6 @@
 package com.music.spotui.ui.immersive.pages
 
+import com.music.spotui.ui.immersive.sheets.ImmersiveAlertDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -179,7 +179,7 @@ fun ImmersiveExtensionEntryScreen(navController: NavController, id: String) {
         item(key = "ext:clash") {
             incompatibleWith(e, registry)?.let { Text(it, style = Immersive.Subhead.copy(color = Warning), modifier = Modifier.padding(horizontal = Immersive.Gutter, vertical = 6.dp)) }
         }
-        val asks = m.asks().sortedByDescending { it.critical }
+        val asks = m.asksShown().sortedByDescending { it.critical }
         immersiveGroup("actions", headerRes = R.string.actions_title) {
             asks.forEach { a -> row { Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { ActionRow(a) } } }
         }
@@ -244,7 +244,7 @@ fun ImmersiveExtensionScreen(navController: NavController, id: String) {
         val refused = Grants.refused(e, m)
         if (refused.isNotEmpty()) item(key = "ext:refused") {
             Box(CardInset) {
-                RefusedNeedsOk(m.asks().filter { it.key in refused }) {
+                RefusedNeedsOk(m.asksShown().filter { it.key in refused }) {
                     scope.launch { Extensions.acceptAll(id); enable(id, true) }
                 }
             }
@@ -293,7 +293,7 @@ fun ImmersiveExtensionScreen(navController: NavController, id: String) {
         }
 
         immersiveGroup("actions", headerRes = R.string.actions_title) {
-            m.asks().sortedByDescending { it.critical }.forEach { a -> row { Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { ActionRow(a) } } }
+            m.asksShown().sortedByDescending { it.critical }.forEach { a -> row { Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { ActionRow(a) } } }
         }
         // Writes allowed for good from a confirmation ("Always"): each one revocable here.
         if (e.rawGrants.isNotEmpty()) immersiveGroup("grants", headerRes = R.string.ext_grants_title, footerRes = R.string.ext_grants_note) {
@@ -371,9 +371,8 @@ fun ImmersiveExtensionScreen(navController: NavController, id: String) {
         }
     }
 
-    if (uninstall && e != null) AlertDialog(
+    if (uninstall && e != null) ImmersiveAlertDialog(
         onDismissRequest = { uninstall = false },
-        containerColor = Immersive.Raised,
         text = { Text(stringResource(R.string.extension_uninstall_confirm, e.name), style = Immersive.Body) },
         confirmButton = {
             TextButton(onClick = {
@@ -420,7 +419,7 @@ private fun SettingRow(id: String, s: Setting) {
                 Text(s.label, style = Immersive.Body)
                 if (s.description.isNotBlank()) Text(s.description, style = Immersive.Caption)
             }
-            s.options.forEach { o -> ImmersiveChoiceRow(o, selected = value == o, onClick = { save(o) }) }
+            s.options.forEach { o -> ImmersiveChoiceRow(s.optionLabel(o), selected = value == o, onClick = { save(o) }) }
         }
         else -> Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
             Text(s.label, style = Immersive.Caption)

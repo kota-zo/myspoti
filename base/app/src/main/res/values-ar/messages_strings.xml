@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">الأصدقاء</string>
     <string name="messages_title">الرسائل</string>
     <string name="messages_empty">لا توجد محادثات بعد. اكتب إلى صديق باستخدام القلم في الأعلى.</string>
     <string name="messages_failed">لم يرسل Spotify رسائلك.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">أزال %1$s %2$s</string>
     <string name="messages_event_link">انضم %1$s عبر رابط</string>
     <string name="messages_event_reported">تم الإبلاغ عن المحادثة</string>
-    <string name="friends_title">نشاط الأصدقاء</string>
-    <string name="friends_now">الآن</string>
-    <string name="friends_empty">لا يوجد نشاط للأصدقاء بعد. يظهر هنا الأصدقاء الذين تتابعهم ويشاركون نشاط الاستماع على Spotify.</string>
-    <string name="friends_failed">لم يرسل Spotify نشاط الأصدقاء.</string>
-    <string name="friends_refresh">تحديث</string>
+    <string name="friends_tab">الأصدقاء</string>
 </resources>

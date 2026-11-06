@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">ਦੋਸਤ</string>
     <string name="messages_title">ਸੁਨੇਹੇ</string>
     <string name="messages_empty">ਹਾਲੇ ਕੋਈ ਗੱਲਬਾਤ ਨਹੀਂ। ਉੱਪਰ ਪੈਨਸਿਲ ਨਾਲ ਕਿਸੇ ਦੋਸਤ ਨੂੰ ਲਿਖੋ।</string>
     <string name="messages_failed">Spotify ਨੇ ਤੁਹਾਡੇ ਸੁਨੇਹੇ ਨਹੀਂ ਭੇਜੇ।</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s ਨੇ %2$s ਨੂੰ ਹਟਾਇਆ</string>
     <string name="messages_event_link">%1$s ਲਿੰਕ ਰਾਹੀਂ ਸ਼ਾਮਲ ਹੋਏ</string>
     <string name="messages_event_reported">ਗੱਲਬਾਤ ਦੀ ਰਿਪੋਰਟ ਕੀਤੀ ਗਈ</string>
-    <string name="friends_title">ਦੋਸਤਾਂ ਦੀ ਗਤੀਵਿਧੀ</string>
-    <string name="friends_now">ਹੁਣ</string>
-    <string name="friends_empty">ਹਾਲੇ ਦੋਸਤਾਂ ਦੀ ਕੋਈ ਗਤੀਵਿਧੀ ਨਹੀਂ। ਜਿਨ੍ਹਾਂ ਦੋਸਤਾਂ ਨੂੰ ਤੁਸੀਂ ਫ਼ਾਲੋ ਕਰਦੇ ਹੋ ਅਤੇ ਜੋ Spotify \'ਤੇ ਆਪਣੀ ਸੁਣਨ ਦੀ ਗਤੀਵਿਧੀ ਸਾਂਝੀ ਕਰਦੇ ਹਨ, ਉਹ ਇੱਥੇ ਦਿਖਾਈ ਦਿੰਦੇ ਹਨ।</string>
-    <string name="friends_failed">Spotify ਨੇ ਦੋਸਤਾਂ ਦੀ ਗਤੀਵਿਧੀ ਨਹੀਂ ਭੇਜੀ।</string>
-    <string name="friends_refresh">ਰਿਫ੍ਰੈਸ਼ ਕਰੋ</string>
+    <string name="friends_tab">ਦੋਸਤ</string>
 </resources>

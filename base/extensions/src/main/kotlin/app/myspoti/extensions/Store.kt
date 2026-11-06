@@ -21,12 +21,12 @@ enum class Category(val key: String) {
     /** The actions one of which an extension needs to be filed here (empty: any extension fits). */
     val needs: Set<Action>
         get() = when (this) {
-            LYRICS -> setOf(Action.LYRICS_PROVIDE, Action.TRACKINFO_PROVIDE)
+            LYRICS -> setOf(Action.LYRICS_PROVIDE, Action.LYRICS_ROMANIZE, Action.TRACKINFO_PROVIDE)
             PLAYBACK -> setOf(Action.PLAYBACK_CONTROL, Action.PLAYBACK_QUEUE, Action.PLAYBACK_EVENTS, Action.AUDIO_SOURCE, Action.PLAYER_BUTTONS)
             LIBRARY -> setOf(Action.LIBRARY_READ, Action.LIBRARY_WRITE, Action.PLAYLISTS_WRITE)
             DISCOVERY -> setOf(Action.HOME_SECTIONS, Action.SEARCH_PROVIDE, Action.SPOTIFY_CATALOG)
             STATS -> setOf(Action.PLAYBACK_EVENTS, Action.LIBRARY_READ)
-            LOOK -> Action.BLOCKS + Action.WEBVIEW_PAGE
+            LOOK -> Action.BLOCKS + Action.WEBVIEW_PAGE + Action.UI_STYLE
             SOCIAL -> setOf(Action.NETWORK, Action.LIBRARY_READ, Action.SPOTIFY_CATALOG)
             TOOLS, OTHER -> emptySet()
         }

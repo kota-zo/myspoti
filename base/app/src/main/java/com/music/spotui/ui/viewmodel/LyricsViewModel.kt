@@ -45,6 +45,16 @@ class LyricsViewModel constructor() : ViewModel() {
 
     private var loadedKey: String? = null
 
+    init {
+        // Romanizations an extension gave after the lyrics showed join the lines still shown.
+        viewModelScope.launch {
+            LyricsApi.romanized.collect { r ->
+                val cur = _state.value as? State.Loaded ?: return@collect
+                if (r != null && r.key == loadedKey && cur.lyrics == r.before) _state.value = cur.copy(lyrics = r.after)
+            }
+        }
+    }
+
     // Lines picked to share (both looks): a run of consecutive lines, by index in the lyrics' lines.
     // Kept here so the song options sheet of the Immersive look can open the same mode as a long press.
     private val _selecting = MutableStateFlow(false)
@@ -108,7 +118,8 @@ class LyricsViewModel constructor() : ViewModel() {
             // A skip meanwhile: the answer is for the previous song.
             if (loadedKey == key) {
                 if (lyrics == null) _triedNothing.value = sourceId
-                else _state.value = loadedState(lyrics)
+                // The cache holds the latest: romanizations that came while this answer was on its way.
+                else _state.value = loadedState(LyricsApi.cached(track) ?: lyrics)
             }
             _trying.value = null
         }
@@ -121,18 +132,32 @@ class LyricsViewModel constructor() : ViewModel() {
         stopSelecting()
         _triedNothing.value = null
         if (force) LyricsApi.forget(track)
-        // Already resolved (prefetched while the track started): no loading flash.
-        LyricsApi.cached(track)?.let { _state.value = loadedState(it); return }
-        // Read again (the setting changed): the lyrics shown stay until the new ones replace them.
-        if (!(force && _state.value is State.Loaded)) _state.value = State.Loading
-        // Spotify's own lines shown as soon as they are there; the word-timed ones replace them.
+        // Already resolved (prefetched while the track started): no loading flash. Found while an
+        // extension had not answered: shown, and asked again (its answer replaces them).
+        val cached = LyricsApi.cached(track)
+        if (cached != null) {
+            _state.value = loadedState(cached)
+            if (LyricsApi.settled(track)) return
+        } else if (!(force && _state.value is State.Loaded)) {
+            // Read again (the setting changed): the lyrics shown stay until the new ones replace them.
+            _state.value = State.Loading
+        }
+        // The app's own lines shown as soon as they are there (another, better early answer replaces
+        // them too); the final ones replace them. Read by song: the next song's prefetch publishes in between.
         val earlyJob = viewModelScope.launch {
-            LyricsApi.early.collect { e ->
-                if (e != null && e.first == key && loadedKey == key && _state.value is State.Loading) _state.value = loadedState(e.second)
+            var shownEarly: Lyrics? = null
+            LyricsApi.early.collect {
+                val e = LyricsApi.earlyFor(track) ?: return@collect
+                val shown = (_state.value as? State.Loaded)?.lyrics
+                if (loadedKey == key && e != shown && (_state.value is State.Loading || (shown != null && shown === shownEarly))) {
+                    shownEarly = e
+                    _state.value = loadedState(e)
+                }
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
-            val lyrics = LyricsApi.fetch(track)
+            // The cache holds the latest: romanizations that came while this answer was on its way.
+            val lyrics = LyricsApi.fetch(track)?.let { LyricsApi.cached(track) ?: it }
             earlyJob.cancel()
             withContext(Dispatchers.Main) {
                 // A skip during the fetch: don't show the previous song's lyrics.
@@ -168,13 +193,6 @@ class LyricsViewModel constructor() : ViewModel() {
             return
         }
         translate(cur, targetLang, showWhenDone = true)
-    }
-
-    fun prepareTranslation(targetLang: String) {
-        val cur = _state.value as? State.Loaded ?: return
-        if (cur.translating || cur.translationLanguage == targetLang) return
-        if (sameLanguage(cur.sourceLanguage, targetLang)) return
-        translate(cur, targetLang, showWhenDone = false)
     }
 
     private fun translate(cur: State.Loaded, targetLang: String, showWhenDone: Boolean) {

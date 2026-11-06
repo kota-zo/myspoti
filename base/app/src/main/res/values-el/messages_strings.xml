@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Φίλοι</string>
     <string name="messages_title">Μηνύματα</string>
     <string name="messages_empty">Δεν υπάρχουν συζητήσεις ακόμα. Γράψε σε έναν φίλο με το μολύβι επάνω.</string>
     <string name="messages_failed">Το Spotify δεν έστειλε τα μηνύματά σου.</string>

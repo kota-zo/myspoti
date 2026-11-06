@@ -1,5 +1,7 @@
 package app.myspoti.spotify
 
+import app.myspoti.api.Uri
+
 /**
  * How [SpotifyPlayer] gets past an ad and what plays on a new page, without the page.
  *
@@ -41,6 +43,22 @@ object AdRecoveryRules {
      */
     fun keepsPickBeforeAd(mirrored: Boolean): Boolean = !mirrored
 
+    /** A mirror play this close to the start is the local player's new song; further in, it is a position to seek to. */
+    const val MIRROR_SKIP_MAX_MS = 1_500L
+
+    /**
+     * Whether a play the mirror sends is the step onto the song an ad is [due] before, the page
+     * being on the song that ad follows ([playing]): the local player's Next. Spotify sends a skip
+     * of that song, and a plain play of the next one, to the ad (reported, log seen: the ad stayed
+     * current with its audio refused, the page was reloaded and lost its list, #144); only a skip
+     * within the page's queue gets past it (see [SpotifyPlayer.next]).
+     */
+    fun mirrorSkipsPastAd(
+        mirrored: Boolean, due: app.myspoti.spotify.bridge.AdBlock.AdAhead?, playing: app.myspoti.api.NowPlaying?,
+        trackUri: Uri?, positionMs: Long?,
+    ): Boolean =
+        mirrored && due != null && trackUri == due.nextUri && SpotifyPlayer.adDueFor(due, playing) && (positionMs ?: 0L) <= MIRROR_SKIP_MAX_MS
+
     /** What a page that is ready again plays. */
     enum class PageBack {
         /** Nothing (our own reload says itself what plays, or nothing played). */
@@ -72,4 +90,20 @@ object AdRecoveryRules {
 
     /** After our own reload: whether the player plays a song there itself (else the mirror does). */
     fun playsAfterOwnReload(mirrored: Boolean): Boolean = !mirrored
+
+    /**
+     * The songs of the user's queue [queued] (before our reload) to add again to the new page's:
+     * all in their order, but for the one now [playing] (played on from the queue) and those the
+     * page lists already ([has]). Reported: the queue was gone after an ad got past by a reload (#144).
+     */
+    fun requeued(queued: List<Uri>, playing: Uri?, has: Collection<Uri>): List<Uri> {
+        // Played on from the queue: that song and the ones before it in the queue are done.
+        val from = queued.indexOf(playing).let { if (it >= 0) it + 1 else 0 }
+        // One restored occurrence accounts for one queued occurrence, not every copy of its URI.
+        val counts = has.groupingBy { it }.eachCount().toMutableMap()
+        return queued.drop(from).filter { uri ->
+            val count = counts[uri] ?: 0
+            if (count == 0) true else { counts[uri] = count - 1; false }
+        }
+    }
 }

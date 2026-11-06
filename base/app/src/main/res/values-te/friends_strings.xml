@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">స్నేహితుల యాక్టివిటీ</string>
+    <string name="friends_now">ఇప్పుడు</string>
+    <string name="friends_empty">ఇంకా స్నేహితుల యాక్టివిటీ ఏదీ లేదు. మీరు ఫాలో చేసే, Spotifyలో తమ వినే యాక్టివిటీని షేర్ చేసే స్నేహితులు ఇక్కడ కనిపిస్తారు.</string>
+    <string name="friends_failed">Spotify స్నేహితుల యాక్టివిటీని పంపలేదు.</string>
+    <string name="friends_refresh">రిఫ్రెష్ చేయండి</string>
+</resources>

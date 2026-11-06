@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">സുഹൃത്തുക്കൾ</string>
     <string name="messages_title">സന്ദേശങ്ങൾ</string>
     <string name="messages_empty">ഇതുവരെ സംഭാഷണങ്ങളില്ല. മുകളിലെ പെൻസിൽ ഉപയോഗിച്ച് സുഹൃത്തിന് എഴുതൂ.</string>
     <string name="messages_failed">Spotify നിങ്ങളുടെ സന്ദേശങ്ങൾ അയച്ചില്ല.</string>
@@ -62,9 +61,5 @@
     <string name="messages_event_removed">%1$s %2$s നെ നീക്കി</string>
     <string name="messages_event_link">%1$s ലിങ്ക് വഴി ചേർന്നു</string>
     <string name="messages_event_reported">സംഭാഷണം റിപ്പോർട്ട് ചെയ്തു</string>
-    <string name="friends_title">സുഹൃത്തുക്കളുടെ പ്രവർത്തനം</string>
-    <string name="friends_now">ഇപ്പോൾ</string>
-    <string name="friends_empty">ഇതുവരെ സുഹൃത്തുക്കളുടെ പ്രവർത്തനമൊന്നുമില്ല. നിങ്ങൾ ഫോളോ ചെയ്യുന്നവരും Spotify-യിൽ കേൾക്കൽ പ്രവർത്തനം പങ്കിടുന്നവരുമായ സുഹൃത്തുക്കൾ ഇവിടെ കാണിക്കും.</string>
-    <string name="friends_failed">Spotify സുഹൃത്തുക്കളുടെ പ്രവർത്തനം അയച്ചില്ല.</string>
-    <string name="friends_refresh">പുതുക്കുക</string>
+    <string name="friends_tab">സുഹൃത്തുക്കൾ</string>
 </resources>

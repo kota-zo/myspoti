@@ -47,6 +47,13 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     /** The page's current URL. */
     val url: StateFlow<String> = _url
 
+    private val _online = MutableStateFlow(true)
+    /**
+     * The phone's default network can reach the internet (airplane mode, no signal: false). Kept by
+     * [watchNetwork]; true when connectivity cannot be watched, so nothing is held for nothing.
+     */
+    val online: StateFlow<Boolean> = _online
+
     /*
      * Spotify limiting this client: measured on the test phone after an evening of test runs,
      * the page asked for an audio licence ~4 times a second, each answered 429, and every repair
@@ -62,6 +69,15 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     /** Elapsed-realtime end of the current hold, 0 or past when none. */
     val licenseLimitedUntil: StateFlow<Long> = _licenseLimitedUntil
     fun licenseLimited(): Boolean = android.os.SystemClock.elapsedRealtime() < _licenseLimitedUntil.value
+
+    /**
+     * When Spotify last refused this page an audio licence (403 and the like, not a 429 limit). The
+     * page then skips the song by itself, and on to the next one, a second or so each: those moves are
+     * not the user's (see ConnectMirror).
+     */
+    @Volatile private var licenceRefusedAt = 0L
+    fun licenceRefusedWithin(ms: Long): Boolean =
+        licenceRefusedAt != 0L && android.os.SystemClock.elapsedRealtime() - licenceRefusedAt < ms
 
     private fun onLicenseLimited() = synchronized(license429) {
         val now = android.os.SystemClock.elapsedRealtime()
@@ -118,19 +134,58 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     private fun watchNetwork() {
         val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java) ?: return
         runCatching {
+            // No default network at start (airplane mode) calls nothing: the state is read once here.
+            _online.value = hasInternet(connectivity.getNetworkCapabilities(connectivity.activeNetwork))
             connectivity.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
                 private var current: android.net.Network? = null
 
                 override fun onAvailable(network: android.net.Network) {
                     val was = current
                     current = network
+                    setOnline(true)
                     // The first call names the network the app started on: nothing to drop.
                     if (was == null || was == network) return
-                    Logbook.log("network changed: the relay's idle connections dropped")
+                    Logbook.log("network changed: the relay's and the API's idle connections dropped")
                     ControlRelay.resetConnections()
+                    MyspotiRuntime.resetApiConnections()
+                }
+
+                override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
+                    if (network == current) setOnline(hasInternet(caps))
+                }
+
+                // Called for the default network only when no other one takes its place.
+                override fun onLost(network: android.net.Network) {
+                    if (network != current) return
+                    current = null
+                    setOnline(false)
                 }
             })
-        }.onFailure { Logbook.log("network changes not watched: ${it.message}") }
+        }.onFailure { _online.value = true; Logbook.log("network changes not watched: ${it.message}") }
+    }
+
+    /*
+     * INTERNET, not VALIDATED: a network the system has not validated (some carriers, a portal
+     * that answers late) still plays, and taking it for offline held every repair on it.
+     */
+    private fun hasInternet(caps: android.net.NetworkCapabilities?): Boolean =
+        caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+    /**
+     * Offline, the player's repairs wait (see MyspotiRuntime): a seek, a reload or a skip can do
+     * nothing without a network but throw the page away. The network back, a player page that
+     * failed to load meanwhile is loaded again at once rather than at its next retry.
+     */
+    private fun setOnline(now: Boolean) {
+        if (_online.value == now) return
+        _online.value = now
+        Logbook.log(if (now) "network back: repairs resume" else "network lost: repairs held until it is back")
+        if (now) main.post {
+            if (!mainFrameFailed || !loadAsked || _loginRequired.value) return@post
+            pageFailures = 0
+            main.removeCallbacks(retryPlayerPage)
+            retryPlayerPage.run()
+        }
     }
 
     private lateinit var relay: ControlRelay
@@ -149,6 +204,30 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     /** Fetches the audio files itself: the last request the WebView would stamp with its package. */
     private val media = MediaProxy(MediaProxy.client()) { relay.identityPair() }
 
+    /**
+     * WebView profiles (androidx.webkit MULTI_PROFILE): each account keeps its own cookies and Web
+     * storage, so several stay signed in at once. Without them (an older WebView) the page holds one
+     * account at a time, in the default profile, as before.
+     */
+    val multiProfile: Boolean = runCatching {
+        androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)
+    }.getOrDefault(false)
+
+    /** The accounts kept on this phone and the active one ([AccountList]). */
+    val accounts = AccountStore(java.io.File(context.filesDir, "spotify/accounts.json"))
+
+    /** The profile the page is built with: the active account's, chosen before the WebView loads anything. */
+    @Volatile var profile: String = if (multiProfile) accounts.list.value.active else AccountList.DEFAULT_PROFILE
+        private set
+
+    init {
+        if (!multiProfile && accounts.list.value.active != AccountList.DEFAULT_PROFILE) {
+            // The WebView lost its profiles (downgraded): the default one is all there is.
+            accounts.update { it.copy(active = AccountList.DEFAULT_PROFILE) }
+        }
+        purgeRemovedProfiles()
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     var view: WebView = createView()
 
@@ -158,7 +237,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * [onRenderProcessGone] returns false (see [rebuild]).
      */
     @SuppressLint("SetJavaScriptEnabled")
-    private fun createView(): WebView = AwakeWebView(context.applicationContext).apply {
+    private fun createView(): WebView = AwakeWebView(android.content.MutableContextWrapper(context.applicationContext)).apply {
+        // The account's profile, before anything else is done with the view (androidx.webkit's rule).
+        useProfile(this)
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -205,7 +286,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             it.install()
         }
         val webView = this
-        CookieManager.getInstance().apply {
+        cookies().apply {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(webView, true)
         }
@@ -279,6 +360,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 Logbook.log("page start ${Logbook.noQuery(url).take(120)}")
                 mainFrameFailed = false
+                // A "finished" comes just before the player's document starts: its wait must not run out on a
+                // page still loading (a page thrown away at 10 s, and a cold start of 30 s, on the test phone).
+                main.removeCallbacks(drmWatch)
                 // A load that never ends (measured: a reload's document request answered nothing
                 // for 9 minutes, the page stayed "loading", empty, without the bridge).
                 main.removeCallbacks(loadTimeout)
@@ -312,12 +396,18 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 if (request.url.host?.contains("spotify") == true && request.url.path?.contains("widevine-license") != true)
                     Logbook.logEvery("http ${response.statusCode} ${request.url.host}${request.url.path}", 60_000,
                         "http ${response.statusCode} ${request.method} ${request.url.toString().substringBefore('?').take(120)}")
+                // The page's own requests answered 401: its token went stale (see PageAuth). A licence or
+                // its address (melody license_url) so answered leaves the next song silent: at once.
+                if (response.statusCode == 401 && request.url.host?.endsWith("spotify.com") == true && !isLoginPage(_url.value))
+                    app.myspoti.spotify.bridge.PageAuth.unauthorized("http ${request.method} ${request.url.path?.take(80)}",
+                        licence = request.url.path?.let { it.contains("widevine-license") || it.endsWith("/license_url") } == true)
                 if (request.isForMainFrame && request.url.host == PLAYER_HOST && (response.statusCode >= 500 || response.statusCode == 429))
                     playerPageFailed("http ${response.statusCode}")
                 if (request.isForMainFrame && _loginLoad.value != LoginLoad.NONE && LoginLoad.isSpotifyAccounts(request.url.toString()) && response.statusCode >= 500)
                     loginFailed("http ${response.statusCode}")
                 if (request.url.path?.contains("widevine-license") == true) {
                     if (response.statusCode == 429) onLicenseLimited()
+                    else if (response.statusCode in 400..499) licenceRefusedAt = android.os.SystemClock.elapsedRealtime()
                     response.responseHeaders.entries.firstOrNull { it.key.equals("retry-after", true) }
                         ?.let { app.myspoti.spotify.report.Refusal402.licenceRetryAfter(it.value) }
                     // A refused licence (403 seen on a new sign-in, 429 on others) says why in its
@@ -375,7 +465,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 // Killed (memory pressure) or crashed: both end here. A late callback from a view
                 // that was already replaced must not tear down the healthy new one.
                 if (gone !== this@WebPlayerHost.view) return true
-                Logbook.log("renderer gone (crashed=${detail.didCrash()}): rebuilding the page")
+                Logbook.log("renderer gone (crashed=${detail.didCrash()}, priority=${detail.rendererPriorityAtExit()}): rebuilding the page")
                 // The page is gone with it: the calls it had fail now, not each after its timeout.
                 onPageStarting?.invoke()
                 rebuild()
@@ -395,7 +485,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * the new one takes its place in the same container, and the page loads again. Without this
      * the app kept a dead page — a blank screen with the sound gone — until it was restarted.
      */
-    private fun rebuild(): Boolean = main.post {
+    private fun rebuild(then: (() -> Unit)? = null): Boolean = main.post {
         main.removeCallbacks(drmWatch)
         val wasLoaded = loadAsked
         // Mid sign-in: the page comes back to the sign-in, not to an anonymous player in front of the user.
@@ -412,6 +502,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         // just after, once, so a rebuilt page is loaded exactly once.
         loadAsked = false
         box?.let { attach(it, lastVisible) }
+        // Another account's page ([switchProfile], [addProfile]): what it opens on is the caller's.
+        if (then != null) { then(); return@post }
         // The new view's first navigation can be lost while the browser side still settles after
         // the kill (seen: no page start for 4 s): the watchdog looks again after 1.5 s, not 4 s.
         if (wasLogin) { loadAsked = wasLoaded; beginLoginLoad(); view.loadUrl(LOGIN_URL) }
@@ -528,6 +620,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     private var pageFailures = 0
     private val retryPlayerPage = Runnable {
         if (!loadAsked || _loginRequired.value) return@Runnable
+        // Offline, the load could only fail again: [setOnline] loads it when the network is back.
+        if (!_online.value) { Logbook.log("player page: offline, loaded again when the network is back"); return@Runnable }
         Logbook.log("player page: load again (attempt ${pageFailures + 1})")
         view.stopLoading()
         view.loadUrl(playerRoot())
@@ -556,7 +650,13 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     }
 
     /** Signs out of Spotify in this WebView, then shows the login page. */
-    fun logout() = main.post { roots.edit().remove(SIGNED_IN_KEY).apply(); beginLoginLoad(); cleanSlate { view.loadUrl(LOGIN_URL) } }
+    fun logout() = main.post {
+        roots.edit().remove(SIGNED_IN_KEY).apply()
+        // The profile stays, with no account in it: the next sign-in on it is read as whoever it is.
+        accounts.update { it.signedOut(profile) }
+        beginLoginLoad()
+        cleanSlate { view.loadUrl(LOGIN_URL) }
+    }
 
     /**
      * "Try again" after the sign-in page failed: from nothing. A failed attempt may have left half
@@ -565,12 +665,32 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      */
     fun retryLogin() = main.post { beginLoginLoad(); cleanSlate { view.loadUrl(LOGIN_URL) } }
 
+    /**
+     * Before a report sent from the sign-in: what the page shows right now (its path, title, the
+     * error messages on it, which kind of step), into the log. The failed sign-ins reported
+     * ("Oops! Something went wrong", an e-mail not recognised, a page that loads for ever) came
+     * with no trail of the page itself. Typed values are never read; e-mails are masked by the log.
+     * [done] runs on the main thread, after the answer or 1.5 s.
+     */
+    fun noteLoginPage(done: () -> Unit) = main.post {
+        var finished = false
+        val finish = { if (!finished) { finished = true; done() } }
+        val url = _url.value
+        Logbook.log("report asked from the sign-in: ${Logbook.noQuery(url).take(120)} load=${_loginLoad.value} steps=$loginSteps")
+        if (!isLoginPage(url) && !LoginLoad.isSpotifyAccounts(url)) { finish(); return@post }
+        main.postDelayed({ finish() }, 1_500)
+        view.evaluateJavascript(LOGIN_PAGE_STATE_JS) { answer ->
+            Logbook.log("sign-in page now: ${answer?.take(600)}")
+            finish()
+        }
+    }
+
     private fun cleanSlate(then: () -> Unit) {
-        CookieManager.getInstance().removeAllCookies {
+        cookies().removeAllCookies {
             main.post {
                 // Web storage too: localStorage/IndexedDB hold the player's session
                 // state, and clearCache(true) also drops the disk cache (false kept it).
-                android.webkit.WebStorage.getInstance().deleteAllData()
+                webStorage().deleteAllData()
                 view.clearCache(true)
                 then()
             }
@@ -582,7 +702,95 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * while later: an app swiped away right after signing in (the exit log shows "SwipeUpClean" and
      * "OneKeyClean" on Xiaomi) lost the sign-in and asked for it again at the next start.
      */
-    fun flushCookies() = CookieManager.getInstance().flush()
+    fun flushCookies() = cookies().flush()
+
+    /** The active profile's cookies (the default ones without profiles). Main thread. */
+    fun cookies(): CookieManager =
+        if (multiProfile) androidx.webkit.ProfileStore.getInstance().getOrCreateProfile(profile).cookieManager
+        else CookieManager.getInstance()
+
+    private fun webStorage(): android.webkit.WebStorage =
+        if (multiProfile) androidx.webkit.ProfileStore.getInstance().getOrCreateProfile(profile).webStorage
+        else android.webkit.WebStorage.getInstance()
+
+    /**
+     * Puts [webView] on the active account's profile, so it shares the page's sign-in (the account
+     * pages' browser). Call it on a new view, before anything else is done with it. Main thread.
+     */
+    fun useProfile(webView: WebView) {
+        if (!multiProfile) return
+        androidx.webkit.ProfileStore.getInstance().getOrCreateProfile(profile)
+        androidx.webkit.WebViewCompat.setProfile(webView, profile)
+    }
+
+    /**
+     * The page moves to the account kept in [profileName]: a new WebView on that profile (its own
+     * cookies and storage), built as after a dead renderer ([rebuild]), opening the player. Whoever
+     * follows the account (the API's token and username, the plan, the app's caches) forgets it on
+     * the caller's side. Nothing without profiles (the caller signs out instead).
+     */
+    fun switchProfile(profileName: String) {
+        if (!multiProfile) return
+        val list = accounts.update { it.switchTo(profileName, System.currentTimeMillis()) }
+        if (list.active != profileName) return
+        moveTo(profileName) { load(firstWatchMs = REBUILD_WATCH_MS) }
+    }
+
+    /** "Add account": a new, empty profile becomes the active one and opens Spotify's sign-in page. */
+    fun addProfile() {
+        if (!multiProfile) return
+        var name = ""
+        accounts.update { list -> list.adding(System.currentTimeMillis()).also { name = it.second }.first }
+        moveTo(name) { loadAsked = true; beginLoginLoad(); view.loadUrl(LOGIN_URL) }
+    }
+
+    /**
+     * [profileName] is no longer kept: its entry goes and its data (cookies, storage, cache) is
+     * deleted. The active profile is first left ([switchProfile]); the default profile cannot be
+     * deleted and is cleared instead. A profile still held by a WebView is deleted at the next start.
+     */
+    fun removeProfile(profileName: String) {
+        if (profileName == accounts.list.value.active) return
+        accounts.update { it.removed(profileName) }
+        main.post { purgeRemovedProfiles() }
+        // The replaced WebView may take a moment to let its profile go.
+        main.postDelayed({ purgeRemovedProfiles() }, PURGE_RETRY_MS)
+    }
+
+    private fun moveTo(profileName: String, open: () -> Unit) = main.post {
+        Logbook.log("account: page moved to another profile")
+        profile = profileName
+        // Both said something of the account that leaves: when it signed in, and its language's root.
+        roots.edit().remove(SIGNED_IN_KEY).remove(ROOT_KEY).apply()
+        main.removeCallbacks(retryPlayerPage)
+        main.removeCallbacks(loadTimeout)
+        mainFrameFailed = false
+        pageFailures = 0
+        // A sign-in left open on the old page (back from an added account's) is not this page's:
+        // its clocks stop, and nothing reads "sign-in page" until the new page says so itself.
+        setLoginLoad(LoginLoad.NONE)
+        _loginRequired.value = false
+        // The page is gone: the calls it had fail now, not each after its timeout.
+        onPageStarting?.invoke()
+        rebuild(then = open)
+        main.post { purgeRemovedProfiles() }
+    }
+
+    /** Deletes the data of the profiles removed ([AccountList.doomed]); one still in use waits for later. Main thread. */
+    private fun purgeRemovedProfiles() {
+        if (!multiProfile) return
+        for (name in accounts.list.value.doomed) {
+            if (name == profile) continue
+            val done = runCatching {
+                val store = androidx.webkit.ProfileStore.getInstance()
+                if (name == AccountList.DEFAULT_PROFILE) {
+                    store.getProfile(name)?.let { p -> p.cookieManager.removeAllCookies(null); p.webStorage.deleteAllData() }
+                } else store.deleteProfile(name)
+            }
+            if (done.isSuccess) accounts.update { it.deleted(name) }
+            else Logbook.log("account: a removed profile is still in use, deleted later (${done.exceptionOrNull()?.javaClass?.simpleName})")
+        }
+    }
 
     private var loginProbes = 0
     private var loginReloaded = false
@@ -679,6 +887,11 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     fun attach(container: ViewGroup, visible: Boolean) = main.post {
         this.container = container
         lastVisible = visible
+        // A <select> (the birth month on Spotify's sign-up page) opens its list as a dialog, which
+        // needs an Activity: shown, the page works on the activity's context; hidden, on the
+        // application's again, so no activity is kept by a page that outlives them. Same page, no reload.
+        (view.context as? android.content.MutableContextWrapper)?.baseContext =
+            if (visible) container.context else context.applicationContext
         // Re-added each time: addView converts the params to the container's own type
         // (assigning plain ViewGroup.LayoutParams to a FrameLayout child crashes on measure).
         (view.parent as? ViewGroup)?.removeView(view)
@@ -697,8 +910,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         view.requestLayout()
         // Shown again after being hidden at 1 px: a page that was not told to redraw can stay white.
         if (visible) view.postInvalidateOnAnimation()
-        // Now in a window: a first navigation that never started gets another go.
-        if (loadAsked && _url.value.isEmpty() && pageStarts == 0) view.loadUrl(playerRoot())
+        // Now in a window: a first navigation that never started gets another go. Not over a
+        // sign-in page being opened on a new view (another account's, or after a dead renderer).
+        if (loadAsked && _url.value.isEmpty() && pageStarts == 0 && _loginLoad.value == LoginLoad.NONE) view.loadUrl(playerRoot())
     }
 
     /**
@@ -727,7 +941,14 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         else (v.layoutParams as? ViewGroup.MarginLayoutParams)?.let { it.setMargins(0, 0, 0, 0); v.layoutParams = it }
     }
 
-    fun detach() = main.post { (view.parent as? ViewGroup)?.removeView(view) }
+    /** Only the Activity that owns the current attachment may release it. */
+    fun detach(from: ViewGroup) = main.post {
+        if (container !== from) return@post
+        container = null
+        lastVisible = false
+        (view.parent as? ViewGroup)?.removeView(view)
+        (view.context as? android.content.MutableContextWrapper)?.baseContext = context.applicationContext
+    }
 
     /** Frees the page (data saver, low memory). [load] brings it back. */
     fun unload() = main.post { loadAsked = false; view.loadUrl("about:blank") }
@@ -756,8 +977,26 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         private val RETRY_PAGE_MS = longArrayOf(2_000, 5_000, 15_000, 30_000, 60_000)
         private const val LOAD_WATCH_MS = 4_000L
         private const val REBUILD_WATCH_MS = 1_500L
+        /** A removed profile still held by the WebView just replaced: deleted again after this. */
+        private const val PURGE_RETRY_MS = 10_000L
         private const val LOAD_RETRIES = 4
         const val LOGIN_URL = "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
+
+        /**
+         * What the sign-in page shows, for [noteLoginPage]: path, title, first heading, the text of its
+         * alerts and error banners, and which fields are there (by type, never their values).
+         */
+        private const val LOGIN_PAGE_STATE_JS = """(function(){try{
+var t=function(e){return (e.innerText||'').replace(/\s+/g,' ').trim().slice(0,160)};
+var seen={},msgs=[];
+document.querySelectorAll('[role=alert],[aria-live],[data-encore-id*=anner],[class*=rror],[class*=anner],[id*=rror]').forEach(function(e){
+var s=t(e); if(s&&!seen[s]&&msgs.length<6){seen[s]=1;msgs.push(s)}});
+var f=[]; document.querySelectorAll('input').forEach(function(i){if(i.type!=='hidden')f.push(i.type+(i.autocomplete?'/'+i.autocomplete:''))});
+var h=document.querySelector('h1,h2');
+return JSON.stringify({path:location.host+location.pathname,title:document.title.slice(0,80),heading:h?t(h):null,
+messages:msgs,fields:f.slice(0,8),captcha:!!document.querySelector('iframe[src*=captcha],iframe[src*=challenge],[class*=aptcha]'),
+ready:document.readyState});
+}catch(e){return 'failed: '+e}})()"""
     }
 }
 

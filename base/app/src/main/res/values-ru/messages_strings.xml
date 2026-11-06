@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="friends_tab">Друзья</string>
     <string name="messages_title">Сообщения</string>
     <string name="messages_empty">Пока нет переписок. Напишите другу с помощью карандаша вверху.</string>
     <string name="messages_failed">Spotify не отправил ваши сообщения.</string>

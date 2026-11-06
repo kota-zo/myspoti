@@ -26,12 +26,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Public
@@ -42,10 +40,8 @@ import androidx.compose.material.icons.outlined.PersonRemove
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -274,7 +270,7 @@ fun PlaylistOptionsSheet(
             onDone = { ok -> if (!ok) onChanged() })
     }
 
-    if (leavingBlend) AlertDialog(
+    if (leavingBlend) LookAlertDialog(
         onDismissRequest = { leavingBlend = false },
         containerColor = tone(0xFF282828),
         title = { Text(stringResource(R.string.blend_leave), color = AppText) },
@@ -295,7 +291,7 @@ fun PlaylistOptionsSheet(
     if (stoppingCollab) {
         // Public (listed on the profile): collaborators are removed; private: they become listeners.
         val public = published == true
-        AlertDialog(
+        LookAlertDialog(
             onDismissRequest = { stoppingCollab = false },
             containerColor = tone(0xFF282828),
             title = { Text(stringResource(R.string.playlist_stop_collab), color = AppText) },
@@ -313,7 +309,7 @@ fun PlaylistOptionsSheet(
         )
     }
 
-    if (leavingPlaylist) AlertDialog(
+    if (leavingPlaylist) LookAlertDialog(
         onDismissRequest = { leavingPlaylist = false },
         containerColor = tone(0xFF282828),
         title = { Text(stringResource(R.string.playlist_leave), color = AppText) },
@@ -331,7 +327,7 @@ fun PlaylistOptionsSheet(
         dismissButton = { TextButton(onClick = { leavingPlaylist = false }) { Text(stringResource(R.string.cancel), color = AppText) } },
     )
 
-    if (deleting) AlertDialog(
+    if (deleting) LookAlertDialog(
         onDismissRequest = { deleting = false },
         containerColor = tone(0xFF282828),
         text = { Text(stringResource(R.string.playlist_delete_confirm, page.name), color = AppText) },
@@ -373,7 +369,7 @@ private fun EditDetailsDialog(page: ContextPageModel, onDismiss: () -> Unit, onS
         focusedBorderColor = AppAccent, unfocusedBorderColor = Color(0xFF555555),
         focusedLabelColor = AppAccent, unfocusedLabelColor = AppMuted,
     )
-    AlertDialog(
+    LookAlertDialog(
         onDismissRequest = onDismiss,
         containerColor = tone(0xFF282828),
         title = { Text(stringResource(R.string.playlist_edit_details), color = AppText) },
