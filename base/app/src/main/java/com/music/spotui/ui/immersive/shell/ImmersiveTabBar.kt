@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -77,48 +75,6 @@ private val TabLabel = TextStyle(
     fontWeight = FontWeight.Medium,
 )
 
-/**
- * The Immersive look's floating tab bar: a frosted pill with Home and Library, and Search in a
- * circle of its own beside it. The selected tab's pill lifts, travels to the next tab on a spring
- * and settles; a horizontal drag across the pill picks it up the same way.
- *
- * Navigation is exactly [com.music.spotui.ui.navigation.MainBottomNavigation]'s: re-tapping the
- * tab you are on emits [TabReselect] (scroll to top, focus search); from one of its sub-pages it
- * pops back to the tab's root; otherwise it navigates with `popUpTo(start){saveState}`,
- * `launchSingleTop` and `restoreState` (Home always reopens itself). The bar hides itself on the
- * player, queue and SpotiFLAC routes.
- *
- * Usage: put it at the bottom of the app's Box, above the NavHost, and the mini player above it.
- * Provide [LocalImmersiveHaze] and mark the NavHost with
- * [immersiveHazeSource] for the glass to blur the page behind; without it the glass is a plain
- * translucent fill.
- *
- * ```
- * Box(Modifier.fillMaxSize()) {
- *     MyNavHost(nav, Modifier.immersiveHazeSource())
- *     ImmersiveTabBar(nav, Modifier.align(Alignment.BottomCenter))
- * }
- * ```
- */
-@Composable
-fun ImmersiveTabBar(navController: NavController, modifier: Modifier = Modifier) {
-    val tabs = rememberTabNavigation(navController)
-    // No motion of its own: the bar sits above the pages, so sliding it while the player rises
-    // (or collapses behind it) made one gesture look like two.
-    if (tabs.fullScreen) return
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-        TabBarContent(
-            selectedTab = tabs.selectedTab,
-            onTabClick = tabs.onTabClick,
-            modifier = Modifier
-                .windowInsetsPadding(ImmersiveBarInsets)
-                .padding(horizontal = Immersive.Gutter)
-                .padding(bottom = 2.dp)
-                .widthIn(max = ImmersiveBarMaxWidth),
-        )
-    }
-}
-
 /** The tab the user is in, how to switch tabs, and whether the bar hides (player, queue). */
 internal class TabNavigation(
     val selectedTab: String,
@@ -126,7 +82,7 @@ internal class TabNavigation(
     val fullScreen: Boolean,
 )
 
-/** The tab bar's navigation, shared by [ImmersiveTabBar] and the minimizing [ImmersiveBottomChrome]. */
+/** The tab bar's navigation, shared by [TabBarContent] and the minimizing [ImmersiveBottomChrome]. */
 @Composable
 internal fun rememberTabNavigation(navController: NavController): TabNavigation {
     // Visibility follows the screen actually shown, not flags each screen sets.

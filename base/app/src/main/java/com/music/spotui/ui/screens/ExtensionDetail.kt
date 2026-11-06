@@ -108,14 +108,6 @@ private fun ActionsList(asks: List<Ask>) {
 }
 
 @Composable
-private fun Line(title: String, detail: String, color: Color) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
-        Text(title, color = color, fontSize = 14.sp)
-        if (detail.isNotBlank()) Text(detail, color = AppMuted, fontSize = 12.sp)
-    }
-}
-
-@Composable
 private fun Detail(label: Int, value: String, mono: Boolean = false) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 3.dp)) {
         Text(stringResource(label), color = AppMuted, fontSize = 12.sp, modifier = Modifier.width(110.dp))

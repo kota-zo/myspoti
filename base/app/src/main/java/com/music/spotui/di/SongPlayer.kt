@@ -2061,11 +2061,6 @@ object SongPlayer {
     private const val DEVICES_WAIT_MS = 2_000L
     private const val DISCOVERY_WAIT_MS = 800L
 
-    /**
-     * How long the device list read by [takeBackPlayback] is trusted. Long enough that a burst of
-     * taps pays for it once, short enough that a device taking playback in between is noticed.
-     */
-    private const val DEVICES_FRESH_MS = 10_000L
     /** A transport command waits that long for the page to load before it is dropped. */
     private const val READY_WAIT_MS = 30_000L
 
@@ -2610,22 +2605,14 @@ object SongPlayer {
      * same account, for instance): Myspoti's play, skip and previous then drove that device,
      * where a free account's commands are refused. The music comes back to this phone first.
      */
-    /** When [takeBackPlayback] last read the device list; 0 = never read (read it now). */
-    @Volatile private var devicesFreshUntil = 0L
-
     private suspend fun takeBackPlayback() {
         // The device list as Spotify has it now: the one kept here is only refreshed on a song
         // change, and after a cold start it does not know a device that took playback before.
-        // But this used to run on EVERY tap, i.e. a server round trip before the song was even
-        // asked for: measured 963 ms from tap to sound against 554 ms for a skip, which takes the
-        // same playback path without this call. The list is read again only once the entry is
-        // older than [DEVICES_FRESH_MS] — a takeover within those seconds is still caught by the
-        // play check (the page does not move, the play is sent again) and by the next read.
-        // Measured (15/10 run): this refresh answers from the page's cache in 8-36 ms, so it is not
-        // what makes a tap slower than a skip (963 vs 554 ms then) — keeping it unconditional keeps
-        // "a device that took playback is pulled back at once" (beta.7 behaviour). The timing stays
-        // in the log because the day it becomes slow, that line says so.
-        devicesFreshUntil = 0L
+        // This runs on every tap, i.e. a server round trip before the song is even asked for, and
+        // once looked like the reason a tap (963 ms) was slower than a skip (554 ms). A 15/10 run
+        // found the refresh answers from the page's cache in 8-36 ms, so it is not — and keeping
+        // it unconditional keeps "a device that took playback is pulled back at once" (beta.7
+        // behaviour). The timing stays in the log because the day it becomes slow, that line says so.
         val started = System.currentTimeMillis()
         kotlinx.coroutines.withTimeoutOrNull(DEVICES_WAIT_MS) { runCatching { api.devices.refresh() } }
         Log.i(TAG, "device list read in ${System.currentTimeMillis() - started} ms")
@@ -2649,8 +2636,6 @@ object SongPlayer {
         // Bounded: a transfer from a device that went away can leave the page's promise
         // pending for ever, and every later command waiting behind it.
         val pulled = kotlinx.coroutines.withTimeoutOrNull(PULL_BACK_WAIT_MS) { runCatching { api.devices.pullHere() } }
-        // Whatever happened, the list just changed under us: read it again next time.
-        devicesFreshUntil = 0L
         if (pulled?.isSuccess != true) Log.w(TAG, "pull here failed: ${pulled?.exceptionOrNull()?.message ?: "no answer"}")
         // No answer: the page's Connect layer waits on that device and would hold every later
         // command. A new page claims playback for itself at the first command.

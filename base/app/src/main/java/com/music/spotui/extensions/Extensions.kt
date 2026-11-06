@@ -151,7 +151,6 @@ object Extensions {
         val romanize: List<String> = emptyList(),
     )
     private val _provided = MutableStateFlow(Provided())
-    val provided: StateFlow<Provided> = _provided.asStateFlow()
     /** The same, read by [hasAudioSource], [hasDownloadSource] and [hasLyrics]: a screen calling them is drawn again when it changes. */
     private val providedState = androidx.compose.runtime.mutableStateOf(Provided())
     private val providedLock = Any()
