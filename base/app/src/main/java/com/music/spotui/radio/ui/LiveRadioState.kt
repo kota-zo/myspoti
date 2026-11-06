@@ -67,7 +67,15 @@ internal class LiveRadioState(query: String = "", genre: String = "") {
         }
         if (q.isNotBlank()) delay(400)
         loading = true
-        results = ask { RadioBrowserApi.search(query = q, tag = g) }
+        // A pasted-in uuid: look it up directly, else fall back to search.
+        val uuid = RadioBrowserApi.asStationUuid(q)
+        results = if (uuid != null) {
+            ask { RadioBrowserApi.byUuid(uuid) }
+                ?.takeIf { it.isNotEmpty() }
+                ?: ask { RadioBrowserApi.search(query = q, tag = g) }
+        } else {
+            ask { RadioBrowserApi.search(query = q, tag = g) }
+        }
         loading = false
     }
 

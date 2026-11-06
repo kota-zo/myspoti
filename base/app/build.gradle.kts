@@ -188,6 +188,8 @@ dependencies {
     // Looping Spotify Canvas video on the now-playing screen
     implementation("androidx.media3:media3-exoplayer:1.8.0")
     implementation("androidx.media3:media3-exoplayer-dash:1.8.0")
+    // HLS (.m3u8) Live Radio streams, e.g. most big broadcasters.
+    implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
     // Installs the Baseline Profiles shipped by Compose & co. on sideloaded builds
     // (faster start, less jank; Play does this itself for store installs).
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
