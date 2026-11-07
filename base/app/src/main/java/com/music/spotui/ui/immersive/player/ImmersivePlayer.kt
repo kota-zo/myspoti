@@ -505,6 +505,12 @@ fun ImmersivePlayer(
                         onToggleQueue = { panel = if (queueOpen) Panel.NONE else Panel.QUEUE },
                         onOpenDevices = { showDevices = true },
                     )
+                    // A hidden volume bar keeps its room, under the controls: without it the block got
+                    // shorter and the cover, the credits, the scrubber and the transport dropped into
+                    // the space it left (#186). Only the bottom row moves up.
+                    if (!com.music.spotui.data.preferences.PlayerVolumePref.on) {
+                        Spacer(Modifier.height(12.dp - 4.dp + VOLUME_ROW_HEIGHT + 6.dp))
+                    }
                 }
             }
         }

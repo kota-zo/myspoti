@@ -356,7 +356,8 @@ object PlayerModesPref {
 
 /**
  * "Volume bar in the player" (Settings > Display, Immersive look): the volume slider under the
- * transport. On by default; off, the phone's volume keys still do it, and the controls sit lower.
+ * transport. On by default; off, the phone's volume keys still do it, and the bottom row moves up
+ * into its place while the cover and the other controls stay where they are (#186).
  */
 object PlayerVolumePref {
     private const val KEY = "immersive_player_volume"
