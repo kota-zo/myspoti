@@ -6,16 +6,18 @@ package app.myspoti.spotify
 import java.io.ByteArrayOutputStream
 
 /**
- * The protobuf wire format, as little of it as the mobile client's friend feed needs: no schema,
- * fields read and written by number. Varints and fixed numbers are kept as [Long],
- * length-delimited fields as bytes (a string or a nested message).
+ * The protobuf wire format, as little of it as the mobile client's services need (the friend
+ * feed, Messages): no schema, fields read and written by number. Varints and fixed numbers are
+ * kept as [Long], length-delimited fields as bytes (a string or a nested message).
  */
 internal class ProtoMessage(private val fields: List<Pair<Int, Any>>) {
     fun long(n: Int): Long? = fields.firstOrNull { it.first == n }?.second as? Long
     fun bytes(n: Int): ByteArray? = fields.firstOrNull { it.first == n }?.second as? ByteArray
     fun string(n: Int): String? = bytes(n)?.toString(Charsets.UTF_8)
+    fun strings(n: Int): List<String> = fields.filter { it.first == n }.mapNotNull { (it.second as? ByteArray)?.toString(Charsets.UTF_8) }
     fun message(n: Int): ProtoMessage? = bytes(n)?.let(::parseProto)
     fun messages(n: Int): List<ProtoMessage> = fields.filter { it.first == n }.mapNotNull { (it.second as? ByteArray)?.let(::parseProto) }
+    fun has(n: Int): Boolean = fields.any { it.first == n }
 
     /** A `google.protobuf.Timestamp` (seconds 1, nanos 2), in epoch milliseconds. */
     fun timestampMs(): Long = (long(1) ?: 0) * 1000 + (long(2) ?: 0) / 1_000_000

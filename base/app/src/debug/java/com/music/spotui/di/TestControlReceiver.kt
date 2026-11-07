@@ -92,6 +92,49 @@ class TestControlReceiver : BroadcastReceiver() {
                         "withTrack=${l.count { it.track != null }}, withContext=${l.count { it.contextName != null }}, withCover=${l.count { it.trackImageUrl != null }}") }
                     .onFailure { Log.i("MspPlayer", "friendActivity failed: $it") }
             }
+            // Debug: one protobuf call on a spclient path (--es path <path> --es hex <body> --es method POST),
+            // logs the status and the answer in hex, to learn the mobile services' shapes.
+            "proto" -> app.myspoti.host.android.MyspotiRuntime.scope.launch {
+                val path = intent.getStringExtra("path").orEmpty()
+                val hex = intent.getStringExtra("hex").orEmpty()
+                val body = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                runCatching { app.myspoti.host.android.MyspotiRuntime.spotify.raw.proto(intent.getStringExtra("method") ?: "POST", "https://spclient.wg.spotify.com/$path", body) }
+                    .onSuccess { (code, bytes) -> Log.i("MspProbe", "$path -> $code ${bytes.size}B"); bytes.toList().chunked(1500).forEachIndexed { i, part ->
+                        Log.i("MspProbe", "$path -> $code ${bytes.size}B [$i] ${part.joinToString("") { "%02x".format(it) }}") } }
+                    .onFailure { Log.i("MspProbe", "$path failed: $it") }
+            }
+            // Debug: one Messages call through the app's own API (--es op <method> --es a <arg> --es b <arg>),
+            // logs its answer, to check each action against Spotify without the UI.
+            "msg" -> app.myspoti.host.android.MyspotiRuntime.scope.launch {
+                val m = app.myspoti.host.android.MyspotiRuntime.api.messages
+                val a = intent.getStringExtra("a").orEmpty()
+                val b = intent.getStringExtra("b").orEmpty()
+                val op = intent.getStringExtra("op").orEmpty()
+                runCatching<Any?> {
+                    when (op) {
+                        "chats" -> m.chats().joinToString("\n") { "${it.id} ${it.name ?: it.members.joinToString { u -> u.name }} group=${it.group} admin=${it.admin} request=${it.request} unread=${it.unread}" }
+                        "messages" -> m.messages(a, 8).joinToString("\n") { "${it.id} ${it.author.name}: ${it.text ?: it.shared?.title ?: it.event ?: it.gifUrl ?: "media"} reactions=${it.reactions.map { r -> r.id + r.emoji + r.user.name }}" }
+                        "send" -> m.send(a, b)
+                        "gifs" -> m.gifs(a).take(5).joinToString("\n") { "${it.id} ${it.width}x${it.height} ${it.url}" }
+                        "sendgif" -> m.sendGif(a, m.gifs(b).first())
+                        "share" -> m.share(a, b)
+                        "seen" -> m.markSeen(a)
+                        "react" -> m.react(a, b)
+                        "unreact" -> m.unreact(app.myspoti.api.ChatReaction(a, b, app.myspoti.api.UserRef("", "", null), true))
+                        "delete" -> m.delete(a, b == "all")
+                        "muted" -> m.isMuted(a)
+                        "mute" -> m.setMuted(a, b != "off")
+                        "rename" -> m.rename(a, b)
+                        "addmembers" -> m.addMembers(a, b.split(','))
+                        "removemember" -> m.removeMember(a, b)
+                        "creategroup" -> m.createGroup(a.split(','), b.ifBlank { null })
+                        "leave" -> m.leave(a)
+                        "deletechat" -> m.deleteChat(a)
+                        "answer" -> m.answerRequest(a, b == "yes")
+                        else -> "unknown op $op"
+                    }
+                }.onSuccess { Log.i("MspMsg", "$op -> ${it ?: "ok"}") }.onFailure { Log.i("MspMsg", "$op failed: $it") }
+            }
             // Debug: the account's Spotify top lists per window (counts and totals only).
             "extlist" -> com.music.spotui.extensions.Extensions.registry.value.extensions
                 .forEach { Log.i("MspPlayer", "extension ${it.id} ${it.version} enabled=${it.enabled} source=${it.source}") }

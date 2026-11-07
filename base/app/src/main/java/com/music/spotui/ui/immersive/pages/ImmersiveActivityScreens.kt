@@ -108,6 +108,7 @@ fun ImmersiveFriendsScreen(navController: NavController) {
         // Opened from Home's header (no longer a tab): back to it.
         onBack = { navController.popBackStack() },
         actions = {
+            com.music.spotui.ui.screens.MessagesButton(navController, Immersive.Text)
             ImmersiveBarAction(Icons.Rounded.Refresh, stringResource(R.string.friends_refresh), onClick = { state = null; attempt++ })
         },
     ) {

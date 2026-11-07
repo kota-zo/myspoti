@@ -20,7 +20,9 @@ DENY = re.compile(r"(log ?out|sign ?out|déconnex|se déconnecter|delete|supprim
                   r"share|partag|report|signal|buy|achet|pay|donat|don\b|sponsor|ko-fi|github|discord|reddit|privacy|"
                   r"open in|ouvrir dans|navigateur|browser|spotify app|install|update|mettre à jour|quit|quitter|"
                   r"jam|appareil|device|connect|lecture aléatoire|shuffle|repeat|répét|minuteur|sleep|timer|"
-                  r"vidéo|video|canvas|paroles|lyrics|enreg|record|notifications?$)", re.I)
+                  r"vidéo|video|canvas|paroles|lyrics|enreg|record|notifications?$|"
+                  # Messages: anything there can write to a real person (send, a GIF, a group, a request).
+                  r"message|send|envoy|write to|écrire|group|gif|accept|decline|refuser)", re.I)
 
 
 def adb(*a, check=False):

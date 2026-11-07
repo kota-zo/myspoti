@@ -239,8 +239,8 @@ class SpotifyHttp(
     }
 
     /**
-     * A protobuf call on a spclient service (the mobile client's friend feed): the account's
-     * credentials and headers as in [send], bytes in and out. Returns the status and the body bytes.
+     * A protobuf call on a spclient service the mobile client uses (friend feed, messages): the
+     * account's credentials as in [send], bytes in and out. Returns the status and the body bytes.
      */
     suspend fun sendProto(method: String, url: String, body: ByteArray?): Pair<Int, ByteArray> {
         val host = url.toHttpUrl().host

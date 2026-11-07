@@ -68,6 +68,7 @@ class SpotifyApi(
     init { player.inJam = { jam.member }; player.inJamSession = { jam.session.value != null } }
     override val blends = SpotifyBlends(this.http)
     override val recents = SpotifyRecents(gql)
+    override val messages = SpotifyMessages(gql, this.http, users)
 
     /** Escape hatch to the 179 GraphQL operations and 89 page services, for what is not typed yet. */
     val raw = Raw()
@@ -79,6 +80,7 @@ class SpotifyApi(
         suspend fun get(url: String): JsonElement? = http.getJson(url)
         /** Any method on a Spotify address ([app.myspoti.spotify.gql.SpotifyHttp.sendRaw]). */
         suspend fun request(method: String, url: String, body: ByteArray?, headers: Map<String, String>) = http.sendRaw(method, url, body, headers)
+        suspend fun proto(method: String, url: String, body: ByteArray?) = http.sendProto(method, url, body)
     }
 
     init {

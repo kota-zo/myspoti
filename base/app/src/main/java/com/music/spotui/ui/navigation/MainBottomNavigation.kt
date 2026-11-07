@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.music.spotui.ui.components.MiniPlayer
@@ -88,7 +89,7 @@ fun MainBottomNavigation(navController: NavHostController) {
     // Visibility follows the screen actually shown (not flags each screen sets,
     // which raced during transitions and left the mini player over the full one).
     val shownRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    val fullScreen = shownRoute == Routes.Player.route || shownRoute == Routes.Queue.route
+    val fullScreen = shownRoute == Routes.Player.route || shownRoute == Routes.Queue.route || shownRoute in CHAT_FULL_SCREEN_ROUTES
     val hasTrack = com.music.spotui.di.Graph.currentSongState.title.value.isNotBlank()
     // No motion of its own: the bar sits above the pages, so sliding it while the
     // player rises (or collapses behind it) made one gesture look like two.
@@ -212,8 +213,20 @@ private fun rememberTabNavigation(navController: NavHostController): TabNavigati
     val currentRoute = navStack?.destination?.route
     // The tab the user is in, even on one of its sub-pages (album, artist…).
     val selectedTab = androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(Routes.Home.route) }
-    if (currentRoute in TabItems.map { it.route }) selectedTab.value = currentRoute!!
+    navController.tabInStack(currentRoute, TabItems.map { it.route })?.let { selectedTab.value = it }
     return TabNavigation(navController, selectedTab, currentRoute)
+}
+
+/**
+ * The tab the page [currentRoute] belongs to, read from the back stack on each navigation: the
+ * bars leave the screen on full-screen pages (a conversation), and a remembered tab went with
+ * them. Tabs switch with `popUpTo(start)`, so above Home (the stack's root) at most one other tab
+ * sits; null when none of [tabs] is in the stack.
+ */
+internal fun NavController.tabInStack(currentRoute: String?, tabs: List<String>): String? {
+    if (currentRoute in tabs) return currentRoute
+    fun inStack(route: String) = runCatching { getBackStackEntry(route) }.isSuccess
+    return tabs.firstOrNull { it != Routes.Home.route && inStack(it) } ?: Routes.Home.route.takeIf { it in tabs && inStack(it) }
 }
 
 /**
@@ -223,7 +236,7 @@ private fun rememberTabNavigation(navController: NavHostController): TabNavigati
 @Composable
 fun MainNavigationRail(navController: NavHostController) {
     val shownRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    if (shownRoute == Routes.Player.route || shownRoute == Routes.Queue.route) return
+    if (shownRoute == Routes.Player.route || shownRoute == Routes.Queue.route || shownRoute in CHAT_FULL_SCREEN_ROUTES) return
     val tabs = rememberTabNavigation(navController)
     Column(
         modifier = Modifier

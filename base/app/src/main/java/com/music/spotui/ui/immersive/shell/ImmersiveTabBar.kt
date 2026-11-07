@@ -43,6 +43,7 @@ import com.music.spotui.ui.look.ImmersiveSans
 import com.music.spotui.ui.look.rememberReduceMotion
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.TabReselect
+import com.music.spotui.ui.navigation.tabInStack
 
 /**
  * The gap between the pill's glass edge and the tabs inside it. Shared with the mini player so
@@ -148,12 +149,12 @@ internal fun rememberTabNavigation(navController: NavController): TabNavigation 
     val navStack by navController.currentBackStackEntryAsState()
     val currentRoute = navStack?.destination?.route
     val fullScreen = currentRoute == Routes.Player.route ||
-        currentRoute == Routes.Queue.route
+        currentRoute == Routes.Queue.route || currentRoute in com.music.spotui.ui.navigation.CHAT_FULL_SCREEN_ROUTES
 
     // The tab the user is in, even on one of its sub-pages (album, artist...). Kept whether or
     // not the bar shows, so it survives the bar being hidden on the player.
     var selectedTab by rememberSaveable { mutableStateOf(Routes.Home.route) }
-    if (currentRoute in TabRoutes) selectedTab = currentRoute!!
+    navController.tabInStack(currentRoute, TabRoutes)?.let { selectedTab = it }
 
     val onTabClick: (Routes) -> Unit = { item ->
         // Standard bottom-tab navigation: each tab keeps its state (no reload, scroll kept).
