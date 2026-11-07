@@ -14,13 +14,8 @@ package com.music.spotui.ui.immersive.shell.backdrop.effects
 
 import androidx.compose.ui.graphics.RenderEffect
 import com.music.spotui.ui.immersive.shell.backdrop.BackdropEffectScope
-import com.music.spotui.ui.immersive.shell.backdrop.RuntimeShader
-import com.music.spotui.ui.immersive.shell.backdrop.internal.RuntimeShaderEffect
 import com.music.spotui.ui.immersive.shell.backdrop.internal.chain
 import com.music.spotui.ui.immersive.shell.backdrop.isRenderEffectSupported
-import com.music.spotui.ui.immersive.shell.backdrop.isRuntimeShaderSupported
-import org.intellij.lang.annotations.Language
-import kotlin.contracts.ExperimentalContracts
 
 fun BackdropEffectScope.effect(effect: RenderEffect) {
     if (!isRenderEffectSupported()) return

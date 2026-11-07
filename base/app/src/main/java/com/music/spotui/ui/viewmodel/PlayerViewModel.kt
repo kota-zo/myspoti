@@ -3,7 +3,6 @@ package com.music.spotui.ui.viewmodel
 import com.music.spotui.di.Graph
 import android.content.Context
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

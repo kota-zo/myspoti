@@ -90,8 +90,7 @@ class TrackAnalysis(
             barDb, barLowDb, barHighDb, barCentre, barNovelty, phraseOffset, stereo, headDown, tailDown, note, risk, audioKey, barBassDb,
             headPhase, tailPhase, headMetre, tailMetre, modelBeats, barDownConfidence, voiceKnown = true)
     }
-    /** Identify the grids a plan relies on: a new analysis with another grid invalidates the plan. */
-    val headGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { head?.let { gridKey(it, headDown) } }
+    /** Identifies the tail grid a plan relies on: a new analysis with another grid invalidates the plan. */
     val tailGridKey: String? by lazy(LazyThreadSafetyMode.PUBLICATION) { tail?.let { gridKey(it, tailDown) } }
     /** Identifies the beats and bars a plan was placed on: another analysis of them invalidates the plan. */
     val beatKey: String by lazy(LazyThreadSafetyMode.PUBLICATION) {

@@ -199,6 +199,18 @@ internal fun Modifier.dragToClose(): Modifier {
     }
 }
 
+/** The grab handle over the full player: a drag down closes the sheet, and so does a tap. */
+@Composable
+internal fun PlayerDismissStrip(tint: Color, onClose: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
+    }
+}
+
 /** How far the cover is swiped along to change track (the mini player's distance). */
 private val TRACK_SWIPE_THRESHOLD = 72.dp
 
@@ -358,13 +370,7 @@ fun ImmersivePlayer(
                 sidePane = sidePane,
             ) else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
-                Box(
-                    Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
-                }
+                PlayerDismissStrip(tint) { actions.close() }
 
                 // Everything that changes between the full player and the panels lives in this
                 // one weighted box, so the controls below it never move.
@@ -763,13 +769,7 @@ private fun LandscapePlayer(
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         // The handle: always hands its drags to the sheet.
-        Box(
-            Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
-        }
+        PlayerDismissStrip(tint) { actions.close() }
         Row(
             Modifier.weight(1f).fillMaxWidth().padding(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(PLAYER_GUTTER),

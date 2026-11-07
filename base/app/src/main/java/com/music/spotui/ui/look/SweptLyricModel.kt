@@ -173,13 +173,9 @@ data class SweptLine(
         return liftHeight(word) * smooth(minOf(rising, falling))
     }
 
-    /** Whether anything actually told us when the singing stops, rather than only when it starts. */
-    val hasKnownEnd: Boolean get() = words.isNotEmpty() || sungUntilMs != null
-
     /**
      * When the last word finishes — or the line's own end where the source
-     * gave one, or [timeMs] when nothing did. Check [hasKnownEnd] before
-     * reading a silence out of this.
+     * gave one, or [timeMs] when nothing did.
      */
     val endMs: Long
         get() = words.lastOrNull()?.endMs ?: sungUntilMs ?: timeMs

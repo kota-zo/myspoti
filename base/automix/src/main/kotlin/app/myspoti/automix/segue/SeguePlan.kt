@@ -40,7 +40,6 @@ data class SeguePlan(
     data class Gesture(val kind: GestureKind, val atUs: Long, val units: Int)
 
     fun side(which: LaneSide): Side = if (which == LaneSide.OUTGOING) outgoing else incoming
-    fun lanesOf(which: LaneSide): List<Lane> = lanes.filter { it.side == which }
     /** A position in [which]'s source time, in elapsed microseconds from the start of the span. */
     fun elapsedUs(which: LaneSide, sourceUs: Long): Long {
         val s = side(which)

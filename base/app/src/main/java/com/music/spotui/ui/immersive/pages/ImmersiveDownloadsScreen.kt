@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,9 +75,10 @@ import com.music.spotui.ui.navigation.Routes
 fun ImmersiveDownloadsScreen(navController: NavController) {
     val context = LocalContext.current
     val title = stringResource(R.string.collection_downloaded)
-    // Snapshot reads: the list follows downloads as they finish.
-    val tracks = OfflineStore.tracks.values.sortedByDescending { it.addedAt }
-    val waiting = OfflineDownloader.requests.values.filter { !OfflineStore.isDownloaded(it.trackId) }
+    // Snapshot reads: the list follows downloads as they finish. Derived, so a progress tick (which
+    // changes no list) leaves the sorted lists alone instead of rebuilding them.
+    val tracks by remember { derivedStateOf { OfflineStore.tracks.values.sortedByDescending { it.addedAt } } }
+    val waiting by remember { derivedStateOf { OfflineDownloader.requests.values.filter { !OfflineStore.isDownloaded(it.trackId) } } }
     // Only queued or running songs can be stopped; a failed one has nothing left to cancel.
     val stoppable = waiting.count {
         val s = OfflineStore.status[it.trackId]
@@ -88,7 +90,12 @@ fun ImmersiveDownloadsScreen(navController: NavController) {
     // Reported: the search of the Immersive look found songs in the whole catalogue, not here.
     // The page's own find field, as Local Files has.
     var find by remember { mutableStateOf("") }
-    val shown = if (find.isBlank()) tracks else tracks.filter { com.music.spotui.ui.components.matchesFind(find, it.title, it.artist, it.album) }
+    val shown by remember {
+        derivedStateOf {
+            if (find.isBlank()) tracks
+            else tracks.filter { com.music.spotui.ui.components.matchesFind(find, it.title, it.artist, it.album) }
+        }
+    }
     menuSong?.let { sel ->
         ImmersiveSongOptionsSheet(song = sel, navController = navController, context = context, onDismiss = { menuSong = null })
     }

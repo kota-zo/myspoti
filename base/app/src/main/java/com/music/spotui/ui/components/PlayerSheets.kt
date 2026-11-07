@@ -61,13 +61,11 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -696,20 +694,40 @@ private fun QueueList(
     var lastSlot by remember { mutableStateOf(-1) }
     var autoScrollJob by remember { mutableStateOf<Job?>(null) }
 
-    val entries = buildList {
-        if (queued.isNotEmpty()) add(QEntry.Header(true))
-        queued.forEach { add(QEntry.Row(it, true)) }
-        if (nextUp.isNotEmpty()) add(QEntry.Header(false))
-        nextUp.forEach { add(QEntry.Row(it, false)) }
+    // Kept while the drag moves: dragOffset recomposes this on every pointer move.
+    val entries = remember(queued, nextUp) {
+        buildList {
+            if (queued.isNotEmpty()) add(QEntry.Header(true))
+            queued.forEach { add(QEntry.Row(it, true)) }
+            if (nextUp.isNotEmpty()) add(QEntry.Header(false))
+            nextUp.forEach { add(QEntry.Row(it, false)) }
+        }
     }
     fun height(e: QEntry) = if (e is QEntry.Header) headerPx else rowPx
-    fun topOf(index: Int) = entries.take(index).sumOf { height(it).toDouble() }.toFloat()
+    // Prefix sums: the drag indicator asks for a row's top on every draw frame, and taking and
+    // summing the rows before it each time allocated and walked the list.
+    val tops = remember(entries, rowPx, headerPx) {
+        FloatArray(entries.size + 1).also { tops ->
+            var acc = 0f
+            entries.forEachIndexed { index, e ->
+                tops[index] = acc
+                acc += height(e)
+            }
+            tops[entries.size] = acc
+        }
+    }
+    fun topOf(index: Int) = tops[index.coerceIn(0, entries.size)]
 
-    /** Entry under a y position (list coordinates). */
+    /** Entry under a y position (list coordinates), found in [tops]. */
     fun entryAt(y: Float): Int {
-        var acc = 0f
-        entries.forEachIndexed { i, e -> acc += height(e); if (y < acc) return i }
-        return entries.lastIndex
+        if (entries.isEmpty()) return -1
+        var low = 0
+        var high = entries.lastIndex
+        while (low < high) {
+            val mid = (low + high + 1) / 2
+            if (tops[mid] <= y) low = mid else high = mid - 1
+        }
+        return low
     }
 
     /**
@@ -940,8 +958,12 @@ private fun SwipeLeftToRemove(enabled: Boolean, onRemove: () -> Unit, content: @
     val threshold = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
     val offset = remember { androidx.compose.animation.core.Animatable(0f) }
     var armed by remember { mutableStateOf(false) }
+    // The offset moves every drag and spring frame: read it through derived state so only the
+    // strip appearing and the row coming to rest, not the whole row, recompose.
+    val revealed by remember(offset) { derivedStateOf { offset.value < 0f } }
+    val atRest by remember(offset) { derivedStateOf { offset.value == 0f } }
     Box(modifier = Modifier.fillMaxWidth()) {
-        if (offset.value < 0f) Box(
+        if (revealed) Box(
             contentAlignment = Alignment.CenterEnd,
             modifier = Modifier.matchParentSize().background(if (armed) Color(0xFFE22134) else Color(0xFF7A1F1F)),
         ) {
@@ -951,7 +973,7 @@ private fun SwipeLeftToRemove(enabled: Boolean, onRemove: () -> Unit, content: @
             modifier = Modifier
                 .graphicsLayer { translationX = offset.value }
                 // Opaque once it slides, to cover the red strip it uncovers.
-                .background(if (offset.value == 0f) RowGround else SheetColor)
+                .background(if (atRest) RowGround else SheetColor)
                 .pointerInput(enabled) {
                     if (!enabled) return@pointerInput
                     detectHorizontalDragGestures(
@@ -981,22 +1003,6 @@ private fun SheetHeader(text: String) {
         text, color = AppText, fontSize = 15.sp, fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(horizontal = 20.dp),
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SwipeToRemove(item: SongPlayer.QueueItem) {
-    val dismiss = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
-        if (v != SwipeToDismissBoxValue.Settled) { SongPlayer.removeFromQueue(item); true } else false
-    })
-    SwipeToDismissBox(
-        state = dismiss,
-        backgroundContent = { Box(Modifier.fillMaxWidth().fillMaxHeight().background(Color(0xFF7A1F1F))) },
-    ) {
-        Box(Modifier.background(SheetColor)) {
-            QueueSheetRow(item.song, current = false, trailing = {}, onClick = { SongPlayer.skipTo(item) })
-        }
-    }
 }
 
 @OptIn(ExperimentalGlideComposeApi::class)

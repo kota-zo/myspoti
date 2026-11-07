@@ -310,5 +310,7 @@ internal fun formatDuration(ms: Int): String {
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    // Built by hand: this runs once per visible row, and String.format parses its pattern each time.
+    val seconds = s.toString().padStart(2, '0')
+    return if (h > 0) "$h:${m.toString().padStart(2, '0')}:$seconds" else "$m:$seconds"
 }

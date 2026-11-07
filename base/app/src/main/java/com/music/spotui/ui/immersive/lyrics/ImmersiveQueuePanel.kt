@@ -159,7 +159,9 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
             p.expired(SystemClock.elapsedRealtime())?.let { endPending(p, it) }
         }
     }
-    val rows = shownRows(queue, pending, removed)
+    // Rebuilt only when the queue, a pending drop or a swiped-away row changes: a drag step
+    // (dragOrder) recomposes the panel without touching any of them.
+    val rows = remember(queue, pending, removed.toList()) { shownRows(queue, pending, removed) }
 
     // While a row is dragged, the order on screen: each row or heading it passes swaps with it
     // (sh.calvin.reorderable), and the engine's reports wait for the drop. The drag used to draw
@@ -168,9 +170,9 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     var dragOrder by remember { mutableStateOf<List<String>?>(null) }
     var dragStart by remember { mutableStateOf<List<String>>(emptyList()) }
     var dragRows by remember { mutableStateOf<Map<String, QRow>>(emptyMap()) }
-    val order = dragOrder ?: flatOrder(rows)
-    val byKey = if (dragOrder != null) dragRows else rows.associateBy { it.key }
-    val queuedKeys = QueueDragMath.queuedPart(order, HEADING_NEXT)
+    val order = remember(rows, dragOrder) { dragOrder ?: flatOrder(rows) }
+    val byKey = remember(rows, dragOrder, dragRows) { if (dragOrder != null) dragRows else rows.associateBy { it.key } }
+    val queuedKeys = remember(order) { QueueDragMath.queuedPart(order, HEADING_NEXT) }
 
     val listState = rememberLazyListState()
     val keepScroll = remember(listState) { keepScrollInList(listState) }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,11 +52,15 @@ fun SwipeToQueue(song: SongsModel, modifier: Modifier = Modifier, content: @Comp
     val maxDrag = threshold * 1.4f
     val offset = remember { Animatable(0f) }
     var armed by remember { mutableStateOf(false) }
+    // The offset moves every drag and spring frame: read it through derived state so only the
+    // strip's two visual thresholds, not the whole row, recompose.
+    val revealed by remember(offset) { derivedStateOf { offset.value != 0f } }
+    val fromStart by remember(offset) { derivedStateOf { offset.value > 0f } }
 
     Box(modifier = modifier.fillMaxWidth()) {
-        if (offset.value != 0f) {
+        if (revealed) {
             Box(
-                contentAlignment = if (offset.value > 0) Alignment.CenterStart else Alignment.CenterEnd,
+                contentAlignment = if (fromStart) Alignment.CenterStart else Alignment.CenterEnd,
                 modifier = Modifier
                     .matchParentSize()
                     .background(if (armed) com.music.spotui.ui.theme.AppAccent else com.music.spotui.ui.theme.AppAccent.copy(alpha = 0.6f)),
