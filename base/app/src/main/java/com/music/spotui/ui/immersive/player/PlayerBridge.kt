@@ -209,7 +209,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
                         SmartShuffle.on.value = ctx
                         Toast.makeText(context, context.getString(R.string.smart_shuffle_on), Toast.LENGTH_SHORT).show()
                         smartScope.launch {
-                            if (!SmartShuffle.startFor(ctx, SongPlayer.currentTrackId)) {
+                            if (!SmartShuffle.startFor(ctx)) {
                                 SmartShuffle.on.value = null
                                 Toast.makeText(context, context.getString(R.string.page_load_failed), Toast.LENGTH_SHORT).show()
                             }

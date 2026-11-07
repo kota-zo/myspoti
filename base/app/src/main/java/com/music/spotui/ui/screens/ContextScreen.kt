@@ -491,7 +491,13 @@ class ContextViewModel(
      * Spotify's recommendations for it after every [SmartShuffle.EVERY] songs.
      */
     fun playSmart(p: ContextPageModel, first: SongsModel?) {
-        viewModelScope.launch { SmartShuffle.start(p, first) }
+        viewModelScope.launch {
+            // A list still loading: every song of it is mixed, not only the ones on screen yet.
+            val whole = if (p.complete) p else wholeList(page) ?: p
+            // Turned off while the list loaded.
+            if (SmartShuffle.on.value != p.uri) return@launch
+            SmartShuffle.start(whole, first)
+        }
     }
 
     fun play(p: ContextPageModel, song: SongsModel, sort: TrackOrder = TrackOrder()) {
@@ -1553,17 +1559,21 @@ object SmartShuffle {
     }
 
     /** From the player: loads the playing list, then smart-shuffles it, the current song first. */
-    suspend fun startFor(contextUri: String, currentTrackId: String): Boolean {
+    suspend fun startFor(contextUri: String): Boolean {
         val api = Graph.api
         val flow = when {
             contextUri.contains(":collection") -> api.getLikedPage()
             contextUri.startsWith("spotify:playlist:") -> api.getPlaylistPage(contextUri.substringAfterLast(':'))
             else -> return false
         }
-        val page = (withContext(Dispatchers.IO) { flow.first { it !is Response.Loading } } as? Response.Success)?.data ?: return false
-        // Reported: turning it on from the player skipped the song. A long list's page holds only
-        // its first tracks, so the song playing was often not found and a random one started
-        // instead; the song playing now always stays first.
+        // Reported (#207): only the first 100 songs of a longer playlist were mixed. Every page now.
+        val page = withContext(Dispatchers.IO) { wholeList(flow) } ?: return false
+        // Turned off, or another list started, while the list loaded.
+        if (on.value != contextUri || SongPlayer.nowPlaying.value.contextUri != contextUri) return true
+        // Read after the list: the song may have changed meanwhile.
+        val currentTrackId = SongPlayer.currentTrackId
+        // Reported: turning it on from the player skipped the song when it was not found in the
+        // list read, and a random one started instead; the song playing now always stays first.
         val current = page.tracks.firstOrNull { it.spotifyTrackId == currentTrackId }
             ?: SongPlayer.engineQueue.value.current?.takeIf { it.spotifyTrackId == currentTrackId }
         start(page, current, SongPlayer.getCurrentPosition())
