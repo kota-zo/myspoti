@@ -1260,7 +1260,7 @@ fun PlayerFull(
                             SmartShuffle.on.value = ctx
                             android.widget.Toast.makeText(context, context.getString(R.string.smart_shuffle_on), android.widget.Toast.LENGTH_SHORT).show()
                             smartScope.launch {
-                                if (!SmartShuffle.startFor(ctx, SongPlayer.currentTrackId)) {
+                                if (!SmartShuffle.startFor(ctx)) {
                                     SmartShuffle.on.value = null
                                     android.widget.Toast.makeText(context, context.getString(R.string.page_load_failed), android.widget.Toast.LENGTH_SHORT).show()
                                 }
