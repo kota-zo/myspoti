@@ -919,7 +919,10 @@ fun InlineLyrics(
 ) {
     val context = LocalContext.current
     val vm: LyricsViewModel = viewModel()
-    val state = rememberLyricsState(vm, title, artist)
+    // Only read: the player's page loads the song. This card enters the list whenever a scroll
+    // reaches it, and a load from here asked a song without lyrics again each time: Loading gave
+    // the page its lyrics peek back, NotFound took it away, and the page shook under a held finger (#192).
+    val state = vm.state.collectAsState().value
     val s = state as? LyricsViewModel.State.Loaded ?: return
     val l = s.lyrics
     val palette = paletteFor(l, accentColor)
