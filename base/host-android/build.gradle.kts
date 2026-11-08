@@ -9,7 +9,8 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        minSdk = 29
+        // Keep the Android host compatible with the app's Android 6.0 minimum.
+        minSdk = 23
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

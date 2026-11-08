@@ -43,7 +43,8 @@ android {
         manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else if (beta) "Myspoti Beta" else "Myspoti"
         // The adb command line (com.music.spotui.cli): betas and debug builds only.
         manifestPlaceholders["cliEnabled"] = beta.toString()
-        minSdk = 29
+        // Android 6.0 (API 23) TVs are supported by the TV UI and host module.
+        minSdk = 23
         targetSdk = 36
         // CI release builds pass the tag's version (-PappVersionName / -PappVersionCode).
         versionCode = (findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 200
@@ -125,12 +126,15 @@ android {
     }
     packaging { jniLibs { excludes += listOf("lib/x86/**", "lib/x86_64/**") } }
     compileOptions {
+        // java.time and java.nio.file are used in the app; backport them to Android 6.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugaring)
     implementation(project(":host-android"))
     // AutoMix: song analysis and transition planning (pure Kotlin), Beat This on ONNX Runtime.
     implementation(project(":automix"))
