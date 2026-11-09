@@ -14,7 +14,7 @@ kotlin {
 dependencies {
     api(project(":api"))
     // The same Rhino NewPipeExtractor brings to the app: no second JavaScript engine.
-    implementation("org.mozilla:rhino:1.8.1")
+    implementation("org.mozilla:rhino:1.9.2")
     implementation(libs.serialization.json)
     // The HTTP client of extensions: a custom Dns refuses private addresses at connect time.
     api(libs.okhttp)
