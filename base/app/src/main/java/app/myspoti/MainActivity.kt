@@ -585,6 +585,16 @@ class MainActivity : AppCompatActivity() {
             val committed = MyspotiRuntime.host.playerPageCommits > commitBaseline
             if (committed && commitAt == 0L) commitAt = now
             if (committed) {
+                // Spotify's own "this browser is not supported" screen: no cookie, no wait, no retry
+                // will help — say what it is and what to update.
+                if (MyspotiRuntime.host.unsupportedBrowserPage) {
+                    Logbook.log("qr login: Spotify's page says this browser is not supported")
+                    MyspotiRuntime.host.cancelLogin()
+                    qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                        getString(R.string.qr_login_unsupported_browser, webViewLabel()),
+                    )
+                    return
+                }
                 val curUrl = MyspotiRuntime.host.url.value
                 val onLoginPage = MyspotiRuntime.host.loginRequired.value || curUrl.contains("_authfailed", ignoreCase = true)
                 if (onLoginPage) {

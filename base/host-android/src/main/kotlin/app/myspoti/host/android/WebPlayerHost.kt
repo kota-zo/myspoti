@@ -136,6 +136,14 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     @Volatile var lastWebSyntaxError: String? = null
         private set
 
+    /**
+     * The player page that loaded was Spotify's own "this browser is not supported" screen: the
+     * engine cannot run the web player and no amount of waiting will sign anyone in. Reset on each
+     * new player page.
+     */
+    @Volatile var unsupportedBrowserPage: Boolean = false
+        private set
+
     private val sslExecutor by lazy {
         java.util.concurrent.Executors.newCachedThreadPool { r ->
             Thread(r, "myspoti-webview-tls").apply { isDaemon = true }
@@ -460,6 +468,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     licenseAnswersLogged = 0
                     lastPageProblem = null
                     lastWebSyntaxError = null
+                    unsupportedBrowserPage = false
                     playerPageCommits++
                     onPageStarting?.invoke()
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
@@ -550,6 +559,16 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     main.postDelayed(loginProbe, LoginLoad.FIRST_PROBE_MS)
                 }
                 if (url.startsWith(PLAYER_URL)) {
+                    // Spotify's "this browser is not supported" page is a normal 200 with a short
+                    // message: without this the app waited a minute and a half for a player that was
+                    // never going to start, then blamed the cookie.
+                    view.evaluateJavascript(BROWSER_CHECK_JS) { answer ->
+                        val flagged = answer?.contains("1") == true
+                        if (flagged && !unsupportedBrowserPage) {
+                            Logbook.log("player page: Spotify says this browser is not supported (WebView ${webViewMajorVersion ?: "?"})")
+                            unsupportedBrowserPage = true
+                        }
+                    }
                     // Again, same secret: the page start's call may have run before the new document existed.
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
                     armChannels(view, renew = false)
@@ -1284,8 +1303,24 @@ if(!Array.prototype.flat){Object.defineProperty(Array.prototype,'flat',{configur
 if(!Array.prototype.flatMap){Object.defineProperty(Array.prototype,'flatMap',{configurable:true,writable:true,value:function(fn,t){return this.map(fn,t).flat(1);}});}
 if(typeof Promise!=='undefined'&&!Promise.allSettled){Promise.allSettled=function(ps){return Promise.all(Array.prototype.map.call(ps,function(p){return Promise.resolve(p).then(function(v){return {status:'fulfilled',value:v};},function(e){return {status:'rejected',reason:e};});}));};}
 if(typeof structuredClone==='undefined'){window.structuredClone=function(v){var seen=new WeakMap();return (function cl(x){if(x===null||typeof x!=='object')return x;if(x instanceof Date)return new Date(x.getTime());if(x instanceof RegExp)return new RegExp(x.source,x.flags);if(ArrayBuffer.isView(x))return new x.constructor(x);if(x instanceof ArrayBuffer)return x.slice(0);if(seen.has(x))return seen.get(x);if(x instanceof Map){var m=new Map();seen.set(x,m);x.forEach(function(val,k){m.set(cl(k),cl(val));});return m;}if(x instanceof Set){var s=new Set();seen.set(x,s);x.forEach(function(val){s.add(cl(val));});return s;}if(Array.isArray(x)){var a=[];seen.set(x,a);for(var i=0;i<x.length;i++)a[i]=cl(x[i]);return a;}var o={};seen.set(x,o);var keys=Object.keys(x);for(var j=0;j<keys.length;j++){o[keys[j]]=cl(x[keys[j]]);}return o;})(v);};}
+if(!Array.prototype.findLast){Object.defineProperty(Array.prototype,'findLast',{configurable:true,writable:true,value:function(fn,t){if(this==null)throw new TypeError('findLast');var a=Object(this),n=a.length>>>0;for(var i=n-1;i>=0;i--)if(fn.call(t,a[i],i,a))return a[i];return undefined;}});}
+if(!Array.prototype.findLastIndex){Object.defineProperty(Array.prototype,'findLastIndex',{configurable:true,writable:true,value:function(fn,t){if(this==null)throw new TypeError('findLastIndex');var a=Object(this),n=a.length>>>0;for(var i=n-1;i>=0;i--)if(fn.call(t,a[i],i,a))return i;return -1;}});}
+if(!String.prototype.trimStart){String.prototype.trimStart=function(){return this.replace(/^\s+/,'');};}
+if(!String.prototype.trimEnd){String.prototype.trimEnd=function(){return this.replace(/\s+$/,'');};}
+if(!String.prototype.matchAll){Object.defineProperty(String.prototype,'matchAll',{configurable:true,writable:true,value:function(re){var s=String(this);var g=re instanceof RegExp?new RegExp(re.source,re.flags.indexOf('g')>=0?re.flags:re.flags+'g'):new RegExp(re,'g');var out=[],m;while((m=g.exec(s))!==null){out.push(m);if(m[0]==='')g.lastIndex++;}return out[Symbol.iterator]();}});}
+if(typeof Promise!=='undefined'&&!Promise.any){Promise.any=function(ps){return new Promise(function(res,rej){var errs=[],n=0,list=Array.prototype.slice.call(ps);if(!list.length)return rej(new Error('AggregateError: no promises'));list.forEach(function(p,i){Promise.resolve(p).then(res,function(e){errs[i]=e;if(++n===list.length)rej(new Error('AggregateError: all promises rejected'));});});});};}
+if(typeof queueMicrotask==='undefined'){window.queueMicrotask=function(fn){Promise.resolve().then(fn).catch(function(e){setTimeout(function(){throw e;},0);});};}
+if(typeof Element!=='undefined'&&!Element.prototype.replaceChildren){Element.prototype.replaceChildren=function(){var a=arguments,i;while(this.firstChild)this.removeChild(this.firstChild);for(i=0;i<a.length;i++)this.appendChild(a[i] instanceof Node?a[i]:document.createTextNode(String(a[i])));};}
 if(typeof crypto!=='undefined'&&!crypto.randomUUID&&crypto.getRandomValues){crypto.randomUUID=function(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;var h=[],i;for(i=0;i<16;i++)h.push((b[i]+0x100).toString(16).slice(1));return h[0]+h[1]+h[2]+h[3]+'-'+h[4]+h[5]+'-'+h[6]+h[7]+'-'+h[8]+h[9]+'-'+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];};}
 }catch(e){}})();"""
+
+        /** '1' when the page is Spotify's own unsupported-browser screen, '0' otherwise. */
+        private const val BROWSER_CHECK_JS = """(function(){try{
+var b=document.body;if(!b)return '0';
+var t=(b.innerText||'').toLowerCase().slice(0,600);
+var hit=t.indexOf('not supported')>=0||t.indexOf('unsupported browser')>=0||t.indexOf('browser is not supported')>=0||t.indexOf('update your browser')>=0||t.indexOf('browser you are using')>=0;
+return hit?'1':'0';
+}catch(e){return '0'}})()"""
 
         /**
          * What the sign-in page shows, for [noteLoginPage]: path, title, first heading, the text of its
