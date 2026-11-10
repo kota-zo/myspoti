@@ -48,6 +48,18 @@ internal data class Fingerprint(val major: Int, val build: Int, val patch: Int, 
         /** How many Chrome releases back this install may claim (two: recent, and still plausible). */
         const val BACK_RELEASES = 2
 
+        /**
+         * The oldest Chrome this install may claim.
+         *
+         * Spotify's web player answers an older agent with its own "this browser is not supported"
+         * page, whatever the engine underneath can actually do. Android 6 and 7 WebViews sit at
+         * Chrome 87–106 and used to keep their own version here, so a TV got that page and could
+         * never sign in — while the page itself is polyfilled for those engines
+         * ([WebPlayerHost.COMPAT_POLYFILL_JS]). The claimed version is brought up to a current
+         * Chrome; the engine is what it is, and a page it cannot parse still reports itself.
+         */
+        const val MIN_CLAIMED_MAJOR = 141
+
         /** Linux versions a desktop Chrome would report (kernel 6.x, the versions in the wild). */
         val KERNELS = listOf("6.8.0", "6.7.2", "6.6.9", "6.5.7", "6.9.1", "6.4.12")
 
@@ -58,7 +70,7 @@ internal data class Fingerprint(val major: Int, val build: Int, val patch: Int, 
         const val BUILDS_PER_MAJOR = 55
 
         /** Used only when the WebView's version cannot be read. */
-        private const val FALLBACK_ENGINE = "141.0.7390.122"
+        internal const val FALLBACK_ENGINE = "141.0.7390.122"
 
         // Chromium's GREASE (components/embedder_support/user_agent_utils.cc): the fake brand, its
         // version and the order of the three brands all follow from the major version. A fixed
@@ -111,12 +123,20 @@ internal data class Fingerprint(val major: Int, val build: Int, val patch: Int, 
         /**
          * This install's browser on the WebView [engineVersion]. With no lag it is exactly the
          * WebView's own version; behind it, the build is estimated and the patch is the drawn one.
+         * A WebView older than [MIN_CLAIMED_MAJOR] claims a current Chrome instead — see there.
          */
         fun resolve(engineVersion: String?, draw: Draw): Fingerprint {
             val (engineMajor, engineBuild, enginePatch) = parseEngine(engineVersion) ?: parseEngine(FALLBACK_ENGINE)!!
             val lag = draw.lag.coerceIn(0, BACK_RELEASES)
+            val claimed = engineMajor - lag
+            if (engineMajor < MIN_CLAIMED_MAJOR) {
+                // A WebView older than [MIN_CLAIMED_MAJOR] (Android 6/7 TVs, old phones): Spotify would
+                // answer "this browser is not supported" to its own version. Claim a current Chrome.
+                val (major, build) = parseEngine(FALLBACK_ENGINE)!!
+                return Fingerprint(major, build, draw.patch, draw.kernel)
+            }
             return if (lag == 0) Fingerprint(engineMajor, engineBuild, enginePatch, draw.kernel)
-            else Fingerprint(engineMajor - lag, engineBuild - lag * BUILDS_PER_MAJOR, draw.patch, draw.kernel)
+            else Fingerprint(claimed, engineBuild - lag * BUILDS_PER_MAJOR, draw.patch, draw.kernel)
         }
 
         /**

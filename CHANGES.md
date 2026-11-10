@@ -190,6 +190,39 @@ What the import does now:
 
 ---
 
+## 8. Fix: "this browser is not supported" from Spotify itself
+
+After §7 the TV got Spotify's own page saying the browser is not supported. That page is served
+from the user agent: the app announced **the WebView's own version** — Chrome 87–106 on Android 6
+and 7, which Spotify no longer accepts — while the player page itself is already polyfilled for
+those engines. So the TV was refused by name, not by what its engine can do.
+
+- `Fingerprint.MIN_CLAIMED_MAJOR` (141): the claimed Chrome is now brought up to a current version
+  whenever the WebView is older than that. User agent, `sec-ch-ua` client hints and
+  `navigator.userAgentData` all come from the same value, so they still agree with each other. A
+  current WebView keeps its own numbers, and so does the drawn lag on them.
+- **The unsupported page is recognised** (`WebPlayerHost.unsupportedBrowserPage`): its text is read
+  once per player page, and the QR / cookie import now stops immediately with
+  `qr_login_unsupported_browser` ("Spotify's own page says this browser is not supported (WebView
+  X)") instead of waiting 90 seconds and blaming the cookie.
+- **More of the player page's API is polyfilled** for old engines: `Array.prototype.findLast` /
+  `findLastIndex`, `String.prototype.matchAll`, `trimStart` / `trimEnd`, `Promise.any`,
+  `queueMicrotask`, `Element.prototype.replaceChildren`.
+
+If the engine itself is too old to parse Spotify's bundle, the app still reports that as the
+WebView being too old (the `SyntaxError` path) — the difference is that it is now the engine
+saying so, not Spotify's name check.
+
+### Files touched
+
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/Fingerprint.kt`
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/WebPlayerHost.kt`
+- `base/app/src/main/java/app/myspoti/MainActivity.kt`
+- `base/app/src/main/res/values/strings.xml` (`qr_login_unsupported_browser`)
+- `base/host-android/src/test/kotlin/app/myspoti/host/android/FingerprintTest.kt`
+
+---
+
 ## License
 
 Unchanged: GPL-3.0, same as the original project. See [LICENSE](LICENSE).

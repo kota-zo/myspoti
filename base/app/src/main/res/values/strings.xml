@@ -47,6 +47,7 @@
     <string name="qr_login_bad_cookie" tools:ignore="MissingTranslation">Could not find a valid sp_dc cookie in what you pasted.</string>
     <string name="qr_login_rejected" tools:ignore="MissingTranslation">Spotify did not accept that cookie. Make sure you are signed in to open.spotify.com and copied sp_dc.</string>
     <string name="qr_login_network_error" tools:ignore="MissingTranslation">Could not reach Spotify over your network/VPN (%1$s). Check your VPN and try again.</string>
+    <string name="qr_login_unsupported_browser" tools:ignore="MissingTranslation">Spotify\'s own page says this browser is not supported (%1$s), so the player cannot start here. Update Android System WebView (or Chrome, if it is the WebView on this device) to a recent version and try again.</string>
     <string name="qr_login_webview_old" tools:ignore="MissingTranslation">Spotify accepted your cookie, but Android System WebView (%1$s) on this device is too old for Spotify Web Player (needs Chrome 85+). Update Android System WebView to continue.</string>
     <string name="qr_login_webview_load_failed" tools:ignore="MissingTranslation">Spotify accepted your cookie, but the Web Player page failed to load (%1$s). Check your VPN or try again.</string>
     <string name="qr_login_webview_timeout" tools:ignore="MissingTranslation">Spotify accepted your cookie, but the Web Player took too long to boot on this device. Check your VPN connection or update Android System WebView and try again.</string>
