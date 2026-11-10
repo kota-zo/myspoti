@@ -116,6 +116,10 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * between them is itself the tell.
      */
     internal val fingerprint = Fingerprint.of(context)
+
+    /** The page's own view of its browser (see [DesktopSpoof]): before Spotify's scripts, every load. */
+    private val desktopSpoofJs: String by lazy { DesktopSpoof.script(fingerprint) }
+
     val userAgent: String get() = fingerprint.userAgent
 
     /** Chromium major version of the system WebView on this device, or null if unknown. */
@@ -323,6 +327,13 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             useWideViewPort = true
         }
         if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            // First the browser the page thinks it is running in, then the APIs its scripts expect:
+            // both before Spotify's own code (a WebView without this feature gets them on page start).
+            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                this,
+                desktopSpoofJs,
+                setOf("https://open.spotify.com", "https://accounts.spotify.com"),
+            )
             androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                 this,
                 COMPAT_POLYFILL_JS,
@@ -471,6 +482,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     unsupportedBrowserPage = false
                     playerPageCommits++
                     onPageStarting?.invoke()
+                    view.evaluateJavascript(desktopSpoofJs, null)
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
                     armChannels(view, renew = true)
                     relay.injectNow()
@@ -570,6 +582,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                         }
                     }
                     // Again, same secret: the page start's call may have run before the new document existed.
+                    view.evaluateJavascript(desktopSpoofJs, null)
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
                     armChannels(view, renew = false)
                     relay.injectNow()

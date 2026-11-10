@@ -223,6 +223,48 @@ saying so, not Spotify's name check.
 
 ---
 
+## 9. What the working TV wrapper does, and what we took from it
+
+Asked to compare with **SpotiDuck** (23fpsz/SpotiDuck-Releases, a web wrapper that works on Android
+TV). Its published APK carries the whole approach in its assets:
+
+- a **fixed desktop Chrome user agent** (`Mozilla/5.0 (Windows NT 10.0; Win64; x64) … Chrome/134.0.0.0 …`)
+  set on `WebSettings`, never the device's WebView version;
+- `assets/google_spoof.js`, installed with `WebViewCompat.addDocumentStartJavaScript`, which redefines
+  `navigator.userAgent`, `appVersion`, `vendor`, `platform`, `webdriver`, `maxTouchPoints`,
+  `navigator.userAgentData` (including `getHighEntropyValues`), adds a `window.chrome` stub and pins the
+  screen size — i.e. the page is told a desktop browser **before any of Spotify's scripts run**;
+- `assets/desktop_spoof.js`: stability patches (unregister and block Spotify's service worker, throttle
+  the player's 250 ms polling to 500 ms, park background videos).
+
+§8 already did the first point (a current Chrome instead of the WebView's own version). This adds the
+second, which §8 was missing:
+
+- **`DesktopSpoof`** (`base/host-android/…/DesktopSpoof.kt`) builds a document-start script from this
+  install's [Fingerprint]: `navigator.userAgent`, `appVersion`, `vendor`, `platform`
+  (`Linux x86_64`, where an Android WebView says `Linux armv8l`), `maxTouchPoints` 0, `webdriver`
+  false, `navigator.userAgentData` with the same brands and full version as the native client hints,
+  `getHighEntropyValues`, and a `window.chrome` stub.
+- It is registered with `WebViewCompat.addDocumentStartJavaScript` (before `COMPAT_POLYFILL_JS`, both
+  before the page's own code) and is also injected on page start/finish for WebViews without the
+  document-start feature.
+- The values come from the same [Fingerprint] as the user agent and `Sec-CH-UA` metadata, so the page,
+  its hints and its script-visible `navigator` describe **one** browser.
+
+Not adopted, on purpose: the service-worker blocker and the interval throttle. They change playback
+and cache behaviour, and neither can be validated here without a device.
+
+If a TV still gets Spotify's unsupported page after this, the next lever is the identity itself —
+SpotiDuck presents a **Windows** desktop Chrome where this install presents Linux.
+
+### Files touched
+
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/DesktopSpoof.kt` (new)
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/WebPlayerHost.kt`
+- `base/host-android/src/test/kotlin/app/myspoti/host/android/DesktopSpoofTest.kt` (new)
+
+---
+
 ## License
 
 Unchanged: GPL-3.0, same as the original project. See [LICENSE](LICENSE).
