@@ -20,6 +20,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -855,7 +856,9 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 // bounded, is what keeps an ad from being heard.
                 if (adMuteTries < AD_MUTE_TRIES) {
                     adMuteTries++
-                    runCatching { bridge.call("media.mute", buildJsonObject { put("on", true) }) }
+                    // Taken in turn with the break's end, and only while it lasts: sent after the
+                    // unmute, it would leave the song after the ad muted (#224).
+                    runCatching { adMuteLock.withLock { if (_adPlaying.value) bridge.call("media.mute", buildJsonObject { put("on", true) }) } }
                 }
                 // The mute outlived the break: the page went quiet without ever publishing the
                 // next song, so nothing clears the ad flag and the phone stays silent for good
@@ -1775,29 +1778,42 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
     private suspend fun applyHush(): Int =
         runCatching { bridge.call("media.hush", buildJsonObject { put("on", clipHushed || localMuted) }).toString().trim('"').toIntOrNull() ?: 0 }.getOrDefault(0)
 
+    /**
+     * The ad's mute and its end, one at a time. Reported (#224, log seen): after a reload past a
+     * stuck ad, the end of the break sent the unmute while the new page's mute (until a song plays)
+     * was sent too; the unmute answered last and set [adMuted] back to false over the newer mute.
+     * The page stayed muted, nothing unmuted it when the song played, and the volume guard's
+     * restores were pulled down again at once ("level 0.001 back to 1.0") until the player was restarted.
+     */
+    private val adMuteLock = kotlinx.coroutines.sync.Mutex()
+
     private suspend fun muteForAd() = runCatching {
-        if (!adsHandled) return@runCatching
-        adMuted = true
-        adMutedAt = System.currentTimeMillis()
-        var muted = bridge.call("media.mute", buildJsonObject { put("on", true) })
-        // No media element reached (the page is reloading, or the ad is taking the stream over):
-        // once more before the count is trusted.
-        if (muted.toString().trim('"').toIntOrNull() == 0) {
-            delay(200)
-            muted = bridge.call("media.mute", buildJsonObject { put("on", true) })
+        adMuteLock.withLock {
+            if (!adsHandled) return@withLock
+            adMuted = true
+            adMutedAt = System.currentTimeMillis()
+            var muted = bridge.call("media.mute", buildJsonObject { put("on", true) })
+            // No media element reached (the page is reloading, or the ad is taking the stream over):
+            // once more before the count is trusted.
+            if (muted.toString().trim('"').toIntOrNull() == 0) {
+                delay(200)
+                muted = bridge.call("media.mute", buildJsonObject { put("on", true) })
+            }
+            bridge.logger?.invoke("ad muted ($muted media elements)")
         }
-        bridge.logger?.invoke("ad muted ($muted media elements)")
     }
 
     private suspend fun unmuteAfterAd() = runCatching {
-        if (!adMuted) return@runCatching
-        bridge.call("media.mute", buildJsonObject { put("on", false) })
-        adMuted = false
-        adMutedAt = 0L
-        // The song after an ad is preloaded again: the key (current|next) is usually the same as
-        // before the break, so without this the preload of that very song was skipped and the next
-        // skip after an ad was slow.
-        preloadedFor = null
+        adMuteLock.withLock {
+            if (!adMuted) return@withLock
+            bridge.call("media.mute", buildJsonObject { put("on", false) })
+            adMuted = false
+            adMutedAt = 0L
+            // The song after an ad is preloaded again: the key (current|next) is usually the same as
+            // before the break, so without this the preload of that very song was skipped and the next
+            // skip after an ad was slow.
+            preloadedFor = null
+        }
     }
 
     /**
