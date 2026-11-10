@@ -39,6 +39,28 @@ class DesktopSpoofTest {
     }
 
     @Test
+    fun `the brand lists are arrays, so the script parses`() {
+        val js = DesktopSpoof.script(fingerprint)
+        // The bug this guards: joined with commas alone they read as further declarators
+        // (`var B={…},{…},FB={…}`), which is a SyntaxError — the script never ran, the page kept
+        // the WebView's own navigator, and the app then blamed the WebView's version.
+        assertTrue(js.contains("var B=[{"))
+        assertTrue(js.contains("],FB=[{"))
+        assertTrue(js.contains("];"))
+        assertFalse(js.contains("var B={"))
+        // One entry per brand, in both lists.
+        val objects = "\"brand\":".toRegex().findAll(js).count()
+        assertTrue("expected " + fingerprint.brands.size * 2 + " brand entries, found " + objects, objects == fingerprint.brands.size * 2)
+    }
+
+    @Test
+    fun `the read-back probe looks for the marker the script sets`() {
+        assertTrue(DesktopSpoof.PROBE.contains("window.__myspotiDesktop"))
+        assertTrue(DesktopSpoof.PROBE.contains("navigator.platform"))
+        assertTrue(DesktopSpoof.PROBE.startsWith("(function(){"))
+    }
+
+    @Test
     fun `a different install describes itself, not this one`() {
         val other = Fingerprint(155, 8100, 44, "6.6.9")
         val js = DesktopSpoof.script(other)

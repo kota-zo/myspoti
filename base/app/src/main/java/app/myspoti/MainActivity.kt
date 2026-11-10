@@ -42,6 +42,7 @@ import app.myspoti.host.android.LoginLoad
 import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import app.myspoti.host.android.SessionWait
+import app.myspoti.host.android.WebPlayerHost
 import com.music.spotui.App
 import com.music.spotui.di.AutoBrowser
 import com.music.spotui.ui.screens.WelcomeScreen
@@ -546,10 +547,16 @@ class MainActivity : AppCompatActivity() {
         fun webViewLabel(): String =
             MyspotiRuntime.host.webViewMajorVersion?.let { "Chrome $it" } ?: "legacy WebView"
 
+        /** Whether the WebView is below the oldest Chromium the player runs on. Unknown: assumed fine. */
+        fun tooOldForPlayer(major: Int?): Boolean = major != null && major < WebPlayerHost.PLAYER_MIN_MAJOR
+
         // A WebView older than Chrome 85 cannot run Spotify's player at all: say so at once instead
-        // of waiting a minute and a half for a page that was never going to boot.
+        // of waiting a minute and a half for a page that was never going to boot. At or above it the
+        // player's own floor, a player that does not start is never "this WebView is too old" — that
+        // sentence said "Chrome 107 … needs Chrome 85+" on a TV, about a page whose script had
+        // failed. Reported as what it is below.
         val webViewMajor = MyspotiRuntime.host.webViewMajorVersion
-        if (webViewMajor != null && webViewMajor < 85) {
+        if (webViewMajor != null && webViewMajor < WebPlayerHost.PLAYER_MIN_MAJOR) {
             Logbook.log("qr login: WebView is $webViewMajor, below the player's Chrome 85")
             qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_webview_old, webViewLabel()))
             return
@@ -614,8 +621,12 @@ class MainActivity : AppCompatActivity() {
                     Logbook.log("qr login: WebView JS error after cookie import: $syntaxErr")
                     MyspotiRuntime.host.cancelLogin()
                     qrServerState = com.music.spotui.connect.QrServerState.Failed(
-                        if (precheckAccepted || precheckNote != null) getString(R.string.qr_login_webview_old, webViewLabel())
-                        else getString(R.string.qr_login_webview_load_failed, syntaxErr),
+                        when {
+                            !(precheckAccepted || precheckNote != null) -> getString(R.string.qr_login_webview_load_failed, syntaxErr)
+                            tooOldForPlayer(webViewMajor) -> getString(R.string.qr_login_webview_old, webViewLabel())
+                            // A current-enough WebView whose page threw: the script is the story.
+                            else -> getString(R.string.qr_login_page_script_failed, webViewLabel(), syntaxErr)
+                        },
                     )
                     return
                 }
@@ -648,8 +659,11 @@ class MainActivity : AppCompatActivity() {
         }
         MyspotiRuntime.host.cancelLogin()
         val problem = MyspotiRuntime.host.lastPageProblem
+        val scriptError = MyspotiRuntime.host.lastWebSyntaxError
         val msg = when {
-            MyspotiRuntime.host.lastWebSyntaxError != null || ((precheckAccepted || precheckNote != null) && webViewMajor != null && webViewMajor < 85) ->
+            scriptError != null && tooOldForPlayer(webViewMajor) -> getString(R.string.qr_login_webview_old, webViewLabel())
+            scriptError != null -> getString(R.string.qr_login_page_script_failed, webViewLabel(), scriptError)
+            (precheckAccepted || precheckNote != null) && tooOldForPlayer(webViewMajor) ->
                 getString(R.string.qr_login_webview_old, webViewLabel())
             problem != null -> getString(R.string.qr_login_webview_load_failed, problem)
             precheckAccepted -> getString(R.string.qr_login_webview_timeout)

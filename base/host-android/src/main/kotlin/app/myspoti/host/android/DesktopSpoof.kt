@@ -24,10 +24,14 @@ internal object DesktopSpoof {
     fun script(fingerprint: Fingerprint): String {
         val ua = fingerprint.userAgent
         val appVersion = ua.removePrefix("Mozilla/")
-        val brands = fingerprint.brands.joinToString(",") { brand ->
+        // Square brackets are the script's: a bare `{…},{…}` list would be read as further
+        // declarators (`var B={…}, {…}, FB=…`) and the whole script would fail to parse — which is
+        // exactly what happened, silently: the page kept the WebView's own navigator and the app
+        // blamed the WebView's version for it.
+        val brands = fingerprint.brands.joinToString(",", "[", "]") { brand ->
             """{"brand":"${js(brand.name)}","version":"${js(brand.major)}"}"""
         }
-        val fullBrands = fingerprint.brands.joinToString(",") { brand ->
+        val fullBrands = fingerprint.brands.joinToString(",", "[", "]") { brand ->
             """{"brand":"${js(brand.name)}","version":"${js(brand.fullVersion)}"}"""
         }
         return SCRIPT
@@ -45,6 +49,18 @@ internal object DesktopSpoof {
         .replace("'", "\\'")
         .replace("\n", "")
         .replace("\r", "")
+
+    /**
+     * What the page's `navigator` actually says, read back after a page has loaded: whether the script
+     * ran at all, and the values Spotify's own check looks at. Logged once a page, so a spoof that
+     * silently did nothing (a parse error in it, a WebView that ran it too late) shows up in a report
+     * as itself instead of being guessed at from a symptom.
+     */
+    const val PROBE = """(function(){try{
+if(!window.__myspotiDesktop)return 'NOT APPLIED';
+var ua=String(navigator.userAgent||'');
+return 'applied; ua '+(ua.indexOf('Android')<0&&ua.indexOf('; wv')<0?'desktop':'ANDROID')+'; platform '+String(navigator.platform)+'; touch '+String(navigator.maxTouchPoints)+'; uaData '+(navigator.userAgentData?'yes':'no');
+}catch(e){return 'probe failed: '+e}})()"""
 
     private val SCRIPT = """(function(){try{
 if(window.__myspotiDesktop)return;window.__myspotiDesktop=true;
