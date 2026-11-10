@@ -263,7 +263,19 @@ object OfflineStore {
         // Not "validated" is not offline: some VPNs, private DNS and Wi-Fi networks never pass
         // Android's check, and treating them as offline played only the downloaded songs of a
         // list, skipping all the others (issue #10).
-        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        return reachesInternet(
+            internet = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET),
+            vpn = caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN),
+            hasNetworkUnderVpn = { networkUnderVpn(cm) },
+        )
+    }
+
+    /** A network other than a VPN that has internet: Wi-Fi or mobile data, what a VPN runs over. */
+    @Suppress("DEPRECATION") // allNetworks: a callback would have to be kept registered for one answer.
+    private fun networkUnderVpn(cm: android.net.ConnectivityManager): Boolean = cm.allNetworks.any { n ->
+        val c = cm.getNetworkCapabilities(n) ?: return@any false
+        c.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            !c.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
     }
 
     /** Downloaded songs, newest first. */
@@ -324,3 +336,11 @@ object OfflineStore {
             .onFailure { app.myspoti.host.android.Logbook.log("offline: index not saved: ${it.message}") }
     }
 }
+
+/**
+ * Whether the active network reaches the internet. A VPN says it has internet even with nothing
+ * under it: in airplane mode with the VPN left on, downloaded songs went to the streaming path and
+ * stayed silent (#205). So a VPN counts only with a network under it.
+ */
+internal fun reachesInternet(internet: Boolean, vpn: Boolean, hasNetworkUnderVpn: () -> Boolean): Boolean =
+    internet && (!vpn || hasNetworkUnderVpn())
