@@ -2089,8 +2089,11 @@ object SongPlayer {
         // The song just left, and the one asked for: the page hands over a state of the song it is
         // leaving for a moment (a snapshot a minute in, taken before the move) — the bar went to 0
         // and then to about a minute (see [SeekRules.leftBySkip]).
+        //
+        // The page's own neighbour, not the now-playing screens': [NowPlaying.prev] there is a
+        // [SongsModel], which names no uri at all (the page's state does, and it is a NowPlaying).
         movedFrom = _nowPlaying.value.uri
-        movedTo = _nowPlaying.value.prev?.uri ?: _queue.value?.current?.uri
+        movedTo = api.player.state.value?.previous?.uri
         movedAt = SystemClock.elapsedRealtime()
         transport(waitReady = !stateSeen, checkAfter = true, pullBack = false) { api.player.previous() }
     }
