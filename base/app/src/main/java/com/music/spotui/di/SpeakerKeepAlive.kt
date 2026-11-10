@@ -57,7 +57,11 @@ object SpeakerKeepAlive {
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .build())
                 .setBufferSizeInBytes(size)
-                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_POWER_SAVING)
+                .apply {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        setPerformanceMode(AudioTrack.PERFORMANCE_MODE_POWER_SAVING)
+                    }
+                }
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
         }.getOrNull() ?: return

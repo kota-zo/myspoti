@@ -16,7 +16,7 @@ recordings are not bundled.
 ## ONNX Runtime — MIT
 https://github.com/microsoft/onnxruntime
 
-Copyright Microsoft Corporation. `com.microsoft.onnxruntime:onnxruntime-android` 1.23.2 runs the
+Copyright Microsoft Corporation. `com.microsoft.onnxruntime:onnxruntime-android` 1.20.0 runs the
 Beat This model on the phone (the desktop bench uses the JVM build of the same version).
 
 ## Spotui — GPL-3.0
@@ -121,3 +121,10 @@ Copyright The Chromium Authors. Casting to Google Cast devices
 (`base/app/src/main/java/com/music/spotui/cast/`) is Myspoti's own CastV2 sender, without the
 Google Cast SDK. `CastMessage.kt` codes by hand the `CastMessage` message that this file defines
 (its field numbers and types); no Chromium code is included.
+
+## Mozilla CA Certificate Store — MPL-2.0
+https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/
+
+`base/host-android/src/main/res/raw/ca_roots.pem` bundles the trusted root CAs distributed via
+`ca-certificates` (derived from Mozilla's NSS root store under MPL-2.0, compatible with GPL-3.0)
+for supplemental TLS verification on Android 6–9 (API 23–28).

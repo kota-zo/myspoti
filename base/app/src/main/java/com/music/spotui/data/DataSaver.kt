@@ -63,22 +63,37 @@ object DataSaver {
         metered = cm.isActiveNetworkMetered
         wasActive = active
         runCatching {
-            cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                private fun updateMetered(nowMetered: Boolean) {
                     val was = metered
-                    metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                    metered = nowMetered
                     if (was && !metered) com.music.spotui.data.offline.OfflineCollections.onUnmetered(app)
                     // Wi-Fi and mobile data each have their own streaming level.
                     if (was != metered) { com.music.spotui.data.preferences.applyStreamingQuality(app); com.music.spotui.extensions.Extensions.networkChanged() }
                     changed()
                 }
-                override fun onLost(network: Network) {
-                    val was = metered
-                    metered = cm.isActiveNetworkMetered
-                    if (was != metered) { com.music.spotui.data.preferences.applyStreamingQuality(app); com.music.spotui.extensions.Extensions.networkChanged() }
-                    changed()
+                override fun onAvailable(network: Network) {
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) updateMetered(cm.isActiveNetworkMetered)
                 }
-            })
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    val now = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N)
+                        !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                    else cm.isActiveNetworkMetered
+                    updateMetered(now)
+                }
+                override fun onLost(network: Network) = updateMetered(cm.isActiveNetworkMetered)
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                cm.registerDefaultNetworkCallback(callback)
+            } else {
+                cm.registerNetworkCallback(
+                    android.net.NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                        .build(),
+                    callback,
+                )
+            }
         }
     }
 

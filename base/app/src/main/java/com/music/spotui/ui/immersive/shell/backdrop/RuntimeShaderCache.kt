@@ -12,6 +12,7 @@
  */
 package com.music.spotui.ui.immersive.shell.backdrop
 
+import android.annotation.SuppressLint
 import org.intellij.lang.annotations.Language
 
 sealed interface RuntimeShaderCache {
@@ -23,6 +24,7 @@ internal class RuntimeShaderCacheImpl : RuntimeShaderCache {
 
     private val runtimeShaders = mutableMapOf<String, RuntimeShader>()
 
+    @SuppressLint("NewApi")
     override fun obtainRuntimeShader(key: String, string: String): RuntimeShader {
         return runtimeShaders.getOrPut(key) { RuntimeShader(string) }
     }

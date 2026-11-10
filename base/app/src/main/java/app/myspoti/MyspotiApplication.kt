@@ -21,6 +21,9 @@ import kotlinx.coroutines.launch
 class MyspotiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Provide modern root CAs and TLS 1.2 for Android 6–9 before any network client initializes.
+        app.myspoti.host.android.TlsCompat.install(this)
+        app.myspoti.extensions.SafeNet.configureClient = { app.myspoti.host.android.TlsCompat.apply(it) }
         // A crash or a freeze of the last run, back in this run's diagnostic report.
         app.myspoti.host.android.LastExit.install(this)
         app.myspoti.power.EnergySettings.init(this)

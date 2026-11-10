@@ -231,9 +231,9 @@ object ExtensionAudio {
         // than a second ask (which cost the source a request and the song seconds); only a miss
         // ahead is asked again, as the song now plays.
         if (!again) asking[key]?.let { pending ->
-            runCatching { pending.get(Extensions.AUDIO_MS, java.util.concurrent.TimeUnit.MILLISECONDS) }.getOrNull()?.let { return it }
+            runCatching { pending.await(Extensions.AUDIO_MS) }.getOrNull()?.let { return it }
         }
-        val mine = java.util.concurrent.CompletableFuture<AudioStream?>()
+        val mine = PendingStream()
         asking[key] = mine
         return try {
             Extensions.audioBlocking(track(u), ahead)?.also { keep(key, it) }.also { mine.complete(it) }
@@ -244,8 +244,22 @@ object ExtensionAudio {
         }
     }
 
+    private class PendingStream {
+        private val latch = java.util.concurrent.CountDownLatch(1)
+        @Volatile var result: AudioStream? = null
+            private set
+
+        fun complete(value: AudioStream?) {
+            result = value
+            latch.countDown()
+        }
+
+        fun await(timeoutMs: Long): AudioStream? =
+            if (latch.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)) result else null
+    }
+
     /** The asks out now, by song: a second ask of the same song waits for the first. */
-    private val asking = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<AudioStream?>>()
+    private val asking = java.util.concurrent.ConcurrentHashMap<String, PendingStream>()
 
     /**
      * Plays [songs] from [picked] in the local player when an extension has the picked song's

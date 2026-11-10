@@ -47,7 +47,7 @@ class NowPlayingWidget : AppWidgetProvider() {
         @Volatile private var cover: Bitmap? = null
         @Volatile private var coverUrl: String? = null
         private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        private val http by lazy { OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build() }
+        private val http by lazy { app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder()).callTimeout(10, TimeUnit.SECONDS).build() }
 
         /** The track on screen changed (or its play state): redraw the widgets, if any. */
         fun show(context: Context, title: String, artist: String, coverUrl: String?, playing: Boolean) {

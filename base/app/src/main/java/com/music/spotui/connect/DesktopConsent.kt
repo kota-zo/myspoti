@@ -159,6 +159,10 @@ private fun consentView(ctx: android.content.Context, o: DesktopConsent.Open, on
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
             reached(request.url.toString()) || request.url.scheme != "https"
 
+        @Deprecated("Deprecated in Java")
+        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+            reached(url) || android.net.Uri.parse(url).scheme != "https"
+
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             if (reached(url)) { view.stopLoading(); return }
             runCatching { java.net.URI(url).host }.getOrNull()?.let(onHost)

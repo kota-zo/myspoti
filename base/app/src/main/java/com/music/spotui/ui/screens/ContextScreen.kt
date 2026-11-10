@@ -1572,8 +1572,9 @@ object SmartShuffle {
 }
 
 /** Text order for sorting (accents ignored): one collator per thread, none is thread-safe. */
-private val textOrder = ThreadLocal.withInitial {
-    java.text.Collator.getInstance().apply { strength = java.text.Collator.PRIMARY }
+private val textOrder = object : ThreadLocal<java.text.Collator>() {
+    override fun initialValue(): java.text.Collator =
+        java.text.Collator.getInstance().apply { strength = java.text.Collator.PRIMARY }
 }
 
 enum class TrackSort(val label: Int) {
@@ -1586,7 +1587,7 @@ enum class TrackSort(val label: Int) {
 
     internal fun natural(songs: List<SongsModel>): List<SongsModel> {
         // One collator per thread: sorting runs at every sort change, not at every recomposition.
-        val text = textOrder.get()
+        val text = textOrder.get()!!
         return when (this) {
             CUSTOM -> songs
             TITLE -> songs.sortedWith { a, b -> text.compare(a.title, b.title) }

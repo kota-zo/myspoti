@@ -11,8 +11,8 @@ kotlin {
 dependencies {
     // Beat This runs on ONNX Runtime: the app brings onnxruntime-android, the desktop bench the JVM build
     // (same Java API, same package).
-    compileOnly("com.microsoft.onnxruntime:onnxruntime:1.23.2")
-    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.23.2")
+    compileOnly("com.microsoft.onnxruntime:onnxruntime:1.20.0")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
     testImplementation("junit:junit:4.13.2")
 }
 

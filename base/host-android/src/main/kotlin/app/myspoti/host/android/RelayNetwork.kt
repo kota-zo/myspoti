@@ -73,8 +73,9 @@ internal object NetworkReport {
             }
             val vpn = caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
             val privateDns = when {
+                android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P -> "off"
                 link?.isPrivateDnsActive != true -> "off"
-                link?.privateDnsServerName != null -> "strict"
+                link.privateDnsServerName != null -> "strict"
                 else -> "opportunistic"
             }
             fun yn(b: Boolean) = if (b) "yes" else "no"

@@ -44,7 +44,7 @@ object InviteLinks {
     val page = MutableStateFlow<String?>(null)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val http by lazy { okhttp3.OkHttpClient.Builder().followRedirects(true).build() }
+    private val http by lazy { app.myspoti.host.android.TlsCompat.apply(okhttp3.OkHttpClient.Builder()).followRedirects(true).build() }
 
     private val PLAYLIST = Regex("""(?:open|www|play)\.spotify\.com/(?:intl-[a-z-]+/)?playlist/([A-Za-z0-9]{22})([^\s"'<>]*)""")
     private val TOKEN = Regex("""[?&]pt=([A-Za-z0-9_-]+)""")

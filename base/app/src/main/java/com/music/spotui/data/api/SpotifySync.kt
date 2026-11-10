@@ -175,7 +175,7 @@ object SpotifySync {
     suspend fun playlistTrackIds(context: Context, playlistId: String): Set<String> {
         membershipCache[playlistId]?.let { return it }
         val ids = runCatching { allTracks("spotify:playlist:$playlistId").map { it.uri.substringAfterLast(':') } }.getOrNull() ?: return emptySet()
-        val set = ConcurrentHashMap.newKeySet<String>().apply { addAll(ids) }
+        val set = java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>()).apply { addAll(ids) }
         membershipCache[playlistId] = set
         return set
     }

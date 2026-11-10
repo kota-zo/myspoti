@@ -1,7 +1,6 @@
 package com.music.spotui.video
 
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ExecutionException
+import java.util.concurrent.CountDownLatch
 
 /** Caller-owned synchronous loads; a cancelled owner never leaves a detached retry. */
 internal class SingleFlightCache<K : Any, V : Any>(
@@ -10,9 +9,33 @@ internal class SingleFlightCache<K : Any, V : Any>(
     private val nowMs: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private data class Entry<V>(val value: V, val at: Long)
+
+    private class Flight<V> {
+        private val latch = CountDownLatch(1)
+        private var value: V? = null
+        private var error: Throwable? = null
+
+        fun complete(result: V) {
+            value = result
+            latch.countDown()
+        }
+
+        fun fail(t: Throwable) {
+            error = t
+            latch.countDown()
+        }
+
+        fun await(): V {
+            latch.await()
+            error?.let { throw it }
+            @Suppress("UNCHECKED_CAST")
+            return value as V
+        }
+    }
+
     private val lock = Any()
     private val values = LinkedHashMap<K, Entry<V>>(16, 0.75f, true)
-    private val flights = HashMap<K, CompletableFuture<V>>()
+    private val flights = HashMap<K, Flight<V>>()
 
     init { require(capacity > 0 && ttlMs >= 0) }
 
@@ -21,32 +44,30 @@ internal class SingleFlightCache<K : Any, V : Any>(
 
     fun get(key: K, fresh: Boolean = false, load: () -> V): V {
         checkInterrupted()
-        val future: CompletableFuture<V>
+        val flight: Flight<V>
         val owner: Boolean
         synchronized(lock) {
             val now = nowMs()
             values.entries.removeAll { (_, entry) -> now - entry.at !in 0 until ttlMs }
             val active = flights[key]
             if (active != null) {
-                future = active
+                flight = active
                 owner = false
             } else {
                 if (!fresh) values[key]?.let { return it.value }
                 // A forced refresh normally follows a refused URL; do not reuse it after failure.
                 if (fresh) values.remove(key)
-                future = CompletableFuture()
-                flights[key] = future
+                flight = Flight()
+                flights[key] = flight
                 owner = true
             }
         }
         if (!owner) {
             try {
-                return future.get().also { checkInterrupted() }
+                return flight.await().also { checkInterrupted() }
             } catch (t: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw t
-            } catch (t: ExecutionException) {
-                throw t.cause ?: t
             }
         }
         try {
@@ -56,14 +77,14 @@ internal class SingleFlightCache<K : Any, V : Any>(
                 if (ttlMs > 0) values[key] = Entry(value, nowMs())
                 while (values.size > capacity) values.remove(values.keys.first())
                 flights.remove(key)
-                future.complete(value)
+                flight.complete(value)
             }
             return value
         } catch (t: Throwable) {
             if (t is InterruptedException) Thread.currentThread().interrupt()
             synchronized(lock) {
                 flights.remove(key)
-                future.completeExceptionally(t)
+                flight.fail(t)
             }
             throw t
         }

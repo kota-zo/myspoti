@@ -68,7 +68,7 @@ object CastServer {
     }
 
     /** The connections being served: closed with the server, so no byte goes out once Cast stops. */
-    private val open = java.util.concurrent.ConcurrentHashMap.newKeySet<Socket>()
+    private val open = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<Socket, Boolean>())
 
     @Synchronized
     fun stop() {

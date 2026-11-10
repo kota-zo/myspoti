@@ -8,8 +8,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.util.Rational
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,9 +56,13 @@ object SongPip {
     /** A card a little taller than wide, like the one shared on Discord. */
     private val RATIO = Rational(2, 3)
 
-    fun wanted(): Boolean =
-        com.music.spotui.data.preferences.SongPipPref.on && SongPlayer.isPlaying() && Graph.currentSongState.title.value.isNotBlank()
+    fun supported(c: Context): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && c.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
+    fun wanted(): Boolean =
+        supported(Graph.app) && com.music.spotui.data.preferences.SongPipPref.on && SongPlayer.isPlaying() && Graph.currentSongState.title.value.isNotBlank()
+
+    @RequiresApi(Build.VERSION_CODES.O)
     fun params(c: Context): PictureInPictureParams {
         val playing = Graph.currentSongState.playingState.value
         return PictureInPictureParams.Builder()
@@ -71,6 +78,7 @@ object SongPip {
             .build()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun action(c: Context, code: Int, icon: Int, label: Int, what: String): RemoteAction {
         val intent = Intent(ACTION).setPackage(c.packageName).putExtra(EXTRA, what)
         val pending = PendingIntent.getBroadcast(c, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

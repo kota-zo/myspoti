@@ -25,7 +25,7 @@ object UpdateChecker {
     const val PERIODIC_MS = 6 * 3_600_000L
     /** After a failed automatic check (offline, rate limit), wait this long before trying again. */
     private const val RETRY_MS = 10 * 60_000L
-    private val http by lazy { OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).addInterceptor(com.music.spotui.data.DataSaver.interceptor).build() }
+    private val http by lazy { app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder()).callTimeout(10, TimeUnit.SECONDS).addInterceptor(com.music.spotui.data.DataSaver.interceptor).build() }
 
     /** Answer of [refresh]: the check always asks GitHub, whatever was cached. */
     sealed interface Outcome {

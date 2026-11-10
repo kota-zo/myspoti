@@ -269,7 +269,12 @@ object Extensions {
     /** Whether the device has a network now. */
     private fun isOnline(): Boolean {
         val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java) ?: return true
-        return cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N &&
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
+            return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     /** The marker of an `online` event asked and not yet delivered: it survives a restart. */
@@ -293,15 +298,41 @@ object Extensions {
     private fun watchNetwork() {
         val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java) ?: return
         runCatching {
-            cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+            val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) {
+                        runtimes.keys.forEach(::deliverOnline)
+                        if (networkLost) { networkLost = false; probeAll() }
+                    }
+                }
+
                 override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
-                    if (!caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return
+                    val ok = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) ||
+                        (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N &&
+                            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) &&
+                            caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET))
+                    if (!ok) return
                     runtimes.keys.forEach(::deliverOnline)
                     if (networkLost) { networkLost = false; probeAll() }
                 }
 
-                override fun onLost(network: android.net.Network) { networkLost = true }
-            })
+                override fun onLost(network: android.net.Network) {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N || cm.activeNetwork == null) {
+                        networkLost = true
+                    }
+                }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                cm.registerDefaultNetworkCallback(callback)
+            } else {
+                cm.registerNetworkCallback(
+                    android.net.NetworkRequest.Builder()
+                        .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                        .build(),
+                    callback,
+                )
+            }
         }.onFailure { Logbook.log("ext: no network callback: ${it.message}") }
     }
 
@@ -320,7 +351,9 @@ object Extensions {
      * and what manifests are shown in ([Manifest.localized]).
      */
     fun language(): String = if (!::ctx.isInitialized) java.util.Locale.getDefault().toLanguageTag()
-        else com.music.spotui.data.AppLanguage.current(ctx).ifEmpty { ctx.resources.configuration.locales[0].toLanguageTag() }
+        else com.music.spotui.data.AppLanguage.current(ctx).ifEmpty {
+            (androidx.core.os.ConfigurationCompat.getLocales(ctx.resources.configuration)[0] ?: java.util.Locale.getDefault()).toLanguageTag()
+        }
 
     fun isRunning(id: String) = runtimes.containsKey(id)
 

@@ -48,6 +48,8 @@ class FingerprintTest {
         assertTrue(f.major in 100..300 && f.build > 0)
         assertNull(Fingerprint.parseEngine("141.0"))
         assertNull(Fingerprint.parseEngine(null))
+        // Android 6 System WebView (Chrome 95-106) keeps its own version instead of falling back.
+        assertEquals(95, Fingerprint.resolve("95.0.4638.74", Fingerprint.Draw(0, 1, "6.8.0")).major)
     }
 
     @Test fun `draws stay within the bounds`() {

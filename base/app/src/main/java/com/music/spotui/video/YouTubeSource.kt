@@ -32,11 +32,13 @@ object YouTubeSource {
     private const val TAG = "MusicVideo"
     private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
 
-    val http: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(com.music.spotui.data.DataSaver.interceptor)
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    val http: OkHttpClient by lazy {
+        app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder())
+            .addInterceptor(com.music.spotui.data.DataSaver.interceptor)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     @Volatile private var ready = false
     @Volatile private var extractorLocale = ""

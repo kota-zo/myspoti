@@ -77,7 +77,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
      * was given ([Fingerprint]) and the phone's languages, so even the first requests agree with it.
      */
     private val fallbackLanguage: String by lazy {
-        Fingerprint.acceptLanguage(android.os.LocaleList.getDefault().toLanguageTags().split(','))
+        Fingerprint.acceptLanguage(androidx.core.os.LocaleListCompat.getAdjustedDefault().toLanguageTags().split(','))
     }
 
     /** The page's identity, for the audio proxy: the user agent and language it presents itself. */
@@ -508,7 +508,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
          * 10 s without a byte is a dead connection; the ping finds one before a command does.
          */
         private val http: OkHttpClient by lazy {
-            OkHttpClient.Builder()
+            TlsCompat.apply(OkHttpClient.Builder())
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(10, TimeUnit.SECONDS)
                 .pingInterval(15, TimeUnit.SECONDS)

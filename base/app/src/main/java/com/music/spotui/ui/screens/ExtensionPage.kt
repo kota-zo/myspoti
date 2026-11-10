@@ -163,6 +163,9 @@ private class PageBridge(private val id: String) {
 private class SandboxClient(private val hosts: List<String>, private val network: Boolean, private val any: Boolean) : WebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
 
+    @Deprecated("Deprecated in Java")
+    override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = true
+
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
         if (url.startsWith("data:") || url.startsWith("about:")) return null

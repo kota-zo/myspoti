@@ -529,6 +529,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
     }
 
     private fun createChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, getString(R.string.msp_channel_playback), NotificationManager.IMPORTANCE_LOW).apply {
@@ -680,7 +681,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE
         /** Added while an episode plays: the notification's 15 s buttons and the keys of the same name. */
         private val SKIP_ACTIONS = PlaybackStateCompat.ACTION_FAST_FORWARD or PlaybackStateCompat.ACTION_REWIND
-        private val http = OkHttpClient()
+        private val http: OkHttpClient by lazy { TlsCompat.apply(OkHttpClient.Builder()).build() }
         /** The largest side kept for artwork: what Android's media controls expect (640 is Spotify's biggest cover). */
         private const val COVER_MAX_PX = 640
         /** About four 640 px covers. */

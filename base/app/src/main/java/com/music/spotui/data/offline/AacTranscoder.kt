@@ -109,7 +109,9 @@ object AacTranscoder {
                     val o = decoder.dequeueOutputBuffer(info, TIMEOUT_US)
                     if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         val f = decoder.outputFormat
-                        if (f.containsKey(MediaFormat.KEY_PCM_ENCODING)) pcmEncoding = f.getInteger(MediaFormat.KEY_PCM_ENCODING)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && f.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                            pcmEncoding = f.getInteger(MediaFormat.KEY_PCM_ENCODING)
+                        }
                         decodedChannels = f.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                     } else if (o >= 0) {
                         val buf = decoder.getOutputBuffer(o)!!

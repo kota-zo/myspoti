@@ -84,8 +84,9 @@ object NewReleaseNotifier {
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL) == null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(CHANNEL) == null) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.notify_releases_channel), NotificationManager.IMPORTANCE_DEFAULT))
+        }
         val compat = NotificationManagerCompat.from(context)
         releases.forEach { a ->
             val id = a.uri.substringAfterLast(':')

@@ -139,7 +139,8 @@ object AudioAlign {
                 override fun onOutputFormatChanged(c: MediaCodec, f: MediaFormat) {
                     out.setRate(f.getInteger(MediaFormat.KEY_SAMPLE_RATE))
                     channels = f.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                    isFloat = f.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
+                    isFloat = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N &&
+                        f.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
                         f.getInteger(MediaFormat.KEY_PCM_ENCODING) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                 }
     

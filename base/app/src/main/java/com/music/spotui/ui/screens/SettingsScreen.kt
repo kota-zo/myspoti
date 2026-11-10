@@ -410,7 +410,7 @@ fun SettingsScreen(navController: NavController) {
                 checked = com.music.spotui.data.preferences.SolidNavBar.on,
                 onChecked = { com.music.spotui.data.preferences.SolidNavBar.set(ctx, it) },
             )
-            OptionRow(
+            if (com.music.spotui.data.preferences.SongPipPref.available) OptionRow(
                 label = stringResource(R.string.settings_song_pip_title),
                 detail = stringResource(R.string.settings_song_pip_detail),
                 checked = com.music.spotui.data.preferences.SongPipPref.on,
@@ -717,8 +717,10 @@ private fun TransitionsRow() {
             checked = automix.mixPodcasts, onChecked = automix::changeMixPodcasts)
         OptionRow(stringResource(R.string.settings_automix_harmonic), stringResource(R.string.settings_automix_harmonic_detail),
             checked = automix.harmonic, onChecked = automix::changeHarmonic)
-        OptionRow(stringResource(R.string.settings_automix_eq), stringResource(R.string.settings_automix_eq_detail),
-            checked = automix.djEq, onChecked = automix::changeDjEq)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            OptionRow(stringResource(R.string.settings_automix_eq), stringResource(R.string.settings_automix_eq_detail),
+                checked = automix.djEq, onChecked = automix::changeDjEq)
+        }
         OptionRow(stringResource(R.string.settings_automix_show), stringResource(R.string.settings_automix_show_detail),
             checked = automix.showInPlayer, onChecked = automix::changeShowInPlayer)
         OptionRow(stringResource(R.string.settings_automix_mobile_data), stringResource(R.string.settings_automix_mobile_data_detail),

@@ -21,6 +21,25 @@
   <a href="https://github.com/sponsors/kota-zo"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor kota-zo on GitHub" height="56"></a>
 </p>
 
+## What's different in this build
+
+This is my own modified build of [kota-zo/myspoti](https://github.com/kota-zo/myspoti). The app is the same one: these are the changes compared to the original.
+
+- Works on **Android 6.0 and up** (the original needs Android 10 or later)
+- Added **QR code login**: show a code on the TV or the old phone, scan it with another phone that is already signed in
+- Added **phone login**: enter a short code from your phone instead, no typing a password with a remote
+- Added **paste login**: paste a `sp_dc` session cookie copied from a desktop browser, for when Spotify's login page shows a captcha or refuses to load
+- Made the built-in login page work on old Android: bundled root certificates, a modern secure-connection layer, and compatibility code for old browsers in the app
+- Clear messages when the built-in login page is too old, fails to load, or times out (no more endless loading screen)
+- Fixed signing in while a VPN is on (the app reset its connections at the wrong moment, and its network filters ignored the VPN)
+- TV friendly login buttons: they work with a remote's OK button, not only with touch
+- Added launcher icons for Android 6 and 7, which cannot use the newer icon format
+- Fixed the parts that crashed or stopped working on Android 6: notifications, vibration, sharing files, downloads and conversion, the equalizer, background visuals, radio, share cards, local music, and more
+- AutoMix works on Android 6 as well (it now uses an older version of the audio model, which still runs there)
+- Added tests for the secure-connection layer, the cookie check, the QR pairing, local music scanning and text romanisation
+
+Full file-by-file details: [CHANGES.md](CHANGES.md).
+
 ## Why Myspoti
 
 ### 🚫 Spotify with no ads, on a free account
@@ -40,8 +59,8 @@ Under the hood, the official Spotify Web Player plays the music, hidden inside t
 
 ## Get started
 
-1. Download the APK from the [latest release](https://github.com/kota-zo/myspoti/releases/latest) and open it (Android 10 or later). Android asks once to allow installs from your browser or file manager.
-2. Tap **Log in with Spotify** and sign in.
+1. Download the APK from the [latest release](https://github.com/kota-zo/myspoti/releases/latest) and open it (Android 6.0 or later). Android asks once to allow installs from your browser or file manager.
+2. Tap **Log in with Spotify**, or use **QR / Phone / Cookie** on Android TV and older devices (scan the QR code from another phone running Myspoti, or paste your `sp_dc` session cookie from a desktop browser to skip tricky TV/WebView captcha checks).
 3. Pick the sound quality, allow what you want (notifications, Bluetooth, local files…), and you are in.
 
 New versions are offered inside the app: one tap downloads and installs them.
