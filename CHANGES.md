@@ -265,6 +265,62 @@ SpotiDuck presents a **Windows** desktop Chrome where this install presents Linu
 
 ---
 
+## 10. The browser spoof was never running: a syntax error in its own script
+
+Reported from the TV, on the QR sign-in screen:
+
+> Spotify accepted your cookie, but Android System WebView (Chrome 107) on this device is too old
+> for Spotify Web Player (needs Chrome 85+). Update Android System WebView to continue.
+
+Two things are wrong with that sentence, and one of them is the bug.
+
+**The spoof never ran.** §9 built its brand lists with `joinToString(",")` and dropped them into
+`var B=__BRANDS__,FB=__FULL_BRANDS__;`. Three brands make
+
+    var B={"brand":"Not?A_Brand","version":"8"},{"brand":"Chromium","version":"141"},…,FB={…};
+
+which is a `SyntaxError: Invalid destructuring assignment target` — checked with `node --check` on
+the exact string the Kotlin built. A script that does not parse applies nothing, so the page kept the
+WebView's own `navigator` (an Android user agent, `Linux armv8l`, real touch points): precisely the
+shape Spotify refuses. The spoof was installed, ran first, and did nothing — silently, because a script that cannot
+parse never reaches the `try` inside it.
+
+**A Chrome 107 WebView is not too old.** Chrome 85 is the player's floor and 107 is above it. That
+message came from the console hook: a `SyntaxError` logged while the player page is open (ours, in
+this case) was recorded as a failed page script, and that branch printed a "too old (needs Chrome
+85+)" string — self-contradictory on its face, and it hid the cause behind a plausible one.
+
+### What changed
+
+- **`DesktopSpoof`**: the brand lists are JS arrays (`var B=[…],FB=[…]`). The generated script is
+  checked with `node --check` for engine majors 87, 141 and 155, and run in node against a fake
+  Android `navigator`: user agent, `platform`, `maxTouchPoints`, `vendor`, brands and
+  `window.chrome` all come out as a desktop browser says them.
+- **`DesktopSpoof.PROBE`**: reads the page's `navigator` back after each load ("applied; ua desktop;
+  platform Linux x86_64; touch 0; uaData yes", or "NOT APPLIED") and logs it. A spoof that silently
+  does nothing is now visible in the log as itself, instead of being guessed at from a symptom.
+- **`WebPlayerHost.PLAYER_MIN_MAJOR`** (85): the player's floor in one place, used by the QR sign-in
+  instead of two bare `85` comparisons.
+- **The message**: "too old" is said only when the WebView really is below 85. A page script that
+  fails on a new-enough WebView now gets its own message
+  (`qr_login_page_script_failed`), naming the version and the error and saying the cookie is not the
+  problem.
+- **`DesktopSpoofTest`**: the brand lists must be arrays with one entry per brand, and the probe must
+  look for the marker the script sets.
+
+If a TV still fails now that the spoof actually runs, the next lever is the identity itself: SpotiDuck
+presents a **Windows** desktop Chrome where this install presents Linux.
+
+### Files touched
+
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/DesktopSpoof.kt`
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/WebPlayerHost.kt`
+- `base/host-android/src/test/kotlin/app/myspoti/host/android/DesktopSpoofTest.kt`
+- `base/app/src/main/java/app/myspoti/MainActivity.kt`
+- `base/app/src/main/res/values/strings.xml` (`qr_login_webview_old`, new `qr_login_page_script_failed`)
+
+---
+
 ## License
 
 Unchanged: GPL-3.0, same as the original project. See [LICENSE](LICENSE).

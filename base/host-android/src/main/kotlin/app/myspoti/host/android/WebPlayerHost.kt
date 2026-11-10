@@ -584,6 +584,12 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     // Again, same secret: the page start's call may have run before the new document existed.
                     view.evaluateJavascript(desktopSpoofJs, null)
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
+                    // Read back what the page's navigator now says: a browser script the page never
+                    // got (a parse error in it, a WebView that ran it after the page's own code) is
+                    // the one failure the app could previously only guess at from its symptoms.
+                    view.evaluateJavascript(DesktopSpoof.PROBE) { answer ->
+                        Logbook.log("browser as the page sees it: " + answer.orEmpty().replace("\"", "").take(150))
+                    }
                     armChannels(view, renew = false)
                     relay.injectNow()
                     onPageLoaded?.invoke()
@@ -1287,6 +1293,14 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         private const val PURGE_RETRY_MS = 10_000L
         private const val LOAD_RETRIES = 4
         const val LOGIN_URL = "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
+
+        /**
+         * The oldest Chromium the web player itself runs on (Chrome 85). Below it no cookie and no
+         * spoof can start the player, and the app says so; at or above it, a player that does not
+         * start is something else — a script that failed, a page that did not load — and is
+         * reported as that, with this version, never as "too old".
+         */
+        const val PLAYER_MIN_MAJOR = 85
         private val EXPORT_COOKIES = setOf("sp_dc", "sp_key", "sp_t")
 
         private fun validCookieToken(value: String): Boolean =
