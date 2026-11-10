@@ -17,7 +17,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import com.music.spotui.di.Haptics
 import kotlinx.coroutines.launch
@@ -78,7 +80,7 @@ fun BetaLogButton(modifier: Modifier = Modifier) {
             .navigationBarsPadding()
             .padding(end = 2.dp, bottom = 2.dp)
             .size(if (tv) 46.dp else 30.dp)
-            .then(if (tv) Modifier.focusable().clickable { open = true } else Modifier)
+            .then(if (tv) Modifier.clickable { open = true } else Modifier)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     val job = scope.launch {
@@ -196,7 +198,6 @@ private fun logScrollKeys(scroll: androidx.compose.foundation.ScrollState): Modi
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     return Modifier
         .focusRequester(focus)
-        .focusable()
         .onKeyEvent { event ->
             if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onKeyEvent false
             val step = 300f
@@ -206,6 +207,7 @@ private fun logScrollKeys(scroll: androidx.compose.foundation.ScrollState): Modi
                 else -> false
             }
         }
+        .focusable()
 }
 
 private fun copy(context: Context, text: String) {
