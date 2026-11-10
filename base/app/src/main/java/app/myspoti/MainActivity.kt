@@ -126,7 +126,14 @@ class MainActivity : AppCompatActivity() {
         setupNeeded = com.music.spotui.ui.screens.Setup.needed(this)
         lookOffered = com.music.spotui.data.preferences.LookPref.isOffered(this)
         // A TV has one look of its own and no setup to go through (no battery or file prompts there).
-        if (tv) { setupNeeded = false; lookOffered = true }
+        if (tv) {
+            setupNeeded = false; lookOffered = true
+            // Watch the music, not a remote: a TV left on the player falls asleep after a while,
+            // and the player's page goes to sleep with it — a page Chromium has frozen (thawed a
+            // second late; measured at 38 ms steps taking 7.8 s) hands over old states and then
+            // stops sound altogether, which is what "it plays a little and stops" is on a TV.
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
         root = FrameLayout(this)
         val compose = ComposeView(this).apply {
             setContent {
@@ -412,7 +419,8 @@ class MainActivity : AppCompatActivity() {
         com.music.spotui.di.SongPlayer.refreshLikedIfStale()
         // Asked for over adb (TestControlReceiver's "screenon"): One UI ignores the huge
         // `screen_off_timeout`, so a long unattended run holds the screen on from in here.
-        if (prefs.getBoolean("keep_screen_on", false)) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // A TV always does (see onCreate): its player must not go to sleep with the screen.
+        if (tv || prefs.getBoolean("keep_screen_on", false)) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 

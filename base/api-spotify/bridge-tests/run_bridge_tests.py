@@ -208,8 +208,36 @@ async def test_state_events(h):
     assert any(s and s["track"] for s in h.states)
 
 
+async def test_playhead(h):
+    """The playhead a state carries is the page's own, not a snapshot's extrapolated one.
+
+    On a TV the page's state snapshot is seconds old, and every reader of it ran the position
+    forward by that age (skipped songs, a bar that jumped). The bridge now re-stamps a snapshot
+    that is stale or disagrees with the media element, and leaves a fresh one alone.
+    """
+    seen = len(h.states)
+    await h.call("player.play")
+    await asyncio.sleep(3)
+    live = [s for s in h.states[seen:] if s and s.get("track")]
+    assert live, "no state after a play"
+    # What the page's own element says now, against what the last state said it would be.
+    media = await h.call("media.state")
+    assert media and media.get("time") is not None, "the page has no media element to read"
+    s = live[-1]
+    stamp = s.get("timestamp")
+    assert isinstance(stamp, int) and stamp > 0, f"no timestamp on the state: {stamp}"
+    age = int(time.time() * 1000) - stamp
+    assert age < 1500, f"a playing state {age} ms old was pushed as fresh"
+    assumed = s["positionMs"] + max(0, age)
+    element = media["time"] * 1000
+    # The state's age is real: its position run on by that age meets the element's clock (the
+    # bridge's own agreement window is 2.5 s, the element moved while the call was on its way).
+    assert abs(assumed - element) < 4000, f"state {assumed:.0f} ms vs element {element:.0f} ms"
+
+
 TESTS = [test_ready_and_state, test_token, test_play_context, test_pause_resume, test_seek,
-         test_next_previous, test_queue, test_volume, test_library, test_gql_search, test_services, test_state_events]
+         test_next_previous, test_queue, test_volume, test_library, test_gql_search, test_services,
+         test_state_events, test_playhead]
 
 
 async def main():
