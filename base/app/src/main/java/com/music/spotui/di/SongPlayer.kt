@@ -336,18 +336,17 @@ object SongPlayer {
         scope.launch {
             MyspotiRuntime.spotify.player.refused.collect {
                 // No Widevine in this WebView: the refusal is the WebView's, not the account's.
-                val message = if (MyspotiRuntime.spotify.player.drmMissing.value) app.myspoti.engine.R.string.drm_missing else app.myspoti.engine.R.string.play_refused
-                android.widget.Toast.makeText(Graph.app, message, android.widget.Toast.LENGTH_LONG).show()
+                notice(if (MyspotiRuntime.spotify.player.drmMissing.value) app.myspoti.engine.R.string.drm_missing else app.myspoti.engine.R.string.play_refused)
             }
         }
         scope.launch {
             MyspotiRuntime.spotify.player.refusedAll.collect {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.play_refused_all, android.widget.Toast.LENGTH_LONG).show()
+                notice(app.myspoti.engine.R.string.play_refused_all)
             }
         }
         scope.launch {
             MyspotiRuntime.spotify.player.skipChained.collect {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.songs_skipped_by_spotify, android.widget.Toast.LENGTH_LONG).show()
+                notice(app.myspoti.engine.R.string.songs_skipped_by_spotify)
             }
         }
         scope.launch {
@@ -358,21 +357,21 @@ object SongPlayer {
                 val text = if (app.myspoti.host.android.Widevine.tooOld(drm))
                     Graph.app.getString(app.myspoti.engine.R.string.licences_refused_old_widevine, drm?.substringBefore('@'))
                 else Graph.app.getString(app.myspoti.engine.R.string.licences_refused_by_spotify)
-                android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
+                noticeText(text)
             }
         }
         // Said once the page has asked its WebView: a device that cannot decrypt Spotify's streams
         // plays nothing (no sound, 0:00), and nothing else in the app says why.
         scope.launch {
             MyspotiRuntime.spotify.player.drmMissing.first { it }
-            android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.drm_missing, android.widget.Toast.LENGTH_LONG).show()
+            notice(app.myspoti.engine.R.string.drm_missing)
         }
         scope.launch {
             MyspotiRuntime.host.licenseLimitedUntil.collect { until ->
                 if (until > SystemClock.elapsedRealtime()) main.post {
                     playing = false
                     boundState?.updatePlayingState(false)
-                    android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.spotify_limited, android.widget.Toast.LENGTH_LONG).show()
+                    notice(app.myspoti.engine.R.string.spotify_limited)
                 }
             }
         }
@@ -506,6 +505,23 @@ object SongPlayer {
             p.edit().putLong("position", getCurrentPosition()).apply()
         }
     }
+    /**
+     * A short message for the user, about playback. A phone shows a toast; Android draws no toast
+     * over a TV, so every explanation the app had for its own behaviour — Spotify dropping songs it
+     * cannot play, licences refused, a WebView without Widevine, a refused play — reached nobody on
+     * a television. On a TV it is drawn over the TV's own screens instead ([com.music.spotui.ui.tv.TvNotice]).
+     */
+    private fun notice(res: Int, vararg args: Any) {
+        val text = Graph.app.getString(res, *args)
+        if (com.music.spotui.ui.tv.Tv.isTv(Graph.app)) com.music.spotui.ui.tv.TvNotice.show(text)
+        else android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    private fun noticeText(text: String) {
+        if (com.music.spotui.ui.tv.Tv.isTv(Graph.app)) com.music.spotui.ui.tv.TvNotice.show(text)
+        else android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
+    }
+
     init { main.postDelayed(savePosition, POSITION_SAVE_MS) }
 
     private fun acceptsSessionUpdates() = Graph.app.getSharedPreferences("myspoti_prefs", Context.MODE_PRIVATE)
@@ -1368,11 +1384,11 @@ object SongPlayer {
         if (next == null || fallbackFailures > MAX_FALLBACK_FAILURES) {
             app.myspoti.host.android.Logbook.log("local: Spotify did not play $title either, ${if (next == null) "no song after it" else "$fallbackFailures songs failed in a row"}: stopped")
             fallbackFailures = 0; spotifyFallbackId = null; fallbackRest = null
-            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, title), android.widget.Toast.LENGTH_LONG).show()
+            notice(app.myspoti.engine.R.string.song_unavailable, title)
             return
         }
         app.myspoti.host.android.Logbook.log("local: Spotify did not play $title within ${FALLBACK_START_MS / 1000} s: the queue goes on with ${next.title}")
-        android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable_skipped, title), android.widget.Toast.LENGTH_SHORT).show()
+        notice(app.myspoti.engine.R.string.song_unavailable_skipped, title)
         val name = rest!!.third
         playThroughExtensions(next.spotifyTrackId, next, name, fallback = {
             // The next one is not on the extensions either: Spotify is tried for it, watched the same way.
@@ -1826,7 +1842,7 @@ object SongPlayer {
         // (a tester's log: 183 refusals in 8 min of fast skipping, the page then skipping on its
         // own through songs it could not play). Nothing is sent until the limit is over.
         if (MyspotiRuntime.host.licenseLimited()) {
-            android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.spotify_limited, android.widget.Toast.LENGTH_SHORT).show()
+            notice(app.myspoti.engine.R.string.spotify_limited)
             return
         }
         // Off a song Spotify played for want of an extension: the next one is asked there first.

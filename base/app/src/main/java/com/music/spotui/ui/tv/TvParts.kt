@@ -205,8 +205,12 @@ internal fun TvGradientCard(title: String, subtitle: String, coverUrl: String, w
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 internal fun TvCover(url: String, modifier: Modifier, shape: RoundedCornerShape = RoundedCornerShape(8.dp)) {
+    // The same URL the phone screens hand to Glide: the profile and library endpoints answer a
+    // `spotify:image:` (or `spotify:mosaic:`) identifier, which Glide cannot fetch — given one, it
+    // kept its grey box on every card of the TV's Home (reported: no cover loads there).
+    val src = com.music.spotui.ui.components.spotifyImageUrl(url)
     Box(modifier.clip(shape).background(Color(0xFF1C1C1E)), contentAlignment = Alignment.Center) {
-        if (url.isNotBlank()) GlideImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        if (!src.isNullOrBlank()) GlideImage(model = src, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         else Icon(Icons.Default.MusicNote, null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(40.dp))
     }
 }

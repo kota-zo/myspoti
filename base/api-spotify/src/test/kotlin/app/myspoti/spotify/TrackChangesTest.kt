@@ -47,8 +47,17 @@ class TrackChangesTest {
 
     @Test fun `changes too far apart are not a chain`() {
         val c = TrackChanges.Chain()
-        assertFalse(c.record(Cause.OWN, 400, 0)); assertFalse(c.record(Cause.OWN, 400, 20_000))
-        assertFalse(c.record(Cause.OWN, 400, 40_000))
+        assertFalse(c.record(Cause.OWN, 400, 0)); assertFalse(c.record(Cause.OWN, 400, 100_000))
+        assertFalse(c.record(Cause.OWN, 400, 200_000))
+    }
+
+    // The TV: the page gave every song ten to twenty seconds before moving on, so a ten-second bar
+    // never caught three in a row and the whole queue went by unstopped.
+    @Test fun `a slow device failing every fifteen seconds is still a chain`() {
+        val c = TrackChanges.Chain()
+        assertFalse(c.record(Cause.OWN, 15_000, 0))
+        assertFalse(c.record(Cause.OWN, 16_000, 15_000))
+        assertTrue(c.record(Cause.OWN, 18_000, 30_000))
     }
 
     @Test fun `a command already used does not explain another change`() =

@@ -49,7 +49,12 @@ object TlsCompat {
     private const val WEB_CERT_CACHE_TTL_MS = 30 * 60_000L
 
     fun install(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return
+        // Every Android version, not only 6-9: a television ships a system trust store and then
+        // stops updating it (no root certificates after the ones it was built with), and the app's
+        // own screens are then the ones that fail — the covers, loaded by a client that trusts the
+        // system store, stayed grey on a TV while the page (its own network stack, its own bundled
+        // roots) worked. The system store is still asked first; the bundled roots only answer where
+        // it has nothing to say.
         if (state != null) return
         val built = runCatching { buildState(context.applicationContext) }.onFailure {
             Logbook.log("tls: compat setup failed: ${it.message}")
