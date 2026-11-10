@@ -339,6 +339,13 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 COMPAT_POLYFILL_JS,
                 setOf("https://open.spotify.com", "https://accounts.spotify.com"),
             )
+            // Then what the page may cost this device (see [Stability]): the service worker, the
+            // quarter-second polling, the analytics, and frames nobody sees.
+            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                this,
+                Stability.SCRIPT,
+                setOf("https://open.spotify.com", "https://accounts.spotify.com"),
+            )
         }
         // The WebView stamps every request the page makes with "X-Requested-With: <our package>".
         // No browser does that, and it is measured on the wire ([tools/cdp.py] --trace --headers):
@@ -484,6 +491,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     onPageStarting?.invoke()
                     view.evaluateJavascript(desktopSpoofJs, null)
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
+                    view.evaluateJavascript(Stability.SCRIPT, null)
                     armChannels(view, renew = true)
                     relay.injectNow()
                 }
@@ -584,6 +592,10 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     // Again, same secret: the page start's call may have run before the new document existed.
                     view.evaluateJavascript(desktopSpoofJs, null)
                     view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
+                    view.evaluateJavascript(Stability.SCRIPT, null)
+                    // A document that has just started has its animations back: quiet again unless
+                    // this page is the thing the user is looking at.
+                    view.evaluateJavascript(Stability.quietJs(!lastVisible), null)
                     // Read back what the page's navigator now says: a browser script the page never
                     // got (a parse error in it, a WebView that ran it after the page's own code) is
                     // the one failure the app could previously only guess at from its symptoms.
@@ -1213,6 +1225,10 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         // Still opening or failed, the sign-in page stays out of sight (the app's own screen covers it).
         view.alpha = if (_loginLoad.value == LoginLoad.LOADING || _loginLoad.value == LoginLoad.FAILED) 0f else 1f
         view.visibility = if (visible) View.VISIBLE else View.INVISIBLE
+        // Covered by the app's own screen, the page is 1x1 and invisible — and still animating at 60
+        // frames a second for nobody. Its frames are throttled while it is away and put back when it
+        // is shown (the sign-in page, the log-in-on-this-device step).
+        view.evaluateJavascript(Stability.quietJs(!visible), null)
         view.importantForAccessibility = if (visible) View.IMPORTANT_FOR_ACCESSIBILITY_AUTO else View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         // Typing in the login form needs touch focus, or the keyboard never opens.
         view.isFocusable = visible

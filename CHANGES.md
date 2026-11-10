@@ -251,8 +251,9 @@ second, which §8 was missing:
 - The values come from the same [Fingerprint] as the user agent and `Sec-CH-UA` metadata, so the page,
   its hints and its script-visible `navigator` describe **one** browser.
 
-Not adopted, on purpose: the service-worker blocker and the interval throttle. They change playback
-and cache behaviour, and neither can be validated here without a device.
+Not adopted at the time: the service-worker blocker and the interval throttle. They change playback
+and cache behaviour, and could not be judged without a device — a TV then reported exactly what they
+are for (lag, songs starting late and being skipped); they are §11.
 
 If a TV still gets Spotify's unsupported page after this, the next lever is the identity itself —
 SpotiDuck presents a **Windows** desktop Chrome where this install presents Linux.
@@ -318,6 +319,54 @@ presents a **Windows** desktop Chrome where this install presents Linux.
 - `base/host-android/src/test/kotlin/app/myspoti/host/android/DesktopSpoofTest.kt`
 - `base/app/src/main/java/app/myspoti/MainActivity.kt`
 - `base/app/src/main/res/values/strings.xml` (`qr_login_webview_old`, new `qr_login_page_script_failed`)
+
+---
+
+## 11. What the page may cost the device: the TV is not slow, the page is heavy
+
+Signed in on an Android TV at last, and the report is speed rather than sign-in: the app is laggy, a
+song sometimes starts and sometimes does not, and most of the time it is skipped. The VPN is fast, so
+it is not the network. It is the page: Spotify's web player is built for a laptop, with the tab in
+front, on a CPU a TV does not have.
+
+SpotiDuck — the wrapper that works on these TVs — has a `desktop_spoof.js` that is, besides the
+`navigator` spoof taken in §9, a **performance patch bundle**, and its comments say what each part is
+for. The three patches are taken one to one, and a fourth is this app's own:
+
+- **Service worker off.** Spotify's worker intercepts every request to keep an offline cache map. On
+  an old WebView that bookkeeping is what freezes the page and stalls the player. It is refused
+  (`register` answers a rejected promise) and one already installed is unregistered; the page then
+  loads over the WebView's ordinary HTTP cache.
+- **Quarter-second polling halved.** The page re-reads itself every 250 ms to keep its own UI in step.
+  Nobody sees that UI while the app draws its own screen; 500 ms is the same behaviour at half the
+  wake-ups.
+- **Analytics made a no-op.** `window.ga` answers its callbacks without loading anything.
+- **Frames nobody sees** (this app's own): the player page is attached as a 1×1 invisible view behind
+  the app's screen (so playback runs without drawing), and its `requestAnimationFrame` loop kept
+  running at 60 frames a second for a page nobody can see. It is throttled to ten frames a second
+  while the app's screen covers the page, and put back at full rate the moment the page is shown —
+  the sign-in page, the log-in-on-this-device step, the debug window that shows the page itself.
+
+`Stability.SCRIPT` runs at document start, before the page's own code, and again on page start and
+finish for WebViews without that feature; every patch is guarded on its own, so one that cannot be
+applied leaves the rest — and the page — working.
+
+Verified against the script itself with `node`: the interval clamp turns 250 ms into 500 ms and leaves
+500 and 1000 alone; `register` rejects and an installed worker is unregistered; frames run at full
+rate when shown, five queued frames arrive in one batch while quiet, `cancelAnimationFrame` keeps a
+queued callback from running, and a second run of the script does nothing.
+
+What this does not do: it does not make a slow TV fast, and it does not touch the engine's own stall
+repairs (`SpotifyPlayer`), which only move a song on when it is past its end. If songs are still
+skipped after this, the app's log says why (`player stalled (... attempt N; media element: ...`), and
+that line is the next thing to look at.
+
+### Files touched
+
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/Stability.kt` (new)
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/WebPlayerHost.kt`
+- `base/host-android/src/test/kotlin/app/myspoti/host/android/StabilityTest.kt` (new)
+- `CHANGES.md` §9 (the note that these patches were left out)
 
 ---
 
