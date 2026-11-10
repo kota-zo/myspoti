@@ -80,7 +80,8 @@
     const registry = platform.getRegistry();
     const byName = {};
     for (const key of registry._map.keys()) {
-      if (key && key.description) byName[key.description] = key;
+      const desc = key && (key.description || (typeof key === 'symbol' ? String(key).slice(7, -1) : ''));
+      if (desc) byName[desc] = key;
     }
     const get = name => {
       if (!byName[name]) throw new Error(`service ${name} not found`);
@@ -131,22 +132,81 @@
   };
 
   const lastReal = items => (items || []).filter(i => kind(i) !== 'ad');
-  const mapState = s => s && {
-    track: track(s.item),
-    contextUri: s.context ? s.context.uri : null,
-    contextName: s.context && s.context.metadata ? s.context.metadata.context_description || null : null,
-    previous: track(lastReal(s.previousItems).slice(-1)[0]),
-    next: track(lastReal(s.nextItems)[0]),
-    isPaused: !!s.isPaused,
-    isBuffering: !!s.isBuffering,
-    positionMs: s.positionAsOfTimestamp,
-    timestamp: s.timestamp,
-    durationMs: s.duration,
-    shuffle: !!s.shuffle,
-    repeat: s.repeat, // 0 off, 1 context, 2 track
-    speed: s.speed,
-    restrictions: s.restrictions || {},
-    playbackId: s.playbackId || null,
+
+  // --- the playhead ---------------------------------------------------------
+  //
+  // `positionAsOfTimestamp` is a position at `timestamp`, and hosts extrapolate it; that is only
+  // safe while the snapshot is a moment old. On a device whose main thread is busy (a TV) the
+  // page's own state snapshot can be seconds old, and every reader of it then runs the position
+  // forward by that whole age: the bar jumps ahead, a song is judged "past the end" long before
+  // its end (and the next one played), and a song that is restarted or seeked back is placed at
+  // 0:00 that jumps forward again a moment later.
+  //
+  // The page's own media element is the truth, when it is there and its clock belongs to the
+  // song the state names: its `currentTime`. Read on every state mapping (a dozen DOM reads, no
+  // round trip), and compared with the snapshot: a snapshot that is a moment old and agrees with
+  // the element is left on `timestamp`, one that disagrees is re-stamped with the element's own
+  // position and "now", and so is one whose age is beyond any main-thread delay.
+  const PLAYHEAD_MAX_AGE_MS = 1500;
+  const PLAYHEAD_AGREE_MS = 2500;
+
+  /** The media element the page plays through, if it is reachable without walking the SDK. */
+  const directElement = () => {
+    try {
+      const el = window.__mspElement;
+      if (el instanceof HTMLMediaElement) return el;
+    } catch (e) { /* none */ }
+    try {
+      const els = document.querySelectorAll('audio, video');
+      for (const el of els) if (el instanceof HTMLMediaElement && !el.paused && !el.ended) return el;
+      return els.length === 1 ? els[0] : null;
+    } catch (e) { return null; }
+  };
+
+  // The element whose clock is the song the state names: one that is playing, or the one element
+  // the page has (a paused song's clock is its position). null when that cannot be told.
+  let elementOwner = { el: null, at: 0 };
+  const playhead = s => {
+    const now = Date.now();
+    const position = s.positionAsOfTimestamp;
+    const timestamp = s.timestamp;
+    if (!Number.isFinite(position) || position < 0) return { positionMs: position, timestamp };
+    const el = directElement() || (elementOwner.el && now - elementOwner.at < 2000 ? elementOwner.el : null);
+    if (!el || !Number.isFinite(el.currentTime)) return { positionMs: position, timestamp };
+    const live = el.currentTime * 1000;
+    const age = Number.isFinite(timestamp) && timestamp > 0 ? now - timestamp : null;
+    // The element stands still on another song (a paused page, a switch under way): its clock is
+    // no answer for the song the state names. Its own state's pause is the answer then.
+    if (s.isPaused || el.paused) {
+      if (age == null || Math.abs(age) > PLAYHEAD_MAX_AGE_MS) return { positionMs: live, timestamp: now };
+      return { positionMs: position, timestamp };
+    }
+    if (age == null || age > PLAYHEAD_MAX_AGE_MS || age < -PLAYHEAD_MAX_AGE_MS) return { positionMs: live, timestamp: now };
+    const expected = position + age * (s.speed > 0 ? s.speed : 1);
+    if (Math.abs(expected - live) > PLAYHEAD_AGREE_MS) return { positionMs: live, timestamp: now };
+    return { positionMs: position, timestamp };
+  };
+
+  const mapState = s => {
+    if (!s) return s;
+    const head = playhead(s);
+    return {
+      track: track(s.item),
+      contextUri: s.context ? s.context.uri : null,
+      contextName: s.context && s.context.metadata ? s.context.metadata.context_description || null : null,
+      previous: track(lastReal(s.previousItems).slice(-1)[0]),
+      next: track(lastReal(s.nextItems)[0]),
+      isPaused: !!s.isPaused,
+      isBuffering: !!s.isBuffering,
+      positionMs: head.positionMs,
+      timestamp: head.timestamp,
+      durationMs: s.duration,
+      shuffle: !!s.shuffle,
+      repeat: s.repeat, // 0 off, 1 context, 2 track
+      speed: s.speed,
+      restrictions: s.restrictions || {},
+      playbackId: s.playbackId || null,
+    };
   };
 
   const mapQueue = q => q && {
@@ -179,7 +239,7 @@
     if (depth > 12 || seen.has(value)) return null;
     seen.add(value);
     if (value instanceof Date) return value.toISOString();
-    if (value instanceof Map) value = Object.fromEntries(value);
+    if (value instanceof Map) { const m = {}; value.forEach((v, k) => { m[k] = v; }); value = m; }
     if (value instanceof Set) value = [...value];
     if (ArrayBuffer.isView(value)) return Array.from(value);
     if (Array.isArray(value)) return value.map(v => { const j = toJson(v, depth + 1, seen); return j === undefined ? null : j; });
@@ -685,9 +745,24 @@
 
   // --- events ---------------------------------------------------------------
 
+  /** A state push this soon after the one before is dropped (its position is read off the element). */
+  const STATE_MIN_GAP_MS = 200;
+
   let lastState = '';
-  const pushState = () => {
+  let lastStateAt = 0;
+  let stateTimer = 0;
+  const pushState = (force = false) => {
     if (!services) return;
+    const now = Date.now();
+    // On a busy page the player reports its state several times in a row (a new song, its licence,
+    // its first frame). Each push costs the host a message and a redraw, and a burst of them is the
+    // wait the user sees. The last one is sent a moment later: it carries what the others did.
+    if (!force && now - lastStateAt < STATE_MIN_GAP_MS) {
+      if (!stateTimer) stateTimer = setTimeout(() => { stateTimer = 0; pushState(true); }, STATE_MIN_GAP_MS);
+      return;
+    }
+    if (stateTimer) { clearTimeout(stateTimer); stateTimer = 0; }
+    lastStateAt = now;
     const state = mapState(services.player.getState());
     // An ad is on: the page's ad managers are turned off again (it re-arms them per break).
     if (state && state.track && state.track.kind === 'ad') { try { adsOff(); } catch (e) { /* no service */ } }
@@ -701,9 +776,65 @@
     if (services) post({ type: 'queue', queue: mapQueue(services.player.getQueue()) });
   };
 
+  /**
+   * Learns the page's media element without walking the SDK on every state: the player keeps it
+   * inside its own objects and out of the document. A known element is used until it leaves the
+   * DOM; else the SDK is walked once, and again a few seconds later if that found nothing (the
+   * element is created with the first play).
+   */
+  let elementScanAt = 0;
+  const rememberElement = () => {
+    const now = Date.now();
+    const known = elementOwner.el;
+    if (known && known.isConnected !== false && now - elementOwner.at < 30_000) return;
+    const direct = directElement();
+    if (direct) { elementOwner = { el: direct, at: now }; return; }
+    if (now - elementScanAt < 4_000) return;
+    elementScanAt = now;
+    // The player's own objects first: its streamer holds the element in a promise, and the SDK
+    // hangs off the page's services. `window` is walked only as far as the SDK's entry points —
+    // the whole of it is thousands of objects deep and never reaches the element in five levels.
+    const roots = [];
+    let sdk = null;
+    try { sdk = services && services.resolve('PlayerSDK'); } catch (e) { /* no SDK yet */ }
+    const harmony = sdk && sdk.harmony;
+    const streamer = harmony && harmony._streamer;
+    if (streamer) roots.push(streamer);
+    if (harmony) roots.push(harmony);
+    const pending = harmony && harmony._streamer && harmony._streamer._playerPromise;
+    const seen = new WeakSet();
+    let found = null;
+    const walk = (o, depth) => {
+      if (found || !o || (typeof o !== 'object' && typeof o !== 'function') || seen.has(o) || depth > 6) return;
+      seen.add(o);
+      if (typeof HTMLMediaElement !== 'undefined' && o instanceof HTMLMediaElement) { found = o; return; }
+      if (typeof Node !== 'undefined' && o instanceof Node) return;
+      if (o === window || o === document) return;
+      let keys = [];
+      try { keys = Object.keys(o); } catch (e) { return; }
+      for (const k of keys.slice(0, 60)) {
+        if (k.startsWith('_react') || k === 'window' || k === 'document' || k === 'parent' || k === 'top' || k === 'self') continue;
+        let v;
+        try { v = o[k]; } catch (e) { continue; }
+        walk(v, depth + 1);
+      }
+    };
+    roots.forEach(r => walk(r, 0));
+    // A promise is not walked by its keys (it has none): what its player is, is taken next turn.
+    // The state mapping runs on every update, so the element is known a moment later.
+    if (!found && pending && typeof pending.then === 'function') {
+      Promise.resolve(pending).then(player => {
+        if (elementOwner.el) return;
+        walk(player, 0);
+        if (found) elementOwner = { el: found, at: Date.now() };
+      }).catch(() => {});
+    }
+    if (found) elementOwner = { el: found, at: now };
+  };
+
   const attach = () => {
     const events = services.player.getEvents();
-    events.addListener('update', pushState);
+    events.addListener('update', () => { rememberElement(); pushState(); });
     events.addListener('queue_update', pushQueue);
     // Ads off from the first moment: a break queued before the bridge attached never starts.
     try { adsOff(); } catch (e) { /* no service yet */ }

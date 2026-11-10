@@ -91,9 +91,14 @@ object SongPlayer {
     /** The page's state is read again that long at most before the screen is put right. */
     private const val RECONCILE_READ_MS = 3_000L
     /** A seek is sent within this, or given up for this try (see [seekTo]). */
-    private const val SEEK_SEND_MS = 5_000L
-    /** How long a seek has to show up in the page's state before it is sent again. */
-    private const val SEEK_CHECK_MS = 3_000L
+    private const val SEEK_SEND_MS = 12_000L
+    /**
+     * How long a seek has to show up in the page's state before it is sent again. A page busy
+     * enough to need the seek (a TV) is also busy enough to be slow to report one: three seconds
+     * was shorter than the state round trip there, so every seek was sent twice and the clock was
+     * given back to the page before the first one could land.
+     */
+    private const val SEEK_CHECK_MS = 8_000L
     /** The longest a seek holds the clock against the page (both tries and their sends). */
     private const val SEEK_HOLD_MS = 2 * (SEEK_SEND_MS + SEEK_CHECK_MS)
     /** A page position this close to a seek's target (or past it by the time played) is the seek. */
@@ -161,8 +166,10 @@ object SongPlayer {
             // Read again first: the page's last push can be lost on the way (its events buffer
             // drops the oldest when its main thread stalls), and the screen must not go back to
             // "paused" over a song that plays.
-            kotlinx.coroutines.withTimeoutOrNull(RECONCILE_READ_MS) { runCatching { MyspotiRuntime.spotify.player.refresh() } }
+            val read = kotlinx.coroutines.withTimeoutOrNull(RECONCILE_READ_MS) { runCatching { MyspotiRuntime.spotify.player.refresh() } }
             if (leftAlone()) return@launch
+            // The page answered a moment ago: its word is the newest, a seek's own hold is over.
+            if (read?.isSuccess == true) api.player.state.value?.let { seekAnsweredByRead(it) }
             val s = api.player.state.value
             if (s != null) { applyState(s); return@launch }
             // The page never reported anything (it did not load): nothing plays, whatever was tapped.
@@ -336,18 +343,17 @@ object SongPlayer {
         scope.launch {
             MyspotiRuntime.spotify.player.refused.collect {
                 // No Widevine in this WebView: the refusal is the WebView's, not the account's.
-                val message = if (MyspotiRuntime.spotify.player.drmMissing.value) app.myspoti.engine.R.string.drm_missing else app.myspoti.engine.R.string.play_refused
-                android.widget.Toast.makeText(Graph.app, message, android.widget.Toast.LENGTH_LONG).show()
+                notice(if (MyspotiRuntime.spotify.player.drmMissing.value) app.myspoti.engine.R.string.drm_missing else app.myspoti.engine.R.string.play_refused)
             }
         }
         scope.launch {
             MyspotiRuntime.spotify.player.refusedAll.collect {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.play_refused_all, android.widget.Toast.LENGTH_LONG).show()
+                notice(app.myspoti.engine.R.string.play_refused_all)
             }
         }
         scope.launch {
             MyspotiRuntime.spotify.player.skipChained.collect {
-                android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.songs_skipped_by_spotify, android.widget.Toast.LENGTH_LONG).show()
+                notice(app.myspoti.engine.R.string.songs_skipped_by_spotify)
             }
         }
         scope.launch {
@@ -358,21 +364,21 @@ object SongPlayer {
                 val text = if (app.myspoti.host.android.Widevine.tooOld(drm))
                     Graph.app.getString(app.myspoti.engine.R.string.licences_refused_old_widevine, drm?.substringBefore('@'))
                 else Graph.app.getString(app.myspoti.engine.R.string.licences_refused_by_spotify)
-                android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
+                noticeText(text)
             }
         }
         // Said once the page has asked its WebView: a device that cannot decrypt Spotify's streams
         // plays nothing (no sound, 0:00), and nothing else in the app says why.
         scope.launch {
             MyspotiRuntime.spotify.player.drmMissing.first { it }
-            android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.drm_missing, android.widget.Toast.LENGTH_LONG).show()
+            notice(app.myspoti.engine.R.string.drm_missing)
         }
         scope.launch {
             MyspotiRuntime.host.licenseLimitedUntil.collect { until ->
                 if (until > SystemClock.elapsedRealtime()) main.post {
                     playing = false
                     boundState?.updatePlayingState(false)
-                    android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.spotify_limited, android.widget.Toast.LENGTH_LONG).show()
+                    notice(app.myspoti.engine.R.string.spotify_limited)
                 }
             }
         }
@@ -506,6 +512,23 @@ object SongPlayer {
             p.edit().putLong("position", getCurrentPosition()).apply()
         }
     }
+    /**
+     * A short message for the user, about playback. A phone shows a toast; Android draws no toast
+     * over a TV, so every explanation the app had for its own behaviour — Spotify dropping songs it
+     * cannot play, licences refused, a WebView without Widevine, a refused play — reached nobody on
+     * a television. On a TV it is drawn over the TV's own screens instead ([com.music.spotui.ui.tv.TvNotice]).
+     */
+    private fun notice(res: Int, vararg args: Any) {
+        val text = Graph.app.getString(res, *args)
+        if (com.music.spotui.ui.tv.Tv.isTv(Graph.app)) com.music.spotui.ui.tv.TvNotice.show(text)
+        else android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    private fun noticeText(text: String) {
+        if (com.music.spotui.ui.tv.Tv.isTv(Graph.app)) com.music.spotui.ui.tv.TvNotice.show(text)
+        else android.widget.Toast.makeText(Graph.app, text, android.widget.Toast.LENGTH_LONG).show()
+    }
+
     init { main.postDelayed(savePosition, POSITION_SAVE_MS) }
 
     private fun acceptsSessionUpdates() = Graph.app.getSharedPreferences("myspoti_prefs", Context.MODE_PRIVATE)
@@ -706,10 +729,23 @@ object SongPlayer {
         durationMs = item?.durationMs ?: 0L
         val reported = s.positionAt(System.currentTimeMillis())
         // A seek on its way: the page's old position does not take the clock back (see [seekTo]).
+        //
+        // A drag or a D-pad scrub sends the seek, then something reads a state on the way: a
+        // reconcile (the hold's end), a read of the page's own. That state is older than the seek
+        // and still on the old position, and the hold no longer covered it — the bar went back to
+        // 0:00 and climbed again to where it was (reported on a TV: "I press back, the bar goes
+        // to 0 then to 1 minute"). Until the page shows the seek, a state on the spot it was
+        // sent from is the old position, not the song's; the clock keeps the seek's place.
         if (seekHeld(uri) && seekLanded(s)) seekUntil = 0L
         val seeking = seekHeld(uri)
+        // The skip's own 0: the page still reports the song that was left (see [SeekRules.leftBySkip]).
+        val leftBySkip = SeekRules.leftBySkip(uri, movedFrom, movedTo, movedAt, SystemClock.elapsedRealtime())
+        // The song asked for has landed: the move is over, and any later state is the page's word.
+        if (!leftBySkip && uri != movedFrom && uri.isNotBlank()) { movedFrom = ""; movedTo = null }
+        val staleSeekState = SeekRules.stale(seekSent, uri, reported, held = seeking, guardUntil = seekHoldUntil,
+            now = SystemClock.elapsedRealtime(), near = SEEK_NEAR_MS)
         // Keep the running clock when the player only nudges it (< 1 s).
-        if (!seeking && !(wasPlaying && playing && !wasBuffering && !isBuffering && kotlin.math.abs(reported - predicted) < 1000)) {
+        if (!leftBySkip && !seeking && !staleSeekState && !(wasPlaying && playing && !wasBuffering && !isBuffering && kotlin.math.abs(reported - predicted) < 1000)) {
             positionMs = reported
             positionAt = SystemClock.elapsedRealtime()
         }
@@ -1368,11 +1404,11 @@ object SongPlayer {
         if (next == null || fallbackFailures > MAX_FALLBACK_FAILURES) {
             app.myspoti.host.android.Logbook.log("local: Spotify did not play $title either, ${if (next == null) "no song after it" else "$fallbackFailures songs failed in a row"}: stopped")
             fallbackFailures = 0; spotifyFallbackId = null; fallbackRest = null
-            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable, title), android.widget.Toast.LENGTH_LONG).show()
+            notice(app.myspoti.engine.R.string.song_unavailable, title)
             return
         }
         app.myspoti.host.android.Logbook.log("local: Spotify did not play $title within ${FALLBACK_START_MS / 1000} s: the queue goes on with ${next.title}")
-        android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.song_unavailable_skipped, title), android.widget.Toast.LENGTH_SHORT).show()
+        notice(app.myspoti.engine.R.string.song_unavailable_skipped, title)
         val name = rest!!.third
         playThroughExtensions(next.spotifyTrackId, next, name, fallback = {
             // The next one is not on the extensions either: Spotify is tried for it, watched the same way.
@@ -1826,7 +1862,7 @@ object SongPlayer {
         // (a tester's log: 183 refusals in 8 min of fast skipping, the page then skipping on its
         // own through songs it could not play). Nothing is sent until the limit is over.
         if (MyspotiRuntime.host.licenseLimited()) {
-            android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.spotify_limited, android.widget.Toast.LENGTH_SHORT).show()
+            notice(app.myspoti.engine.R.string.spotify_limited)
             return
         }
         // Off a song Spotify played for want of an extension: the next one is asked there first.
@@ -2050,6 +2086,15 @@ object SongPlayer {
         // position stays until Spotify reports, and a quick second previous would restart again.
         positionMs = 0L
         positionAt = SystemClock.elapsedRealtime()
+        // The song just left, and the one asked for: the page hands over a state of the song it is
+        // leaving for a moment (a snapshot a minute in, taken before the move) — the bar went to 0
+        // and then to about a minute (see [SeekRules.leftBySkip]).
+        //
+        // The page's own neighbour, not the now-playing screens': [NowPlaying.prev] there is a
+        // [SongsModel], which names no uri at all (the page's state does, and it is a NowPlaying).
+        movedFrom = _nowPlaying.value.uri
+        movedTo = api.player.state.value?.previous?.uri
+        movedAt = SystemClock.elapsedRealtime()
         transport(waitReady = !stateSeen, checkAfter = true, pullBack = false) { api.player.previous() }
     }
 
@@ -2348,17 +2393,55 @@ object SongPlayer {
     /** [s] is the song a seek was asked on, somewhere it can have got to since. */
     private fun seekLanded(s: PlayerState): Boolean {
         if (s.item?.uri != seekUri) return false
+        val now = SystemClock.elapsedRealtime()
+        val played = now - seekAt
         val at = s.positionAt(System.currentTimeMillis())
-        val played = SystemClock.elapsedRealtime() - seekAt
-        return at >= seekTarget - SEEK_NEAR_MS && at <= seekTarget + played + SEEK_NEAR_MS
+        // The page's snapshot may be old (a busy page): where the song is by now is its position
+        // plus the age of the state, within what the seek was given. Two seconds apart was the
+        // other way the seek never showed as taken.
+        val age = (System.currentTimeMillis() - s.timestampMs).coerceIn(0L, played)
+        val landed = SeekRules.placeAt(at, age, s.speed, played)
+        return landed >= (seekTarget - SEEK_NEAR_MS).toDouble() && landed <= (seekTarget + played + SEEK_NEAR_MS).toDouble()
     }
 
     private fun seekHeld(uri: String) = uri == seekUri && SystemClock.elapsedRealtime() < seekUntil
+
+    /** Where the song was when the last seek was sent, and what was asked for ([seekSent]). */
+    @Volatile private var seekSent = SeekRules.Sent("", 0L, 0L)
+    /** Until when a state on the place a seek was sent from is taken for the old position (see [SeekRules.stale]). */
+    @Volatile private var seekHoldUntil = 0L
+
+    /** A skip's song that was left and the one asked for, and when (see [SeekRules.leftBySkip]). */
+    @Volatile private var movedFrom = ""
+    @Volatile private var movedTo: String? = null
+    @Volatile private var movedAt = 0L
+
+    /** How long a state still on the place a seek was sent from is refused after it (twice the drag's hold). */
+    private const val SEEK_SLIDE_MS = 2 * SEEK_HOLD_MS
+
+    /**
+     * A state read straight from the page ([reconcile]) settles a seek: the page either showed it
+     * (the clock takes the page's word) or it still stands where the seek was sent from — a page
+     * that has not taken the seek yet answers the read with the old position too, and taking that
+     * answer as the seek being over is how the bar fell back to 0:00 after a drag.
+     */
+    private fun seekAnsweredByRead(s: PlayerState) {
+        val now = SystemClock.elapsedRealtime()
+        val at = s.positionAt(System.currentTimeMillis())
+        if (SeekRules.stale(seekSent, s.item?.uri.orEmpty(), at, held = now < seekUntil,
+                guardUntil = seekHoldUntil, now = now, near = SEEK_NEAR_MS)) return
+        seekUntil = 0L
+        seekHoldUntil = 0L
+    }
 
     fun seekTo(ms: Long) {
         if (LocalPlayer.active.value) { LocalPlayer.seekTo(ms); return }
         cancelBurst()
         val now = SystemClock.elapsedRealtime()
+        // Where the song was when the seek was asked for: a state still there afterwards is the old
+        // position, handed over late (see [SeekRules.stale]).
+        seekSent = SeekRules.Sent(_nowPlaying.value.uri, getCurrentPosition(), ms)
+        seekHoldUntil = now + SEEK_SLIDE_MS
         positionMs = ms
         positionAt = now
         seekUri = _nowPlaying.value.uri

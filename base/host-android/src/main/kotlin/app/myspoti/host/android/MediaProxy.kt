@@ -86,7 +86,7 @@ internal class MediaProxy(private val client: OkHttpClient, private val identity
          */
         private val DROP = setOf("content-encoding", "transfer-encoding", "connection", "keep-alive", "set-cookie")
         /** A connection of its own: audio streams are long, and one kept alive per track is enough. */
-        fun client(): OkHttpClient = OkHttpClient.Builder()
+        fun client(): OkHttpClient = TlsCompat.apply(OkHttpClient.Builder())
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

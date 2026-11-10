@@ -613,7 +613,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         }
         val item = lost.item ?: return
         val uri = item.uri
-        val at = lost.positionMs
+        // Where the song really was when the page was taken away: a paused state's position is
+        // exact, a playing one's is its snapshot run on by the snapshot's age. [positionMs] alone
+        // is where it was when the page last wrote the state, which on a busy page is seconds back
+        // — the song then restarted a few seconds early (heard as a jump back after a pause, and a
+        // play after a stop that "plays a little and stops").
+        val at = lost.positionAt(System.currentTimeMillis())
         // A play newer than [since] is the user's: the restore stops there.
         var since = lastPlay?.third ?: 0L
         val seq = stateSeq
@@ -762,6 +767,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         var stillSince = 0L
         /** When a stall already seen is due its repair: the next look is then, not a whole tick later. */
         var dueAt = 0L
+        /** "Past the end" asked of the page again, see [END_VERIFY_MAX]. */
+        var endChecks = 0
         fun notStalled() { stillSince = 0L; _stalled.value = false }
         while (true) {
             // A song plays (or an ad is on): the watcher looks every [WATCH_TICK_MS] to hear a
@@ -990,7 +997,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             val reason = s?.let { stallOf(it, now, pausedByUser) } ?: (if (silent) SILENT else null)
             if (repairsHeld()) { key = null; attempts = 0; continue }
             // A song heard again: a reload for a stale token may be tried again from the first gap.
-            if (playingHere && moved) authReloads = 0
+            if (playingHere && moved) { authReloads = 0; endChecks = 0 }
             // A silent song repaired once is not silent for [SILENT_MS] after the repair, which
             // reset its count: its attempt is kept while its element still stands, so the next
             // look reloads (reported, 2.3.0: "attempt 1" every 8 s for 4.5 minutes, a seek refused
@@ -1023,7 +1030,38 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
                 bridge.logger?.invoke("a licence was answered 401: the page's token is stale, reloading")
                 attempts = 2
             }
-            if (attempts == 1) runCatching { if (onward) playOn(s) else seek(s.positionAt(now)) }
+            // "Past the end" is a guess: the clock is extrapolated from the last state the page sent,
+            // and a page that was busy for seconds hands over one that is already old — on a TV that
+            // is every song, and each of those guesses moved the user's music on by itself. The page
+            // is asked where it is before a song is left; only a page that still has it in its middle
+            // stops the repair, and only [END_VERIFY_MAX] times (a page that cannot answer the
+            // question is not left playing a song that is over). The bar is the window the state's
+            // own age already explains (PAST_END_SLACK_MS): a fresh snapshot a moment old does not
+            // move a song that has [END_VERIFY_MS] left.
+            if (onward && attempts == 1 && endChecks < END_VERIFY_MAX) {
+                val fresh = runCatching {
+                    (bridge.call("player.state", timeoutMs = MEDIA_TIMEOUT_MS, quiet = true) as? JsonObject)?.let { playerState(it) }
+                }.getOrNull()
+                val here = fresh?.item
+                if (fresh != null && here != null && here.uri == s.item?.uri && here.durationMs > 0) {
+                    val at = fresh.positionAt(System.currentTimeMillis())
+                    val freshAge = ((System.currentTimeMillis() - fresh.timestampMs).coerceAtLeast(0L) * fresh.speed).toLong()
+                    if (at < here.durationMs - END_VERIFY_MS - (reasonAge(now, s) + freshAge).coerceAtMost(PAST_END_SLACK_MS)) {
+                        endChecks++
+                        bridge.logger?.invoke(
+                            "not the end: the page has ${here.name} at ${TrackChanges.clock(at)} of ${TrackChanges.clock(here.durationMs)}; looked at again",
+                        )
+                        key = null; attempts = 0; silentSince = 0L
+                        onState(fresh)
+                        continue
+                    }
+                }
+            }
+            // A song over moves on. One heard but standing still is not seeked to where the clock
+            // says it is (that spot is the snapshot's guess, and a page that misses it stays
+            // silent): it is begun again where the page itself has it, which is what the user
+            // pressing play meant.
+            if (attempts == 1) runCatching { if (onward) playOn(s) else resumeWhereItIs() }
             else {
                 attempts = 0
                 reloadAndPlayOn(if (onward) s else s.copy(positionMs = s.positionAt(now), timestampMs = now), next = onward)
@@ -2190,6 +2228,42 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         }
     }
     override suspend fun seek(positionMs: Long) { endCrossfade(restore = true); command("player.seek", buildJsonObject { put("positionMs", positionMs) }) }
+
+    /**
+     * The song is heard again where it stands: paused, at the spot it is at (the seek a silence or
+     * a stuck clock asks for). Reported from a TV: pressing play after a stop, the song "plays a
+     * little and stops". The repairs used to seek the song where the extrapolated clock was — which
+     * on a page whose state was seconds old is a spot the song had never reached — and a page that
+     * could not take that seek or its licence went silent again. A pause and a resume on the song's
+     * own position asks the page to do what the user asked: carry on.
+     */
+    suspend fun resumeWhereItIs() {
+        endCrossfade(restore = true)
+        val s = _state.value ?: return
+        // A pause first: a page whose state says "playing" while its element stands still takes a
+        // plain resume as no news (nothing changes), and answers it without moving.
+        val wasPlaying = !s.isPaused
+        if (wasPlaying) runCatching { command("player.pause", timeoutMs = PLAY_TIMEOUT_MS) }
+        command("player.resume", timeoutMs = PLAY_TIMEOUT_MS)
+        scope.launch {
+            // The song is heard on where it stands: a state the page wrote after the resume (a
+            // timestamp past the one the repair already had) says so, or the element itself runs.
+            // The state held before the resume says "playing" too, and taking it for an answer is
+            // how a repair tells itself a resume worked without anything having moved.
+            val taken = withTimeoutOrNull(RESUME_TAKE_MS) {
+                _state.first { st ->
+                    st != null && !st.isPaused &&
+                        (st.timestampMs > s.timestampMs || lastMedia?.paused == false)
+                }
+            }
+            if (taken != null) return@launch
+            // Not taken: the song is put where its own state says it is, and carried on from there.
+            val at = s.positionAt(System.currentTimeMillis())
+            bridge.logger?.invoke("resume not taken on ${s.item?.name}: played on from ${TrackChanges.clock(at)}")
+            runCatching { seek(at.coerceAtLeast(0L)) }.onFailure { runCatching { resumePage() } }
+        }
+    }
+
     override suspend fun next() {
         pausedByUser = false
         pickBeforeAd = null
@@ -2651,6 +2725,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val PICK_REPLAY_MS = 120_000L
         /** How long a resume waits for a page that went silent while paused before loading it again. */
         const val RESUME_PING_MS = 1_500L
+        /** How long a resume the repair sent is given to be heard (its state, and the element's clock). */
+        const val RESUME_TAKE_MS = 6_000L
         /** A resumed song rises from silence to its level in this long, along the ear's curve. */
         const val RISE_MS = 500L
         /** How long the rise waits for sound before the level simply comes back. */
@@ -2681,6 +2757,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val STUCK_MS = 8_000L
         /** A song over with nothing after it: where an ad was left out. Next song quickly. */
         const val END_STUCK_MS = 1_000L
+
+        /** How far before the end the page must say a song is before "past the end" is believed. */
+        const val END_VERIFY_MS = 4_000L
+
+        /** How many times a song may be asked about before the page's own "it is over" is accepted. */
+        private const val END_VERIFY_MAX = 2
         private const val WATCH_TICK_MS = 2_000L
         /** The page's lowest streaming level (24 kbit/s), used while it only mirrors (see [setMirroring]). */
         const val MIRROR_QUALITY = "low"
@@ -2737,6 +2819,25 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
 
         fun onwardTarget(s: PlayerState, nextUp: List<NowPlaying>): String? = onwardItem(s, nextUp)?.uri
 
+        /**
+         * How far the song has already run on the strength of a snapshot [s] taken at [now]: the
+         * state's own age, in position. It is what an old snapshot explains of a clock that looks
+         * past the end (see [PAST_END_SLACK_MS]).
+         */
+        fun reasonAge(now: Long, s: PlayerState): Long =
+            ((now - s.timestampMs).coerceAtLeast(0L) * s.speed).toLong()
+
+        /**
+         * How far past its end a state's clock has to be before the song is taken for over. Wide on
+         * purpose: the clock is extrapolated from the page's last snapshot, and a page too busy to
+         * hand over a fresh one (a TV) makes a state that is seconds old — the extrapolation then
+         * runs past the end of a song that is still playing in its middle, and the repair moves the
+         * user's music on (reported on a TV as every song being skipped). The page is asked where it
+         * is before such a judgement (see the watcher's end check); this window is what is left for
+         * a page that cannot answer, and it is longer than the biggest age seen there.
+         */
+        const val PAST_END_SLACK_MS = 15_000L
+
         fun stallOf(s: PlayerState, now: Long, userPaused: Boolean): String? {
             val item = s.item ?: return null
             // Episodes stall exactly like songs once their duration is known (a podcast playing
@@ -2749,7 +2850,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             }
             if (s.isBuffering) return if (now - s.timestampMs > BUFFERING_STALL_MS - STUCK_MS) "buffering" else null
             val clock = s.positionMs + ((now - s.timestampMs) * s.speed).toLong()
-            return if (clock > item.durationMs + 1_500) "past the end" else null
+            return if (clock > item.durationMs + PAST_END_SLACK_MS) "past the end" else null
         }
 
         /**

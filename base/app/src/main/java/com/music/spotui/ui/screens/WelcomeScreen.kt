@@ -69,12 +69,13 @@ import kotlin.math.sin
 
 /**
  * First screen of a signed-out app: what Myspoti is, then Spotify's own login page
- * (shown by the engine once [onLogin] is tapped). The logo, the name, what the app adds and
- * the button rise into place one after the other, over a soft green light that drifts.
+ * (shown by the engine once [onLogin] is tapped) or QR / phone sign-in ([onQrLogin]).
+ * The logo, the name, what the app adds and the buttons rise into place one after the other,
+ * over a soft green light that drifts.
  */
 @Composable
-fun WelcomeScreen(onLogin: () -> Unit) {
-    // One entrance per part, a beat apart: logo, name, features, button.
+fun WelcomeScreen(onLogin: () -> Unit, onQrLogin: () -> Unit = {}) {
+    // One entrance per part, a beat apart: logo, name, features, buttons.
     val parts = remember { List(4) { Animatable(0f) } }
     LaunchedEffect(Unit) {
         parts.forEachIndexed { i, a -> launch { delay(150L + i * 180L); a.animateTo(1f, tween(650, easing = FastOutSlowInEasing)) } }
@@ -84,64 +85,156 @@ fun WelcomeScreen(onLogin: () -> Unit) {
         alpha = v
         translationY = (1f - v) * 24.dp.toPx()
     }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val tv = remember { com.music.spotui.ui.tv.Tv.isTv(ctx) }
+    val wide = tv || androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 640
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    var primaryFocused by remember { mutableStateOf(false) }
+    var secondaryFocused by remember { mutableStateOf(false) }
+    if (tv) LaunchedEffect(Unit) { delay(300); runCatching { focus.requestFocus() } }
+
     Box(Modifier.fillMaxSize().background(AppBackground)) {
         Glow(Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 28.dp, vertical = 24.dp)) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth().align(Alignment.Center).padding(bottom = 120.dp),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(120.dp)
-                        .graphicsLayer {
-                            val v = parts[0].value
-                            alpha = v
-                            val s = 0.85f + 0.15f * v
-                            scaleX = s; scaleY = s
-                        }
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(tone(0xFF181818)),
-                )
-                Spacer(Modifier.height(28.dp))
-                Text("Myspoti", color = AppText, fontFamily = AppSans, fontWeight = FontWeight.ExtraBold, fontSize = 40.sp,
-                    modifier = Modifier.rise(1))
-                Spacer(Modifier.height(12.dp))
-                Box(Modifier.rise(2)) { Features() }
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).rise(3),
-            ) {
-                // A TV remote: the button takes the focus at once and shows it (a white ring); a
-                // focus with no look left nothing on screen to say what OK would do.
-                val ctx = androidx.compose.ui.platform.LocalContext.current
-                val tv = remember { com.music.spotui.ui.tv.Tv.isTv(ctx) }
-                val focus = remember { androidx.compose.ui.focus.FocusRequester() }
-                var focused by remember { mutableStateOf(false) }
-                if (tv) LaunchedEffect(Unit) { delay(300); runCatching { focus.requestFocus() } }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                        .then(if (tv) Modifier.focusRequester(focus).onFocusChanged { focused = it.isFocused } else Modifier)
-                        .pressable(0.96f, onClick = onLogin)
-                        .clip(RoundedCornerShape(50))
-                        .then(if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(50)) else Modifier)
-                        .background(AppAccent),
+        Box(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = if (wide) 48.dp else 28.dp, vertical = 24.dp)) {
+            if (wide) {
+                androidx.compose.foundation.layout.Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(48.dp),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    Text(stringResource(R.string.welcome_login), color = Color.Black, fontFamily = AppSans,
-                        fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(116.dp)
+                                .graphicsLayer {
+                                    val v = parts[0].value
+                                    alpha = v
+                                    val s = 0.85f + 0.15f * v
+                                    scaleX = s; scaleY = s
+                                }
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(tone(0xFF181818)),
+                        )
+                        Spacer(Modifier.height(22.dp))
+                        Text("Myspoti", color = AppText, fontFamily = AppSans, fontWeight = FontWeight.ExtraBold, fontSize = 40.sp,
+                            modifier = Modifier.rise(1))
+                        Spacer(Modifier.height(10.dp))
+                        Box(Modifier.rise(2)) { Features() }
+                    }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.weight(1f).rise(3),
+                    ) {
+                        // On TV: QR / phone sign-in comes first and takes focus so users never hit the TV WebView CAPTCHA wall.
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                                .then(if (tv) Modifier.focusRequester(focus).onFocusChanged { primaryFocused = it.isFocused } else Modifier)
+                                .pressable(0.96f, onClick = onQrLogin)
+                                .clip(RoundedCornerShape(50))
+                                .then(if (primaryFocused) Modifier.border(3.dp, Color.White, RoundedCornerShape(50)) else Modifier)
+                                .background(AppAccent),
+                        ) {
+                            Text(stringResource(R.string.welcome_qr_login), color = Color.Black, fontFamily = AppSans,
+                                fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .onFocusChanged { secondaryFocused = it.isFocused }
+                                .pressable(0.96f, onClick = onLogin)
+                                .clip(RoundedCornerShape(50))
+                                .border(
+                                    width = if (secondaryFocused) 3.dp else 1.dp,
+                                    color = if (secondaryFocused) Color.White else Color(0x55FFFFFF),
+                                    shape = RoundedCornerShape(50),
+                                )
+                                .background(Color(0x22FFFFFF)),
+                        ) {
+                            Text(stringResource(R.string.welcome_login), color = AppText, fontFamily = AppSans,
+                                fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Text(
+                            stringResource(R.string.welcome_privacy),
+                            color = AppText.copy(alpha = 0.55f), fontFamily = AppSans, fontSize = 13.sp, lineHeight = 18.sp,
+                            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp),
+                        )
+                    }
                 }
-                Text(
-                    stringResource(R.string.welcome_privacy),
-                    color = AppText.copy(alpha = 0.5f), fontFamily = AppSans, fontSize = 13.sp, lineHeight = 18.sp,
-                    textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp),
-                )
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth().align(Alignment.Center).padding(bottom = 170.dp),
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(120.dp)
+                            .graphicsLayer {
+                                val v = parts[0].value
+                                alpha = v
+                                val s = 0.85f + 0.15f * v
+                                scaleX = s; scaleY = s
+                            }
+                            .clip(RoundedCornerShape(32.dp))
+                            .background(tone(0xFF181818)),
+                    )
+                    Spacer(Modifier.height(28.dp))
+                    Text("Myspoti", color = AppText, fontFamily = AppSans, fontWeight = FontWeight.ExtraBold, fontSize = 40.sp,
+                        modifier = Modifier.rise(1))
+                    Spacer(Modifier.height(12.dp))
+                    Box(Modifier.rise(2)) { Features() }
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).rise(3),
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .pressable(0.96f, onClick = onLogin)
+                            .clip(RoundedCornerShape(50))
+                            .background(AppAccent),
+                    ) {
+                        Text(stringResource(R.string.welcome_login), color = Color.Black, fontFamily = AppSans,
+                            fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .pressable(0.96f, onClick = onQrLogin)
+                            .clip(RoundedCornerShape(50))
+                            .border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(50))
+                            .background(Color(0x18FFFFFF)),
+                    ) {
+                        Text(stringResource(R.string.welcome_qr_login_phone), color = AppText, fontFamily = AppSans,
+                            fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                    Text(
+                        stringResource(R.string.welcome_privacy),
+                        color = AppText.copy(alpha = 0.5f), fontFamily = AppSans, fontSize = 13.sp, lineHeight = 18.sp,
+                        textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
             }
         }
     }

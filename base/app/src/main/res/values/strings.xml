@@ -23,4 +23,52 @@
     <string name="account_page_detail">Plan, privacy and devices, on spotify.com</string>
     <string name="player_source_downloaded">Downloaded</string>
     <string name="extension_change_write">Now also allowed to send to Spotify: %1$s</string>
+
+    <string name="welcome_qr_login" tools:ignore="MissingTranslation">Sign in with QR (Phone)</string>
+    <string name="welcome_qr_login_phone" tools:ignore="MissingTranslation">Sign in with QR or Cookie</string>
+    <string name="qr_login_title" tools:ignore="MissingTranslation">Sign in with your phone</string>
+    <string name="qr_login_steps" tools:ignore="MissingTranslation">1. Connect your phone to the same Wi-Fi.\n2. Scan this QR code with your phone camera or the Myspoti app.\n3. Tap Open in Myspoti App, or paste your sp_dc cookie from any browser.</string>
+    <string name="qr_login_url_label" tools:ignore="MissingTranslation">Or open in a browser:</string>
+    <string name="qr_login_pin_label" tools:ignore="MissingTranslation">Code: %1$s</string>
+    <string name="qr_login_waiting" tools:ignore="MissingTranslation">Waiting for phone on Wi-Fi…</string>
+    <string name="qr_login_checking" tools:ignore="MissingTranslation">Checking your Spotify session…</string>
+    <string name="qr_login_signed_in" tools:ignore="MissingTranslation">Signed in! Opening Myspoti…</string>
+    <string name="qr_login_no_network" tools:ignore="MissingTranslation">Connect to Wi-Fi or Ethernet to use QR sign-in, or paste your sp_dc cookie below.</string>
+    <string name="qr_login_retry_network" tools:ignore="MissingTranslation">Refresh QR</string>
+    <string name="qr_login_use_webview" tools:ignore="MissingTranslation">Log in on this device</string>
+    <string name="qr_login_paste_toggle" tools:ignore="MissingTranslation">Paste sp_dc cookie</string>
+    <string name="qr_login_paste_hint" tools:ignore="MissingTranslation">Paste sp_dc value (from open.spotify.com cookies)</string>
+    <string name="qr_login_paste_clipboard" tools:ignore="MissingTranslation">Paste</string>
+    <string name="qr_login_paste_submit" tools:ignore="MissingTranslation">Sign In</string>
+    <string name="qr_login_paste_title" tools:ignore="MissingTranslation">Paste sp_dc cookie</string>
+    <string name="qr_login_paste_desc" tools:ignore="MissingTranslation">Paste your Spotify sp_dc cookie value (or Cookie header / JSON from open.spotify.com or the Myspoti browser extension).</string>
+    <string name="qr_login_paste_clipboard_empty" tools:ignore="MissingTranslation">Clipboard is empty</string>
+    <string name="qr_login_vpn_hint" tools:ignore="MissingTranslation">VPN active — QR uses local Wi-Fi (%1$s); music &amp; web stay on VPN.</string>
+    <string name="qr_login_bad_cookie" tools:ignore="MissingTranslation">Could not find a valid sp_dc cookie in what you pasted.</string>
+    <string name="qr_login_rejected" tools:ignore="MissingTranslation">Spotify did not accept that cookie. Make sure you are signed in to open.spotify.com and copied sp_dc.</string>
+    <string name="qr_login_network_error" tools:ignore="MissingTranslation">Could not reach Spotify over your network/VPN (%1$s). Check your VPN and try again.</string>
+    <string name="qr_login_unsupported_browser" tools:ignore="MissingTranslation">Spotify\'s own page says this browser is not supported (%1$s), so the player cannot start here. Update Android System WebView (or Chrome, if it is the WebView on this device) to a recent version and try again.</string>
+    <string name="qr_login_webview_old" tools:ignore="MissingTranslation">Spotify accepted your cookie, but Android System WebView (%1$s) on this device is older than the Spotify Web Player runs on (Chrome 85). Update Android System WebView to continue.</string>
+    <string name="qr_login_page_script_failed" tools:ignore="MissingTranslation">Spotify accepted your cookie and this WebView (%1$s) is new enough, so the cookie is not the problem: a script on Spotify\'s player page failed to run (%2$s). Update Android System WebView and try again.</string>
+    <string name="qr_login_webview_load_failed" tools:ignore="MissingTranslation">Spotify accepted your cookie, but the Web Player page failed to load (%1$s). Check your VPN or try again.</string>
+    <string name="qr_login_webview_timeout" tools:ignore="MissingTranslation">Spotify accepted your cookie, but the Web Player took too long to boot on this device. Check your VPN connection or update Android System WebView and try again.</string>
+    <string name="qr_login_unverified" tools:ignore="MissingTranslation">Could not confirm the session on this device (%1$s; %2$s). Your cookie may still be fine: Spotify did not say it is wrong, the player page just never finished loading. Try again, or update Android System WebView.</string>
+    <string name="qr_login_back" tools:ignore="MissingTranslation">Back</string>
+    <string name="login_help_qr" tools:ignore="MissingTranslation">Sign in with QR / Phone instead</string>
+
+    <string name="pair_tv_row" tools:ignore="MissingTranslation">Sign in a TV or another device</string>
+    <string name="pair_tv_row_detail" tools:ignore="MissingTranslation">Scan the QR code on your TV to skip TV CAPTCHA</string>
+    <string name="pair_confirm_title" tools:ignore="MissingTranslation">Sign in %1$s?</string>
+    <string name="pair_confirm_body" tools:ignore="MissingTranslation">This transfers your active Spotify session to %1$s (%2$s) over your local Wi-Fi.</string>
+    <string name="pair_confirm_sign_in_first" tools:ignore="MissingTranslation">Sign in to Spotify on this phone first, then Myspoti will send your session to %1$s.</string>
+    <string name="pair_confirm_send" tools:ignore="MissingTranslation">Sign in device</string>
+    <string name="pair_sending" tools:ignore="MissingTranslation">Sending session and verifying…</string>
+    <string name="pair_success" tools:ignore="MissingTranslation">Signed in on %1$s!</string>
+    <string name="pair_manual_title" tools:ignore="MissingTranslation">Connect to TV</string>
+    <string name="pair_manual_body" tools:ignore="MissingTranslation">Enter the address and 6-digit code shown on the TV QR screen.</string>
+    <string name="pair_manual_address_hint" tools:ignore="MissingTranslation">http://192.168.1.x:port or full QR URL</string>
+    <string name="pair_manual_pin_hint" tools:ignore="MissingTranslation">6-digit code</string>
+    <string name="pair_manual_button" tools:ignore="MissingTranslation">Enter code manually</string>
+    <string name="pair_manual_connect" tools:ignore="MissingTranslation">Continue</string>
+    <string name="pair_manual_invalid" tools:ignore="MissingTranslation">Enter a local Wi-Fi address (such as 192.168.1.42:54321) and the 6-digit code.</string>
 </resources>

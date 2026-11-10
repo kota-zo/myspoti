@@ -43,7 +43,7 @@ android {
         manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else if (beta) "Myspoti Beta" else "Myspoti"
         // The adb command line (com.music.spotui.cli): betas and debug builds only.
         manifestPlaceholders["cliEnabled"] = beta.toString()
-        minSdk = 29
+        minSdk = 23
         targetSdk = 36
         // CI release builds pass the tag's version (-PappVersionName / -PappVersionCode).
         versionCode = (findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 200
@@ -125,16 +125,26 @@ android {
     }
     packaging { jniLibs { excludes += listOf("lib/x86/**", "lib/x86_64/**") } }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
 dependencies {
+    constraints {
+        // Align Google Play Services versions between :app compileClasspath (code-scanner) and
+        // :host-android runtimeClasspath (play-services-cronet) so R8 at minSdk 23 does not see
+        // pre-desugared Clock$-CC in compile-classpath basement-18.1.0 while synthesizing it for 18.9.0.
+        implementation("com.google.android.gms:play-services-basement:18.9.0")
+        implementation("com.google.android.gms:play-services-base:18.5.0")
+        implementation("com.google.android.gms:play-services-tasks:18.2.0")
+    }
+    coreLibraryDesugaring(libs.desugaring)
     implementation(project(":host-android"))
     // AutoMix: song analysis and transition planning (pure Kotlin), Beat This on ONNX Runtime.
     implementation(project(":automix"))
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
     // Third-party extensions: the sandbox (Rhino), manifests, packages and catalogues.
     implementation(project(":extensions"))
     // The queue's drag and drop (Apache-2.0): the row carried stays in the list, auto-scroll at the edges.

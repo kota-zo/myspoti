@@ -313,7 +313,12 @@ object PodcastDownloader {
             setRequestProperty("Accept", "*/*")
         }
         try {
-            Probe(conn.contentLengthLong.takeIf { it > 0 } ?: -1L, conn.contentType.orEmpty())
+            val len = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                conn.contentLengthLong
+            } else {
+                conn.getHeaderField("Content-Length")?.toLongOrNull() ?: conn.contentLength.toLong()
+            }
+            Probe(len.takeIf { it > 0 } ?: -1L, conn.contentType.orEmpty())
         } finally {
             conn.disconnect()
         }

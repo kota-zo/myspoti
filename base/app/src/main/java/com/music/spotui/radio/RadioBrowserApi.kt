@@ -61,7 +61,7 @@ object RadioBrowserApi {
     private const val USER_AGENT = "Myspoti/1.0 (Live Radio module; +https://github.com/kota-zo/myspoti)"
 
     private val json = Json { ignoreUnknownKeys = true }
-    private val http by lazy { OkHttpClient.Builder().callTimeout(12, TimeUnit.SECONDS).build() }
+    private val http by lazy { app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder()).callTimeout(12, TimeUnit.SECONDS).build() }
 
     @Volatile private var resolvedHost: String? = null
     private val hostLock = Any()

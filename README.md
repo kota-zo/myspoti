@@ -21,6 +21,34 @@
   <a href="https://github.com/sponsors/kota-zo"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor kota-zo on GitHub" height="56"></a>
 </p>
 
+## What's different in this build
+
+This is my own modified build of [kota-zo/myspoti](https://github.com/kota-zo/myspoti). The app is the same one: these are the changes compared to the original.
+
+- Works on **Android 6.0 and up** (the original needs Android 10 or later)
+- Added **QR code login**: show a code on the TV or the old phone, scan it with another phone that is already signed in
+- Added **phone login**: enter a short code from your phone instead, no typing a password with a remote
+- Added **paste login**: paste a `sp_dc` session cookie copied from a desktop browser, for when Spotify's login page shows a captcha or refuses to load
+- Made the built-in login page work on old Android: bundled root certificates, a modern secure-connection layer, and compatibility code for old browsers in the app
+- Clear messages when the built-in login page is too old, fails to load, or times out (no more endless loading screen)
+- **The page is told a desktop browser before Spotify's own scripts run** (the trick the TV wrappers use): `navigator.userAgent`, `platform`, `userAgentData`, `window.chrome` and the like are installed at document start, matching the user agent and client hints the app sends
+- **Fixed: the desktop-browser spoof above was silently doing nothing.** Its own script had a syntax error (the brand list), so it never ran and the page still saw the old Android WebView — and the app blamed the WebView's version for it ("Chrome 107 … needs Chrome 85+"). It parses now, the app logs what the page's `navigator` actually says after each load, and "too old" is only said when the WebView really is older than the player's Chrome 85
+- **Fixed: Spotify said "this browser is not supported" on Android 6/7.** The app presented the device's own WebView version (Chrome 87–106 on those devices), which Spotify refuses by name; it now presents a current Chrome, and if Spotify's unsupported page appears anyway the app says so at once instead of blaming the cookie
+- **Fixed: QR / cookie sign-in never let the player boot.** The player page was loaded into the 1x1 hidden WebView the app plays music in, and never finished starting there — so a good cookie ended in "it didn't load". The import now attaches the page full size behind the app's screen (the state the "Log in on this device" button uses, which is why pressing it worked), and opens Spotify's sign-in page as a second chance if the player still has not started after 25 s
+- **Fixed: QR / cookie sign-in said "Spotify did not accept that cookie" for a good cookie.** On an Android 6 TV the app asked Spotify with the TV's old browser name, Spotify answered with a page that carries no session info, and that silence was read as a rejection. It now asks as a current browser, treats "no answer" as no answer, and lets the player page decide, with a longer wait and one retry
+- **Less lag on a TV, and fewer songs skipped**: the player page is told what it may cost the device — Spotify's service worker is switched off (its request bookkeeping is what freezes old WebViews), its quarter-second polling runs at half the rate, its analytics are answered without loading anything, and the animations of the page nobody can see (it plays behind the app's own screen) drop from 60 frames a second to ten, and come back when the page is shown
+- **The TV now says why** when Spotify skips songs it cannot play, refuses a licence, or found no Widevine: those messages were Android toasts, which a television never draws — they are drawn on the TV's own screen, and the app's log is reachable with the remote (it needed a press-and-hold, which a remote cannot do)
+- **The app no longer skips a song itself** because its clock guess said "past the end" on a state the slow page had not refreshed; it asks the page where the song is first. The guard that stops a page chaining through songs it cannot play now also catches a slow one (fifteen seconds a song, not only ten)
+- **Covers load on TV Home**: they are handed to the image loader as `spotify:image:` identifiers, which it cannot fetch; they go through the same conversion the phone screens use, and the cover loader trusts the app's bundled certificates on a TV whose system store is out of date
+- Fixed signing in while a VPN is on (the app reset its connections at the wrong moment, and its network filters ignored the VPN)
+- TV friendly login buttons: they work with a remote's OK button, not only with touch
+- Added launcher icons for Android 6 and 7, which cannot use the newer icon format
+- Fixed the parts that crashed or stopped working on Android 6: notifications, vibration, sharing files, downloads and conversion, the equalizer, background visuals, radio, share cards, local music, and more
+- AutoMix works on Android 6 as well (it now uses an older version of the audio model, which still runs there)
+- Added tests for the secure-connection layer, the cookie check, the QR pairing, local music scanning and text romanisation
+
+Full file-by-file details: [CHANGES.md](CHANGES.md).
+
 ## Why Myspoti
 
 ### 🚫 Spotify with no ads, on a free account
@@ -40,8 +68,8 @@ Under the hood, the official Spotify Web Player plays the music, hidden inside t
 
 ## Get started
 
-1. Download the APK from the [latest release](https://github.com/kota-zo/myspoti/releases/latest) and open it (Android 10 or later). Android asks once to allow installs from your browser or file manager.
-2. Tap **Log in with Spotify** and sign in.
+1. Download the APK from the [latest release](https://github.com/kota-zo/myspoti/releases/latest) and open it (Android 6.0 or later). Android asks once to allow installs from your browser or file manager.
+2. Tap **Log in with Spotify**, or use **QR / Phone / Cookie** on Android TV and older devices (scan the QR code from another phone running Myspoti, or paste your `sp_dc` session cookie from a desktop browser to skip tricky TV/WebView captcha checks).
 3. Pick the sound quality, allow what you want (notifications, Bluetooth, local files…), and you are in.
 
 New versions are offered inside the app: one tap downloads and installs them.

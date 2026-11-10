@@ -109,13 +109,17 @@ object SafeNet {
     /** The system resolver, checked. */
     val SafeDns: Dns = CheckedDns()
 
+    /** Optional platform hook (used on pre-API-29 Android to supply updated CA roots / TLS 1.2). */
+    @Volatile
+    var configureClient: ((OkHttpClient.Builder) -> OkHttpClient.Builder)? = null
+
     /**
      * An OkHttp client that never connects to a local address, follows no redirect (the caller
      * decides, and checks the next address with [checkUrlHost]), keeps no cookie and no cache.
      * Literal IP addresses skip the [Dns] in OkHttp: the interceptor checks them.
      */
     val client: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        val b = OkHttpClient.Builder()
             .dns(SafeDns)
             .followRedirects(false)
             .followSslRedirects(false)
@@ -126,7 +130,7 @@ object SafeNet {
             }
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
-            .build()
+        (configureClient?.invoke(b) ?: b).build()
     }
 
     /** Throws when [host] is a local address (the name, or an IP literal). */

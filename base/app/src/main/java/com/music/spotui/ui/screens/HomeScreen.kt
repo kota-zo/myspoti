@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.platform.LocalContext
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -86,7 +84,6 @@ import com.music.spotui.ui.theme.GridBackground
 import com.music.spotui.ui.viewmodel.HomeViewModel
 
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HomeScreen(navController: NavController){
 
@@ -162,7 +159,6 @@ private fun onHomeItemClick(navController: NavController, item: HomeItem) {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun HomeFeedContent(navController: NavController, feed: HomeFeedModel, facet: String = "", onFacet: (String) -> Unit = {}) {

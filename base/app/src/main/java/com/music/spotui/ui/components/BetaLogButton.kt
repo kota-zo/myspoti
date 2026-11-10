@@ -11,8 +11,16 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import com.music.spotui.di.Haptics
 import kotlinx.coroutines.launch
@@ -61,12 +69,19 @@ fun BetaLogButton(modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     val grow = remember { androidx.compose.animation.core.Animatable(0f) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val ctx = LocalContext.current
+    // A television: no touch to press and hold, and its screen is not where a clipboard goes. The
+    // icon is a focusable button, and the log is read on the screen (and photographed) by scrolling
+    // it with the remote. Without this the app's log was unreachable on a TV — every report of a
+    // bug there had to be guessed at.
+    val tv = remember { com.music.spotui.ui.tv.Tv.isTv(ctx) }
     // The full player covers the tabs: no bug icon over it.
     if (!com.music.spotui.ui.navigation.PlayerSheet.open.value) Box(
         modifier
             .navigationBarsPadding()
             .padding(end = 2.dp, bottom = 2.dp)
-            .size(30.dp)
+            .size(if (tv) 46.dp else 30.dp)
+            .then(if (tv) Modifier.clickable { open = true } else Modifier)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     val job = scope.launch {
@@ -90,9 +105,12 @@ fun BetaLogButton(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         val g = grow.value
+        var focused by remember { mutableStateOf(false) }
         BugIcon(
-            color = androidx.compose.ui.graphics.lerp(AppMuted, AppAccent, g),
-            modifier = Modifier.size((16 + 12 * g).dp),
+            color = androidx.compose.ui.graphics.lerp(if (focused) Color.White else AppMuted, AppAccent, g),
+            modifier = Modifier
+                .size(if (tv) 26.dp else (16 + 12 * g).dp)
+                .then(if (tv) Modifier.onFocusChanged { focused = it.isFocused } else Modifier),
         )
     }
     if (open) LogsDialog(onDismiss = { open = false })
@@ -130,6 +148,7 @@ private const val HOLD_MS = 900
 private fun LogsDialog(onDismiss: () -> Unit) {
     com.music.spotui.extensions.ProtectedSurfaceEffect(app.myspoti.extensions.ProtectedSurface.REPORT)
     val context = LocalContext.current
+    val tv = remember { com.music.spotui.ui.tv.Tv.isTv(context) }
     var text by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { text = BetaLogs.recent() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -142,12 +161,48 @@ private fun LogsDialog(onDismiss: () -> Unit) {
             Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp)) {
                 val logs = text
                 if (logs == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = AppAccent)
-                else SelectionContainer {
+                else if (tv) {
+                    // A remote cannot scroll a text, and keys only reach the thing that has the
+                    // focus: the dialog hands the focus to its buttons, so a text that asked for it
+                    // once — and was refused, silently — never got a single key, and up and down
+                    // did nothing at all. Each line is a focusable row instead, newest first and
+                    // bottom-up: the focus starts on the newest line at the bottom, every press of
+                    // up walks back through the log, and the list follows the focus exactly as the
+                    // home shelves follow it. No key is taken from anywhere, so the buttons stay
+                    // reachable (down from the newest line, up from the oldest).
+                    val lines = remember(logs) { logs.lines().filter { it.isNotBlank() }.asReversed() }
+                    val newest = remember { FocusRequester() }
+                    LaunchedEffect(lines) {
+                        // The dialog settles its focus on the first button a moment after it opens,
+                        // and an early request is thrown away without a word: ask again, a few
+                        // times, a little later.
+                        repeat(3) { attempt ->
+                            kotlinx.coroutines.delay(if (attempt == 0) 80L else 250L)
+                            runCatching { newest.requestFocus() }
+                        }
+                    }
+                    LazyColumn(state = rememberLazyListState(), reverseLayout = true,
+                        modifier = Modifier.fillMaxSize()) {
+                        itemsIndexed(lines) { index, line ->
+                            var focused by remember { mutableStateOf(false) }
+                            Text(line, color = if (focused) Color.White else Color(0xFFDDDDDD),
+                                fontSize = 12.sp, fontFamily = FontFamily.Monospace, lineHeight = 16.sp,
+                                modifier = Modifier.fillMaxWidth()
+                                    .background(if (focused) Color(0x26FFFFFF) else Color.Transparent)
+                                    .onFocusChanged { focused = it.isFocused }
+                                    .then(if (index == 0) Modifier.focusRequester(newest) else Modifier)
+                                    .focusable())
+                        }
+                    }
+                } else {
                     // The newest lines matter most: the view opens scrolled to the end.
                     val scroll = rememberScrollState()
                     LaunchedEffect(logs) { scroll.scrollTo(scroll.maxValue) }
-                    Text(logs, color = Color(0xFFDDDDDD), fontSize = 10.sp, fontFamily = FontFamily.Monospace, lineHeight = 13.sp,
-                        modifier = Modifier.fillMaxSize().verticalScroll(scroll))
+                    SelectionContainer {
+                        Text(logs, color = Color(0xFFDDDDDD), fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, lineHeight = 13.sp,
+                            modifier = Modifier.fillMaxSize().verticalScroll(scroll))
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {

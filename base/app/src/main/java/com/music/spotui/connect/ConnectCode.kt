@@ -50,7 +50,7 @@ object ConnectCode {
     private class Subject(val token: String, val clientId: String, val userAgent: String, val web: Boolean = false)
 
     private const val PREFS = "lan_connect_code"
-    private val http by lazy { OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS).followRedirects(false).build() }
+    private val http by lazy { app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder()).callTimeout(15, TimeUnit.SECONDS).followRedirects(false).build() }
     private val FORM = "application/x-www-form-urlencoded".toMediaType()
 
     /**

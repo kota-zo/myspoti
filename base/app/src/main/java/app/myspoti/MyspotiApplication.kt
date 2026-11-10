@@ -21,6 +21,9 @@ import kotlinx.coroutines.launch
 class MyspotiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Provide modern root CAs and TLS 1.2 for Android 6–9 before any network client initializes.
+        app.myspoti.host.android.TlsCompat.install(this)
+        app.myspoti.extensions.SafeNet.configureClient = { app.myspoti.host.android.TlsCompat.apply(it) }
         // A crash or a freeze of the last run, back in this run's diagnostic report.
         app.myspoti.host.android.LastExit.install(this)
         app.myspoti.power.EnergySettings.init(this)
@@ -28,7 +31,8 @@ class MyspotiApplication : Application() {
         Graph.init(this)
         SongPlayer.attachEngine(Graph.currentSongState)
         // Headphones or Bluetooth gone: pause rather than play on the speaker.
-        com.music.spotui.di.NoisyAudio.register(this)
+        // (A TV's HDMI link goes away and comes back on its own: no pause there, see AudioRouteRules.)
+        com.music.spotui.di.NoisyAudio.register(this, tv = com.music.spotui.ui.tv.Tv.isTv(this))
         // Downloaded songs are no longer reported to Spotify: drop the old report queue,
         // whose replays sent play commands that took over the Web Player.
         runCatching { java.io.File(filesDir, "wrapped_queue.json").delete() }

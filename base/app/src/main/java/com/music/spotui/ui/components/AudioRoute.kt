@@ -26,9 +26,17 @@ data class AudioRoute(val kind: Kind, val name: String) {
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val outs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             fun nameOf(device: AudioDeviceInfo) = runCatching { device.productName?.toString().orEmpty() }.getOrDefault("")
-            outs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET || it.type == AudioDeviceInfo.TYPE_BLE_SPEAKER }
+            outs.firstOrNull { device ->
+                device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+                        (device.type == AudioDeviceInfo.TYPE_BLE_HEADSET || device.type == AudioDeviceInfo.TYPE_BLE_SPEAKER))
+            }
                 ?.let { return@runCatching AudioRoute(Kind.BLUETOOTH, nameOf(it)) }
-            outs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+            outs.firstOrNull { device ->
+                device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                    device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && device.type == AudioDeviceInfo.TYPE_USB_HEADSET)
+            }
                 ?.let { return@runCatching AudioRoute(Kind.WIRED, nameOf(it)) }
             AudioRoute(Kind.SPEAKER, "")
         }.getOrDefault(AudioRoute(Kind.SPEAKER, ""))

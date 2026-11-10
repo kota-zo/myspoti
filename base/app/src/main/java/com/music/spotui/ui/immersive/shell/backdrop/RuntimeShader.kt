@@ -12,6 +12,7 @@
  */
 package com.music.spotui.ui.immersive.shell.backdrop
 
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,7 @@ fun RuntimeShader(@Language("AGSL") shaderString: String): RuntimeShader {
     return AndroidRuntimeShader(shader)
 }
 
+@SuppressLint("NewApi")
 fun RuntimeShader.asAndroidRuntimeShader(): android.graphics.RuntimeShader {
     return (this as AndroidRuntimeShader).shader
 }

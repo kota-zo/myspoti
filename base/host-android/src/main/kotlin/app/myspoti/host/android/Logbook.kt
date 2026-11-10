@@ -191,7 +191,7 @@ object Logbook {
         // runtime started, or the not-yet-initialized host would crash the export.
         val pageUrl = if (MyspotiRuntime.isStarted) runCatching { MyspotiRuntime.host.url.value }.getOrNull() else null
         val tail = synchronized(lines) { lines.toList() }
-        val webView = runCatching { android.webkit.WebView.getCurrentWebViewPackage() }.getOrNull()
+        val webView = runCatching { androidx.webkit.WebViewCompat.getCurrentWebViewPackage(context) }.getOrNull()
         val widevine = if (MyspotiRuntime.isStarted) runCatching {
             if (MyspotiRuntime.spotify.player.drmMissing.value) "missing (nothing Spotify streams can play)" else null
         }.getOrNull() else null

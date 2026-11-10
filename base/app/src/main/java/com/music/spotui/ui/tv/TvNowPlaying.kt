@@ -270,28 +270,42 @@ private fun TvTransport(state: ImmersivePlayerState, actions: ImmersivePlayerAct
 @Composable
 private fun TvSeekBar(state: ImmersivePlayerState, actions: ImmersivePlayerActions, modifier: Modifier) {
     var positionMs by remember { mutableLongStateOf(state.positionMs()) }
-    LaunchedEffect(state.positionMs) { while (isActive) withFrameMillis { positionMs = state.positionMs() } }
     val duration = state.durationMs.coerceAtLeast(1L)
     var focused by remember { mutableStateOf(false) }
+    // The newest place asked for, until the player's own clock shows it: the bar used to be drawn
+    // from the playhead the moment OK was pressed, which a player that takes a second to seek
+    // (a TV) has not moved yet — the bar fell back to where the song was and climbed forward
+    // again (reported: "the bar goes to 0 then to a minute"). The latch is dropped from the
+    // frame loop itself, so it is not a key of any effect that each frame would restart.
+    var seekTarget by remember { mutableLongStateOf(-1L) }
+    LaunchedEffect(state.positionMs) {
+        while (isActive) withFrameMillis {
+            positionMs = state.positionMs()
+            if (seekTarget >= 0 && (kotlin.math.abs(positionMs - seekTarget) <= 3_000 || !state.playing)) seekTarget = -1L
+        }
+    }
     // The cursor starts at the playhead each time the bar takes the focus.
     var scrubMs by remember(state.title) { mutableLongStateOf(positionMs) }
-    val progress = (positionMs.toFloat() / duration).coerceIn(0f, 1f)
+    val shown = if (seekTarget >= 0) seekTarget else positionMs
+    val progress = (shown.toFloat() / duration).coerceIn(0f, 1f)
     val scrub = (scrubMs.toFloat() / duration).coerceIn(0f, 1f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.8f), blurRadius = 8f)
     Column(modifier.fillMaxWidth()) {
         Box(
             Modifier.fillMaxWidth().padding(vertical = 6.dp)
-                .onFocusChanged { if (it.isFocused && !focused) scrubMs = positionMs; focused = it.isFocused }
+                .onFocusChanged { if (it.isFocused && !focused) scrubMs = shown; focused = it.isFocused }
                 .onKeyEvent { e ->
                     if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
                     when (e.key) {
-                        Key.DirectionLeft -> { scrubMs = (scrubMs - 10_000).coerceAtLeast(0); true }
-                        Key.DirectionRight -> { scrubMs = (scrubMs + 10_000).coerceAtMost(duration); true }
+                        Key.DirectionLeft -> { scrubMs = ((if (seekTarget >= 0) seekTarget else scrubMs) - 10_000).coerceAtLeast(0); true }
+                        Key.DirectionRight -> { scrubMs = ((if (seekTarget >= 0) seekTarget else scrubMs) + 10_000).coerceAtMost(duration); true }
                         else -> false
                     }
                 }
                 .focusable()
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.seekTo(scrubMs); positionMs = scrubMs },
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                    seekTarget = scrubMs; positionMs = scrubMs; actions.seekTo(scrubMs)
+                },
         ) {
             Box(Modifier.fillMaxWidth().height(if (focused) 8.dp else 4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x44FFFFFF))) {
                 Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(Color.White))
@@ -299,7 +313,7 @@ private fun TvSeekBar(state: ImmersivePlayerState, actions: ImmersivePlayerActio
             }
         }
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-            Text(formatMs(if (focused) scrubMs else positionMs), style = TextStyle(fontSize = 13.sp, color = if (focused) Color.White else Color(0xFFAAAAAA), shadow = shadow))
+            Text(formatMs(if (focused) scrubMs else shown), style = TextStyle(fontSize = 13.sp, color = if (focused) Color.White else Color(0xFFAAAAAA), shadow = shadow))
             Text(formatMs(state.durationMs), style = TextStyle(fontSize = 13.sp, color = Color(0xFFAAAAAA), shadow = shadow))
         }
     }

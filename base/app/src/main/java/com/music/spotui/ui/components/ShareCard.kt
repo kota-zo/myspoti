@@ -59,7 +59,11 @@ object ShareCard {
         val bmp = runCatching {
             Glide.with(context.applicationContext).asBitmap().load(app.myspoti.host.android.Covers.large(uri)).submit(1000, 1000).get()
         }.getOrNull() ?: return null
-        return if (bmp.config == Bitmap.Config.HARDWARE) bmp.copy(Bitmap.Config.ARGB_8888, false) else bmp
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && bmp.config == Bitmap.Config.HARDWARE) {
+            bmp.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            bmp
+        }
     }
 
     private fun render(title: String, artist: String, cover: Bitmap?): Bitmap {

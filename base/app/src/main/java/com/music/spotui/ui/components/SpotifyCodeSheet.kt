@@ -115,11 +115,19 @@ object SpotifyCode {
                 c.drawColor(background.toArgb())
                 var y = pad.toFloat()
                 if (cover != null) {
-                    val src = if (cover.config == Bitmap.Config.HARDWARE) cover.copy(Bitmap.Config.ARGB_8888, false) else cover
+                    val src = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && cover.config == Bitmap.Config.HARDWARE) {
+                        cover.copy(Bitmap.Config.ARGB_8888, false)
+                    } else {
+                        cover
+                    }
                     c.drawBitmap(src, null, RectF(((w - side) / 2).toFloat(), y, ((w + side) / 2).toFloat(), y + side), paint)
                     y += side + 60
                 }
-                val codeSrc = if (code.config == Bitmap.Config.HARDWARE) code.copy(Bitmap.Config.ARGB_8888, false) else code
+                val codeSrc = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && code.config == Bitmap.Config.HARDWARE) {
+                    code.copy(Bitmap.Config.ARGB_8888, false)
+                } else {
+                    code
+                }
                 c.drawBitmap(codeSrc, null, RectF(((w - side) / 2).toFloat(), y, ((w + side) / 2).toFloat(), y + codeH), paint)
                 val dir = File(context.cacheDir, "shared").apply { mkdirs() }
                 dir.listFiles()?.forEach { it.delete() }

@@ -302,9 +302,7 @@ private fun ArtistOverviewContent(
                         Text(stringResource(R.string.verified_artist), style = Immersive.Subhead.copy(color = Immersive.Text, fontWeight = FontWeight.SemiBold))
                     }
                     overview.monthlyListeners?.let {
-                        val compact = android.icu.text.CompactDecimalFormat
-                            .getInstance(java.util.Locale.getDefault(), android.icu.text.CompactDecimalFormat.CompactStyle.SHORT)
-                            .format(it)
+                        val compact = com.music.spotui.ui.screens.formatCompactCount(it)
                         Text(
                             text = stringResource(R.string.monthly_listeners_text, compact),
                             style = Immersive.Subhead,

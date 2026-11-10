@@ -52,8 +52,14 @@ internal object TrackChanges {
      * Songs the page moved on from by itself after only a few seconds, in a row: it is skipping
      * through songs it cannot play (licences refused, a market, a stream that fails), each
      * reported as a skip by the users. [record] says when it is time to stop it.
+     *
+     * The window is wide because a slow device fails slowly: on a TV each song was given ten to
+     * twenty seconds to start (the page asking for a licence, the stream timing out) before the
+     * page went to the next one, and a ten-second bar with a thirty-second window never saw three
+     * of those in a row — the guard stayed silent while the whole queue went by. Reported as
+     * "it keeps skipping songs, always".
      */
-    class Chain(private val limit: Int = 3, private val windowMs: Long = 30_000, private val shortMs: Long = 10_000) {
+    class Chain(private val limit: Int = 3, private val windowMs: Long = 90_000, private val shortMs: Long = 20_000) {
         private val times = ArrayDeque<Long>()
 
         /** A change of [cause] after [playedMs] of the old song at [now]; true when the chain reached [limit]. */

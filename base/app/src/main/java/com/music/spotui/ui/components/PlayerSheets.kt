@@ -463,7 +463,7 @@ private fun joinJam(context: android.content.Context, raw: String, onDismiss: ()
 
 /** Jam invite codes: `open.spotify.com/socialsession/<token>`, or a spotify.link short link to it. */
 private object JamLinks {
-    private val http = okhttp3.OkHttpClient.Builder().followRedirects(true).build()
+    private val http by lazy { app.myspoti.host.android.TlsCompat.apply(okhttp3.OkHttpClient.Builder()).followRedirects(true).build() }
 
     suspend fun token(raw: String): String? {
         val url = if (raw.contains("spotify.link") || raw.contains("spoti.fi")) resolve(raw) ?: raw else raw

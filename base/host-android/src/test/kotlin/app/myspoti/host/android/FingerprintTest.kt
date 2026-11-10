@@ -48,6 +48,16 @@ class FingerprintTest {
         assertTrue(f.major in 100..300 && f.build > 0)
         assertNull(Fingerprint.parseEngine("141.0"))
         assertNull(Fingerprint.parseEngine(null))
+        // Android 6 System WebView (Chrome 95-106): Spotify answered "this browser is not
+        // supported" to its own version, so the claimed Chrome is brought up to a current one.
+        assertEquals(Fingerprint.MIN_CLAIMED_MAJOR, Fingerprint.resolve("95.0.4638.74", Fingerprint.Draw(0, 1, "6.8.0")).major)
+        assertEquals(Fingerprint.MIN_CLAIMED_MAJOR, Fingerprint.resolve("106.0.5249.126", Fingerprint.Draw(0, 1, "6.8.0")).major)
+        // A WebView of the same generation as the claimed one keeps its own numbers.
+        assertEquals(141, Fingerprint.resolve("141.0.7390.122", Fingerprint.Draw(0, 1, "6.8.0")).major)
+        assertEquals(150, Fingerprint.resolve("150.0.7800.10", Fingerprint.Draw(0, 1, "6.8.0")).major)
+        // The claimed floor and the fallback engine must stay the same version, or an old WebView
+        // would claim a Chrome that is not the one used when the version cannot be read.
+        assertEquals(Fingerprint.MIN_CLAIMED_MAJOR, Fingerprint.parseEngine(Fingerprint.FALLBACK_ENGINE)!!.first)
     }
 
     @Test fun `draws stay within the bounds`() {

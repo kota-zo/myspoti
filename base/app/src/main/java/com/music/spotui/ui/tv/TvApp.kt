@@ -116,19 +116,23 @@ fun TvApp() {
     BackHandler(enabled = pages.isEmpty() && tab == TvTab.NowPlaying) { tab = from }
     BackHandler(enabled = pages.isEmpty() && (tab == TvTab.Library || tab == TvTab.Search)) { tab = TvTab.Home }
 
-    TvFrame(tab, ::select) {
-        when {
-            // The player's artist opens over the tab it was opened from.
-            tab == TvTab.NowPlaying -> TvNowPlaying(onArtist = { id, name -> tab = from; pages.clear(); pages += TvPage.Artist(id, name) })
-            pages.isNotEmpty() -> when (val p = pages.last()) {
-                is TvPage.Songs -> TvSongs(p.entry, played)
-                is TvPage.Artist -> TvArtist(p, open, played)
-                is TvPage.Show -> TvShow(p, played)
+    Box(Modifier.fillMaxSize()) {
+        TvFrame(tab, ::select) {
+            when {
+                // The player's artist opens over the tab it was opened from.
+                tab == TvTab.NowPlaying -> TvNowPlaying(onArtist = { id, name -> tab = from; pages.clear(); pages += TvPage.Artist(id, name) })
+                pages.isNotEmpty() -> when (val p = pages.last()) {
+                    is TvPage.Songs -> TvSongs(p.entry, played)
+                    is TvPage.Artist -> TvArtist(p, open, played)
+                    is TvPage.Show -> TvShow(p, played)
+                }
+                tab == TvTab.Home -> TvHome(open)
+                tab == TvTab.Library -> TvLibrary(open)
+                else -> TvSearch(open, played)
             }
-            tab == TvTab.Home -> TvHome(open)
-            tab == TvTab.Library -> TvLibrary(open)
-            else -> TvSearch(open, played)
         }
+        // What the phone says in a toast, which a TV does not draw (see [TvNotice]).
+        TvNoticeHost()
     }
 }
 

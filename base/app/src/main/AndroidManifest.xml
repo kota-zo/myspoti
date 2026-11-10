@@ -58,7 +58,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <!-- Lets the system profiler (Perfetto, Android Studio) trace release builds; no debugging. -->
-        <profileable android:shell="true" />
+        <profileable android:shell="true" tools:targetApi="29" />
 
         <meta-data
             android:name="com.google.android.gms.car.application"
@@ -96,12 +96,14 @@
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|density"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Myspoti">
+            android:theme="@style/Theme.Myspoti"
+            tools:ignore="UnusedAttribute">
             <!-- Desktop windows (Samsung DeX, freeform): opens in a landscape window, resizable. -->
             <layout
                 android:defaultWidth="1100dp"
                 android:defaultHeight="760dp"
-                android:gravity="center" />
+                android:gravity="center"
+                tools:targetApi="24" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -138,6 +140,15 @@
                 <data
                     android:scheme="https"
                     android:host="spoti.fi" />
+            </intent-filter>
+            <!-- QR pairing deep link from a TV/device pairing page opened on this phone. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="myspoti"
+                    android:host="pair" />
             </intent-filter>
         </activity>
 
