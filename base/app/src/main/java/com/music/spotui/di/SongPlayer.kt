@@ -91,9 +91,14 @@ object SongPlayer {
     /** The page's state is read again that long at most before the screen is put right. */
     private const val RECONCILE_READ_MS = 3_000L
     /** A seek is sent within this, or given up for this try (see [seekTo]). */
-    private const val SEEK_SEND_MS = 5_000L
-    /** How long a seek has to show up in the page's state before it is sent again. */
-    private const val SEEK_CHECK_MS = 3_000L
+    private const val SEEK_SEND_MS = 12_000L
+    /**
+     * How long a seek has to show up in the page's state before it is sent again. A page busy
+     * enough to need the seek (a TV) is also busy enough to be slow to report one: three seconds
+     * was shorter than the state round trip there, so every seek was sent twice and the clock was
+     * given back to the page before the first one could land.
+     */
+    private const val SEEK_CHECK_MS = 8_000L
     /** The longest a seek holds the clock against the page (both tries and their sends). */
     private const val SEEK_HOLD_MS = 2 * (SEEK_SEND_MS + SEEK_CHECK_MS)
     /** A page position this close to a seek's target (or past it by the time played) is the seek. */
@@ -161,8 +166,10 @@ object SongPlayer {
             // Read again first: the page's last push can be lost on the way (its events buffer
             // drops the oldest when its main thread stalls), and the screen must not go back to
             // "paused" over a song that plays.
-            kotlinx.coroutines.withTimeoutOrNull(RECONCILE_READ_MS) { runCatching { MyspotiRuntime.spotify.player.refresh() } }
+            val read = kotlinx.coroutines.withTimeoutOrNull(RECONCILE_READ_MS) { runCatching { MyspotiRuntime.spotify.player.refresh() } }
             if (leftAlone()) return@launch
+            // The page answered a moment ago: its word is the newest, a seek's own hold is over.
+            if (read?.isSuccess == true) api.player.state.value?.let { seekAnsweredByRead(it) }
             val s = api.player.state.value
             if (s != null) { applyState(s); return@launch }
             // The page never reported anything (it did not load): nothing plays, whatever was tapped.
@@ -722,10 +729,23 @@ object SongPlayer {
         durationMs = item?.durationMs ?: 0L
         val reported = s.positionAt(System.currentTimeMillis())
         // A seek on its way: the page's old position does not take the clock back (see [seekTo]).
+        //
+        // A drag or a D-pad scrub sends the seek, then something reads a state on the way: a
+        // reconcile (the hold's end), a read of the page's own. That state is older than the seek
+        // and still on the old position, and the hold no longer covered it — the bar went back to
+        // 0:00 and climbed again to where it was (reported on a TV: "I press back, the bar goes
+        // to 0 then to 1 minute"). Until the page shows the seek, a state on the spot it was
+        // sent from is the old position, not the song's; the clock keeps the seek's place.
         if (seekHeld(uri) && seekLanded(s)) seekUntil = 0L
         val seeking = seekHeld(uri)
+        // The skip's own 0: the page still reports the song that was left (see [SeekRules.leftBySkip]).
+        val leftBySkip = SeekRules.leftBySkip(uri, movedFrom, movedTo, movedAt, SystemClock.elapsedRealtime())
+        // The song asked for has landed: the move is over, and any later state is the page's word.
+        if (!leftBySkip && uri != movedFrom && uri.isNotBlank()) { movedFrom = ""; movedTo = null }
+        val staleSeekState = SeekRules.stale(seekSent, uri, reported, held = seeking, guardUntil = seekHoldUntil,
+            now = SystemClock.elapsedRealtime(), near = SEEK_NEAR_MS)
         // Keep the running clock when the player only nudges it (< 1 s).
-        if (!seeking && !(wasPlaying && playing && !wasBuffering && !isBuffering && kotlin.math.abs(reported - predicted) < 1000)) {
+        if (!leftBySkip && !seeking && !staleSeekState && !(wasPlaying && playing && !wasBuffering && !isBuffering && kotlin.math.abs(reported - predicted) < 1000)) {
             positionMs = reported
             positionAt = SystemClock.elapsedRealtime()
         }
@@ -2066,6 +2086,12 @@ object SongPlayer {
         // position stays until Spotify reports, and a quick second previous would restart again.
         positionMs = 0L
         positionAt = SystemClock.elapsedRealtime()
+        // The song just left, and the one asked for: the page hands over a state of the song it is
+        // leaving for a moment (a snapshot a minute in, taken before the move) — the bar went to 0
+        // and then to about a minute (see [SeekRules.leftBySkip]).
+        movedFrom = _nowPlaying.value.uri
+        movedTo = _nowPlaying.value.prev?.uri ?: _queue.value?.current?.uri
+        movedAt = SystemClock.elapsedRealtime()
         transport(waitReady = !stateSeen, checkAfter = true, pullBack = false) { api.player.previous() }
     }
 
@@ -2364,17 +2390,55 @@ object SongPlayer {
     /** [s] is the song a seek was asked on, somewhere it can have got to since. */
     private fun seekLanded(s: PlayerState): Boolean {
         if (s.item?.uri != seekUri) return false
+        val now = SystemClock.elapsedRealtime()
+        val played = now - seekAt
         val at = s.positionAt(System.currentTimeMillis())
-        val played = SystemClock.elapsedRealtime() - seekAt
-        return at >= seekTarget - SEEK_NEAR_MS && at <= seekTarget + played + SEEK_NEAR_MS
+        // The page's snapshot may be old (a busy page): where the song is by now is its position
+        // plus the age of the state, within what the seek was given. Two seconds apart was the
+        // other way the seek never showed as taken.
+        val age = (System.currentTimeMillis() - s.timestampMs).coerceIn(0L, played)
+        val landed = SeekRules.placeAt(at, age, s.speed, played)
+        return landed >= (seekTarget - SEEK_NEAR_MS).toDouble() && landed <= (seekTarget + played + SEEK_NEAR_MS).toDouble()
     }
 
     private fun seekHeld(uri: String) = uri == seekUri && SystemClock.elapsedRealtime() < seekUntil
+
+    /** Where the song was when the last seek was sent, and what was asked for ([seekSent]). */
+    @Volatile private var seekSent = SeekRules.Sent("", 0L, 0L)
+    /** Until when a state on the place a seek was sent from is taken for the old position (see [SeekRules.stale]). */
+    @Volatile private var seekHoldUntil = 0L
+
+    /** A skip's song that was left and the one asked for, and when (see [SeekRules.leftBySkip]). */
+    @Volatile private var movedFrom = ""
+    @Volatile private var movedTo: String? = null
+    @Volatile private var movedAt = 0L
+
+    /** How long a state still on the place a seek was sent from is refused after it (twice the drag's hold). */
+    private const val SEEK_SLIDE_MS = 2 * SEEK_HOLD_MS
+
+    /**
+     * A state read straight from the page ([reconcile]) settles a seek: the page either showed it
+     * (the clock takes the page's word) or it still stands where the seek was sent from — a page
+     * that has not taken the seek yet answers the read with the old position too, and taking that
+     * answer as the seek being over is how the bar fell back to 0:00 after a drag.
+     */
+    private fun seekAnsweredByRead(s: PlayerState) {
+        val now = SystemClock.elapsedRealtime()
+        val at = s.positionAt(System.currentTimeMillis())
+        if (SeekRules.stale(seekSent, s.item?.uri.orEmpty(), at, held = now < seekUntil,
+                guardUntil = seekHoldUntil, now = now, near = SEEK_NEAR_MS)) return
+        seekUntil = 0L
+        seekHoldUntil = 0L
+    }
 
     fun seekTo(ms: Long) {
         if (LocalPlayer.active.value) { LocalPlayer.seekTo(ms); return }
         cancelBurst()
         val now = SystemClock.elapsedRealtime()
+        // Where the song was when the seek was asked for: a state still there afterwards is the old
+        // position, handed over late (see [SeekRules.stale]).
+        seekSent = SeekRules.Sent(_nowPlaying.value.uri, getCurrentPosition(), ms)
+        seekHoldUntil = now + SEEK_SLIDE_MS
         positionMs = ms
         positionAt = now
         seekUri = _nowPlaying.value.uri

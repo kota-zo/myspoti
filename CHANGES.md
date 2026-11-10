@@ -1,7 +1,7 @@
 # What's different from the original Myspoti
 
 Everything below is compared to the original `myspoti-main` archive (version 2.4.0):
-**41 files added, 73 files changed, 0 removed.**
+**45 files added, 82 files changed, 0 removed.**
 
 Short version:
 
@@ -442,6 +442,125 @@ shelves follow it. No key is taken from anywhere, so the buttons stay reachable.
 - `base/api-spotify/src/main/kotlin/app/myspoti/spotify/SpotifyPlayer.kt`
 - `base/api-spotify/src/main/kotlin/app/myspoti/spotify/TrackChanges.kt` + `TrackChangesTest.kt`
 - `base/host-android/src/main/kotlin/app/myspoti/host/android/TlsCompat.kt`
+
+---
+
+## 13. The playhead a TV could not keep up with: skipped songs, a stop after play, "previous" at 0:00
+
+Reported on the TV, after 12: songs skip by themselves; pressing play after a stop plays for a moment
+and stops again; pressing "previous" sends the bar to 0:00 and then to about a minute. Three symptoms,
+one cause, and a fourth find while looking.
+
+### The cause: a position guessed from a snapshot seconds old
+
+Everything the app knows about the song's place comes from the page's state:
+
+```
+positionAsOfTimestamp   the position
+timestamp               when it was true
+```
+
+and every reader runs it forward by its age: `position + (now − timestamp) × speed`. That is safe
+only while the snapshot is a moment old. On a TV the page's main thread is busy enough — the same
+freezes measured earlier for the log (a 38 ms step taking 7.8 s) — that the snapshot handed over is
+often seconds old. Three things then go wrong at once:
+
+- the bar (and the lyric clock) jumps ahead by the whole age, then jumps back;
+- a song is judged "past the end" long before its end, and the end repair plays the next song — the
+  skipping the user reports;
+- a song that is restarted, or seeked back, is placed at the position the *old* snapshot predicted,
+  and a page that misses that spot goes silent — "it plays a little and stops".
+
+### The playhead is read from the page's own element now
+
+`player-bridge.js` reads the page's own `HTMLMediaElement` (`currentTime`) when it maps a state, and
+compares it with the snapshot it is about to send:
+
+- the snapshot is fresh (under 1.5 s) **and** agrees with the element (within 2.5 s): sent as it is;
+- it is stale, disagrees, or the page was just seeked/restarted: re-stamped with the element's own
+  position and "now", so every host extrapolates from the truth;
+- paused: the element's clock is the position, and is used when the snapshot is not fresh;
+- no element reachable (it is not always in the document): the snapshot, as before.
+
+The element is found in the DOM when it is there, else once by walking the page's player objects
+(`PlayerSDK.harmony`, its streamer, a bounded `WeakSet` walk), remembered for 30 s and re-found every
+4 s when it is not. Each state mapping is a dozen DOM reads, no round trip.
+
+State pushes are also collapsed: two within 200 ms become the last one, sent a moment later. A burst
+of updates (a new song, its licence, its first frame) no longer costs the host a message and a redraw
+each while its main thread is already the bottleneck.
+
+### The end of a song is no longer judged on an old guess
+
+- `PAST_END_SLACK_MS` (15 s): a clock has to run this far past a song's duration before the song is
+  taken for over, instead of 1.5 s. The end check that asks the page is still there, and still the
+  first word; this is the window left for a page that cannot answer.
+- The end check's own bar now includes the age of both states (`reasonAge`): a fresh answer "30 s
+  left" from a page whose previous state was 30 s old is no longer rejected for being inside the old
+  4 s window (that rejection was itself a skip).
+- `resumeAfterReload` restores at `positionAt(now)`, not at `positionMs` — the page's snapshot time,
+  seconds back.
+
+### A silent song is resumed, not seeked to a guess
+
+The stall repair for a song heard but standing still used to seek it to `positionAt(now)` — the
+snapshot's extrapolation, a spot the song may never have reached. It now pauses and resumes on the
+song's own position (`resumeWhereItIs`), and only falls back to a seek when the resume is not taken
+(the state has not moved past the one the repair already had, and the element still stands) within
+6 s. That is the "play after a stop" case: the page comes back, the resume is a pause and a play, the
+sound goes on where it was.
+
+### "Previous" and the bar: a seek's old position is not the song's
+
+`SongPlayer` holds the clock while a seek is on its way. Two holes made the bar jump back:
+
+- the hold ended before the page reported the seek, and the state it then handed over was still on
+  the old position — taken as the song moving back. A new guard (`SeekRules.stale`, `SEEK_SLIDE_MS`)
+  refuses a reported position on the spot the seek was sent from for twice the hold, while any
+  report at the seek's target (or the song heard on) ends it;
+- a `reconcile` read the state straight from the page and cleared the holds unconditionally — a page
+  that had not taken the seek yet answers with the old position, so the read ended the guard and then
+  put that same old position on screen. A read now settles a seek only when it is not on the old
+  spot.
+
+Seeks are also given longer on a TV (`SEEK_SEND_MS` 5 → 12 s, `SEEK_CHECK_MS` 3 → 8 s): a page busy
+enough to need the wait was also too busy to report the seek in 3 s, so every seek was sent twice and
+the clock was handed back before the first one landed.
+
+On the TV's own bar, the newest place asked for stays latched until the playhead is within 3 s of it
+(or playback pauses), so a seek that takes a second no longer falls back to where the song was and
+climbs forward again.
+
+### The TV's music no longer stops for a link change
+
+`NoisyAudio` pauses on `ACTION_AUDIO_BECOMING_NOISY` — the headphone-unplugged broadcast. A TV's
+HDMI output answers the same broadcast on a frame rate or HDR switch, a receiver re-negotiating, or a
+soundbar going away, and the music then stopped by itself. `AudioRouteRules` says when the broadcast
+means what it says: headphones leaving always pauses; on a TV an HDMI or line output going away is a
+link change and playback goes on (with the change written to the log); a TV whose sound is still on a
+link output is left alone too. A phone is unchanged in every case.
+
+The TV also holds the screen on now (`FLAG_KEEP_SCREEN_ON`): a TV left on the player falls asleep
+after a while, and a page Chromium has frozen hands over old states and then stops making sound.
+
+### Tests
+
+- `api-spotify`: `PlayheadAgeTest` (the widened window, the age a state explains, the pause-at-the-end
+  rule), `EndCheckTest` (the end check's slack, the case that skipped songs), both plain JVM.
+- `app`: `SeekRulesTest` (the stale-state guard, the seek's own tolerance, the place arithmetic),
+  `AudioRouteRulesTest` (phone, TV, headset on a TV, sound that fell back).
+- `bridge-tests/run_bridge_tests.py`: `test_playhead`, live against a signed-in page (the state a play
+  pushes is fresh, and its position run on by its own age meets the element's clock).
+
+### Files touched
+
+- `base/api-spotify/src/main/resources/bridge/player-bridge.js`
+- `base/api-spotify/src/main/kotlin/app/myspoti/spotify/SpotifyPlayer.kt` + `PlayheadAgeTest.kt`, `EndCheckTest.kt`
+- `base/api-spotify/bridge-tests/run_bridge_tests.py`
+- `base/app/src/main/java/com/music/spotui/di/SongPlayer.kt` + `SeekRules.kt` (new) + `SeekRulesTest.kt`
+- `base/app/src/main/java/com/music/spotui/di/NoisyAudio.kt`, `AudioRouteRules.kt` (new) + `AudioRouteRulesTest.kt`
+- `base/app/src/main/java/com/music/spotui/ui/tv/TvNowPlaying.kt`
+- `base/app/src/main/java/app/myspoti/MainActivity.kt`
 
 ---
 
