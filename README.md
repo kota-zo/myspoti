@@ -31,6 +31,7 @@ This is my own modified build of [kota-zo/myspoti](https://github.com/kota-zo/my
 - Added **paste login**: paste a `sp_dc` session cookie copied from a desktop browser, for when Spotify's login page shows a captcha or refuses to load
 - Made the built-in login page work on old Android: bundled root certificates, a modern secure-connection layer, and compatibility code for old browsers in the app
 - Clear messages when the built-in login page is too old, fails to load, or times out (no more endless loading screen)
+- **Fixed: QR / cookie sign-in said "Spotify did not accept that cookie" for a good cookie.** On an Android 6 TV the app asked Spotify with the TV's old browser name, Spotify answered with a page that carries no session info, and that silence was read as a rejection. It now asks as a current browser, treats "no answer" as no answer, and lets the player page decide, with a longer wait and one retry
 - Fixed signing in while a VPN is on (the app reset its connections at the wrong moment, and its network filters ignored the VPN)
 - TV friendly login buttons: they work with a remote's OK button, not only with touch
 - Added launcher icons for Android 6 and 7, which cannot use the newer icon format

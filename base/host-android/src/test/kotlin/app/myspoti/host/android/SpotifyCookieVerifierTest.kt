@@ -68,6 +68,8 @@ class SpotifyCookieVerifierTest {
             body = """<script id="appServerConfig">$anonB64</script>""",
         )
         assertTrue(anon is SpotifyCookieVerifier.Result.Rejected)
+        // Nothing Spotify says about a cookie may end the import on its own: the WebView still tries.
+        assertFalse((anon as SpotifyCookieVerifier.Result.Rejected).definitive)
 
         val authFailed = SpotifyCookieVerifier.classifyResponse(
             statusCode = 302,
@@ -100,7 +102,67 @@ class SpotifyCookieVerifierTest {
             setCookieHeaders = emptyList(),
             body = "Error 54113",
         )
-        assertEquals(SpotifyCookieVerifier.Result.Indeterminate(403), cdnBlocked)
+        assertTrue(cdnBlocked is SpotifyCookieVerifier.Result.Unverified)
+        assertEquals(403, (cdnBlocked as SpotifyCookieVerifier.Result.Unverified).httpStatus)
+    }
+
+    @Test
+    fun aPageWithoutSessionInfoIsUnverifiedNotRejected() {
+        // This is the Android 6 bug: Spotify's home page answered 200 with no session config
+        // (it serves a reduced shell to old user agents), and the app told the user the cookie
+        // was wrong after a 60 s wait.
+        val result = SpotifyCookieVerifier.classifyResponse(
+            statusCode = 200,
+            location = null,
+            setCookieHeaders = emptyList(),
+            body = "<html><body><div id=\"main-view\">Home</div></body></html>",
+        )
+        assertTrue(result is SpotifyCookieVerifier.Result.Unverified)
+        assertEquals(200, (result as SpotifyCookieVerifier.Result.Unverified).httpStatus)
+    }
+
+    @Test
+    fun aRawAnonymousMarkerInTheMarkupCountsWhenTheScriptTagIsGone() {
+        val signedIn = SpotifyCookieVerifier.classifyResponse(
+            statusCode = 200,
+            location = null,
+            setCookieHeaders = emptyList(),
+            body = """<html><script>window.__CONFIG__ = {"isAnonymous":false,"market":"NL"}</script></html>""",
+        )
+        assertTrue(signedIn is SpotifyCookieVerifier.Result.Accepted)
+
+        // Both answers in one page (the player's own anonymous token blob): no answer at all.
+        val mixed = SpotifyCookieVerifier.classifyResponse(
+            statusCode = 200,
+            location = null,
+            setCookieHeaders = emptyList(),
+            body = """{"isAnonymous":false} ... {"isAnonymous":true}""",
+        )
+        assertTrue(mixed is SpotifyCookieVerifier.Result.Unverified)
+    }
+
+    @Test
+    fun theCookieProbeBringsAnOldWebViewUserAgentUpToADesktopChrome() {
+        // Android 6 TV: WebView Chrome 55. Spotify served that agent a shell with no session info.
+        val old = SpotifyCookieVerifier.probeUserAgent(
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.0.0 Safari/537.36",
+        )
+        assertTrue(old.contains("Chrome/${SpotifyCookieVerifier.PROBE_CHROME}"))
+        assertFalse(old.contains("Chrome/55"))
+
+        // A current WebView keeps the install's own agent.
+        val current = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+        assertEquals(current, SpotifyCookieVerifier.probeUserAgent(current))
+
+        // No Chrome at all (a test or a stripped agent): a plausible desktop Chrome.
+        assertTrue(SpotifyCookieVerifier.probeUserAgent("TestAgent/1.0").contains("Chrome/"))
+    }
+
+    @Test
+    fun base64DecodingWorksWithoutTheJavaUtilDesugaring() {
+        val json = """{"isAnonymous":false,"market":"NL"}"""
+        val b64 = java.util.Base64.getEncoder().encodeToString(json.toByteArray(Charsets.UTF_8))
+        assertEquals(json, SpotifyCookieVerifier.decodeBase64(b64))
     }
 
     @Test

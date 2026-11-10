@@ -50,6 +50,7 @@
     <string name="qr_login_webview_old" tools:ignore="MissingTranslation">Spotify accepted your cookie, but Android System WebView (%1$s) on this device is too old for Spotify Web Player (needs Chrome 85+). Update Android System WebView to continue.</string>
     <string name="qr_login_webview_load_failed" tools:ignore="MissingTranslation">Spotify accepted your cookie, but the Web Player page failed to load (%1$s). Check your VPN or try again.</string>
     <string name="qr_login_webview_timeout" tools:ignore="MissingTranslation">Spotify accepted your cookie, but the Web Player took too long to boot on this device. Check your VPN connection or update Android System WebView and try again.</string>
+    <string name="qr_login_unverified" tools:ignore="MissingTranslation">Could not confirm the session on this device (%1$s; %2$s). Your cookie may still be fine: Spotify did not say it is wrong, the player page just never finished loading. Try again, or update Android System WebView.</string>
     <string name="qr_login_back" tools:ignore="MissingTranslation">Back</string>
     <string name="login_help_qr" tools:ignore="MissingTranslation">Sign in with QR / Phone instead</string>
 
