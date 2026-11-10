@@ -34,13 +34,18 @@ object Haptics {
     fun ramp(level: Float) {
         val vibrator = vibrator() ?: return
         val l = level.coerceIn(0.05f, 1f)
+        val ms = (10 + 15 * l).toLong()
         // A plain pulse, not the TICK primitive: some phones (Samsung) play that one too
         // faintly to feel at the start of the hold.
         runCatching {
-            if (vibrator.hasAmplitudeControl()) {
-                vibrator.vibrate(android.os.VibrationEffect.createOneShot((10 + 15 * l).toLong(), (60 + 195 * l).toInt().coerceIn(1, 255)))
-            } else {
-                vibrator.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_TICK))
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl() ->
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(ms, (60 + 195 * l).toInt().coerceIn(1, 255)))
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                    vibrator.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_TICK))
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(ms, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                else -> @Suppress("DEPRECATION") vibrator.vibrate(ms)
             }
         }
     }
@@ -48,7 +53,15 @@ object Haptics {
     /** A strong, unmistakable buzz: the debug button held to the end. */
     fun thud() {
         val vibrator = vibrator() ?: return
-        runCatching { vibrator.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_HEAVY_CLICK)) }
+        runCatching {
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                    vibrator.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_HEAVY_CLICK))
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(45L, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                else -> @Suppress("DEPRECATION") vibrator.vibrate(45L)
+            }
+        }
     }
 
     private fun vibrator(): android.os.Vibrator? {
@@ -59,5 +72,8 @@ object Haptics {
     }
 
     /** A completed action (queued, removed, transferred). */
-    fun confirm() = perform(HapticFeedbackConstants.CONFIRM)
+    fun confirm() = perform(
+        if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM
+        else HapticFeedbackConstants.CONTEXT_CLICK
+    )
 }

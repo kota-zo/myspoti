@@ -39,18 +39,22 @@ object AppUpdater {
 
     private const val ACTION = "app.myspoti.UPDATE_STATUS"
     private val http by lazy {
-        OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
+        app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder())
+            .connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     }
 
-    /** Android lets this app install packages (the "Install unknown apps" switch). */
-    fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
+    /** Android lets this app install packages (the "Install unknown apps" switch; always true < API 26). */
+    fun canInstall(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
 
     /** The system page with Myspoti's "Install unknown apps" switch. */
     fun openInstallSettings(context: Context) {
-        context.startActivity(
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        } else {
+            Intent(Settings.ACTION_SECURITY_SETTINGS)
+        }
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     /** Downloads [release]'s APK, then starts the install. Updates [state] as it goes. */
@@ -124,11 +128,13 @@ object AppUpdater {
                     apk.inputStream().use { it.copyTo(out) }
                     session.fsync(out)
                 }
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
                 val callback = PendingIntent.getBroadcast(
                     context, id,
                     Intent(ACTION).setPackage(context.packageName).setClass(context, StatusReceiver::class.java),
-                    // Mutable: the installer adds the status extras.
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+                    // Mutable on API 31+: the installer adds the status extras.
+                    flags,
                 )
                 session.commit(callback.intentSender)
                 committed = true

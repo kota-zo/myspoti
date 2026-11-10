@@ -2,7 +2,11 @@ package com.music.spotui.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,7 +57,7 @@ fun sendLoginReport(context: android.content.Context) {
  * not focusable: the keyboard and the form keep working under it.
  */
 @Composable
-fun LoginHelpButton() {
+fun LoginHelpButton(onUseQr: (() -> Unit)? = null) {
     var open by remember { mutableStateOf(false) }
     val top = WindowInsets.statusBars.getTop(LocalDensity.current)
     val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
@@ -65,17 +69,37 @@ fun LoginHelpButton() {
                 .clickable { open = true }.padding(horizontal = 14.dp, vertical = 7.dp),
         )
     }
-    if (open) LoginHelpDialog(onClose = { open = false })
+    if (open) LoginHelpDialog(onClose = { open = false }, onUseQr = onUseQr)
 }
 
 @Composable
-fun LoginHelpDialog(onClose: () -> Unit) {
+fun LoginHelpDialog(onClose: () -> Unit, onUseQr: (() -> Unit)? = null) {
     val ctx = LocalContext.current
     AlertDialog(
         onDismissRequest = onClose,
         containerColor = Color(0xFF242424),
         title = { Text(stringResource(R.string.login_help_title), color = AppText) },
-        text = { Text(stringResource(R.string.login_help_detail), color = AppText.copy(alpha = 0.7f)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.login_help_detail), color = AppText.copy(alpha = 0.7f))
+                if (onUseQr != null) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        stringResource(R.string.login_help_qr),
+                        color = Color.Black,
+                        fontFamily = AppSans,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(50))
+                            .background(AppAccent)
+                            .clickable { onClose(); onUseQr() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
+            }
+        },
         confirmButton = {
             TextButton(onClick = { onClose(); sendLoginReport(ctx) }) {
                 Text(stringResource(R.string.login_help_send), color = AppAccent)

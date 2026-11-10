@@ -57,7 +57,11 @@ object TrackDecoder {
     private fun run(extractor: MediaExtractor, format: MediaFormat, mime: String, durationUs: Long, cancelled: () -> Boolean): Pcm {
         val out = Resampler(format.getInteger(MediaFormat.KEY_SAMPLE_RATE), durationUs)
         var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-        var encoding = if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) format.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
+        var encoding = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && format.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+            format.getInteger(MediaFormat.KEY_PCM_ENCODING)
+        } else {
+            AudioFormat.ENCODING_PCM_16BIT
+        }
         var shorts = ShortArray(0); var floats = FloatArray(0)
         var convertNs = 0L
         // Copied out in one go per buffer (a value at a time through the ByteBuffer is slow).
@@ -117,7 +121,11 @@ object TrackDecoder {
                     if (slot == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         val f = codec.outputFormat
                         channels = f.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                        encoding = if (f.containsKey(MediaFormat.KEY_PCM_ENCODING)) f.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
+                        encoding = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && f.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                            f.getInteger(MediaFormat.KEY_PCM_ENCODING)
+                        } else {
+                            AudioFormat.ENCODING_PCM_16BIT
+                        }
                         out.rate(f.getInteger(MediaFormat.KEY_SAMPLE_RATE))
                     } else if (slot >= 0) {
                         val buf = codec.getOutputBuffer(slot)?.order(ByteOrder.LITTLE_ENDIAN)

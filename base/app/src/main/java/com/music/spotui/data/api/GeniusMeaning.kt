@@ -32,7 +32,7 @@ object GeniusMeaning {
     private const val BASE = "https://genius.com/api"
     private const val KEEP = 12
     private val json = Json { ignoreUnknownKeys = true }
-    private val http by lazy { OkHttpClient.Builder().callTimeout(12, TimeUnit.SECONDS).build() }
+    private val http by lazy { app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder()).callTimeout(12, TimeUnit.SECONDS).build() }
     /** title|artist → the meaning, or null when Genius has none (not asked again this session). */
     private val recent = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Meaning?>(KEEP, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Meaning?>?) = size > KEEP

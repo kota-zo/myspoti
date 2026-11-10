@@ -393,6 +393,7 @@ object LyricsKeepAwakePref {
  */
 object SongPipPref {
     private const val KEY = "song_pip"
+    val available: Boolean get() = com.music.spotui.ui.components.SongPip.supported(com.music.spotui.di.Graph.app)
     var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
         private set
 

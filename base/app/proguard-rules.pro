@@ -97,3 +97,8 @@
 # fields by name over JNI (OnnxTensor, TensorInfo, OnnxJavaType, OrtException...). Renamed by R8,
 # the first analysis aborted the process (native crash, dev 3135, the first minified build with it).
 -keep class ai.onnxruntime.** { *; }
+
+# TlsCompat (API 23-28): Android X509TrustManagerExtensions invokes the 3-arg overload reflectively.
+-keepclassmembers class app.myspoti.host.android.TlsCompat$CompositeTrustManager {
+    public java.util.List checkServerTrusted(java.security.cert.X509Certificate[], java.lang.String, java.lang.String);
+}

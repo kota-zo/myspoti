@@ -58,7 +58,7 @@ internal data class Fingerprint(val major: Int, val build: Int, val patch: Int, 
         const val BUILDS_PER_MAJOR = 55
 
         /** Used only when the WebView's version cannot be read. */
-        private const val FALLBACK_ENGINE = "155.0.8160.0"
+        private const val FALLBACK_ENGINE = "141.0.7390.122"
 
         // Chromium's GREASE (components/embedder_support/user_agent_utils.cc): the fake brand, its
         // version and the order of the three brands all follow from the major version. A fixed
@@ -90,7 +90,8 @@ internal data class Fingerprint(val major: Int, val build: Int, val patch: Int, 
             val parts = version?.trim()?.split('.')?.map { it.toIntOrNull() } ?: return null
             if (parts.size != 4 || parts.any { it == null }) return null
             val (major, _, build, patch) = parts.map { it!! }
-            return if (major in 100..300 && build > 0) Triple(major, build, patch) else null
+            // Android 6 WebViews cap around Chrome 87-106; accepting 87+ keeps them matching their real TLS/JS stack.
+            return if (major in 87..300 && build > 0) Triple(major, build, patch) else null
         }
 
         /**

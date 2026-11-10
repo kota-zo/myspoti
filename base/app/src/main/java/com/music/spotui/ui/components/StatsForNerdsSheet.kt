@@ -182,7 +182,11 @@ internal object NerdStats {
         if (cast != null) return listOf(c.getString(R.string.nerd_output) to c.getString(R.string.nerd_output_cast, cast.name))
         val am = c.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val outs = runCatching { am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList() }.getOrDefault(emptyList())
-        val usb = outs.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_ACCESSORY }
+        val usb = outs.firstOrNull { device ->
+            device.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                device.type == AudioDeviceInfo.TYPE_USB_ACCESSORY ||
+                (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && device.type == AudioDeviceInfo.TYPE_USB_HEADSET)
+        }
         val route = AudioRoute.current(c)
         val kindLabel = when {
             route.kind == AudioRoute.Kind.BLUETOOTH -> R.string.nerd_output_bluetooth

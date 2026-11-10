@@ -39,7 +39,8 @@ class AccountBrowser : ComponentActivity() {
         }
         val url = intent.getStringExtra(EXTRA_URL) ?: ACCOUNT_URL
         val language = com.music.spotui.data.AppLanguage.current(this).ifEmpty { null }
-            ?.let { java.util.Locale.forLanguageTag(it).language } ?: resources.configuration.locales[0].language
+            ?.let { java.util.Locale.forLanguageTag(it).language }
+            ?: (androidx.core.os.ConfigurationCompat.getLocales(resources.configuration)[0] ?: java.util.Locale.getDefault()).language
         lifecycleScope.launch {
             web.loadUrl(withContext(Dispatchers.IO) { runCatching { localized(url, language) }.getOrNull() } ?: url)
         }
@@ -65,7 +66,8 @@ class AccountBrowser : ComponentActivity() {
 
     companion object {
         private val http by lazy {
-            OkHttpClient.Builder().followRedirects(false).callTimeout(6, TimeUnit.SECONDS).build()
+            app.myspoti.host.android.TlsCompat.apply(OkHttpClient.Builder())
+                .followRedirects(false).callTimeout(6, TimeUnit.SECONDS).build()
         }
         private val MARKET = Regex("^/([a-z]{2})(?:-[a-z]{2})?/")
 

@@ -106,7 +106,13 @@ object ExtensionAuth {
     /** Deletes the extension's sign-in profile (cookies and storage); best effort, on the main thread. */
     fun forget(extensionId: String) {
         android.os.Handler(android.os.Looper.getMainLooper()).post {
-            runCatching { ProfileStore.getInstance().deleteProfile(profile(extensionId)) }
+            runCatching {
+                if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                    ProfileStore.getInstance().deleteProfile(profile(extensionId))
+                } else {
+                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                }
+            }
         }
     }
 
@@ -177,11 +183,18 @@ private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost
     val language = mapOf("Accept-Language" to Extensions.language().let { if (it.contains('-')) "$it,${it.substringBefore('-')};q=0.9" else it } + ",en;q=0.5")
     // Before anything else touches it: this view's cookies and storage are the extension's profile.
     val profile = ExtensionAuth.profile(o.extensionId)
-    ProfileStore.getInstance().getOrCreateProfile(profile)
-    WebViewCompat.setProfile(view, profile)
-    WebViewCompat.getProfile(view).cookieManager.apply {
-        setAcceptCookie(true)
-        setAcceptThirdPartyCookies(view, true)
+    if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+        ProfileStore.getInstance().getOrCreateProfile(profile)
+        WebViewCompat.setProfile(view, profile)
+        WebViewCompat.getProfile(view).cookieManager.apply {
+            setAcceptCookie(true)
+            setAcceptThirdPartyCookies(view, true)
+        }
+    } else {
+        android.webkit.CookieManager.getInstance().apply {
+            setAcceptCookie(true)
+            setAcceptThirdPartyCookies(view, true)
+        }
     }
     view.settings.apply {
         javaScriptEnabled = true
@@ -208,6 +221,10 @@ private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
             reached(request.url.toString()) || refused(request.url)
 
+        @Deprecated("Deprecated in Java")
+        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+            reached(url) || refused(android.net.Uri.parse(url))
+
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             // A form POSTed to an https callback does not go through shouldOverrideUrlLoading.
             if (reached(url)) { view.stopLoading(); return }
@@ -227,7 +244,9 @@ private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost
             // callback (done) or loads here; no second window is ever shown.
             val probe = WebView(view.context)
             // The same profile: even the first request of the new window never carries other cookies.
-            WebViewCompat.setProfile(probe, ExtensionAuth.profile(o.extensionId))
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                WebViewCompat.setProfile(probe, ExtensionAuth.profile(o.extensionId))
+            }
             probe.webViewClient = object : WebViewClient() {
                 private var taken = false
                 private fun take(url: String) {
@@ -238,6 +257,8 @@ private fun authView(ctx: android.content.Context, o: ExtensionAuth.Open, onHost
                     probe.post { probe.destroy() }
                 }
                 override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean { take(request.url.toString()); return true }
+                @Deprecated("Deprecated in Java")
+                override fun shouldOverrideUrlLoading(v: WebView, url: String): Boolean { take(url); return true }
                 override fun onPageStarted(v: WebView, url: String, favicon: Bitmap?) { if (url != "about:blank") take(url) }
             }
             (resultMsg.obj as WebView.WebViewTransport).webView = probe

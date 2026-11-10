@@ -57,26 +57,58 @@ object LocalMusic {
     suspend fun folders(context: Context): List<Pair<String, Int>> =
         allTracks(context).groupingBy { it.folder }.eachCount().toList().sortedBy { it.first.lowercase() }
 
+    internal fun folderFromPath(path: String?): String {
+        val parent = path?.let { java.io.File(it).parent }?.replace('\\', '/')?.trimEnd('/') ?: return ""
+        @Suppress("DEPRECATION")
+        val primary = runCatching { android.os.Environment.getExternalStorageDirectory().absolutePath.trimEnd('/') }.getOrNull()
+        val rel = when {
+            primary != null && parent == primary -> ""
+            primary != null && parent.startsWith("$primary/") -> parent.removePrefix("$primary/")
+            parent.matches(Regex("^/storage/emulated/[^/]+$")) -> ""
+            parent.startsWith("/storage/emulated/") -> parent.replaceFirst(Regex("^/storage/emulated/[^/]+/"), "")
+            parent.matches(Regex("^/storage/[^/]+$")) -> ""
+            parent.startsWith("/storage/") -> parent.replaceFirst(Regex("^/storage/[^/]+/"), "")
+            parent == "/sdcard" -> ""
+            parent.startsWith("/sdcard/") -> parent.removePrefix("/sdcard/")
+            else -> parent.trimStart('/')
+        }
+        return if (rel.isEmpty()) "" else "$rel/"
+    }
+
     private suspend fun allTracks(context: Context, refresh: Boolean = false): List<LocalTrack> = withContext(Dispatchers.IO) {
         if (!hasPermission(context)) return@withContext emptyList()
         cache?.takeIf { !refresh }?.let { return@withContext it }
-        val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.RELATIVE_PATH, MediaStore.Audio.Media.TRACK,
-            MediaStore.Audio.Media.IS_PODCAST, MediaStore.Audio.Media.IS_AUDIOBOOK,
-        )
+        val qPlus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        val collection = if (qPlus) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        @Suppress("DEPRECATION")
+        val pathCol = if (qPlus) MediaStore.Audio.Media.RELATIVE_PATH else MediaStore.Audio.Media.DATA
+        val projection = buildList {
+            add(MediaStore.Audio.Media._ID)
+            add(MediaStore.Audio.Media.TITLE)
+            add(MediaStore.Audio.Media.ARTIST)
+            add(MediaStore.Audio.Media.ALBUM)
+            add(MediaStore.Audio.Media.DURATION)
+            add(MediaStore.Audio.Media.ALBUM_ID)
+            add(pathCol)
+            add(MediaStore.Audio.Media.TRACK)
+            add(MediaStore.Audio.Media.IS_PODCAST)
+            if (qPlus) add(MediaStore.Audio.Media.IS_AUDIOBOOK)
+        }.toTypedArray()
         val out = ArrayList<LocalTrack>()
         // Android's index decides what is "music": a phone full of recorded or downloaded audio can
         // come back empty while another player lists those very files (reported: 29 tracks with a
         // third-party player, none here). Anything long enough to be a song is therefore listed too,
         // minus the system folders whose sounds are not music.
-        val notSystem = listOf("Ringtones", "Notifications", "Alarms", "Android")
-            .joinToString(" AND ") { "${MediaStore.Audio.Media.RELATIVE_PATH} NOT LIKE '$it/%'" }
+        val systemDirs = listOf("Ringtones", "Notifications", "Alarms", "Android")
+        val notSystem = if (qPlus) {
+            systemDirs.joinToString(" AND ") { "$pathCol NOT LIKE '$it/%'" }
+        } else {
+            systemDirs.joinToString(" AND ") { "$pathCol NOT LIKE '%/$it/%'" }
+        }
         val selection = "(${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 30000)" +
             " OR (${MediaStore.Audio.Media.DURATION} >= 20000" +
-            " AND ${MediaStore.Audio.Media.RELATIVE_PATH} IS NOT NULL AND $notSystem)"
+            " AND $pathCol IS NOT NULL AND $notSystem)"
         context.contentResolver.query(
             collection, projection,
             selection,
@@ -88,13 +120,15 @@ object LocalMusic {
             val iAlbum = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val iDur = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val iAlbumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val iPath = c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+            val iPath = c.getColumnIndex(pathCol)
             val iTrack = c.getColumnIndex(MediaStore.Audio.Media.TRACK)
             val iPodcast = c.getColumnIndex(MediaStore.Audio.Media.IS_PODCAST)
-            val iBook = c.getColumnIndex(MediaStore.Audio.Media.IS_AUDIOBOOK)
+            val iBook = if (qPlus) c.getColumnIndex(MediaStore.Audio.Media.IS_AUDIOBOOK) else -1
             while (c.moveToNext()) {
                 val id = c.getLong(iId)
                 val artist = c.getString(iArtist)?.takeIf { it != MediaStore.UNKNOWN_STRING }.orEmpty()
+                val rawPath = if (iPath >= 0) c.getString(iPath).orEmpty() else ""
+                val folder = if (qPlus) rawPath else folderFromPath(rawPath)
                 out += LocalTrack(
                     id = id,
                     uri = ContentUris.withAppendedId(collection, id),
@@ -103,7 +137,7 @@ object LocalMusic {
                     album = c.getString(iAlbum).orEmpty(),
                     durationMs = c.getLong(iDur),
                     artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), c.getLong(iAlbumId)),
-                    folder = if (iPath >= 0) c.getString(iPath).orEmpty() else "",
+                    folder = folder,
                     trackNo = if (iTrack >= 0 && !c.isNull(iTrack)) c.getInt(iTrack).coerceAtLeast(0) else 0,
                     speech = (iPodcast >= 0 && c.getInt(iPodcast) != 0) || (iBook >= 0 && c.getInt(iBook) != 0),
                 )

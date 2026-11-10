@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -123,6 +124,25 @@ fun AccountsList(onLeave: () -> Unit = {}) {
             Column(Modifier.padding(start = 14.dp)) {
                 Text(stringResource(R.string.accounts_add), color = look.text, fontSize = 16.sp)
                 Text(stringResource(if (host.multiProfile) R.string.accounts_add_detail else R.string.accounts_add_single_detail), color = look.muted, fontSize = 12.sp)
+            }
+        }
+        if (!com.music.spotui.ui.tv.Tv.isTv(ctx)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+                    .clickable(role = Role.Button) {
+                        onLeave()
+                        com.music.spotui.ui.screens.launchQrPairScanner(ctx) {
+                            com.music.spotui.connect.QrPairHandoff.openManual()
+                        }
+                    }
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.Filled.Tv, contentDescription = null, tint = look.accent, modifier = Modifier.size(40.dp).padding(8.dp))
+                Column(Modifier.padding(start = 14.dp)) {
+                    Text(stringResource(R.string.pair_tv_row), color = look.text, fontSize = 16.sp)
+                    Text(stringResource(R.string.pair_tv_row_detail), color = look.muted, fontSize = 12.sp)
+                }
             }
         }
         Text(

@@ -80,7 +80,8 @@
     const registry = platform.getRegistry();
     const byName = {};
     for (const key of registry._map.keys()) {
-      if (key && key.description) byName[key.description] = key;
+      const desc = key && (key.description || (typeof key === 'symbol' ? String(key).slice(7, -1) : ''));
+      if (desc) byName[desc] = key;
     }
     const get = name => {
       if (!byName[name]) throw new Error(`service ${name} not found`);
@@ -179,7 +180,7 @@
     if (depth > 12 || seen.has(value)) return null;
     seen.add(value);
     if (value instanceof Date) return value.toISOString();
-    if (value instanceof Map) value = Object.fromEntries(value);
+    if (value instanceof Map) { const m = {}; value.forEach((v, k) => { m[k] = v; }); value = m; }
     if (value instanceof Set) value = [...value];
     if (ArrayBuffer.isView(value)) return Array.from(value);
     if (Array.isArray(value)) return value.map(v => { const j = toJson(v, depth + 1, seen); return j === undefined ? null : j; });

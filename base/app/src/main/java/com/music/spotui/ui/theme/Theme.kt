@@ -82,7 +82,9 @@ fun SpotuiTheme(
             window.navigationBarColor = Color.Transparent.toArgb()
             // Without this Android lays its own translucent scrim on a transparent bar (API 29+),
             // which showed as a differently coloured strip under the full-screen Canvas.
-            window.isNavigationBarContrastEnforced = false
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
             // Behind the first frame and under overscroll: the palette's page colour.
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(AppBackground.toArgb()))

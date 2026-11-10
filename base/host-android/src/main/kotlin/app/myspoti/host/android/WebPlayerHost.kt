@@ -118,6 +118,30 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     internal val fingerprint = Fingerprint.of(context)
     val userAgent: String get() = fingerprint.userAgent
 
+    /** Chromium major version of the system WebView on this device, or null if unknown. */
+    val webViewMajorVersion: Int? = runCatching {
+        androidx.webkit.WebViewCompat.getCurrentWebViewPackage(context)?.versionName
+            ?.substringBefore('.')?.toIntOrNull()
+    }.getOrNull()
+
+    /** Increments each time [PLAYER_URL] commits a new main-frame page start. */
+    @Volatile var playerPageCommits: Int = 0
+        private set
+
+    /** Most recent main-frame load/SSL error on [PLAYER_URL], cleared on each new load. */
+    @Volatile var lastPageProblem: String? = null
+        private set
+
+    /** Most recent unrecoverable JS SyntaxError logged during page boot (indicative of ancient WebView). */
+    @Volatile var lastWebSyntaxError: String? = null
+        private set
+
+    private val sslExecutor by lazy {
+        java.util.concurrent.Executors.newCachedThreadPool { r ->
+            Thread(r, "myspoti-webview-tls").apply { isDaemon = true }
+        }
+    }
+
     init {
         // Debug builds only: lets desktop tools (chrome://inspect, CDP) look at the page.
         if (debuggable) WebView.setWebContentsDebuggingEnabled(true)
@@ -136,31 +160,70 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         runCatching {
             // No default network at start (airplane mode) calls nothing: the state is read once here.
             _online.value = hasInternet(connectivity.getNetworkCapabilities(connectivity.activeNetwork))
-            connectivity.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+            val callback = object : android.net.ConnectivityManager.NetworkCallback() {
                 private var current: android.net.Network? = null
 
                 override fun onAvailable(network: android.net.Network) {
+                    val active = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) network else (connectivity.activeNetwork ?: network)
                     val was = current
-                    current = network
+                    current = active
                     setOnline(true)
                     // The first call names the network the app started on: nothing to drop.
-                    if (was == null || was == network) return
+                    if (was == null || was == active) return
                     Logbook.log("network changed: the relay's and the API's idle connections dropped")
                     ControlRelay.resetConnections()
                     MyspotiRuntime.resetApiConnections()
                 }
 
                 override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) {
+                        val active = connectivity.activeNetwork
+                        if (active != null && active != current) {
+                            val was = current
+                            current = active
+                            setOnline(hasInternet(connectivity.getNetworkCapabilities(active)))
+                            if (was != null) {
+                                ControlRelay.resetConnections()
+                                MyspotiRuntime.resetApiConnections()
+                            }
+                            return
+                        }
+                    }
                     if (network == current) setOnline(hasInternet(caps))
                 }
 
-                // Called for the default network only when no other one takes its place.
+                // Called for the default network only when no other one takes its place (API 24+);
+                // on API 23 re-check activeNetwork in case another transport took over.
                 override fun onLost(network: android.net.Network) {
+                    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) {
+                        val active = connectivity.activeNetwork
+                        if (active != null && active != network) {
+                            val was = current
+                            current = active
+                            setOnline(hasInternet(connectivity.getNetworkCapabilities(active)))
+                            if (was != null && was != active) {
+                                ControlRelay.resetConnections()
+                                MyspotiRuntime.resetApiConnections()
+                            }
+                            return
+                        }
+                    }
                     if (network != current) return
                     current = null
                     setOnline(false)
                 }
-            })
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                connectivity.registerDefaultNetworkCallback(callback)
+            } else {
+                // On API 23, remove NET_CAPABILITY_NOT_VPN so VPN attach/detach transitions are
+                // observed and pre-VPN pooled sockets get evicted immediately.
+                val req = android.net.NetworkRequest.Builder()
+                    .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    .build()
+                connectivity.registerNetworkCallback(req, callback)
+            }
         }.onFailure { _online.value = true; Logbook.log("network changes not watched: ${it.message}") }
     }
 
@@ -169,7 +232,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * that answers late) still plays, and taking it for offline held every repair on it.
      */
     private fun hasInternet(caps: android.net.NetworkCapabilities?): Boolean =
-        caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        caps != null && (caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
+            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN))
 
     /**
      * Offline, the player's repairs wait (see MyspotiRuntime): a seek, a reload or a skip can do
@@ -243,11 +307,19 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
             userAgentString = fingerprint.userAgent
             cacheMode = WebSettings.LOAD_DEFAULT
             loadWithOverviewMode = true
             useWideViewPort = true
+        }
+        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                this,
+                COMPAT_POLYFILL_JS,
+                setOf("https://open.spotify.com", "https://accounts.spotify.com"),
+            )
         }
         // The WebView stamps every request the page makes with "X-Requested-With: <our package>".
         // No browser does that, and it is measured on the wire ([tools/cdp.py] --trace --headers):
@@ -279,7 +351,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 .build())
         }
         // The page plays the audio: its renderer keeps its priority when the screen is off.
-        setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+        }
         // Playback control requests leave from the app, without the WebView's X-Requested-With.
         relay = ControlRelay(this, fingerprint).also {
             it.onDeviceRegistered = { drmAsked = true; main.removeCallbacks(drmWatch) }
@@ -295,10 +369,17 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
                 if (message.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR ||
                     message.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.WARNING) {
+                    val text = message.message()
+                    if (message.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR &&
+                        _url.value.startsWith(PLAYER_URL) &&
+                        lastWebSyntaxError == null &&
+                        (text.contains("SyntaxError") || text.contains("Unexpected token"))) {
+                        lastWebSyntaxError = text.take(180)
+                    }
                     // The page's steady console noise (font preloads, storage access refused on
                     // every load) never helped a report: left out.
-                    if (CONSOLE_NOISE.none { it.containsMatchIn(message.message()) })
-                        Logbook.log("console ${message.messageLevel()}: ${message.message().take(300)}")
+                    if (CONSOLE_NOISE.none { it.containsMatchIn(text) })
+                        Logbook.log("console ${message.messageLevel()}: ${text.take(300)}")
                 }
                 return true
             }
@@ -374,7 +455,17 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 if (!isLoginPage(url) && _loginLoad.value != LoginLoad.NONE && _loginLoad.value != LoginLoad.FAILED) setLoginLoad(LoginLoad.NONE)
                 _url.value = url
                 _loginRequired.value = isLoginPage(url)
-                if (url.startsWith(PLAYER_URL)) { drmAsked = false; licenseAnswersLogged = 0; onPageStarting?.invoke(); armChannels(view, renew = true); relay.injectNow() }
+                if (url.startsWith(PLAYER_URL)) {
+                    drmAsked = false
+                    licenseAnswersLogged = 0
+                    lastPageProblem = null
+                    lastWebSyntaxError = null
+                    playerPageCommits++
+                    onPageStarting?.invoke()
+                    view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
+                    armChannels(view, renew = true)
+                    relay.injectNow()
+                }
                 if (PLAYER_ROOT.matches(url) && url != roots.getString(ROOT_KEY, null)) roots.edit().putString(ROOT_KEY, url).apply()
             }
 
@@ -382,12 +473,35 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 if (request.url.host?.contains("spotify") == true)
                     Logbook.log("load error ${error.errorCode} ${error.description} ${Logbook.noQuery(request.url.toString()).take(120)}")
                 // ERR_ABORTED: a load this app stopped itself (a timeout, a newer load) — not a failure.
-                if (request.isForMainFrame && request.url.host == PLAYER_HOST && "ERR_ABORTED" !in error.description.toString())
+                if (request.isForMainFrame && request.url.host == PLAYER_HOST && "ERR_ABORTED" !in error.description.toString()) {
+                    if (lastPageProblem == null) lastPageProblem = "${error.description} (${error.errorCode})"
                     playerPageFailed("load error ${error.errorCode}")
+                }
                 // The sign-in page itself: the WebView's own error page is not something to leave a user on.
                 if (request.isForMainFrame && _loginLoad.value != LoginLoad.NONE && LoginLoad.isSpotifyAccounts(request.url.toString()) &&
                     "ERR_ABORTED" !in error.description.toString())
                     loginFailed("load error ${error.errorCode}")
+            }
+
+            @SuppressLint("WebViewClientOnReceivedSslError")
+            override fun onReceivedSslError(view: WebView, handler: android.webkit.SslErrorHandler, error: android.net.http.SslError) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    handler.cancel()
+                    return
+                }
+                sslExecutor.execute {
+                    val ok = TlsCompat.verifyWebViewSslError(error)
+                    main.post {
+                        if (ok) {
+                            Logbook.log("tls: WebView SSL accepted via TlsCompat for ${Logbook.noQuery(error.url).take(90)}")
+                            handler.proceed()
+                        } else {
+                            Logbook.log("tls: WebView SSL rejected (err=${error.primaryError}) ${Logbook.noQuery(error.url).take(90)}")
+                            if (lastPageProblem == null) lastPageProblem = "SSL error ${error.primaryError}"
+                            handler.cancel()
+                        }
+                    }
+                }
             }
 
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
@@ -401,6 +515,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 if (response.statusCode == 401 && request.url.host?.endsWith("spotify.com") == true && !isLoginPage(_url.value))
                     app.myspoti.spotify.bridge.PageAuth.unauthorized("http ${request.method} ${request.url.path?.take(80)}",
                         licence = request.url.path?.let { it.contains("widevine-license") || it.endsWith("/license_url") } == true)
+                if (request.isForMainFrame && request.url.host == PLAYER_HOST && response.statusCode >= 400 && lastPageProblem == null)
+                    lastPageProblem = "HTTP ${response.statusCode}"
                 if (request.isForMainFrame && request.url.host == PLAYER_HOST && (response.statusCode >= 500 || response.statusCode == 429))
                     playerPageFailed("http ${response.statusCode}")
                 if (request.isForMainFrame && _loginLoad.value != LoginLoad.NONE && LoginLoad.isSpotifyAccounts(request.url.toString()) && response.statusCode >= 500)
@@ -435,25 +551,41 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                 }
                 if (url.startsWith(PLAYER_URL)) {
                     // Again, same secret: the page start's call may have run before the new document existed.
+                    view.evaluateJavascript(COMPAT_POLYFILL_JS, null)
                     armChannels(view, renew = false)
+                    relay.injectNow()
                     onPageLoaded?.invoke()
                     if (!drmAsked) { main.removeCallbacks(drmWatch); main.postDelayed(drmWatch, DRM_WATCH_MS) }
                 }
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val host = request.url.host.orEmpty()
-                // Stay on Spotify's own pages (player, login, consent); open nothing else.
+            private fun handleNavigation(uri: android.net.Uri): Boolean {
+                val host = uri.host.orEmpty().lowercase()
+                // Stay on Spotify's own pages (player, login, consent); allow challenge/IdP hosts during sign-in.
                 // Exact or subdomain match: "evilspotify.com" must not count as Spotify.
-                val allowed = listOf("spotify.com", "spotify.net", "scdn.co", "google.com", "facebook.com", "apple.com")
-                    .any { host == it || host.endsWith(".$it") }
+                val inSignIn = _loginLoad.value != LoginLoad.NONE || isLoginPage(_url.value)
+                val baseHosts = listOf("spotify.com", "spotify.net", "scdn.co", "google.com", "facebook.com", "apple.com")
+                val loginHosts = listOf(
+                    "recaptcha.net", "gstatic.com", "hcaptcha.com", "arkoselabs.com", "funcaptcha.com",
+                    "challenges.cloudflare.com", "cloudflare.com", "youtube.com", "googleusercontent.com",
+                    "live.com", "microsoftonline.com",
+                )
+                val allowed = baseHosts.any { host == it || host.endsWith(".$it") } ||
+                    (inSignIn && loginHosts.any { host == it || host.endsWith(".$it") })
                 // And only over https: a plain http link to those hosts, or any other scheme, stays out.
                 // The page's own loads (loadUrl, about:blank) do not come through here.
-                val secure = request.url.scheme == "https"
+                val secure = uri.scheme == "https"
                 // A sign-in step that goes nowhere looks like a page that does nothing: say which host was refused.
-                if (!allowed || !secure) Logbook.log("navigation refused: ${host.ifEmpty { request.url.scheme.orEmpty() }}${if (allowed && !secure) " (${request.url.scheme}, not https)" else ""}")
+                if (!allowed || !secure) Logbook.log("navigation refused: ${host.ifEmpty { uri.scheme.orEmpty() }}${if (allowed && !secure) " (${uri.scheme}, not https)" else ""}")
                 return !(allowed && secure)
             }
+
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                handleNavigation(request.url)
+
+            @Deprecated("Deprecated in Java")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+                handleNavigation(android.net.Uri.parse(url))
 
             /**
              * The renderer died (the reported "the app crashed", "playback stops until the player
@@ -461,11 +593,17 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
              * kills the whole process if one is still used after this returns false: the page is
              * rebuilt on a new WebView, and true says "handled, do not kill the app".
              */
+            @SuppressLint("NewApi")
             override fun onRenderProcessGone(gone: WebView, detail: RenderProcessGoneDetail): Boolean {
                 // Killed (memory pressure) or crashed: both end here. A late callback from a view
                 // that was already replaced must not tear down the healthy new one.
                 if (gone !== this@WebPlayerHost.view) return true
-                Logbook.log("renderer gone (crashed=${detail.didCrash()}, priority=${detail.rendererPriorityAtExit()}): rebuilding the page")
+                val info = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    "crashed=${detail.didCrash()}, priority=${detail.rendererPriorityAtExit()}"
+                } else {
+                    "renderer gone"
+                }
+                Logbook.log("renderer gone ($info): rebuilding the page")
                 // The page is gone with it: the calls it had fail now, not each after its timeout.
                 onPageStarting?.invoke()
                 rebuild()
@@ -664,6 +802,134 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
      * answers "Oops! Something went wrong" to a flow it cannot match with its own state.
      */
     fun retryLogin() = main.post { beginLoginLoad(); cleanSlate { view.loadUrl(LOGIN_URL) } }
+
+    /**
+     * Leaves an in-progress WebView sign-in (for example, returning to Welcome or switching to QR login)
+     * without leaving `loginRequired = true` behind to pull the activity back to the login page.
+     */
+    fun cancelLogin() = main.post {
+        main.removeCallbacks(retryPlayerPage)
+        main.removeCallbacks(loadTimeout)
+        main.removeCallbacks(drmWatch)
+        main.removeCallbacks(loginProbe)
+        main.removeCallbacks(loginTimeout)
+        loadAsked = false
+        _loginRequired.value = false
+        setLoginLoad(LoginLoad.NONE)
+        runCatching { view.stopLoading() }
+        view.loadUrl("about:blank")
+    }
+
+    /**
+     * Reads this profile's Spotify session cookies (`sp_dc`, plus `sp_key` / `sp_t` when present)
+     * for transferring sign-in to another Myspoti device on the local network. Never logged.
+     */
+    suspend fun exportSpotifySessionCookies(): Map<String, String> {
+        val done = CompletableDeferred<Map<String, String>>()
+        main.post {
+            val out = runCatching {
+                val cm = cookies()
+                val collected = linkedMapOf<String, String>()
+                listOf("https://accounts.spotify.com/", PLAYER_URL).forEach { origin ->
+                    val raw = cm.getCookie(origin).orEmpty()
+                    raw.split(';').forEach { part ->
+                        val eq = part.indexOf('=')
+                        if (eq <= 0) return@forEach
+                        val name = part.substring(0, eq).trim()
+                        val value = part.substring(eq + 1).trim()
+                        if (name in EXPORT_COOKIES && validCookieToken(value)) {
+                            collected[name] = value
+                        }
+                    }
+                }
+                if (collected["sp_dc"].isNullOrBlank()) emptyMap() else collected.toMap()
+            }.getOrDefault(emptyMap())
+            done.complete(out)
+        }
+        return done.await()
+    }
+
+    /**
+     * Applies imported Spotify session cookies (such as `sp_dc` from QR pairing or paste), wipes any
+     * half-finished sign-in state first so cookies are never lost in an async wipe, then loads the player.
+     */
+    suspend fun applySessionCookies(sessionCookies: Map<String, String>): Boolean {
+        val sanitized = linkedMapOf<String, String>()
+        sessionCookies.forEach { (k, v) ->
+            val name = k.trim()
+            val value = v.trim()
+            if (name in EXPORT_COOKIES && validCookieToken(value)) sanitized[name] = value
+        }
+        if (sanitized["sp_dc"].isNullOrBlank()) return false
+        val done = CompletableDeferred<Boolean>()
+        main.post {
+            main.removeCallbacks(retryPlayerPage)
+            main.removeCallbacks(loadTimeout)
+            main.removeCallbacks(drmWatch)
+            main.removeCallbacks(loginProbe)
+            main.removeCallbacks(loginTimeout)
+            pageFailures = 0
+            mainFrameFailed = false
+            lastPageProblem = null
+            lastWebSyntaxError = null
+            drmAsked = false
+            pageStarts = 0
+            loadAsked = false
+            _loginRequired.value = false
+            setLoginLoad(LoginLoad.NONE)
+            roots.edit().remove(SIGNED_IN_KEY).remove(ROOT_KEY).apply()
+            // Halt any in-flight anonymous Web Player load so it cannot race cleanSlate() or
+            // re-announce ready=true while cookies are being swapped.
+            runCatching { view.stopLoading() }
+            view.loadUrl("about:blank")
+            onPageStarting?.invoke()
+            cleanSlate {
+                val cm = cookies()
+                cm.setAcceptCookie(true)
+                cm.setAcceptThirdPartyCookies(view, true)
+                val entries = sanitized.entries.flatMap { (k, v) ->
+                    val attrs = if (k == "sp_t") "Domain=.spotify.com; Path=/; Secure"
+                    else "Domain=.spotify.com; Path=/; Secure; HttpOnly"
+                    val header = "$k=$v; $attrs"
+                    listOf(
+                        PLAYER_URL to header,
+                        "https://accounts.spotify.com/" to header,
+                        "https://spotify.com/" to header,
+                    )
+                }
+                fun finishCookieSetup() {
+                    cm.flush()
+                    if (!cookieJarContainsToken(cm.getCookie(PLAYER_URL), "sp_dc")) {
+                        // Fallback for Android 6 ROM WebViews that reject Domain=.spotify.com in setCookie
+                        Logbook.log("cookie: Domain=.spotify.com did not stick on WebView, retrying host cookie")
+                        sanitized.forEach { (k, v) ->
+                            val attrs = if (k == "sp_t") "Path=/; Secure" else "Path=/; Secure; HttpOnly"
+                            cm.setCookie(PLAYER_URL, "$k=$v; $attrs")
+                        }
+                        cm.flush()
+                    }
+                    onPageStarting?.invoke()
+                    loadAsked = true
+                    pageStarts = 0
+                    view.loadUrl(PLAYER_URL)
+                    watchLoad(PLAYER_URL, attempt = 1, firstWatchMs = REBUILD_WATCH_MS)
+                    done.complete(true)
+                }
+                fun writeAt(index: Int) {
+                    if (index >= entries.size) {
+                        finishCookieSetup()
+                        return
+                    }
+                    val (origin, header) = entries[index]
+                    cm.setCookie(origin, header) {
+                        main.post { writeAt(index + 1) }
+                    }
+                }
+                writeAt(0)
+            }
+        }
+        return done.await()
+    }
 
     /**
      * Before a report sent from the sign-in: what the page shows right now (its path, title, the
@@ -961,7 +1227,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         private const val ROOT_KEY = "player_root"
         private const val SIGNED_IN_KEY = "signed_in_since"
         private const val PLAYER_HOST = "open.spotify.com"
-        private const val PAGE_LOAD_TIMEOUT_MS = 25_000L
+        private const val PAGE_LOAD_TIMEOUT_MS = 50_000L
         private const val DRM_WATCH_MS = 10_000L
         private const val DRM_REBUILDS_MAX = 2
         private const val DRM_REBUILD_WINDOW_MS = 600_000L
@@ -981,6 +1247,37 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         private const val PURGE_RETRY_MS = 10_000L
         private const val LOAD_RETRIES = 4
         const val LOGIN_URL = "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
+        private val EXPORT_COOKIES = setOf("sp_dc", "sp_key", "sp_t")
+
+        private fun validCookieToken(value: String): Boolean =
+            value.length in 1..4096 && value.none { it <= ' ' || it == ';' || it == '"' || it == '\\' || it.code >= 127 }
+
+        internal fun cookieJarContainsToken(rawCookieHeader: String?, cookieName: String): Boolean {
+            if (rawCookieHeader.isNullOrBlank()) return false
+            return rawCookieHeader.split(';').any { part ->
+                val eq = part.indexOf('=')
+                if (eq <= 0) return@any false
+                part.substring(0, eq).trim() == cookieName && part.substring(eq + 1).trim().isNotEmpty()
+            }
+        }
+
+        /**
+         * Strict-ES5 polyfills for Android 6 WebViews (Chrome 70–97, plus Chrome 106 max on API 23)
+         * so Spotify Web Player's JS bundles do not crash on missing modern runtime APIs.
+         */
+        internal const val COMPAT_POLYFILL_JS = """(function(){try{
+if(typeof globalThis==='undefined'){window.globalThis=window;}
+if(!Object.hasOwn){Object.hasOwn=function(o,k){return o!=null&&Object.prototype.hasOwnProperty.call(o,k);};}
+if(!Object.fromEntries){Object.fromEntries=function(it){var o={},i,e;if(!it)return o;if(Array.isArray(it)){for(i=0;i<it.length;i++){e=it[i];if(e)o[e[0]]=e[1];}return o;}if(typeof Symbol!=='undefined'&&it[Symbol.iterator]){var iter=it[Symbol.iterator]();while(!(e=iter.next()).done){if(e.value)o[e.value[0]]=e.value[1];}}return o;};}
+if(!Array.prototype.at){Object.defineProperty(Array.prototype,'at',{configurable:true,writable:true,value:function(n){var len=this.length>>>0;var k=n>=0?n|0:len+(n|0);return (k<0||k>=len)?undefined:this[k];}});}
+if(!String.prototype.at){Object.defineProperty(String.prototype,'at',{configurable:true,writable:true,value:function(n){var s=String(this),len=s.length;var k=n>=0?n|0:len+(n|0);return (k<0||k>=len)?undefined:s.charAt(k);}});}
+if(!String.prototype.replaceAll){Object.defineProperty(String.prototype,'replaceAll',{configurable:true,writable:true,value:function(s,r){if(s instanceof RegExp){if(!s.global)throw new TypeError('replaceAll needs global RegExp');return this.replace(s,r);}return this.split(String(s)).join(typeof r==='function'?function(){return r.apply(undefined,arguments);}:r);}});}
+if(!Array.prototype.flat){Object.defineProperty(Array.prototype,'flat',{configurable:true,writable:true,value:function(d){var depth=d===undefined?1:Number(d)||0;return (function fl(arr,dp){var out=[],i;for(i=0;i<arr.length;i++){if(i in arr){var v=arr[i];if(Array.isArray(v)&&dp>0)out=out.concat(fl(v,dp-1));else out.push(v);}}return out;})(this,depth);}});}
+if(!Array.prototype.flatMap){Object.defineProperty(Array.prototype,'flatMap',{configurable:true,writable:true,value:function(fn,t){return this.map(fn,t).flat(1);}});}
+if(typeof Promise!=='undefined'&&!Promise.allSettled){Promise.allSettled=function(ps){return Promise.all(Array.prototype.map.call(ps,function(p){return Promise.resolve(p).then(function(v){return {status:'fulfilled',value:v};},function(e){return {status:'rejected',reason:e};});}));};}
+if(typeof structuredClone==='undefined'){window.structuredClone=function(v){var seen=new WeakMap();return (function cl(x){if(x===null||typeof x!=='object')return x;if(x instanceof Date)return new Date(x.getTime());if(x instanceof RegExp)return new RegExp(x.source,x.flags);if(ArrayBuffer.isView(x))return new x.constructor(x);if(x instanceof ArrayBuffer)return x.slice(0);if(seen.has(x))return seen.get(x);if(x instanceof Map){var m=new Map();seen.set(x,m);x.forEach(function(val,k){m.set(cl(k),cl(val));});return m;}if(x instanceof Set){var s=new Set();seen.set(x,s);x.forEach(function(val){s.add(cl(val));});return s;}if(Array.isArray(x)){var a=[];seen.set(x,a);for(var i=0;i<x.length;i++)a[i]=cl(x[i]);return a;}var o={};seen.set(x,o);var keys=Object.keys(x);for(var j=0;j<keys.length;j++){o[keys[j]]=cl(x[keys[j]]);}return o;})(v);};}
+if(typeof crypto!=='undefined'&&!crypto.randomUUID&&crypto.getRandomValues){crypto.randomUUID=function(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;var h=[],i;for(i=0;i<16;i++)h.push((b[i]+0x100).toString(16).slice(1));return h[0]+h[1]+h[2]+h[3]+'-'+h[4]+h[5]+'-'+h[6]+h[7]+'-'+h[8]+h[9]+'-'+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];};}
+}catch(e){}})();"""
 
         /**
          * What the sign-in page shows, for [noteLoginPage]: path, title, first heading, the text of its

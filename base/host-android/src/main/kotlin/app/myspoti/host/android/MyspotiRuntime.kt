@@ -40,7 +40,7 @@ object MyspotiRuntime {
      * the phone changes network ([resetApiConnections]).
      */
     val apiHttp: okhttp3.OkHttpClient by lazy {
-        okhttp3.OkHttpClient.Builder()
+        TlsCompat.apply(okhttp3.OkHttpClient.Builder())
             .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .pingInterval(20, java.util.concurrent.TimeUnit.SECONDS)
@@ -198,6 +198,26 @@ object MyspotiRuntime {
     /** Data saver: frees the page; [resume] loads it again. */
     fun suspendPlayer() = host.unload()
     fun resume() = host.load()
+
+    /** Evicts idle pooled sockets off the main thread so login/verification uses the active VPN. */
+    suspend fun resetAllConnectionsForVpn() = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        resetApiConnections()
+        ControlRelay.resetConnections()
+    }
+
+    /**
+     * Directly verifies imported Spotify cookies against `https://open.spotify.com/` via [apiHttp]
+     * (using [TlsCompat] and the active VPN) before waiting on WebView startup.
+     */
+    suspend fun verifyCookiesDirect(cookies: Map<String, String>): SpotifyCookieVerifier.Result {
+        resetAllConnectionsForVpn()
+        return SpotifyCookieVerifier.verify(
+            baseClient = apiHttp,
+            cookies = cookies,
+            userAgent = host.userAgent,
+            acceptLanguage = Locale.getDefault().toLanguageTag(),
+        )
+    }
 
     /**
      * The client's device id, kept across launches: a client token is issued per (client, device)

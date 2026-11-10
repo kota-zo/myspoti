@@ -585,9 +585,11 @@ private fun CrossfadePage(back: () -> Unit) {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_harmonic), checked = automix.harmonic,
                     onChecked = automix::changeHarmonic, detail = stringResource(R.string.settings_automix_harmonic_detail))
             }
-            row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_eq), checked = automix.djEq,
-                    onChecked = automix::changeDjEq, detail = stringResource(R.string.settings_automix_eq_detail))
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                row {
+                    ImmersiveSwitchRow(stringResource(R.string.settings_automix_eq), checked = automix.djEq,
+                        onChecked = automix::changeDjEq, detail = stringResource(R.string.settings_automix_eq_detail))
+                }
             }
             row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_show), checked = automix.showInPlayer,
@@ -899,9 +901,11 @@ private fun DisplayPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
                 ImmersiveSwitchRow(stringResource(R.string.settings_music_video_title), checked = com.music.spotui.data.preferences.MusicVideoPref.on,
                     onChecked = { com.music.spotui.data.preferences.MusicVideoPref.set(ctx, it) }, detail = stringResource(R.string.settings_music_video_detail))
             }
-            row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_song_pip_title), checked = com.music.spotui.data.preferences.SongPipPref.on,
-                    onChecked = { com.music.spotui.data.preferences.SongPipPref.set(ctx, it) }, detail = stringResource(R.string.settings_song_pip_detail))
+            if (com.music.spotui.data.preferences.SongPipPref.available) {
+                row {
+                    ImmersiveSwitchRow(stringResource(R.string.settings_song_pip_title), checked = com.music.spotui.data.preferences.SongPipPref.on,
+                        onChecked = { com.music.spotui.data.preferences.SongPipPref.set(ctx, it) }, detail = stringResource(R.string.settings_song_pip_detail))
+                }
             }
             row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_hide_dj_title), checked = com.music.spotui.data.preferences.HideDjPref.on,

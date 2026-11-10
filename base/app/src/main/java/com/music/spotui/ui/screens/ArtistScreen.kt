@@ -274,9 +274,7 @@ private fun ArtistOverviewContent(
         // ── Monthly listeners (compact, like "4,3 M auditeurs et auditrices par mois") ──
         item {
             overview.monthlyListeners?.let {
-                val compact = android.icu.text.CompactDecimalFormat
-                    .getInstance(java.util.Locale.getDefault(), android.icu.text.CompactDecimalFormat.CompactStyle.SHORT)
-                    .format(it)
+                val compact = formatCompactCount(it)
                 Text(
                     text = stringResource(R.string.monthly_listeners_text, compact),
                     color = AppText.copy(alpha = 0.7f),
@@ -930,5 +928,23 @@ private fun RelatedArtistCard(artist: ArtistsModel, onClick: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(text = artist.name, color = AppText, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Text(text = stringResource(R.string.artist_subtitle), color = AppMuted, fontSize = 11.sp)
+    }
+}
+
+internal fun formatCompactCount(n: Long): String {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+        return android.icu.text.CompactDecimalFormat
+            .getInstance(java.util.Locale.getDefault(), android.icu.text.CompactDecimalFormat.CompactStyle.SHORT)
+            .format(n)
+    }
+    val nf = java.text.NumberFormat.getNumberInstance(java.util.Locale.getDefault()).apply {
+        maximumFractionDigits = 1
+        minimumFractionDigits = 0
+    }
+    return when {
+        n >= 1_000_000_000L -> "${nf.format(n / 1_000_000_000.0)}B"
+        n >= 1_000_000L -> "${nf.format(n / 1_000_000.0)}M"
+        n >= 1_000L -> "${nf.format(n / 1_000.0)}K"
+        else -> java.text.NumberFormat.getIntegerInstance(java.util.Locale.getDefault()).format(n)
     }
 }

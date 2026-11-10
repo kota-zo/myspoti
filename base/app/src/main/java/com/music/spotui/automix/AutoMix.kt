@@ -77,10 +77,15 @@ object AutoMix {
         private set
     fun changeTempoRange(value: Int) { tempoRange = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_tempo", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
 
-    /** The DJ EQ: the bass swap and the filters (each player's DynamicsProcessing); off, only the volumes move. */
-    var djEq by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_eq", true))
+    /** The DJ EQ: the bass swap and the filters (each player's DynamicsProcessing, API 28+); off, only the volumes move. */
+    var djEq by mutableStateOf(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P && Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_eq", true))
         private set
-    fun changeDjEq(value: Boolean) { djEq = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_eq", value).apply(); com.music.spotui.di.LocalPlayer.autoMixEqChanged() }
+    fun changeDjEq(value: Boolean) {
+        val next = value && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P
+        djEq = next
+        Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_eq", value).apply()
+        com.music.spotui.di.LocalPlayer.autoMixEqChanged()
+    }
 
     /** How much the player moves with the mix: 0 not at all (the stretch on the bar stays), 1 subtle, 2 strong. */
     var pulseLevel by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getInt("automix_pulse", 2).coerceIn(0, 2))

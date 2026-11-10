@@ -89,6 +89,10 @@ class MainActivity : AppCompatActivity() {
     private var loginWait: kotlinx.coroutines.Job? = null
     /** The wait ended with a player that never became ready: an error with Try again, not another spinner. */
     private var loginProblem by mutableStateOf(false)
+    /** QR / phone handoff / sp_dc paste login overlay. */
+    private var qrLoginOpen by mutableStateOf(false)
+    private var qrServerState by mutableStateOf<com.music.spotui.connect.QrServerState>(com.music.spotui.connect.QrServerState.Waiting)
+    private var qrVerifyJob: kotlinx.coroutines.Job? = null
     /** The one-time setup screen (permissions, battery) after signing in. */
     private var setupNeeded by mutableStateOf(false)
     /** In the picture-in-picture window: only the music video (or, with [pipSong], the song card) is drawn. */
@@ -140,22 +144,50 @@ class MainActivity : AppCompatActivity() {
                                 onDone = { setupNeeded = false },
                             )
                             signedIn -> if (tv) com.music.spotui.ui.tv.TvApp() else App()
+                            qrLoginOpen -> com.music.spotui.ui.screens.QrLoginScreen(
+                                serverState = qrServerState,
+                                onCookies = { cookies -> applyImportedSession(cookies) },
+                                onResetError = { qrServerState = com.music.spotui.connect.QrServerState.Waiting },
+                                onFallbackWebView = { closeQrLogin(); showLogin() },
+                                onBack = { closeQrLogin() },
+                            )
                             connecting -> ConnectingScreen()
-                            else -> WelcomeScreen(onLogin = { showLogin() })
+                            else -> WelcomeScreen(onLogin = { showLogin() }, onQrLogin = { openQrLogin() })
                         }
                         // The sign-in page opening (the app's own screen, never a white page) or not coming (an
                         // error with Try again, never a page that stays blank): over whatever is under it.
                         if (showingLogin) {
                             val load by MyspotiRuntime.host.loginLoad.collectAsState()
                             when {
-                                load == LoginLoad.FAILED || loginProblem -> LoginProblemScreen(onRetry = {
-                                    if (load == LoginLoad.FAILED) MyspotiRuntime.host.retryLogin()
-                                    else { loginProblem = false; MyspotiRuntime.host.openLogin() }
-                                })
+                                load == LoginLoad.FAILED || loginProblem -> LoginProblemScreen(
+                                    onRetry = {
+                                        if (load == LoginLoad.FAILED) MyspotiRuntime.host.retryLogin()
+                                        else { loginProblem = false; MyspotiRuntime.host.openLogin() }
+                                    },
+                                    onUseQr = { openQrLogin() },
+                                )
                                 load == LoginLoad.LOADING -> ConnectingScreen()
-                                // On Spotify's page itself: a way to a diagnostic report (the settings are out of reach).
-                                else -> com.music.spotui.ui.components.LoginHelpButton()
+                                // On Spotify's page itself: a way to a diagnostic report (or switch to QR/phone login).
+                                else -> com.music.spotui.ui.components.LoginHelpButton(onUseQr = { openQrLogin() })
                             }
+                        }
+                        val pairTarget by com.music.spotui.connect.QrPairHandoff.target.collectAsState()
+                        val manualPair by com.music.spotui.connect.QrPairHandoff.manualOpen.collectAsState()
+                        if (pairTarget != null && !inPip && !showingLogin && !qrLoginOpen) {
+                            com.music.spotui.ui.screens.PairDeviceDialog(
+                                target = pairTarget!!,
+                                signedIn = signedIn,
+                                onOpenLoginFirst = {
+                                    // Keep the pending target; sign in on the phone first and dialog reappears once signed in.
+                                    if (!signedIn && !showingLogin) showLogin()
+                                },
+                                onDismiss = { com.music.spotui.connect.QrPairHandoff.clear() },
+                            )
+                        }
+                        if (manualPair && !inPip) {
+                            com.music.spotui.ui.screens.ManualPairDialog(
+                                onDismiss = { com.music.spotui.connect.QrPairHandoff.closeManual() },
+                            )
                         }
                         // Existing users, once, right after the update: the new look, live.
                         if (signedIn && !setupNeeded && !showLook && !showingLogin && !inPip && !lookOffered) {
@@ -226,6 +258,15 @@ class MainActivity : AppCompatActivity() {
         // On the sign-in page of an added account (or of one whose session was gone), back goes to
         // the account used before instead of leaving the app on a page with no account.
         // Enabled only then, so back keeps its system behaviour (and its predictive animation) elsewhere.
+        val backToWelcome = object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                loginWait?.cancel()
+                connecting = false
+                MyspotiRuntime.host.cancelLogin()
+                hideLogin()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backToWelcome)
         val backToAccount = object : androidx.activity.OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 if (!com.music.spotui.di.SessionActions.backToPreviousAccount(this@MainActivity)) return
@@ -237,8 +278,12 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, backToAccount)
         lifecycleScope.launch {
             combine(androidx.compose.runtime.snapshotFlow { showingLogin && !connecting }, MyspotiRuntime.host.accounts.list) { login, list ->
-                login && MyspotiRuntime.host.multiProfile && list.others.isNotEmpty()
-            }.collect { backToAccount.isEnabled = it }
+                val canReturnToAccount = login && MyspotiRuntime.host.multiProfile && list.others.isNotEmpty()
+                canReturnToAccount to (login && !canReturnToAccount)
+            }.collect { (toAccount, toWelcome) ->
+                backToAccount.isEnabled = toAccount
+                backToWelcome.isEnabled = toWelcome
+            }
         }
         // Only on a fresh start: on recreation (theme, locale, process restore)
         // the same intent would play its link again. New links arrive in onNewIntent.
@@ -251,7 +296,8 @@ class MainActivity : AppCompatActivity() {
      * desktop window).
      */
     private fun orientationFor(config: android.content.res.Configuration): Int {
-        val large = tv || config.smallestScreenWidthDp >= 600 || isInMultiWindowMode || isDesktopMode(config)
+        val multiWindow = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && isInMultiWindowMode
+        val large = tv || config.smallestScreenWidthDp >= 600 || multiWindow || isDesktopMode(config)
         return if (large) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             else com.music.spotui.data.preferences.OrientationPref.requested()
     }
@@ -304,6 +350,7 @@ class MainActivity : AppCompatActivity() {
     // Leaving the app (Home, recents) while a music video plays: it goes on in a small window.
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
         val mv = com.music.spotui.video.MusicVideoController
         if (!com.music.spotui.di.SongPlayer.isPlaying() || isInPictureInPictureMode) return
         if (!com.music.spotui.data.preferences.MusicVideoPref.on || !mv.on.value || mv.player == null) {
@@ -329,7 +376,7 @@ class MainActivity : AppCompatActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
         if (!pipSong) com.music.spotui.video.MusicVideoController.inPip.value = isInPictureInPictureMode
-        if (isInPictureInPictureMode && pipSong) {
+        if (isInPictureInPictureMode && pipSong && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             if (pipReceiver == null) pipReceiver = com.music.spotui.ui.components.SongPip.listen(this)
             // Play and pause swap on the window's middle button as the music stops and starts.
             pipWatch?.cancel()
@@ -385,15 +432,136 @@ class MainActivity : AppCompatActivity() {
 
     /** Spotify's login page, full screen, until the Web Player comes back signed in. */
     private fun showLogin() {
+        qrVerifyJob?.cancel()
+        qrVerifyJob = null
+        qrLoginOpen = false
         showingLogin = true
         MyspotiRuntime.host.attach(root, visible = true)
-        MyspotiRuntime.host.openLogin()
+        lifecycleScope.launch {
+            MyspotiRuntime.resetAllConnectionsForVpn()
+            MyspotiRuntime.host.openLogin()
+        }
     }
 
     private fun hideLogin() {
         showingLogin = false
         loginProblem = false
         MyspotiRuntime.host.attach(root, visible = false)
+    }
+
+    private fun openQrLogin() {
+        loginWait?.cancel()
+        connecting = false
+        if (showingLogin) {
+            MyspotiRuntime.host.cancelLogin()
+            hideLogin()
+        }
+        qrVerifyJob?.cancel()
+        qrVerifyJob = null
+        qrServerState = com.music.spotui.connect.QrServerState.Waiting
+        qrLoginOpen = true
+    }
+
+    private fun closeQrLogin(cancelWebLoad: Boolean = true) {
+        qrVerifyJob?.cancel()
+        qrVerifyJob = null
+        qrLoginOpen = false
+        qrServerState = com.music.spotui.connect.QrServerState.Waiting
+        if (cancelWebLoad) MyspotiRuntime.host.cancelLogin()
+    }
+
+    private fun applyImportedSession(cookies: Map<String, String>) {
+        qrVerifyJob?.cancel()
+        qrServerState = com.music.spotui.connect.QrServerState.Checking
+        qrVerifyJob = lifecycleScope.launch {
+            // 1) Evict stale pre-VPN sockets and directly verify sp_dc against open.spotify.com over active VPN + TlsCompat.
+            val directCheck = MyspotiRuntime.verifyCookiesDirect(cookies)
+            when (directCheck) {
+                is app.myspoti.host.android.SpotifyCookieVerifier.Result.Rejected -> {
+                    Logbook.log("qr login: direct cookie check rejected (${directCheck.reason})")
+                    qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
+                    return@launch
+                }
+                is app.myspoti.host.android.SpotifyCookieVerifier.Result.NetworkError -> {
+                    Logbook.log("qr login: direct cookie check network error (${directCheck.message})")
+                    qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                        getString(R.string.qr_login_network_error, directCheck.message),
+                    )
+                    return@launch
+                }
+                else -> Unit
+            }
+            val precheckAccepted = directCheck is app.myspoti.host.android.SpotifyCookieVerifier.Result.Accepted
+
+            // 2) Inject cookies cleanly into the WebView and wait for the NEW page commit to finish booting.
+            val commitBaseline = MyspotiRuntime.host.playerPageCommits
+            val applied = MyspotiRuntime.host.applySessionCookies(cookies)
+            if (!applied) {
+                qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_bad_cookie))
+                return@launch
+            }
+
+            fun webViewLabel(): String =
+                MyspotiRuntime.host.webViewMajorVersion?.let { "Chrome $it" } ?: "legacy WebView"
+
+            val deadline = android.os.SystemClock.elapsedRealtime() + 60_000L
+            var anonymousCount = 0
+            while (android.os.SystemClock.elapsedRealtime() < deadline) {
+                val committed = MyspotiRuntime.host.playerPageCommits > commitBaseline
+                if (committed) {
+                    val curUrl = MyspotiRuntime.host.url.value
+                    if (MyspotiRuntime.host.loginRequired.value || curUrl.contains("_authfailed", ignoreCase = true)) {
+                        MyspotiRuntime.host.cancelLogin()
+                        qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
+                        return@launch
+                    }
+                    MyspotiRuntime.host.lastWebSyntaxError?.let { syntaxErr ->
+                        Logbook.log("qr login: WebView JS error after cookie import: $syntaxErr")
+                        MyspotiRuntime.host.cancelLogin()
+                        qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                            if (precheckAccepted) getString(R.string.qr_login_webview_old, webViewLabel())
+                            else getString(R.string.qr_login_webview_load_failed, syntaxErr),
+                        )
+                        return@launch
+                    }
+                    val pageProblem = MyspotiRuntime.host.lastPageProblem
+                    if (pageProblem != null && !MyspotiRuntime.host.online.value) {
+                        MyspotiRuntime.host.cancelLogin()
+                        qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                            getString(R.string.qr_login_webview_load_failed, pageProblem),
+                        )
+                        return@launch
+                    }
+                    if (MyspotiRuntime.spotify.ready.value) {
+                        val ok = runCatching { MyspotiRuntime.isSignedIn() }.getOrNull()
+                        if (ok == true) {
+                            qrServerState = com.music.spotui.connect.QrServerState.SignedIn
+                            // Give the pairing phone/browser a moment to read "signed_in" before stopping the LAN server.
+                            kotlinx.coroutines.delay(1_400)
+                            qrLoginOpen = false
+                            sessionConfirmed()
+                            return@launch
+                        } else if (ok == false && ++anonymousCount >= 6) {
+                            MyspotiRuntime.host.cancelLogin()
+                            qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
+                            return@launch
+                        }
+                    }
+                }
+                kotlinx.coroutines.delay(650)
+            }
+            MyspotiRuntime.host.cancelLogin()
+            val major = MyspotiRuntime.host.webViewMajorVersion
+            val problem = MyspotiRuntime.host.lastPageProblem
+            val msg = when {
+                MyspotiRuntime.host.lastWebSyntaxError != null || (precheckAccepted && major != null && major < 85) ->
+                    getString(R.string.qr_login_webview_old, webViewLabel())
+                problem != null -> getString(R.string.qr_login_webview_load_failed, problem)
+                precheckAccepted -> getString(R.string.qr_login_webview_timeout)
+                else -> getString(R.string.qr_login_rejected)
+            }
+            qrServerState = com.music.spotui.connect.QrServerState.Failed(msg)
+        }
     }
 
     /**
@@ -599,7 +767,7 @@ class MainActivity : AppCompatActivity() {
                     ready && !login -> {
                         val answer = runCatching { MyspotiRuntime.isSignedIn() }
                         when (sessionCheck(answer)) {
-                            SessionCheck.SIGNED_IN -> sessionConfirmed()
+                            SessionCheck.SIGNED_IN -> if (!qrLoginOpen) sessionConfirmed()
                             // The session is kept as it is: the next page load asks again.
                             SessionCheck.UNKNOWN -> Logbook.log("session check failed (${answer.exceptionOrNull()?.message}): session kept")
                             SessionCheck.SIGNED_OUT -> if (signedIn) {
@@ -628,6 +796,10 @@ class MainActivity : AppCompatActivity() {
         when (intent.action) {
             Intent.ACTION_VIEW -> {
                 val link = intent.data?.toString() ?: return
+                com.music.spotui.connect.QrLoginProtocol.parsePairUri(link)?.let {
+                    com.music.spotui.connect.QrPairHandoff.offer(it)
+                    return
+                }
                 // A collaborative-playlist invitation (…?pt=) or a spotify.link short link: kept / resolved there.
                 if (com.music.spotui.data.api.InviteLinks.handle(link)) return
                 val uri = spotifyUri(link) ?: return
@@ -680,7 +852,7 @@ private fun ConnectingScreen() {
 
 /** The sign-in page did not come (or the player did not start after it): what happened, and a way to go again. */
 @androidx.compose.runtime.Composable
-private fun LoginProblemScreen(onRetry: () -> Unit) {
+private fun LoginProblemScreen(onRetry: () -> Unit, onUseQr: (() -> Unit)? = null) {
     Column(
         Modifier.fillMaxSize().background(com.music.spotui.ui.theme.AppBackground).systemBarsPadding().padding(28.dp),
         verticalArrangement = Arrangement.Center,
@@ -697,6 +869,16 @@ private fun LoginProblemScreen(onRetry: () -> Unit) {
         ) {
             Text(stringResource(R.string.retry_button), color = Color.Black, fontFamily = com.music.spotui.ui.theme.AppSans,
                 fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        }
+        if (onUseQr != null) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.padding(top = 12.dp).fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50))
+                    .background(Color(0x22FFFFFF)).clickable(onClick = onUseQr),
+            ) {
+                Text(stringResource(R.string.login_help_qr), color = com.music.spotui.ui.theme.AppText,
+                    fontFamily = com.music.spotui.ui.theme.AppSans, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
         }
         com.music.spotui.ui.components.LoginReportLink(Modifier.padding(top = 12.dp))
     }
