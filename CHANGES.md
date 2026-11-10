@@ -116,6 +116,46 @@ Notifications, vibration and haptics, storage paths, audio decoding and conversi
 
 ---
 
+## 6. Fixes after the first build
+
+### "Checking your session" ended in "Spotify did not accept that cookie" even with a good cookie
+
+Two things caused it, and both are fixed:
+
+- **The check looked like an old browser.** The app sends its own browser name, which on an
+  Android 6 TV follows the device's WebView (Chrome 55–106). Spotify answers old browsers with a
+  reduced page that carries no session information, and "no information" was read as "cookie
+  rejected". `SpotifyCookieVerifier` now always presents a current desktop Chrome for this one
+  request (a newer device keeps its own), so the answer is about the cookie again.
+- **Silence was treated as "no".** Since March 2025 Spotify's `get_access_token` endpoint answers
+  "anonymous" even for a valid `sp_dc` (the web player also sends a one-time code now), and the
+  page markup changes. The check now asks two places, counts only a clear "yes"/"no", and anything
+  else is reported as *unverified* — never as a wrong cookie. Only a cleared cookie, an
+  `_authfailed` redirect or a 401 stops the import.
+
+The player page is the authority now: on a slow Android 6 TV it gets 90 seconds instead of 60, it
+is reloaded once if it comes up signed out, and nothing is called "anonymous" until the page has
+had 30 seconds to boot. The new message `qr_login_unverified` says what actually happened
+("could not confirm the session — the cookie is not wrong, the page did not finish loading")
+instead of blaming the cookie.
+
+### Cookies written to the WebView
+
+- `WebPlayerHost.applySessionCookies` also writes to `https://open.spotify.com` (no trailing
+  slash), a second spelling that some Android 6 ROMs normalise differently, and logs which cookie
+  names the jar actually kept — that separates "Spotify said no" from "the page never saw the
+  cookie".
+
+### Files touched
+
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/SpotifyCookieVerifier.kt`
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/WebPlayerHost.kt`
+- `base/app/src/main/java/app/myspoti/MainActivity.kt`
+- `base/app/src/main/res/values/strings.xml` (`qr_login_unverified`)
+- `base/host-android/src/test/kotlin/app/myspoti/host/android/SpotifyCookieVerifierTest.kt` (4 new tests)
+
+---
+
 ## License
 
 Unchanged: GPL-3.0, same as the original project. See [LICENSE](LICENSE).

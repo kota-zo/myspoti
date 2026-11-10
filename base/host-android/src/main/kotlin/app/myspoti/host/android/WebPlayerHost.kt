@@ -893,6 +893,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                     val header = "$k=$v; $attrs"
                     listOf(
                         PLAYER_URL to header,
+                        // Old Android 6 ROM WebViews normalise the two spellings differently.
+                        "https://open.spotify.com" to header,
                         "https://accounts.spotify.com/" to header,
                         "https://spotify.com/" to header,
                     )
@@ -905,9 +907,15 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
                         sanitized.forEach { (k, v) ->
                             val attrs = if (k == "sp_t") "Path=/; Secure" else "Path=/; Secure; HttpOnly"
                             cm.setCookie(PLAYER_URL, "$k=$v; $attrs")
+                            cm.setCookie("https://open.spotify.com", "$k=$v; $attrs")
                         }
                         cm.flush()
                     }
+                    // Which cookies the jar actually kept, by name only: a WebView that drops them
+                    // is the difference between "Spotify said no" and "the page never saw the cookie".
+                    val jar = cm.getCookie(PLAYER_URL).orEmpty()
+                    val kept = EXPORT_COOKIES.filter { cookieJarContainsToken(jar, it) }
+                    Logbook.log("cookie: WebView kept ${kept.joinToString(",").ifBlank { "none" }} after import")
                     onPageStarting?.invoke()
                     loadAsked = true
                     pageStarts = 0
