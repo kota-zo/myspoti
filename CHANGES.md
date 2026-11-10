@@ -421,8 +421,17 @@ loader) fails where the page, with its own roots, works. The system store is sti
 
 Every report from a television so far had to be guessed at, because the app's own log was reachable
 only by holding a 30 dp bug icon — impossible with a remote — and then copying to a clipboard. On a
-TV the icon is a focusable button, the log opens full screen at the newest line, and the remote's up
-and down keys scroll it, so a page of it can be read across a room and photographed.
+TV the icon is a focusable button and the log opens full screen, so a page of it can be read across
+a room and photographed.
+
+Scrolling it from a remote needs a second thought. The first attempt wrapped the whole log in one
+focusable text that scrolled itself on up and down. It did not compile — `scrollBy` is an extension
+that has to be imported, as the app's list screens do — and, once it did, it still would not have
+moved: a remote's keys go to whatever has the focus, and the dialog gives the focus to its buttons;
+a request made too early is dropped without a word, so the text never received a single key. Each
+line is a focusable row now, newest first and bottom-up: the dialog opens with the focus on the newest
+line at the bottom, up walks back through the log, and the list follows the focus exactly as the home
+shelves follow it. No key is taken from anywhere, so the buttons stay reachable.
 
 ### Files touched
 
