@@ -370,6 +370,72 @@ that line is the next thing to look at.
 
 ---
 
+## 12. "It keeps skipping, and nothing tells me why" — the app was telling, invisibly
+
+Reported from the TV after signing in: songs keep skipping, and no cover loads on Home. The second
+is a one-line bug; the first turned out to be partly a bug of the same kind — the app knew, and could
+not be heard.
+
+### The app's answers were `Toast`s, and a TV draws no toast
+
+Every explanation the engine has for this exact symptom was sent as `Toast.makeText(...)`:
+"songs skipped by Spotify", "licences refused", "this device has no Widevine", "the play was
+refused", "Spotify is limiting playback". On a television those are drawn nowhere — so the app
+stopped playback, or named the reason, and the user saw songs skip with no reason at all.
+
+- `TvNotice` + `TvNoticeHost`: those messages are drawn over the TV's own screens (a panel at the
+  bottom, not focusable, gone after 14 s). `SongPlayer` now sends them there on a TV and keeps the
+  toast for phones.
+- The message set is unchanged and translated already (`songs_skipped_by_spotify`,
+  `licences_refused_*`, `drm_missing`, `play_refused*`, `spotify_limited`, `song_unavailable*`).
+
+### The guard against a skipping page could not see a slow one
+
+`TrackChanges.Chain` stops playback when the page moves on by itself three times in a row after "a
+few seconds" — three songs inside 30 s, each left within 10 s. A slow device fails *slowly*: on the TV
+each song was given ten to twenty seconds to start before the page went on, so the bar was never met
+and the whole queue went by unstopped. The window is now 90 s and a song may have played 20 s, with a
+test for the case (three songs, each 15-18 s).
+
+### The app no longer guesses a song's end
+
+"Past the end" is extrapolated from the last state the page sent (`position + elapsed × speed`). A
+page busy for seconds hands over a state that is already old, and the extrapolation runs past the
+song's duration — the repair then moves to the next song, i.e. the app skips it. Before a song is
+left on that judgement, the page is asked where it is (`player.state`): a page that still has the
+song in its middle stops the repair and the state is taken fresh. Twice at most, so a page that
+cannot answer is never left playing a song that is over.
+
+### No cover on Home
+
+`TvCover` handed Glide whatever string it was given. The profile and library endpoints answer
+`spotify:image:<id>` (and `spotify:mosaic:<ids>`), which Glide cannot fetch — the phone screens pass
+those through `spotifyImageUrl()` first, the TV's did not, so every such card kept its grey box. It
+goes through the same helper now.
+
+`TlsCompat.install()` also runs on every Android version now, not only 6-9: a television ships a
+system trust store and stops updating it, and a native client that trusts only that store (the cover
+loader) fails where the page, with its own roots, works. The system store is still consulted first.
+
+### The log can be reached on a TV
+
+Every report from a television so far had to be guessed at, because the app's own log was reachable
+only by holding a 30 dp bug icon — impossible with a remote — and then copying to a clipboard. On a
+TV the icon is a focusable button, the log opens full screen at the newest line, and the remote's up
+and down keys scroll it, so a page of it can be read across a room and photographed.
+
+### Files touched
+
+- `base/app/src/main/java/com/music/spotui/ui/tv/TvNotice.kt` (new)
+- `base/app/src/main/java/com/music/spotui/ui/tv/TvApp.kt`, `TvParts.kt`
+- `base/app/src/main/java/com/music/spotui/di/SongPlayer.kt`
+- `base/app/src/main/java/com/music/spotui/ui/components/BetaLogButton.kt`
+- `base/api-spotify/src/main/kotlin/app/myspoti/spotify/SpotifyPlayer.kt`
+- `base/api-spotify/src/main/kotlin/app/myspoti/spotify/TrackChanges.kt` + `TrackChangesTest.kt`
+- `base/host-android/src/main/kotlin/app/myspoti/host/android/TlsCompat.kt`
+
+---
+
 ## License
 
 Unchanged: GPL-3.0, same as the original project. See [LICENSE](LICENSE).

@@ -11,8 +11,13 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import com.music.spotui.di.Haptics
 import kotlinx.coroutines.launch
@@ -61,12 +66,19 @@ fun BetaLogButton(modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     val grow = remember { androidx.compose.animation.core.Animatable(0f) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val ctx = LocalContext.current
+    // A television: no touch to press and hold, and its screen is not where a clipboard goes. The
+    // icon is a focusable button, and the log is read on the screen (and photographed) by scrolling
+    // it with the remote. Without this the app's log was unreachable on a TV — every report of a
+    // bug there had to be guessed at.
+    val tv = remember { com.music.spotui.ui.tv.Tv.isTv(ctx) }
     // The full player covers the tabs: no bug icon over it.
     if (!com.music.spotui.ui.navigation.PlayerSheet.open.value) Box(
         modifier
             .navigationBarsPadding()
             .padding(end = 2.dp, bottom = 2.dp)
-            .size(30.dp)
+            .size(if (tv) 46.dp else 30.dp)
+            .then(if (tv) Modifier.focusable().clickable { open = true } else Modifier)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     val job = scope.launch {
@@ -90,9 +102,12 @@ fun BetaLogButton(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         val g = grow.value
+        var focused by remember { mutableStateOf(false) }
         BugIcon(
-            color = androidx.compose.ui.graphics.lerp(AppMuted, AppAccent, g),
-            modifier = Modifier.size((16 + 12 * g).dp),
+            color = androidx.compose.ui.graphics.lerp(if (focused) Color.White else AppMuted, AppAccent, g),
+            modifier = Modifier
+                .size(if (tv) 26.dp else (16 + 12 * g).dp)
+                .then(if (tv) Modifier.onFocusChanged { focused = it.isFocused } else Modifier),
         )
     }
     if (open) LogsDialog(onDismiss = { open = false })
@@ -130,6 +145,7 @@ private const val HOLD_MS = 900
 private fun LogsDialog(onDismiss: () -> Unit) {
     com.music.spotui.extensions.ProtectedSurfaceEffect(app.myspoti.extensions.ProtectedSurface.REPORT)
     val context = LocalContext.current
+    val tv = remember { com.music.spotui.ui.tv.Tv.isTv(context) }
     var text by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { text = BetaLogs.recent() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -142,12 +158,17 @@ private fun LogsDialog(onDismiss: () -> Unit) {
             Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp)) {
                 val logs = text
                 if (logs == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = AppAccent)
-                else SelectionContainer {
+                else {
                     // The newest lines matter most: the view opens scrolled to the end.
                     val scroll = rememberScrollState()
                     LaunchedEffect(logs) { scroll.scrollTo(scroll.maxValue) }
-                    Text(logs, color = Color(0xFFDDDDDD), fontSize = 10.sp, fontFamily = FontFamily.Monospace, lineHeight = 13.sp,
-                        modifier = Modifier.fillMaxSize().verticalScroll(scroll))
+                    SelectionContainer {
+                        Text(logs, color = Color(0xFFDDDDDD), fontSize = if (tv) 12.sp else 10.sp,
+                            fontFamily = FontFamily.Monospace, lineHeight = if (tv) 16.sp else 13.sp,
+                            modifier = Modifier.fillMaxSize()
+                                .then(if (tv) logScrollKeys(scroll) else Modifier)
+                                .verticalScroll(scroll))
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
@@ -161,6 +182,30 @@ private fun LogsDialog(onDismiss: () -> Unit) {
             }
         }
     }
+}
+
+/**
+ * A remote has no scroll gesture: on a TV the log takes the focus and its up/down keys move it a
+ * few lines at a time, so the page of the app's own log can be read — and photographed — where it
+ * is. The newest lines are at the end, which is where the view opens.
+ */
+@Composable
+private fun logScrollKeys(scroll: androidx.compose.foundation.ScrollState): Modifier {
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    return Modifier
+        .focusRequester(focus)
+        .focusable()
+        .onKeyEvent { event ->
+            if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onKeyEvent false
+            val step = 300f
+            when (event.key) {
+                androidx.compose.ui.input.key.Key.DirectionDown -> { scope.launch { scroll.scrollBy(step) }; true }
+                androidx.compose.ui.input.key.Key.DirectionUp -> { scope.launch { scroll.scrollBy(-step) }; true }
+                else -> false
+            }
+        }
 }
 
 private fun copy(context: Context, text: String) {

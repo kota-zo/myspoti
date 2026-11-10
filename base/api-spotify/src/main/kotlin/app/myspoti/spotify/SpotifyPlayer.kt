@@ -762,6 +762,8 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         var stillSince = 0L
         /** When a stall already seen is due its repair: the next look is then, not a whole tick later. */
         var dueAt = 0L
+        /** "Past the end" asked of the page again, see [END_VERIFY_MAX]. */
+        var endChecks = 0
         fun notStalled() { stillSince = 0L; _stalled.value = false }
         while (true) {
             // A song plays (or an ad is on): the watcher looks every [WATCH_TICK_MS] to hear a
@@ -990,7 +992,7 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             val reason = s?.let { stallOf(it, now, pausedByUser) } ?: (if (silent) SILENT else null)
             if (repairsHeld()) { key = null; attempts = 0; continue }
             // A song heard again: a reload for a stale token may be tried again from the first gap.
-            if (playingHere && moved) authReloads = 0
+            if (playingHere && moved) { authReloads = 0; endChecks = 0 }
             // A silent song repaired once is not silent for [SILENT_MS] after the repair, which
             // reset its count: its attempt is kept while its element still stands, so the next
             // look reloads (reported, 2.3.0: "attempt 1" every 8 s for 4.5 minutes, a seek refused
@@ -1022,6 +1024,30 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
             if (attempts == 1 && staleTokenStall(now - app.myspoti.spotify.bridge.PageAuth.licenceUnauthorizedAt, media?.keyWaits ?: 0)) {
                 bridge.logger?.invoke("a licence was answered 401: the page's token is stale, reloading")
                 attempts = 2
+            }
+            // "Past the end" is a guess: the clock is extrapolated from the last state the page sent,
+            // and a page that was busy for seconds hands over one that is already old — on a TV that
+            // is every song, and each of those guesses moved the user's music on by itself. The page
+            // is asked where it is before a song is left; only a page that still has it in its middle
+            // stops the repair, and only [END_VERIFY_MAX] times (a page that cannot answer the
+            // question is not left playing a song that is over).
+            if (onward && attempts == 1 && endChecks < END_VERIFY_MAX) {
+                val fresh = runCatching {
+                    (bridge.call("player.state", timeoutMs = MEDIA_TIMEOUT_MS, quiet = true) as? JsonObject)?.let { playerState(it) }
+                }.getOrNull()
+                val here = fresh?.item
+                if (fresh != null && here != null && here.uri == s.item?.uri && here.durationMs > 0) {
+                    val at = fresh.positionAt(System.currentTimeMillis())
+                    if (at < here.durationMs - END_VERIFY_MS) {
+                        endChecks++
+                        bridge.logger?.invoke(
+                            "not the end: the page has ${here.name} at ${TrackChanges.clock(at)} of ${TrackChanges.clock(here.durationMs)}; looked at again",
+                        )
+                        key = null; attempts = 0; silentSince = 0L
+                        onState(fresh)
+                        continue
+                    }
+                }
             }
             if (attempts == 1) runCatching { if (onward) playOn(s) else seek(s.positionAt(now)) }
             else {
@@ -2681,6 +2707,12 @@ class SpotifyPlayer(private val bridge: Bridge, private val scope: CoroutineScop
         const val STUCK_MS = 8_000L
         /** A song over with nothing after it: where an ad was left out. Next song quickly. */
         const val END_STUCK_MS = 1_000L
+
+        /** How far before the end the page must say a song is before "past the end" is believed. */
+        const val END_VERIFY_MS = 4_000L
+
+        /** How many times a song may be asked about before the page's own "it is over" is accepted. */
+        private const val END_VERIFY_MAX = 2
         private const val WATCH_TICK_MS = 2_000L
         /** The page's lowest streaming level (24 kbit/s), used while it only mirrors (see [setMirroring]). */
         const val MIRROR_QUALITY = "low"
