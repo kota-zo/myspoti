@@ -81,6 +81,8 @@ internal fun sessionCheck(answer: Result<Boolean>): SessionCheck = answer.fold(
  */
 class MainActivity : AppCompatActivity() {
     private lateinit var root: FrameLayout
+    /** The Compose UI, kept so the player page can be attached behind it (see [showPlayerBehindApp]). */
+    private var composeView: android.view.View? = null
     private var signedIn by mutableStateOf(false)
     private var showingLogin by mutableStateOf(false)
     /** Back from Spotify's login, waiting for the session: a native loading screen, not the web page. */
@@ -232,6 +234,7 @@ class MainActivity : AppCompatActivity() {
                 } } }
             }
         }
+        composeView = compose
         root.addView(compose, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(root)
         // Haptics (buttons, likes, the debug icon) go through this window.
@@ -470,128 +473,180 @@ class MainActivity : AppCompatActivity() {
         if (cancelWebLoad) MyspotiRuntime.host.cancelLogin()
     }
 
+    /**
+     * The player page at full size, behind the app's own screen.
+     *
+     * [app.myspoti.host.android.WebPlayerHost.attach] with `visible = false` leaves the page 1x1
+     * and invisible — enough for playback (the app plays like that all day), but on a slow phone
+     * or an Android 6 TV the player never finishes booting there, and a cookie import ended in
+     * "the sign-in did not finish" every time. Pressing "Log in on this device" (which attaches
+     * the page full size) signed in at once with the same cookies: that is the state the player
+     * needs, so the import uses it too. The Compose screen is moved back in front, so the user
+     * keeps looking at the same screen and can still use it.
+     */
+    private fun showPlayerBehindApp(show: Boolean) {
+        MyspotiRuntime.host.attach(root, visible = show)
+        val compose = composeView ?: return
+        // attach() posts its addView, and the page would land on top of the app's screen: the
+        // Compose view is put back in front on the same queue, after it.
+        root.post {
+            runCatching {
+                if (compose.parent == null) root.addView(compose) else root.bringChildToFront(compose)
+                if (show) compose.requestFocus()
+            }
+        }
+    }
+
     private fun applyImportedSession(cookies: Map<String, String>) {
         qrVerifyJob?.cancel()
         qrServerState = com.music.spotui.connect.QrServerState.Checking
         qrVerifyJob = lifecycleScope.launch {
-            // 1) Evict stale pre-VPN sockets and ask Spotify directly, over the active VPN and
-            //    TlsCompat. Only a definite answer is allowed to stop the import: an "I could not
-            //    tell" (the token endpoint is TOTP-gated since 2025, the page markup moves) used to
-            //    be reported to the user as "Spotify did not accept that cookie".
-            val directCheck = MyspotiRuntime.verifyCookiesDirect(cookies)
-            var precheckAccepted = false
-            var precheckNote: String? = null
-            when (directCheck) {
-                is app.myspoti.host.android.SpotifyCookieVerifier.Result.Rejected -> {
-                    Logbook.log("qr login: direct cookie check rejected (${directCheck.reason})")
-                    if (directCheck.definitive) {
-                        qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
-                        return@launch
-                    }
-                    precheckNote = directCheck.reason
-                }
-                is app.myspoti.host.android.SpotifyCookieVerifier.Result.NetworkError -> {
-                    Logbook.log("qr login: direct cookie check network error (${directCheck.message})")
-                    qrServerState = com.music.spotui.connect.QrServerState.Failed(
-                        getString(R.string.qr_login_network_error, directCheck.message),
-                    )
-                    return@launch
-                }
-                is app.myspoti.host.android.SpotifyCookieVerifier.Result.Accepted -> precheckAccepted = true
-                is app.myspoti.host.android.SpotifyCookieVerifier.Result.Unverified -> {
-                    precheckNote = directCheck.note
-                    Logbook.log("qr login: direct cookie check was inconclusive (${directCheck.note}); trying the player page")
-                }
+            try {
+                importSession(cookies)
+            } finally {
+                // Whatever happened, the app goes back to its own screen in front of a hidden page
+                // — unless the user took the screen over meanwhile ("Log in on this device" shows
+                // Spotify's page full size, and hiding it here would leave a blank screen).
+                if (!showingLogin) showPlayerBehindApp(false)
             }
-
-            // 2) Inject cookies cleanly into the WebView and wait for the NEW page commit to finish booting.
-            val commitBaseline = MyspotiRuntime.host.playerPageCommits
-            val applied = MyspotiRuntime.host.applySessionCookies(cookies)
-            if (!applied) {
-                qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_bad_cookie))
-                return@launch
-            }
-
-            fun webViewLabel(): String =
-                MyspotiRuntime.host.webViewMajorVersion?.let { "Chrome $it" } ?: "legacy WebView"
-
-            // Android 6 TV boxes are slow and their WebView boots the player in its own time: the
-            // page gets 90 s, and nothing is called "anonymous" until the page has had 30 s of it.
-            val started = android.os.SystemClock.elapsedRealtime()
-            val deadline = started + 90_000L
-            val anonymousGraceMs = 30_000L
-            var commitAt = 0L
-            var reloadedOnce = false
-            var anonymousCount = 0
-            while (android.os.SystemClock.elapsedRealtime() < deadline) {
-                val now = android.os.SystemClock.elapsedRealtime()
-                val committed = MyspotiRuntime.host.playerPageCommits > commitBaseline
-                if (committed && commitAt == 0L) commitAt = now
-                if (committed) {
-                    val curUrl = MyspotiRuntime.host.url.value
-                    if (MyspotiRuntime.host.loginRequired.value || curUrl.contains("_authfailed", ignoreCase = true)) {
-                        Logbook.log("qr login: the player page is the sign-in page again after the cookie import")
-                        MyspotiRuntime.host.cancelLogin()
-                        qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
-                        return@launch
-                    }
-                    MyspotiRuntime.host.lastWebSyntaxError?.let { syntaxErr ->
-                        Logbook.log("qr login: WebView JS error after cookie import: $syntaxErr")
-                        MyspotiRuntime.host.cancelLogin()
-                        qrServerState = com.music.spotui.connect.QrServerState.Failed(
-                            if (precheckAccepted || precheckNote != null) getString(R.string.qr_login_webview_old, webViewLabel())
-                            else getString(R.string.qr_login_webview_load_failed, syntaxErr),
-                        )
-                        return@launch
-                    }
-                    val pageProblem = MyspotiRuntime.host.lastPageProblem
-                    if (pageProblem != null && !MyspotiRuntime.host.online.value) {
-                        MyspotiRuntime.host.cancelLogin()
-                        qrServerState = com.music.spotui.connect.QrServerState.Failed(
-                            getString(R.string.qr_login_webview_load_failed, pageProblem),
-                        )
-                        return@launch
-                    }
-                    if (MyspotiRuntime.spotify.ready.value) {
-                        val ok = runCatching { MyspotiRuntime.isSignedIn() }.getOrNull()
-                        if (ok == true) {
-                            qrServerState = com.music.spotui.connect.QrServerState.SignedIn
-                            // Give the pairing phone/browser a moment to read "signed_in" before stopping the LAN server.
-                            kotlinx.coroutines.delay(1_400)
-                            qrLoginOpen = false
-                            sessionConfirmed()
-                            return@launch
-                        } else if (ok == false) {
-                            // One second load, once: an old WebView sometimes builds the page before
-                            // it has the cookies we just wrote, and comes up anonymous.
-                            if (!reloadedOnce && now - commitAt in 10_000L..40_000L) {
-                                reloadedOnce = true
-                                Logbook.log("qr login: player came up anonymous, reloading the page once")
-                                runCatching { MyspotiRuntime.host.reload() }
-                            } else if (now - commitAt > anonymousGraceMs && ++anonymousCount >= 6) {
-                                Logbook.log("qr login: player stayed anonymous after the cookie import")
-                                MyspotiRuntime.host.cancelLogin()
-                                qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
-                                return@launch
-                            }
-                        }
-                    }
-                }
-                kotlinx.coroutines.delay(650)
-            }
-            MyspotiRuntime.host.cancelLogin()
-            val major = MyspotiRuntime.host.webViewMajorVersion
-            val problem = MyspotiRuntime.host.lastPageProblem
-            val msg = when {
-                MyspotiRuntime.host.lastWebSyntaxError != null || ((precheckAccepted || precheckNote != null) && major != null && major < 85) ->
-                    getString(R.string.qr_login_webview_old, webViewLabel())
-                problem != null -> getString(R.string.qr_login_webview_load_failed, problem)
-                precheckAccepted -> getString(R.string.qr_login_webview_timeout)
-                precheckNote != null -> getString(R.string.qr_login_unverified, precheckNote.orEmpty(), webViewLabel())
-                else -> getString(R.string.qr_login_rejected)
-            }
-            qrServerState = com.music.spotui.connect.QrServerState.Failed(msg)
         }
+    }
+
+    private suspend fun importSession(cookies: Map<String, String>) {
+        // 1) Evict stale pre-VPN sockets and ask Spotify directly, over the active VPN and
+        //    TlsCompat. Only a definite answer is allowed to stop the import: an "I could not
+        //    tell" (the token endpoint is TOTP-gated since 2025, the page markup moves) used to
+        //    be reported to the user as "Spotify did not accept that cookie".
+        val directCheck = MyspotiRuntime.verifyCookiesDirect(cookies)
+        var precheckAccepted = false
+        var precheckNote: String? = null
+        when (directCheck) {
+            is app.myspoti.host.android.SpotifyCookieVerifier.Result.Rejected -> {
+                Logbook.log("qr login: direct cookie check rejected (${directCheck.reason})")
+                if (directCheck.definitive) {
+                    qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
+                    return
+                }
+                precheckNote = directCheck.reason
+            }
+            is app.myspoti.host.android.SpotifyCookieVerifier.Result.NetworkError -> {
+                Logbook.log("qr login: direct cookie check network error (${directCheck.message})")
+                qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                    getString(R.string.qr_login_network_error, directCheck.message),
+                )
+                return
+            }
+            is app.myspoti.host.android.SpotifyCookieVerifier.Result.Accepted -> precheckAccepted = true
+            is app.myspoti.host.android.SpotifyCookieVerifier.Result.Unverified -> {
+                precheckNote = directCheck.note
+                Logbook.log("qr login: direct cookie check was inconclusive (${directCheck.note}); trying the player page")
+            }
+        }
+
+        fun webViewLabel(): String =
+            MyspotiRuntime.host.webViewMajorVersion?.let { "Chrome $it" } ?: "legacy WebView"
+
+        // A WebView older than Chrome 85 cannot run Spotify's player at all: say so at once instead
+        // of waiting a minute and a half for a page that was never going to boot.
+        val webViewMajor = MyspotiRuntime.host.webViewMajorVersion
+        if (webViewMajor != null && webViewMajor < 85) {
+            Logbook.log("qr login: WebView is $webViewMajor, below the player's Chrome 85")
+            qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_webview_old, webViewLabel()))
+            return
+        }
+
+        // 2) The page full size, behind the app's screen, then the cookies, then the player.
+        showPlayerBehindApp(true)
+        val commitBaseline = MyspotiRuntime.host.playerPageCommits
+        val applied = MyspotiRuntime.host.applySessionCookies(cookies)
+        if (!applied) {
+            qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_bad_cookie))
+            return
+        }
+
+        // 3) Wait for the player. On a slow device the page gets its time; and if the player still
+        //    has not booted after 25 s, the sign-in page is opened the way the login button does it
+        //    (Spotify bounces a good session straight back to the player) — that path is the one
+        //    seen working when the user pressed "Log in on this device" during the wait.
+        val started = android.os.SystemClock.elapsedRealtime()
+        val deadline = started + 90_000L
+        val secondChanceAt = started + 25_000L
+        var secondChance = false
+        var commitAt = 0L
+        var anonymousCount = 0
+        var loginPageSince = 0L
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (!secondChance && now >= secondChanceAt) {
+                secondChance = true
+                Logbook.log("qr login: the player has not booted from the imported cookies, opening the sign-in page")
+                runCatching { MyspotiRuntime.host.openLogin() }
+            }
+            val committed = MyspotiRuntime.host.playerPageCommits > commitBaseline
+            if (committed && commitAt == 0L) commitAt = now
+            if (committed) {
+                val curUrl = MyspotiRuntime.host.url.value
+                val onLoginPage = MyspotiRuntime.host.loginRequired.value || curUrl.contains("_authfailed", ignoreCase = true)
+                if (onLoginPage) {
+                    if (loginPageSince == 0L) loginPageSince = now
+                    // A redirect through the sign-in page is normal while Spotify sorts the
+                    // session out — and slow on an old device; 15 s there means it was not taken.
+                    if (secondChance && now - loginPageSince > 15_000L) {
+                        Logbook.log("qr login: Spotify's sign-in page stayed after the cookie import")
+                        MyspotiRuntime.host.cancelLogin()
+                        qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
+                        return
+                    }
+                } else {
+                    loginPageSince = 0L
+                }
+                MyspotiRuntime.host.lastWebSyntaxError?.let { syntaxErr ->
+                    Logbook.log("qr login: WebView JS error after cookie import: $syntaxErr")
+                    MyspotiRuntime.host.cancelLogin()
+                    qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                        if (precheckAccepted || precheckNote != null) getString(R.string.qr_login_webview_old, webViewLabel())
+                        else getString(R.string.qr_login_webview_load_failed, syntaxErr),
+                    )
+                    return
+                }
+                val pageProblem = MyspotiRuntime.host.lastPageProblem
+                if (pageProblem != null && !MyspotiRuntime.host.online.value) {
+                    MyspotiRuntime.host.cancelLogin()
+                    qrServerState = com.music.spotui.connect.QrServerState.Failed(
+                        getString(R.string.qr_login_webview_load_failed, pageProblem),
+                    )
+                    return
+                }
+                if (MyspotiRuntime.spotify.ready.value) {
+                    val ok = runCatching { MyspotiRuntime.isSignedIn() }.getOrNull()
+                    if (ok == true) {
+                        qrServerState = com.music.spotui.connect.QrServerState.SignedIn
+                        // Give the pairing phone/browser a moment to read "signed_in" before stopping the LAN server.
+                        kotlinx.coroutines.delay(1_400)
+                        qrLoginOpen = false
+                        sessionConfirmed()
+                        return
+                    } else if (ok == false && secondChance && ++anonymousCount >= 6) {
+                        Logbook.log("qr login: the player stayed anonymous after the sign-in page")
+                        MyspotiRuntime.host.cancelLogin()
+                        qrServerState = com.music.spotui.connect.QrServerState.Failed(getString(R.string.qr_login_rejected))
+                        return
+                    }
+                }
+            }
+            kotlinx.coroutines.delay(650)
+        }
+        MyspotiRuntime.host.cancelLogin()
+        val problem = MyspotiRuntime.host.lastPageProblem
+        val msg = when {
+            MyspotiRuntime.host.lastWebSyntaxError != null || ((precheckAccepted || precheckNote != null) && webViewMajor != null && webViewMajor < 85) ->
+                getString(R.string.qr_login_webview_old, webViewLabel())
+            problem != null -> getString(R.string.qr_login_webview_load_failed, problem)
+            precheckAccepted -> getString(R.string.qr_login_webview_timeout)
+            precheckNote != null -> getString(R.string.qr_login_unverified, precheckNote.orEmpty(), webViewLabel())
+            else -> getString(R.string.qr_login_rejected)
+        }
+        qrServerState = com.music.spotui.connect.QrServerState.Failed(msg)
     }
 
     /**

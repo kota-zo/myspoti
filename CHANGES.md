@@ -156,6 +156,40 @@ instead of blaming the cookie.
 
 ---
 
+## 7. Fix: the cookie import never let the player boot
+
+Reported after the first fix: *"when typing the token it says it didn't load after a while, but
+while it is checking I click 'Log in on this device' and it signs in at once."* That was the bug,
+and it had nothing to do with the cookie.
+
+The app keeps the Web Player page **1x1 and invisible** behind its own screens — enough to play
+music all day. The cookie import loaded the player into that same 1x1 invisible page, and on a slow
+phone (and on an Android 6 TV) the player never finishes booting there: no ready signal, no
+session, so the import gave up and reported a failure. The "Log in on this device" button calls
+`attach(root, visible = true)` first — a full-size, visible page — and that is why signing in
+worked the moment the user pressed it.
+
+What the import does now:
+
+- **The page is attached full size, in front of the WebView window, behind the app's own screen.**
+  `showPlayerBehindApp(true)` attaches it and moves the Compose UI back to the front, so the user
+  keeps looking at the same QR screen and can still use it, while the player gets the window it
+  needs to boot. It is put back to the normal 1x1 hidden state when the import ends (success,
+  failure or cancellation) — unless the user opened Spotify's sign-in page meanwhile.
+- **A second chance at 25 s:** if the player still has not booted, the import opens the sign-in
+  page the way the login button does (`openLogin()`). With a good cookie Spotify bounces straight
+  back to the player; that is the path the user saw working by hand.
+- **A WebView older than Chrome 85 fails at once** with the "Android System WebView is too old"
+  message, instead of waiting 90 s for a page that cannot run.
+- The rest of the window is unchanged: 90 s, honest messages, and a rejection only when Spotify
+  really asks for a sign-in (`_authfailed` or its login page staying for 15 s after the cookies).
+
+### Files touched
+
+- `base/app/src/main/java/app/myspoti/MainActivity.kt` (`showPlayerBehindApp`, `importSession`)
+
+---
+
 ## License
 
 Unchanged: GPL-3.0, same as the original project. See [LICENSE](LICENSE).
