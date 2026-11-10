@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.ui.res.stringResource
 
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.async
 import com.music.spotui.ui.components.SkeletonKind
 import com.music.spotui.ui.components.animatedRow
@@ -1518,10 +1519,13 @@ object SmartShuffle {
      * Smart shuffle (Spotify keeps its own for Premium): the playlist shuffled, with one of
      * Spotify's recommendations for it after every [EVERY] songs.
      */
-    suspend fun start(p: ContextPageModel, first: SongsModel?, fromPositionMs: Long? = null) {
+    suspend fun start(page: ContextPageModel, first: SongsModel?, fromPositionMs: Long? = null) {
         val api = Graph.api
         val state = Graph.currentSongState
-        on.value = p.uri
+        on.value = page.uri
+        // Reported (#207): a tap while the list was still loading mixed only the songs loaded so
+        // far. Every page of it first, as Myspoti's shuffle does; what was loaded if that fails.
+        val p = if (page.complete) page else wholePage(page.uri) ?: page
         val inList = p.tracks.map { it.spotifyTrackId }.toSet()
         val recs = withContext(Dispatchers.IO) {
             if (p.type == "liked") {
@@ -1554,21 +1558,32 @@ object SmartShuffle {
 
     /** From the player: loads the playing list, then smart-shuffles it, the current song first. */
     suspend fun startFor(contextUri: String, currentTrackId: String): Boolean {
-        val api = Graph.api
-        val flow = when {
-            contextUri.contains(":collection") -> api.getLikedPage()
-            contextUri.startsWith("spotify:playlist:") -> api.getPlaylistPage(contextUri.substringAfterLast(':'))
-            else -> return false
-        }
-        val page = (withContext(Dispatchers.IO) { flow.first { it !is Response.Loading } } as? Response.Success)?.data ?: return false
-        // Reported: turning it on from the player skipped the song. A long list's page holds only
-        // its first tracks, so the song playing was often not found and a random one started
-        // instead; the song playing now always stays first.
+        val page = wholePage(contextUri) ?: return false
+        // Reported: turning it on from the player skipped the song. The song playing stays first,
+        // also when a page that failed to load left it out of the list.
         val current = page.tracks.firstOrNull { it.spotifyTrackId == currentTrackId }
             ?: SongPlayer.engineQueue.value.current?.takeIf { it.spotifyTrackId == currentTrackId }
         start(page, current, SongPlayer.getCurrentPosition())
         return true
     }
+
+    /** Every song of the playlist or Liked Songs at [contextUri], or null when it cannot be read. */
+    private suspend fun wholePage(contextUri: String): ContextPageModel? {
+        val api = Graph.api
+        val flow = when {
+            contextUri.contains(":collection") -> api.getLikedPage()
+            contextUri.startsWith("spotify:playlist:") -> api.getPlaylistPage(contextUri.substringAfterLast(':'))
+            else -> return null
+        }
+        return withContext(Dispatchers.IO) { completeOf(flow) }
+    }
+
+    /**
+     * The page once all of it is loaded. Reported (#207): the first page that was not loading was
+     * taken, and a playlist that was not read in full lately holds only its first 100 songs there.
+     */
+    internal suspend fun completeOf(flow: kotlinx.coroutines.flow.Flow<Response<ContextPageModel>>): ContextPageModel? =
+        (flow.firstOrNull { it is Response.Error || (it is Response.Success && it.data.complete) } as? Response.Success)?.data
 }
 
 /** Text order for sorting (accents ignored): one collator per thread, none is thread-safe. */
