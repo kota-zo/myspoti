@@ -47,6 +47,10 @@ class MusicVideoMatchTest {
         assertEquals(1, accepted("Song feat. Someone", "Artist", 200_000, e("Song (Official Video)", "Artist", 200)).size)
     }
 
+    @Test fun aPartInBracesIsNotInTheTitle() {
+        assertEquals(1, accepted("Song {Remastered}", "Artist", 200_000, e("Song (Official Video)", "Artist", 200)).size)
+    }
+
     @Test fun titleMustBeInTheName() {
         assertTrue(accepted("Song", "Eve", 200_000, e("Songbird - Eve", "Eve", 200)).isEmpty())
     }
