@@ -4,8 +4,9 @@
     <string name="sources_download_title">Fontes de descarga</string>
     <string name="sources_audio_footer">Consúltanse de arriba abaixo para cada canción: a primeira que a teña reprodúcea. Usa as frechas para cambiar a orde.</string>
     <string name="sources_download_footer">Consúltanse de arriba abaixo: a primeira fonte que teña a canción entrega o ficheiro. Usa as frechas para cambiar a orde.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Reprodúcese cando ningunha fonte de enriba ten a canción</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Reprodúcese cando ningunha fonte de enriba ten a canción</string>
+    <string name="sources_account_player">O reprodutor da túa conta</string>
     <string name="sources_ready">Listo</string>
     <string name="sources_details_show">Amosar detalles</string>
     <string name="sources_details_hide">Ocultar detalles</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Última: %1$s, %2$s</string>
     <string name="sources_open">Abrir a extensión</string>
     <string name="sources_order_hint">As fontes consúltanse na orde definida en Axustes (Reprodución, Descargas).</string>
-    <string name="sources_below_spotify">Non se pregunta: Spotify está arriba</string>
+    <string name="sources_below_account">Non se pregunta: Spotify está arriba</string>
 </resources>

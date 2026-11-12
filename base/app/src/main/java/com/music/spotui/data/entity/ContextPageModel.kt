@@ -19,4 +19,6 @@ data class ContextPageModel(
     val isBlend: Boolean = false,
     /** A member who is not the owner and may leave (`canCancelMembership`). */
     val canLeave: Boolean = false,
+    /** Under an album's songs: its full release date, then its label and copyright lines, as Spotify shows them. */
+    val footer: List<String> = emptyList(),
 )

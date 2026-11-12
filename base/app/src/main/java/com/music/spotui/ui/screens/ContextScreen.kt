@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -76,13 +77,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.api.Api
 import com.music.spotui.data.api.EditablePlaylists
@@ -320,9 +321,11 @@ class ContextViewModel(
                 if (r is Response.Loading && _page.value is Response.Success) return@collect
                 // Offline or refused: the page already on screen stays rather than an error.
                 if (r is Response.Error && fromDisk && _page.value is Response.Success) return@collect
-                // A refresh keeps the full list on screen until the new one is complete: the first
-                // page alone would cut a long playlist short and lose the place in it.
-                if ((refreshing.value || fromDisk) && r is Response.Success && !r.data.complete &&
+                // The fuller list on screen (a refresh, a page kept on storage, or one opened a moment
+                // ago and kept in memory) stays until the new one is complete: the first page alone
+                // cut a long playlist short and lost the place in it, the list then growing back page
+                // by page (reported: the playlist one is in reloads and changes).
+                if (r is Response.Success && !r.data.complete &&
                     (_page.value as? Response.Success)?.data?.let { it.uri == r.data.uri && it.tracks.size > r.data.tracks.size } == true) return@collect
                 _page.value = r
                 if (r is Response.Success) {
@@ -331,6 +334,8 @@ class ContextViewModel(
                     // Its first songs are made ready, so a tap plays at once (an audio-source extension).
                     if (warmedFor != p.uri) { warmedFor = p.uri; viewModelScope.launch { runCatching { com.music.spotui.extensions.ExtensionAudio.warm(p.tracks) } } }
                     if (type == "playlist" && p.complete) com.music.spotui.data.api.PagePrefetch.refreshed(id, p)
+                    // Picked while it was still loading: the queue the extensions play gets the rest.
+                    if (p.complete) viewModelScope.launch { runCatching { com.music.spotui.extensions.ExtensionAudio.listGrew(p.uri, playedSort.apply(p.tracks)) } }
                     // Check saved state on the first page and again once complete.
                     if ((savedChecked == 0 && p.tracks.isNotEmpty()) || (p.complete && savedChecked < 2)) {
                         savedChecked = if (p.complete) 2 else 1
@@ -491,10 +496,20 @@ class ContextViewModel(
      * Spotify's recommendations for it after every [SmartShuffle.EVERY] songs.
      */
     fun playSmart(p: ContextPageModel, first: SongsModel?) {
-        viewModelScope.launch { SmartShuffle.start(p, first) }
+        viewModelScope.launch {
+            // A list still loading: every song of it is mixed, not only the ones on screen yet.
+            val whole = if (p.complete) p else wholeList(page) ?: p
+            // Turned off while the list loaded.
+            if (SmartShuffle.on.value != p.uri) return@launch
+            SmartShuffle.start(whole, first)
+        }
     }
 
+    /** The order the list was last played in from this page, for the songs that load after the pick. */
+    private var playedSort = TrackOrder()
+
     fun play(p: ContextPageModel, song: SongsModel, sort: TrackOrder = TrackOrder()) {
+        playedSort = sort
         // Local files of the playlist (Spotify holds their tags only): one found on this device
         // plays from there, with the other such files of the list; one not found cannot play,
         // the next song that can does.
@@ -538,7 +553,11 @@ class ContextViewModel(
         if (!limited && com.music.spotui.extensions.Extensions.hasAudioSource()) {
             val shuffle = state.shuffle.value
             SongPlayer.playThroughExtensions(song.spotifyTrackId, song, p.name, { playOnSpotify(p, song, sort) }) { isLatest, _ ->
-                com.music.spotui.extensions.ExtensionAudio.playList(sort.apply(p.tracks), song, p.name, shuffle, p.uri, isLatest)
+                com.music.spotui.extensions.ExtensionAudio.playList(sort.apply(p.tracks), song, p.name, shuffle, p.uri, isLatest).also { played ->
+                    // The list finished loading while the extension was asked for the picked song.
+                    val whole = (_page.value as? Response.Success)?.data?.takeIf { it.uri == p.uri && it.complete && !p.complete }
+                    if (played && whole != null) com.music.spotui.extensions.ExtensionAudio.listGrew(p.uri, sort.apply(whole.tracks))
+                }
             }
             return
         }
@@ -817,230 +836,276 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.accessibility_navigate_back), tint = AppText)
                 }
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-                    if (p.type == "liked" || p.type == "liked-artist") LikedCover(Modifier.fillMaxWidth(0.66f).aspectRatio(1f).shadow(16.dp, RoundedCornerShape(4.dp))) else
+                // The cover: two thirds of the width as on phones, but never more than 40 % of the
+                // window's height nor 360 dp (it grew to 686 dp on a landscape tablet, the whole
+                // first screen). Large windows put it beside the title, details and actions.
+                val window = com.music.spotui.ui.components.windowSize()
+                val coverShape = RoundedCornerShape(4.dp)
+                val cover: @Composable (Dp) -> Unit = { side ->
+                    if (p.type == "liked" || p.type == "liked-artist") LikedCover(Modifier.size(side).shadow(16.dp, coverShape)) else
                     GlideImage(
-                        transition = CrossFade,
                         model = p.coverUri,
                         contentDescription = "",
                         contentScale = ContentScale.Crop,
                         // No cover at all (a new playlist): the app's own image, not an empty square.
                         failure = com.bumptech.glide.integration.compose.placeholder(R.drawable.placeholder),
                         modifier = Modifier
-                            .fillMaxWidth(0.66f)
-                            .aspectRatio(1f)
-                            .shadow(16.dp, RoundedCornerShape(4.dp))
-                            .clip(RoundedCornerShape(4.dp)),
+                            .size(side)
+                            .shadow(16.dp, coverShape)
+                            .clip(coverShape),
                     )
                 }
-                Spacer(Modifier.height(20.dp))
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    com.music.spotui.ui.components.FitText(p.name, fontSize = 26.sp, minSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2)
-                    if (p.description.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(com.music.spotui.ui.components.rememberLinkedText(p.description, com.music.spotui.ui.theme.AppAccent), color = AppText.copy(alpha = 0.7f), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    }
-                    val crew = vm.members.value
-                    if (crew.size > 1) {
-                        // Collaborative: everyone who adds to it, as the official app shows them.
-                        Spacer(Modifier.height(10.dp))
-                        var showMembers by remember { mutableStateOf(false) }
-                        if (showMembers) MembersSheet(
-                            members = crew, navController = navController,
-                            // The owner manages everyone; a guest only has "Leave playlist" on their own row.
-                            ownPlaylist = ownPlaylist, me = com.music.spotui.data.api.ProfileCache.id, canLeave = p.canLeave,
-                            onChange = { m, collaborator ->
-                                vm.changeMember(p, m, collaborator) { ok ->
-                                    if (!ok) android.widget.Toast.makeText(context, R.string.playlist_change_refused, android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onLeave = { showMembers = false; leaveAsk = true },
-                        ) { showMembers = false }
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.pressable(0.96f) { showMembers = true }) {
-                            Box(Modifier.width((24 + 16 * (crew.size.coerceAtMost(4) - 1)).dp).height(24.dp)) {
-                                crew.take(4).forEachIndexed { n, m ->
-                                    Box(Modifier.padding(start = (16 * n).dp).size(24.dp).clip(CircleShape).background(tone(0xFF121212)).padding(1.dp)) {
-                                        com.music.spotui.ui.components.ProfileAvatar(m.imageUrl, m.name, 22.dp)
+                val details: @Composable () -> Unit = {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        com.music.spotui.ui.components.FitText(p.name, fontSize = 26.sp, minSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                        if (p.description.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(com.music.spotui.ui.components.rememberLinkedText(p.description, com.music.spotui.ui.theme.AppAccent), color = AppText.copy(alpha = 0.7f), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        }
+                        val crew = vm.members.value
+                        if (crew.size > 1) {
+                            // Collaborative: everyone who adds to it, as the official app shows them.
+                            Spacer(Modifier.height(10.dp))
+                            var showMembers by remember { mutableStateOf(false) }
+                            if (showMembers) MembersSheet(
+                                members = crew, navController = navController,
+                                // The owner manages everyone; a guest only has "Leave playlist" on their own row.
+                                ownPlaylist = ownPlaylist, me = com.music.spotui.data.api.ProfileCache.id, canLeave = p.canLeave,
+                                onChange = { m, collaborator ->
+                                    vm.changeMember(p, m, collaborator) { ok ->
+                                        if (!ok) android.widget.Toast.makeText(context, R.string.playlist_change_refused, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                onLeave = { showMembers = false; leaveAsk = true },
+                            ) { showMembers = false }
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.pressable(0.96f) { showMembers = true }) {
+                                Box(Modifier.width((24 + 16 * (crew.size.coerceAtMost(4) - 1)).dp).height(24.dp)) {
+                                    crew.take(4).forEachIndexed { n, m ->
+                                        Box(Modifier.padding(start = (16 * n).dp).size(24.dp).clip(CircleShape).background(tone(0xFF121212)).padding(1.dp)) {
+                                            com.music.spotui.ui.components.ProfileAvatar(m.imageUrl, m.name, 22.dp)
+                                        }
                                     }
                                 }
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (crew.size <= 2) crew.joinToString(", ") { it.name }
-                                else stringResource(R.string.playlist_members_more, crew.first().name, crew.size - 1),
-                                color = AppText, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    } else if (p.ownerName.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.pressable(0.96f) {
-                                if (p.ownerUri.startsWith("spotify:artist:")) {
-                                    navController.navigate(artistRoute(p.ownerName.substringBefore(",").trim(), p.ownerUri.substringAfterLast(":")))
-                                } else if (p.ownerUri.startsWith("spotify:user:")) {
-                                    navController.navigate(com.music.spotui.ui.navigation.profileRoute(p.ownerUri.substringAfterLast(":"), p.ownerName))
-                                }
-                            },
-                        ) {
-                            if (p.ownerAvatar.isNotBlank()) {
-                                GlideImage(
-                                    transition = CrossFade,
-                                    model = p.ownerAvatar,
-                                    contentDescription = "",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.size(24.dp).clip(CircleShape),
-                                )
                                 Spacer(Modifier.width(8.dp))
+                                Text(
+                                    if (crew.size <= 2) crew.joinToString(", ") { it.name }
+                                    else stringResource(R.string.playlist_members_more, crew.first().name, crew.size - 1),
+                                    color = AppText, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
                             }
-                            Text(p.ownerName, color = AppText, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        } else if (p.ownerName.isNotBlank()) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.pressable(0.96f) {
+                                    if (p.ownerUri.startsWith("spotify:artist:")) {
+                                        navController.navigate(artistRoute(p.ownerName.substringBefore(",").trim(), p.ownerUri.substringAfterLast(":")))
+                                    } else if (com.music.spotui.data.catalog.CatalogRuntime.isCatalogUri(p.ownerUri)) {
+                                        // The artist of an album of another provider: its page, by its whole uri.
+                                        navController.navigate(artistRoute(p.ownerName.substringBefore(",").trim(), p.ownerUri))
+                                    } else if (p.ownerUri.startsWith("spotify:user:")) {
+                                        navController.navigate(com.music.spotui.ui.navigation.profileRoute(p.ownerUri.substringAfterLast(":"), p.ownerName))
+                                    }
+                                },
+                            ) {
+                                if (p.ownerAvatar.isNotBlank()) {
+                                    GlideImage(
+                                        model = p.ownerAvatar,
+                                        contentDescription = "",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(24.dp).clip(CircleShape),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(p.ownerName, color = AppText, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
-                    }
-                    if (p.metaLine.isNotBlank() || p.explicit) {
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (p.explicit && p.type == "album") {
-                                ExplicitBadge()
-                                Spacer(Modifier.width(6.dp))
+                        if (p.metaLine.isNotBlank() || p.explicit) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (p.explicit && p.type == "album") {
+                                    ExplicitBadge()
+                                    Spacer(Modifier.width(6.dp))
+                                }
+                                Text(p.metaLine, color = AppText.copy(alpha = 0.7f), fontSize = 13.sp)
                             }
-                            Text(p.metaLine, color = AppText.copy(alpha = 0.7f), fontSize = 13.sp)
                         }
                     }
                 }
-                // Action row: save, shuffle, big green play.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
-                ) {
-                    // Own playlist: "Add to this playlist" (search, suggestions), where the small cover was.
-                    if (p.type == "playlist" && vm.editableContext.value && !p.isBlend) {
+                val actions: @Composable () -> Unit = {
+                    // Action row: save, shuffle, big green play. Each small glyph answers in a 48 dp
+                    // square (26-28 dp targets were hard to hit); the start padding and the gaps give
+                    // back the difference, so the glyphs barely move (a few dp apart where their
+                    // centres were under 48 dp apart).
+                    val addFirst = p.type == "playlist" && vm.editableContext.value && !p.isBlend
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = if (addFirst) 10.dp else 6.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
+                    ) {
+                        // Own playlist: "Add to this playlist" (search, suggestions), where the small cover was.
+                        if (addFirst) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(com.music.spotui.ui.components.MinTouch).pressable(0.9f) { addingSongs = true }
+                                    .wrapContentSize().size(36.dp).clip(CircleShape).background(AppText.copy(alpha = 0.12f)),
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_songs_title), tint = AppText, modifier = Modifier.size(24.dp))
+                            }
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        // Saving is for other people's playlists: the user's own are in the library already.
+                        // An album of another provider is read only: Spotify can neither save nor download it.
+                        val onSpotify = !com.music.spotui.data.catalog.CatalogRuntime.isCatalogUri(p.uri)
+                        if (onSpotify && p.type != "liked" && !(p.type == "playlist" && ownPlaylist)) {
+                            LikeButton(liked = SongPlayer.library[p.uri] ?: contextSaved, size = 28.dp, touch = com.music.spotui.ui.components.MinTouch) { vm.toggleContextSaved(p) }
+                        }
+                        // Once per list, not at every redraw of the header (6000 songs, mapped each time).
+                        val ids = remember(p.tracks) { p.tracks.map { it.spotifyTrackId }.filter { it.isNotBlank() }.distinct() }
+                        // Songs with no matching recording count as settled: the list can still be removed.
+                        val downloadedCount = ids.count {
+                            com.music.spotui.data.offline.OfflineStore.isDownloaded(it) ||
+                                com.music.spotui.data.offline.OfflineStore.status[it] == com.music.spotui.data.offline.OfflineStatus.Unavailable
+                        }
+                        val busy = ids.any {
+                            val st = com.music.spotui.data.offline.OfflineStore.status[it]
+                            st == com.music.spotui.data.offline.OfflineStatus.Queued || st is com.music.spotui.data.offline.OfflineStatus.Downloading
+                        }
+                        // A list downloaded as a whole stays in step with Spotify (new songs in, gone songs out).
+                        val listKept = com.music.spotui.data.offline.OfflineCollections.isDownloaded(p.uri)
+                        LaunchedEffect(listKept, p.complete, p.tracks.size) { if (listKept && p.complete) com.music.spotui.data.offline.OfflineCollections.sync(p) }
+                        if (onSpotify) com.music.spotui.ui.components.DownloadListButton(downloadedCount, ids.size, busy, kept = listKept, touch = com.music.spotui.ui.components.MinTouch) {
+                            if (listKept) askRemoveDownloads = true
+                            else {
+                                com.music.spotui.ui.components.DownloadAsk.start(context) { q ->
+                                    com.music.spotui.di.Haptics.confirm()
+                                    com.music.spotui.data.offline.OfflineCollections.download(p, q)
+                                    android.widget.Toast.makeText(context, context.getString(R.string.download_notification_downloading), android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        if (onSpotify && (p.type == "playlist" || p.type == "album" || p.type == "liked" || p.type == "liked-artist")) {
+                            Icon(Icons.Default.MoreVert, stringResource(R.string.content_description_context_menu), tint = AppText.copy(alpha = 0.8f),
+                                modifier = Modifier.size(com.music.spotui.ui.components.MinTouch).pressable(0.9f) { if (p.type == "playlist") playlistMenu = true else albumMenu = true }
+                                    .wrapContentSize().size(26.dp))
+                        }
+                        // Sorting stays in reach in the header (the search field above the songs is folded).
+                        if (findable && all.isNotEmpty()) {
+                            TrackSortButton(sort) { sort = it; TrackOrder.save(ctx, p.uri, it) }
+                        }
+                        // "Move": a handle on each song, to put them in another order (again: done).
+                        if (canMove) {
+                            Icon(Icons.Default.DragHandle,
+                                contentDescription = stringResource(if (moving) R.string.done else R.string.edit_playlist_items_move_chip),
+                                tint = if (moving) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                                modifier = Modifier.size(com.music.spotui.ui.components.MinTouch).pressable(0.9f) { moving = !moving }.wrapContentSize().size(26.dp))
+                        }
+                        Spacer(Modifier.weight(1f))
+                        val smart = SmartShuffle.on.value == p.uri
+                        // The glyph and its dot light up in a short fade instead of in one frame.
+                        val shuffleLit = shuffle || smart
+                        val shuffleTint by androidx.compose.animation.animateColorAsState(
+                            if (shuffleLit) SpotifyGreen else AppText.copy(alpha = 0.8f),
+                            if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
+                            else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
+                            label = "shuffleTint",
+                        )
+                        val shuffleDot by androidx.compose.animation.core.animateFloatAsState(
+                            if (shuffleLit) 1f else 0f,
+                            if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
+                            else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
+                            label = "shuffleDot",
+                        )
+                        Box {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_player_shuffle),
+                            contentDescription = stringResource(if (smart) R.string.smart_shuffle_title else R.string.play_mode_item_shuffle_title),
+                            tint = shuffleTint,
+                            modifier = Modifier
+                                .size(com.music.spotui.ui.components.MinTouch)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {
+                                    when {
+                                        // The list does not play yet: it starts shuffled, from a random song.
+                                        !isThisContext && !smart && p.tracks.isNotEmpty() -> {
+                                            playerVm.updateShuffleState(true)
+                                            vm.play(p, p.tracks.random(), sort)
+                                        }
+                                        smart -> { SmartShuffle.on.value = null; playerVm.updateShuffleState(false) }
+                                        shuffle && (p.type == "playlist" || p.type == "liked") -> {
+                                            SmartShuffle.on.value = p.uri
+                                            android.widget.Toast.makeText(context, context.getString(R.string.smart_shuffle_on), android.widget.Toast.LENGTH_SHORT).show()
+                                            if (isThisContext) vm.playSmart(p, p.tracks.firstOrNull { it.id == currentSongId })
+                                        }
+                                        else -> playerVm.updateShuffleState(!shuffle)
+                                    }
+                                }
+                                .wrapContentSize()
+                                .size(26.dp)
+                                .drawWithContent {
+                                    drawContent()
+                                    if (shuffleDot > 0f) drawCircle(SpotifyGreen.copy(alpha = shuffleDot), radius = 2.dp.toPx(),
+                                        center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height + 7.dp.toPx()))
+                                },
+                        )
+                        // At the glyph's corner, 11 dp in from the 48 dp touch square's.
+                        if (smart) Icon(
+                            androidx.compose.material.icons.Icons.Default.AutoAwesome, contentDescription = null, tint = SpotifyGreen,
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = (-5).dp, y = 5.dp).size(11.dp),
+                        )
+                        }
+                        Spacer(Modifier.width(9.dp))
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier.size(36.dp).clip(CircleShape).background(AppText.copy(alpha = 0.12f)).pressable(0.9f) { addingSongs = true },
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_songs_title), tint = AppText, modifier = Modifier.size(24.dp))
-                        }
-                        Spacer(Modifier.width(20.dp))
-                    }
-                    // Saving is for other people's playlists: the user's own are in the library already.
-                    if (p.type != "liked" && !(p.type == "playlist" && ownPlaylist)) {
-                        LikeButton(liked = SongPlayer.library[p.uri] ?: contextSaved, size = 28.dp) { vm.toggleContextSaved(p) }
-                        Spacer(Modifier.width(20.dp))
-                    }
-                    // Once per list, not at every redraw of the header (6000 songs, mapped each time).
-                    val ids = remember(p.tracks) { p.tracks.map { it.spotifyTrackId }.filter { it.isNotBlank() }.distinct() }
-                    // Songs with no matching recording count as settled: the list can still be removed.
-                    val downloadedCount = ids.count {
-                        com.music.spotui.data.offline.OfflineStore.isDownloaded(it) ||
-                            com.music.spotui.data.offline.OfflineStore.status[it] == com.music.spotui.data.offline.OfflineStatus.Unavailable
-                    }
-                    val busy = ids.any {
-                        val st = com.music.spotui.data.offline.OfflineStore.status[it]
-                        st == com.music.spotui.data.offline.OfflineStatus.Queued || st is com.music.spotui.data.offline.OfflineStatus.Downloading
-                    }
-                    // A list downloaded as a whole stays in step with Spotify (new songs in, gone songs out).
-                    val listKept = com.music.spotui.data.offline.OfflineCollections.isDownloaded(p.uri)
-                    LaunchedEffect(listKept, p.complete, p.tracks.size) { if (listKept && p.complete) com.music.spotui.data.offline.OfflineCollections.sync(p) }
-                    com.music.spotui.ui.components.DownloadListButton(downloadedCount, ids.size, busy, kept = listKept) {
-                        if (listKept) askRemoveDownloads = true
-                        else {
-                            com.music.spotui.ui.components.DownloadAsk.start(context) { q ->
-                                com.music.spotui.di.Haptics.confirm()
-                                com.music.spotui.data.offline.OfflineCollections.download(p, q)
-                                android.widget.Toast.makeText(context, context.getString(R.string.download_notification_downloading), android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                    if (p.type == "playlist" || p.type == "album" || p.type == "liked" || p.type == "liked-artist") {
-                        Spacer(Modifier.width(16.dp))
-                        Icon(Icons.Default.MoreVert, stringResource(R.string.content_description_context_menu), tint = AppText.copy(alpha = 0.8f),
-                            modifier = Modifier.size(26.dp).pressable(0.9f) { if (p.type == "playlist") playlistMenu = true else albumMenu = true })
-                    }
-                    // Sorting stays in reach in the header (the search field above the songs is folded).
-                    if (findable && all.isNotEmpty()) {
-                        Spacer(Modifier.width(16.dp))
-                        TrackSortButton(sort) { sort = it; TrackOrder.save(ctx, p.uri, it) }
-                    }
-                    // "Move": a handle on each song, to put them in another order (again: done).
-                    if (canMove) {
-                        Spacer(Modifier.width(16.dp))
-                        Icon(Icons.Default.DragHandle,
-                            contentDescription = stringResource(if (moving) R.string.done else R.string.edit_playlist_items_move_chip),
-                            tint = if (moving) SpotifyGreen else AppText.copy(alpha = 0.8f),
-                            modifier = Modifier.size(26.dp).pressable(0.9f) { moving = !moving })
-                    }
-                    Spacer(Modifier.weight(1f))
-                    val smart = SmartShuffle.on.value == p.uri
-                    // The glyph and its dot light up in a short fade instead of in one frame.
-                    val shuffleLit = shuffle || smart
-                    val shuffleTint by androidx.compose.animation.animateColorAsState(
-                        if (shuffleLit) SpotifyGreen else AppText.copy(alpha = 0.8f),
-                        if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
-                        else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
-                        label = "shuffleTint",
-                    )
-                    val shuffleDot by androidx.compose.animation.core.animateFloatAsState(
-                        if (shuffleLit) 1f else 0f,
-                        if (com.music.spotui.ui.look.rememberReduceMotion()) androidx.compose.animation.core.snap()
-                        else androidx.compose.animation.core.tween(com.music.spotui.ui.components.Motion.FADE_MS),
-                        label = "shuffleDot",
-                    )
-                    Box {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_player_shuffle),
-                        contentDescription = stringResource(if (smart) R.string.smart_shuffle_title else R.string.play_mode_item_shuffle_title),
-                        tint = shuffleTint,
-                        modifier = Modifier
-                            .size(26.dp)
-                            .drawWithContent {
-                                drawContent()
-                                if (shuffleDot > 0f) drawCircle(SpotifyGreen.copy(alpha = shuffleDot), radius = 2.dp.toPx(),
-                                    center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height + 7.dp.toPx()))
-                            }
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                when {
-                                    smart -> { SmartShuffle.on.value = null; playerVm.updateShuffleState(false) }
-                                    shuffle && (p.type == "playlist" || p.type == "liked") -> {
-                                        SmartShuffle.on.value = p.uri
-                                        android.widget.Toast.makeText(context, context.getString(R.string.smart_shuffle_on), android.widget.Toast.LENGTH_SHORT).show()
-                                        if (isThisContext) vm.playSmart(p, p.tracks.firstOrNull { it.id == currentSongId })
+                            modifier = Modifier
+                                .size(56.dp)
+                                .pressable(pressedScale = 0.92f) {
+                                    when {
+                                        isThisContext && playing -> SongPlayer.pause()
+                                        isThisContext -> SongPlayer.play()
+                                        p.tracks.isNotEmpty() && SmartShuffle.on.value == p.uri -> vm.playSmart(p, null)
+                                        p.tracks.isNotEmpty() -> vm.play(p, if (shuffle) p.tracks.random() else sort.apply(p.tracks).first(), sort)
                                     }
-                                    else -> playerVm.updateShuffleState(!shuffle)
                                 }
-                            },
-                    )
-                    if (smart) Icon(
-                        androidx.compose.material.icons.Icons.Default.AutoAwesome, contentDescription = null, tint = SpotifyGreen,
-                        modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp).size(11.dp),
-                    )
+                                .clip(CircleShape)
+                                .background(SpotifyGreen),
+                        ) {
+                            com.music.spotui.ui.components.PlayPauseIcon(
+                                playing = isThisContext && playing,
+                                contentDescription = if (isThisContext && playing) stringResource(R.string.content_description_pause_button) else stringResource(R.string.content_description_play_button),
+                                tint = Color.Black,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
                     }
-                    Spacer(Modifier.width(20.dp))
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .pressable(pressedScale = 0.92f) {
-                                when {
-                                    isThisContext && playing -> SongPlayer.pause()
-                                    isThisContext -> SongPlayer.play()
-                                    p.tracks.isNotEmpty() && SmartShuffle.on.value == p.uri -> vm.playSmart(p, null)
-                                    p.tracks.isNotEmpty() -> vm.play(p, if (shuffle) p.tracks.random() else sort.apply(p.tracks).first(), sort)
+                }
+                androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val side = minOf(maxWidth * 0.66f, (window.heightDp * 0.4f).dp, 360.dp)
+                    // The action row needs about 380 dp: beside the cover only where that is left,
+                    // under both otherwise (a foldable, a portrait tablet).
+                    val actionsBeside = maxWidth - side - 24.dp >= 380.dp
+                    if (window.large) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp),
+                            ) {
+                                cover(side)
+                                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                                    details()
+                                    if (actionsBeside) actions()
                                 }
                             }
-                            .clip(CircleShape)
-                            .background(SpotifyGreen),
-                    ) {
-                        com.music.spotui.ui.components.PlayPauseIcon(
-                            playing = isThisContext && playing,
-                            contentDescription = if (isThisContext && playing) stringResource(R.string.content_description_pause_button) else stringResource(R.string.content_description_play_button),
-                            tint = Color.Black,
-                            modifier = Modifier.size(24.dp),
-                        )
+                            if (!actionsBeside) actions()
+                        }
+                    } else Column(Modifier.fillMaxWidth()) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) { cover(side) }
+                        Spacer(Modifier.height(20.dp))
+                        details()
+                        actions()
                     }
                 }
             }
@@ -1064,12 +1129,15 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
             }
         }
         if (findable && all.isNotEmpty()) item(key = "find") {
-            androidx.compose.animation.AnimatedVisibility(extrasShown || find.isNotBlank(), enter = UnfoldIn, exit = FoldOut) {
+            // Kept while it is being typed in: cleared with its X, it folded away under the user's finger.
+            var findFocused by remember { mutableStateOf(false) }
+            androidx.compose.animation.AnimatedVisibility(extrasShown || find.isNotBlank() || findFocused, enter = UnfoldIn, exit = FoldOut) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
                 com.music.spotui.ui.components.FindInListField(
                     find, { find = it },
                     stringResource(if (p.type == "liked") R.string.find_in_context_edit_text_liked_songs_hint else R.string.find_in_context_edit_text_playlist_hint),
                     Modifier.weight(1f),
+                    onFocused = { findFocused = it },
                 )
             }
             }
@@ -1112,6 +1180,14 @@ private fun ContextContent(navController: NavController, vm: ContextViewModel, p
             }
         }
         // An album: Spotify's "More like this", albums close to its first song.
+        // Under an album's songs: its release date, label and copyright lines.
+        if (p.type == "album" && p.footer.isNotEmpty() && find.isBlank()) item(key = "album-footer") {
+            androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                p.footer.forEachIndexed { i, line ->
+                    Text(line, color = if (i == 0) AppText else AppMuted, fontSize = if (i == 0) 14.sp else 12.sp, modifier = Modifier.padding(vertical = 1.dp))
+                }
+            }
+        }
         if (p.type == "album") item(key = "similar") { SimilarAlbums(navController, p.tracks.firstOrNull()?.spotifyTrackId.orEmpty(), p.uri) }
         item { Spacer(Modifier.height(com.music.spotui.ui.components.bottomBarsSpace())) }
     }
@@ -1386,19 +1462,21 @@ private fun TrackRow(
                     }
                 }
             }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            // The 8 dp above and below are the cover's and the words' own, not the row's: the ⋮
+            // answers in a 48 dp square (its 24 dp glyph was the whole target) and would make the
+            // row taller. The end padding gives back the square's 12 dp beside the glyph.
+            .padding(start = 16.dp, end = if (handle == null) 4.dp else 16.dp)
     ) {
         if (showCover) {
             GlideImage(
-                transition = CrossFade,
                 model = song.coverUri,
                 contentDescription = "",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.padding(vertical = 8.dp).size(48.dp),
             )
             Spacer(Modifier.width(12.dp))
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(
                 song.title,
                 color = if (isCurrent) SpotifyGreen else AppText,
@@ -1421,7 +1499,8 @@ private fun TrackRow(
         // Collaborative playlist: who added this song.
         addedBy?.let { m ->
             com.music.spotui.ui.components.ProfileAvatar(m.imageUrl, m.name, 20.dp)
-            Spacer(Modifier.width(14.dp))
+            // 14 dp to the ⋮ glyph: its touch square takes 12 of them.
+            Spacer(Modifier.width(2.dp))
         }
         if (saved) {
             // A 40 dp target around the 20 dp disc: the disc alone was too small to hit (reported).
@@ -1436,18 +1515,18 @@ private fun TrackRow(
                     Icon(Icons.Default.Check, contentDescription = stringResource(R.string.liked_song), tint = Color.Black, modifier = Modifier.size(14.dp))
                 }
             }
-            Spacer(Modifier.width(6.dp))
+            // No gap: the ⋮'s touch square starts 12 dp before its glyph.
         }
         Icon(
             Icons.Default.MoreVert,
             contentDescription = stringResource(R.string.content_description_context_menu),
             tint = AppText.copy(alpha = 0.7f),
-            modifier = Modifier.pressable(0.96f) { onMore() }
+            modifier = Modifier.size(com.music.spotui.ui.components.MinTouch).pressable(0.96f) { onMore() }
+                .wrapContentSize()
                 .size(24.dp)
                 ,
         )
         handle?.let { h ->
-            Spacer(Modifier.width(12.dp))
             Icon(
                 Icons.Default.DragHandle,
                 contentDescription = stringResource(R.string.edit_playlist_items_move_chip),
@@ -1553,17 +1632,21 @@ object SmartShuffle {
     }
 
     /** From the player: loads the playing list, then smart-shuffles it, the current song first. */
-    suspend fun startFor(contextUri: String, currentTrackId: String): Boolean {
+    suspend fun startFor(contextUri: String): Boolean {
         val api = Graph.api
         val flow = when {
             contextUri.contains(":collection") -> api.getLikedPage()
             contextUri.startsWith("spotify:playlist:") -> api.getPlaylistPage(contextUri.substringAfterLast(':'))
             else -> return false
         }
-        val page = (withContext(Dispatchers.IO) { flow.first { it !is Response.Loading } } as? Response.Success)?.data ?: return false
-        // Reported: turning it on from the player skipped the song. A long list's page holds only
-        // its first tracks, so the song playing was often not found and a random one started
-        // instead; the song playing now always stays first.
+        // Reported (#207): only the first 100 songs of a longer playlist were mixed. Every page now.
+        val page = withContext(Dispatchers.IO) { wholeList(flow) } ?: return false
+        // Turned off, or another list started, while the list loaded.
+        if (on.value != contextUri || SongPlayer.nowPlaying.value.contextUri != contextUri) return true
+        // Read after the list: the song may have changed meanwhile.
+        val currentTrackId = SongPlayer.currentTrackId
+        // Reported: turning it on from the player skipped the song when it was not found in the
+        // list read, and a random one started instead; the song playing now always stays first.
         val current = page.tracks.firstOrNull { it.spotifyTrackId == currentTrackId }
             ?: SongPlayer.engineQueue.value.current?.takeIf { it.spotifyTrackId == currentTrackId }
         start(page, current, SongPlayer.getCurrentPosition())
@@ -1633,7 +1716,7 @@ private fun TrackSortButton(sort: TrackOrder, onSort: (TrackOrder) -> Unit) {
         Icon(androidx.compose.material.icons.Icons.Default.SwapVert,
             contentDescription = stringResource(R.string.filter_and_sort_sort_section_title),
             tint = if (sort.isCustom) AppText.copy(alpha = 0.8f) else SpotifyGreen,
-            modifier = Modifier.size(26.dp).pressable(0.9f) { open = true })
+            modifier = Modifier.size(com.music.spotui.ui.components.MinTouch).pressable(0.9f) { open = true }.wrapContentSize().size(26.dp))
         androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = tone(0xFF282828)) {
             Text(stringResource(R.string.filter_and_sort_sort_section_title), color = AppMuted, fontSize = 13.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
@@ -1675,7 +1758,7 @@ private fun SimilarAlbums(navController: NavController, firstTrackId: String, al
                 Column(Modifier.width(140.dp).pressable(0.96f) {
                     navController.navigate(com.music.spotui.ui.navigation.albumRoute(a.name, artists, a.uri.substringAfterLast(':')))
                 }) {
-                    GlideImage(transition = CrossFade, model = a.images.maxByOrNull { it.width ?: 0 }?.url, contentDescription = null, contentScale = ContentScale.Crop,
+                    GlideImage(model = a.images.maxByOrNull { it.width ?: 0 }?.url, contentDescription = null, contentScale = ContentScale.Crop,
                         modifier = Modifier.size(140.dp).clip(RoundedCornerShape(4.dp)))
                     Text(a.name, color = AppText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                     Text(artists, color = AppMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

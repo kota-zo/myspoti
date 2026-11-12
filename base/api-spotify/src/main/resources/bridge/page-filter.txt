@@ -1,0 +1,43 @@
+# What the Web Player page is refused (app.myspoti.spotify.bridge.AdBlock).
+#
+# Both sections apply only while the ad blocker acts: the music sent from the app to another
+# device of the account through Spotify Connect. The phone's own page is refused nothing.
+# One rule a line: a host (its subdomains too), or a host followed by a path prefix.
+#
+# Sources, rules kept only when they name a Spotify Web Player host or path, or an ad host the
+# Web Player loads, and only network rules the page's own requests can be refused by (no
+# cosmetic rules, no scriptlets, no type-only rules such as $media on Spotify's song hosts):
+#   uBlock Origin uAssets, https://github.com/uBlockOrigin/uAssets, GPL-3.0,
+#     filters/filters-2020.txt at commit dbc8ad17eea0d9f2815553c099643995f7a0ae83
+#     (the open.spotify.com block).
+#   EasyList / EasyPrivacy, https://github.com/easylist/easylist, GPL-3.0 or CC BY-SA 3.0,
+#     easyprivacy/easyprivacy_specific.txt at commit 876bb4a29090827868d93ab8d00960f959e16028.
+#   Myspoti's own list before them (the Google ad hosts and the trackers), and s0.2mdn.net
+#     from coldMEW/Hush (GPL-3.0), now covered by uAssets' 2mdn.net.
+# See THIRD_PARTY_NOTICES.md.
+#
+# Left out on purpose: spotify.com/ad-logic/ (uAssets refuses its media only; the same path
+# carries Spotify's ad settings, and a client that never asks for them stands out), uAssets'
+# gabo-receiver-service events (the page's own event log), and the $removeparam rules (links
+# shared out of the app, not the page).
+
+[ads]
+# The ad audio files.
+adstudio-assets.scdn.co     # uAssets filters-2020.txt; Myspoti
+scdn.co/mp3-ad/             # uAssets filters-2020.txt
+# Third-party ad servers and their media.
+2mdn.net                    # uAssets filters-2020.txt (its media), EasyList adservers (the rest); replaces s0.2mdn.net
+adxcel.com                  # uAssets filters-2020.txt
+amillionads.com             # uAssets filters-2020.txt
+pubads.g.doubleclick.net    # Myspoti
+securepubads.g.doubleclick.net # Myspoti
+googleads.g.doubleclick.net # Myspoti
+pagead2.googlesyndication.com # Myspoti
+imasdk.googleapis.com       # Myspoti; also EasyList adservers
+
+[trackers]
+googletagmanager.com        # Myspoti
+google-analytics.com        # Myspoti
+scorecardresearch.com       # Myspoti
+fastly-insights.com         # Myspoti
+spotifycdn.com/cdn/js/retargeting-pixels. # EasyPrivacy easyprivacy_specific.txt

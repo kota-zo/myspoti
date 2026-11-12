@@ -74,7 +74,7 @@ object RadioFavoritesStore {
             .put("uuid", s.stationUuid).put("name", s.name).put("url", s.streamUrl).put("homepage", s.homepage)
             .put("favicon", s.favicon).put("tags", JSONArray(s.tags)).put("country", s.country)
             .put("countrycode", s.countryCode).put("language", s.language).put("codec", s.codec)
-            .put("bitrate", s.bitrateKbps).put("votes", s.votes).put("clicks", s.clickCount).put("ok", s.lastCheckOk)
+            .put("bitrate", s.bitrateKbps).put("votes", s.votes).put("clicks", s.clickCount).put("ok", s.lastCheckOk).put("hls", s.hls)
             .put("added", fav.addedAt)
     }
 
@@ -88,6 +88,7 @@ object RadioFavoritesStore {
             language = o.optString("language"), codec = o.optString("codec"),
             bitrateKbps = o.optInt("bitrate"), votes = o.optInt("votes"), clickCount = o.optInt("clicks"),
             lastCheckOk = o.optBoolean("ok", true),
+            hls = o.optBoolean("hls") || RadioBrowserApi.looksHls(o.optString("url")),
         )
         return RadioFavorite(station, o.optLong("added"))
     }

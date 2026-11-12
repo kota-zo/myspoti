@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metapodaci</string>
+    <string name="metadata_footer">Pretraživanja, albumi i izvođači dolaze iz ovih usluga, koje se pitaju odozgo prema dolje. Ista pjesma pronađena dvaput prikazuje se jednom. Isključena usluga nikad se ne pita.</string>
+    <string name="metadata_spotify_detail">Vaš račun, dok ste prijavljeni</string>
+    <string name="metadata_signed_out">Ne pita se: nijedan račun nije prijavljen</string>
+    <string name="metadata_asked">Pita se</string>
+    <string name="metadata_off">Isključeno: nikad se ne pita</string>
+    <string name="metadata_reset">Natrag na zadani redoslijed</string>
+    <string name="metadata_not_on_spotify">Nije pronađeno na Spotifyju: ova se pjesma još ne može reproducirati</string>
+    <string name="metadata_switch">Pitaj %1$s</string>
+</resources>

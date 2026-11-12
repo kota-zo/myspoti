@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">Открыть страницу выпуска</string>
+    <string name="sys_update_conflict">Android отказался устанавливать эту версию поверх приложения: она подписана другим ключом. Скачайте её со страницы выпуска и, если Android попросит, сначала удалите это приложение.</string>
+</resources>

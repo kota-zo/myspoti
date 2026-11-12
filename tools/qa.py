@@ -28,7 +28,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import playback_test as pt  # noqa: E402
 
-PKG = "app.myspoti.dev"
+PKG = "app.orpheon.beta.dev"
 LIGHT = "play_playlist,next,rapid_next,rapid_swipe,seek,pause_resume,mute"
 # A song of the test playlist without a Canvas: the player screen then shows only the bar moving.
 STILL_TRACK = "spotify:track:0cIR7aXpYCI1eKXMglSMS7"

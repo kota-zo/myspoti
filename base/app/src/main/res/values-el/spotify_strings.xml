@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Να σταματήσει η μετάφραση των στίχων</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Χμ… Δεν ξέρουμε τους στίχους του.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Αυτοί οι στίχοι δεν είναι συγχρονισμένοι ακόμα.</string>
-    <string name="av_switch_to_video" formatted="false">Αλλαγή σε βίντεο</string>
-    <string name="av_switch_to_audio" formatted="false">Αλλαγή σε ήχο</string>
-    <string name="av_content_desc" formatted="false">Εναλλαγή μεταξύ ήχου και βίντεο</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Αρχική</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Αναζήτηση</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Βιβλιοθήκη</string>

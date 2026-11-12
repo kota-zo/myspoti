@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Kituo %d zaidi kinalingana, lakini kinatangaza bila usimbaji (http) au kwa HLS, ambayo programu bado haiwezi kucheza.</item>
+        <item quantity="other">Vituo %d zaidi vinalingana, lakini vinatangaza bila usimbaji (http) au kwa HLS, ambayo programu bado haiwezi kucheza.</item>
+    </plurals>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Soektogte, albums en kunstenaars kom van hierdie dienste, van bo na onder gevra. Dieselfde liedjie wat twee keer gevind word, wys net een keer. \'n Diens wat afgeskakel is, word nooit gevra nie.</string>
+    <string name="metadata_spotify_detail">Jou rekening, solank jy aangemeld is</string>
+    <string name="metadata_signed_out">Nie gevra nie: geen rekening aangemeld nie</string>
+    <string name="metadata_asked">Gevra</string>
+    <string name="metadata_off">Af: word nooit gevra nie</string>
+    <string name="metadata_reset">Terug na die verstekvolgorde</string>
+    <string name="metadata_not_on_spotify">Nie op Spotify gevind nie: hierdie liedjie kan nog nie speel nie</string>
+    <string name="metadata_switch">Vra %1$s</string>
+</resources>

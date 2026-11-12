@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Метаподатоци</string>
+    <string name="metadata_footer">Пребарувањата, албумите и изведувачите доаѓаат од овие услуги, прашани од горе надолу. Истата песна пронајдена двапати се прикажува еднаш. Исклучена услуга никогаш не се прашува.</string>
+    <string name="metadata_spotify_detail">Вашата сметка, додека сте најавени</string>
+    <string name="metadata_signed_out">Не се прашува: нема најавена сметка</string>
+    <string name="metadata_asked">Се прашува</string>
+    <string name="metadata_off">Исклучено: никогаш не се прашува</string>
+    <string name="metadata_reset">Назад на стандардниот редослед</string>
+    <string name="metadata_not_on_spotify">Не е пронајдено на Spotify: оваа песна сè уште не може да се пушти</string>
+    <string name="metadata_switch">Прашај %1$s</string>
+</resources>

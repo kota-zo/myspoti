@@ -5,7 +5,7 @@ through the app's own code paths without screenshots or taps. Stable releases le
 off in their manifest, and it answers nothing outside debug and beta builds even if turned on.
 
 ```
-tools/myspoti-cli [-p app.myspoti.dev] [-s serial] [-t 40] [--raw] <command> [args…]
+tools/myspoti-cli [-p app.orpheon.beta.dev] [-s serial] [-t 40] [--raw] <command> [args…]
 ```
 
 Each command is one broadcast (`<package>.CLI`, held to the adb shell by the `DUMP` permission).
@@ -18,13 +18,13 @@ time), `2` device unreachable (`adb get-state` is not `device`, or several devic
 has no CLI receiver: it leaves the broadcast's result at 0, where the receiver sets 1; `ext.why` is
 debug only). The script always targets one device: `-s` or `ANDROID_SERIAL`, else the only one adb
 lists; with several and none named it refuses. `ADB`, `ANDROID_SERIAL` and `MYSPOTI_PACKAGE` override
-the defaults (the beta is `-p app.myspoti`).
+the defaults (the beta is `-p app.orpheon`).
 
 ## Commands
 
 | Command | Does |
 | --- | --- |
-| `status` | Version, debug/beta, signed in or not, what plays (uri, position, duration), installed extensions, whether the screen is open. `player` says who plays: `local` (the app's own player; `source` is `audio-source`, `download` or `file`, and `extension` the id of the extension that gave the stream) or `engine` (Spotify); `routing` is true while the extensions are asked for a song; while the local player has a queue, `playWhenReady` says whether it is to play and `playbackState` whether it is `idle` (stopped by an error), `buffering`, `ready` or `ended`. `mirror` is the Connect mirror (Settings, "Count extension plays on Spotify"): `on` (the setting), `running`, the song it keeps the page on (`uri`, `paused`, `landed` once the page played it, `webPositionMs`), `handedAway` (playback went to another device), `failedUri` (a song the page would not play), and the page under it: `pageUri`, `pagePaused`, `pagePositionMs`, `hushed` (unheard), `quality` (the level given to the page: `low` while it mirrors), `bitrate` and `codec` of what it streams, `playsElsewhere` (another device has Connect), `activeDevice`. |
+| `status` | Version, debug/beta, signed in or not, what plays (uri, position, duration), installed extensions, whether the screen is open. `player` says who plays: `local` (the app's own player; `source` is `audio-source`, `download` or `file`, and `extension` the id of the extension that gave the stream) or `account` (the account's player: Spotify's Web Player); `routing` is true while the extensions are asked for a song; while the local player has a queue, `playWhenReady` says whether it is to play and `playbackState` whether it is `idle` (stopped by an error), `buffering`, `ready` or `ended`. `mirror` is the listen sync of the account provider (Settings, "Count extension plays on your music account"): `provider`, `on` (the setting), `running`, the song it keeps the page on (`uri`, `paused`, `landed` once the page played it, `webPositionMs`), `handedAway` (playback went to another device), `failedUri` (a song the page would not play), `remoteControl` and `note`, and Spotify's page under it: `pageUri`, `pagePaused`, `pagePositionMs`, `unheard`, `quality` (the level given to the page: `low` while it mirrors), `bitrate` and `codec` of what it streams, `playsElsewhere` (another device has Connect), `activeDevice`. |
 | `ext.list` | Installed extensions: version, enabled, running, last error, actions, settings (secret ones masked), and their last `status` probe: `status` (`live`, `inactive`, `unknown` for no answer, `not probed`), `inactive` (skipped for songs' audio and downloads) and `statusDetail`. |
 | `ext.install <zip>` | Installs a package with all it asks, without the prompt. A zip on the computer is pushed first to `…/files/cli/in/`. |
 | `ext.uninstall <id>` | As its page's Uninstall button. |
@@ -40,8 +40,14 @@ the defaults (the beta is `-p app.myspoti`).
 | `automix [on\|off]` | Turns AutoMix on or off (as the setting) and prints where it stands. |
 | `automix.segue [on\|off]` | Turns the plan-based transitions on or off (`docs/automix/segue-design.md`) and prints where they stand. |
 | `automix.status` | AutoMix's state (deck, plan, position) and its journal's last 30 lines: analyses, plans, the deck's distance to its place once a second during a mix, the mix's largest gap. See `docs/automix/README.md`. |
+| `automix.settings` | Reads the supported AutoMix choices as JSON. |
+| `automix.settings <name> <value>` | Changes one existing choice through its normal AutoMix setter. Names: `enabled`, `segue`, `session-dj`, `album-order`, `podcasts`, `harmonic`, `eq`, `show`, `mobile-data`, `on-next`, `style`, `length`, `tempo`, `pulse`, `duration-min`, `duration-max`, `performance-priority`. Boolean values are `on` or `off`; `on-next` is `cut`, `quick` or `full`; `style` is `blend`, `cut` or `fade`; `length` is `short`, `balanced` or `long`; `tempo` is `strict`, `normal` or `wide`; `pulse` is `off`, `subtle` or `strong`. Duration bounds are integer seconds from 0 to 90: minimum 0 means no lower bound, maximum 0 means no upper bound. A configured minimum cannot exceed a nonzero maximum; setters reject an invalid pair without changing either value. For example, `automix.settings duration-min 12` then `automix.settings duration-max 25` sets a 12–25 second overlap range; set the maximum to 0 first if the current maximum blocks a new minimum. The planner may still produce no transition when the bounds cannot fit the available audio or the existing mix-length limits; it does not substitute an out-of-range mix. `performance-priority` keeps the same mix algorithm, uses one analysis thread and limits prefetch to the current and next song. `automix.settings` with no arguments returns the choices, including `duration-min`, `duration-max` (seconds) and `performance-priority`. No other settings or values are accepted. |
+| `automix.next` | Requests Next through the same player command as the existing player control. Requires an active local player, AutoMix enabled and `on-next` other than `cut`; the player prepares and runs the skip transition when the current queue and playback state allow it. It does not access the account player or phone files. |
 | `automix.files <piece> <piece>…` | Plays the phone songs whose folder + title contains each piece, in that order, as the local queue (e.g. `Spotiflaccc/24`). |
 | `automix.seek <ms>` | Moves in the local player's song. |
+| `catalog.status` | The metadata catalog: the scripts' `version` and `source` (`bundled`, or `cached` for a verified downloaded set), each script (`downloaded`, `bundled`, or bundled with the downloaded one set aside and why), `baseUrl` (and `overridden`), `lastCheck`, `lastResult`, `failures`, `signedIn`, the user's `order`, the providers turned `off` and those `asked` now. |
+| `catalog.update` | Looks for newer signed metadata scripts at once (whatever the daily schedule says) and prints the result with the status. See `base/catalog/UPDATES.md`. |
+| `catalog.source <url\|default>` | Debug builds only: fetch the scripts from this address instead of the published one, an `https://` one or `http://localhost:<port>/` through `adb reverse`; `default` goes back. |
 
 ## What never leaves the phone
 

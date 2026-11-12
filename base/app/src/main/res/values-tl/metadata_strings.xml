@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Ang mga paghahanap, album at artist ay galing sa mga serbisyong ito, tinatanong mula itaas pababa. Ang parehong kanta na nakita nang dalawang beses ay ipinapakita nang isang beses. Hindi kailanman tinatanong ang serbisyong naka-off.</string>
+    <string name="metadata_spotify_detail">Ang account mo, habang naka-sign in ka</string>
+    <string name="metadata_signed_out">Hindi tinatanong: walang account na naka-sign in</string>
+    <string name="metadata_asked">Tinatanong</string>
+    <string name="metadata_off">Naka-off: hindi kailanman tinatanong</string>
+    <string name="metadata_reset">Bumalik sa default na pagkakasunod</string>
+    <string name="metadata_not_on_spotify">Hindi nakita sa Spotify: hindi pa ito mapapatugtog</string>
+    <string name="metadata_switch">Tanungin ang %1$s</string>
+</resources>

@@ -21,6 +21,7 @@ enum class SegueViolation {
     EASE_NOT_POSITIVE,
     GESTURE_INVALID,
     ECHO_INVALID,
+    RAMP_INVALID,
     WINDOW_PAST_OUTGOING,
     WINDOW_PAST_INCOMING,
     STALE_OUTGOING_AUDIO,
@@ -41,6 +42,7 @@ object SegueValidator {
             if (s.audioKey.isBlank()) out += SegueViolation.AUDIO_KEY_MISSING
             if (s.ratePpm <= 0 || s.listenerRate <= 0) out += SegueViolation.RATE_NOT_POSITIVE
             if (s.anchorUs < 0) out += SegueViolation.ANCHOR_NEGATIVE
+            s.ramp?.let { if (!rampHolds(it, s.ratePpm)) out += SegueViolation.RAMP_INVALID }
         }
         if (p.span.lengthUs <= 0) out += SegueViolation.LENGTH_NOT_POSITIVE
         when (p.pulse.state) {
@@ -56,6 +58,14 @@ object SegueValidator {
         for (g in p.gestures) if (g.atUs < 0 || g.units <= 0) out += SegueViolation.GESTURE_INVALID
         p.echoUs?.let { if (it !in 1..SegueFormat.ECHO_MAX_US) out += SegueViolation.ECHO_INVALID }
         return out.toList()
+    }
+
+    /** Positive speeds, an end inside the window, and [ratePpm] its mean (within a rounding): the window's end is read from it. */
+    private fun rampHolds(r: SeguePlan.Ramp, ratePpm: Long): Boolean {
+        if (r.startPpm <= 0 || r.endPpm <= 0 || r.endT !in 1..SegueFormat.T_MAX) return false
+        val share = r.endT.toDouble() / SegueFormat.T_MAX
+        val mean = (r.startPpm + r.endPpm) / 2.0 * share + r.endPpm * (1 - share)
+        return Math.abs(mean - ratePpm) <= 2_000
     }
 
     private fun lane(lane: SeguePlan.Lane, out: MutableSet<SegueViolation>) {

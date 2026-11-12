@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Nog %d stasie pas, maar dit stroom onversleuteld (http) of in HLS, wat die app nog nie kan speel nie.</item>
+        <item quantity="other">Nog %d stasies pas, maar hulle stroom onversleuteld (http) of in HLS, wat die app nog nie kan speel nie.</item>
+    </plurals>
+</resources>

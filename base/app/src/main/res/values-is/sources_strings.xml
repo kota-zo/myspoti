@@ -4,8 +4,9 @@
     <string name="sources_download_title">Niðurhalsgjafar</string>
     <string name="sources_audio_footer">Spurt er að ofan niður fyrir hvert lag: fyrsti gjafinn sem hefur það spilar það. Notaðu örvarnar til að breyta röðinni.</string>
     <string name="sources_download_footer">Spurt er að ofan niður: fyrsti gjafinn sem hefur lagið lætur skrána í té. Notaðu örvarnar til að breyta röðinni.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Spilar þegar enginn gjafi fyrir ofan er með lagið</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Spilar þegar enginn gjafi fyrir ofan er með lagið</string>
+    <string name="sources_account_player">Spilari reikningsins þíns</string>
     <string name="sources_ready">Tilbúið</string>
     <string name="sources_details_show">Sýna nánari upplýsingar</string>
     <string name="sources_details_hide">Fela nánari upplýsingar</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Síðast: %1$s, %2$s</string>
     <string name="sources_open">Opna viðbótina</string>
     <string name="sources_order_hint">Gjafarnir eru spurðir í þeirri röð sem stillt er í Stillingum (Spilun, Niðurhal).</string>
-    <string name="sources_below_spotify">Ekki spurt: Spotify er fyrir ofan</string>
+    <string name="sources_below_account">Ekki spurt: Spotify er fyrir ofan</string>
 </resources>

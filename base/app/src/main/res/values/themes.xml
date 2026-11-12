@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. Material 3 + Spotify -->
-    <style name="Theme.Myspoti" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Orpheon" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Material 3 Primary -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/on_primary</item>

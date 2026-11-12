@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">મેટાડેટા</string>
+    <string name="metadata_footer">શોધ, આલ્બમ અને કલાકારો આ સેવાઓમાંથી આવે છે, જેમને ઉપરથી નીચે પૂછવામાં આવે છે. બે વાર મળેલું એક જ ગીત એક વાર દેખાય છે. બંધ સેવાને ક્યારેય પૂછવામાં આવતું નથી.</string>
+    <string name="metadata_spotify_detail">તમારું એકાઉન્ટ, જ્યાં સુધી તમે સાઇન ઇન છો</string>
+    <string name="metadata_signed_out">પૂછાતું નથી: કોઈ એકાઉન્ટ સાઇન ઇન નથી</string>
+    <string name="metadata_asked">પૂછાય છે</string>
+    <string name="metadata_off">બંધ: ક્યારેય પૂછાતું નથી</string>
+    <string name="metadata_reset">ડિફૉલ્ટ ક્રમ પર પાછા જાઓ</string>
+    <string name="metadata_not_on_spotify">Spotify પર મળ્યું નથી: આ ગીત હજી વગાડી શકાતું નથી</string>
+    <string name="metadata_switch">%1$sને પૂછો</string>
+</resources>

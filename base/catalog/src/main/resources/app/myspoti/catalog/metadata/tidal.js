@@ -1,0 +1,1697 @@
+// SPDX-License-Identifier: LGPL-3.0-only
+// From Mornye Extension (https://github.com/mornyeapp/Mornye-Extension), sources/tidal-web/index.js
+// at 0c326fa36fc130127d90083808c6b51ea6d83aa2. Copyright 2026 zarzet.
+// Modified: cut down to its metadata by catalog/tools/strip_metadata.py. See LICENSE-LGPL-3.0.txt.
+var CONFIG = {
+  apiBaseURL: "https://tidal.com/v1",
+  resourceBaseURL: "https://resources.tidal.com",
+  publicToken: "49YxDN9a2aFV6RTG",
+  countryCode: "US",
+  locale: "en_US",
+  deviceType: "BROWSER",
+  mirrorBaseURLs: [],
+  maxAlbumItems: 1000,
+  maxPlaylistTracks: 500,
+  pageSize: 50,
+  metadataCacheTtlMs: 5 * 60 * 1000,
+  searchCacheTtlMs: 60 * 1000,
+  metadataCacheMaxEntries: 500,
+  maxDownloadAttempts: 5,
+  retryBaseDelayMs: 250,
+  retryMaxDelayMs: 4000
+};
+
+var METADATA_CACHE = new Map();
+
+function metadataCacheGet(key) {
+  var normalizedKey = String(key || "");
+  var entry = METADATA_CACHE.get(normalizedKey);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    METADATA_CACHE.delete(normalizedKey);
+    return null;
+  }
+  METADATA_CACHE.delete(normalizedKey);
+  METADATA_CACHE.set(normalizedKey, entry);
+  return entry.value;
+}
+
+function metadataCacheSet(key, value, ttlMs) {
+  var normalizedKey = String(key || "");
+  if (!normalizedKey || value === null || value === undefined) return value;
+  if (METADATA_CACHE.has(normalizedKey)) METADATA_CACHE.delete(normalizedKey);
+  METADATA_CACHE.set(normalizedKey, {
+    value: value,
+    expiresAt: Date.now() + Number(ttlMs || CONFIG.metadataCacheTtlMs)
+  });
+  while (METADATA_CACHE.size > CONFIG.metadataCacheMaxEntries) {
+    METADATA_CACHE.delete(METADATA_CACHE.keys().next().value);
+  }
+  return value;
+}
+
+function initialize(settings) {
+  settings = settings || {};
+  var countryCode = String(settings.countryCode || "").trim().toUpperCase();
+  if (countryCode) CONFIG.countryCode = countryCode;
+  return true;
+}
+
+function cleanup() {
+  METADATA_CACHE.clear();
+  return true;
+}
+
+function appUserAgent() {
+  if (utils && typeof utils.appUserAgent === "function") {
+    return String(utils.appUserAgent() || "").trim() || "SpotiFLAC-Mobile";
+  }
+  return "SpotiFLAC-Mobile";
+}
+
+function requestUserAgent() {
+  if (utils && typeof utils.randomUserAgent === "function") {
+    return String(utils.randomUserAgent() || "").trim() || appUserAgent();
+  }
+  return appUserAgent();
+}
+
+function firstNonEmpty() {
+  for (var i = 0; i < arguments.length; i++) {
+    var value = String(arguments[i] || "").trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function ensureHTTPS(url) {
+  var text = String(url || "").trim();
+  if (!text) return "";
+  if (text.indexOf("http://") === 0) {
+    return "https://" + text.substring("http://".length);
+  }
+  return text;
+}
+
+function withPrefix(id) {
+  var raw = String(id || "").trim();
+  if (!raw) return "";
+  return raw.indexOf("tidal:") === 0 ? raw : "tidal:" + raw;
+}
+
+function stripPrefix(value) {
+  var raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.indexOf("tidal:") === 0 ? raw.substring("tidal:".length) : raw;
+}
+
+function normalizeDate(value) {
+  var text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length >= 10) return text.substring(0, 10);
+  return text;
+}
+
+function imageURL(imageID, size) {
+  var normalizedID = String(imageID || "").trim();
+  var normalizedSize = String(size || "").trim();
+  if (!normalizedID || !normalizedSize) return "";
+  return CONFIG.resourceBaseURL + "/images/" + normalizedID.replace(/-/g, "/") + "/" + normalizedSize + ".jpg";
+}
+
+function joinArtistNames(artists) {
+  if (!artists || !artists.length) return "";
+
+  var names = [];
+  for (var i = 0; i < artists.length; i++) {
+    var artist = artists[i] || {};
+    var name = String(artist.name || "").trim();
+    if (!name) continue;
+    names.push(name);
+  }
+  return names.join(", ");
+}
+
+function albumArtistNames(track) {
+  if (!track) return "";
+
+  var album = track.album || {};
+  var albumArtists = joinArtistNames(album.artists || []);
+  if (albumArtists) return albumArtists;
+  var primaryAlbumArtist = String(album.artist && album.artist.name || "").trim();
+  if (primaryAlbumArtist) return primaryAlbumArtist;
+
+  var artists = track.artists || [];
+  var names = [];
+  for (var i = 0; i < artists.length; i++) {
+    var artist = artists[i] || {};
+    if (String(artist.type || "").toUpperCase() !== "MAIN") continue;
+    var name = String(artist.name || "").trim();
+    if (!name) continue;
+    names.push(name);
+  }
+  if (names.length) return names.join(", ");
+  return String(track.artist && track.artist.name || "").trim();
+}
+
+function requestHeaders() {
+  return {
+    "Accept": "application/json",
+    "User-Agent": requestUserAgent(),
+    "x-tidal-token": CONFIG.publicToken
+  };
+}
+
+function buildMetadataURL(path, extraQuery) {
+  var normalizedPath = String(path || "").trim().replace(/^\/+/, "");
+  var query = [];
+  extraQuery = extraQuery || {};
+
+  query.push("countryCode=" + encodeURIComponent(CONFIG.countryCode));
+  query.push("locale=" + encodeURIComponent(CONFIG.locale));
+  query.push("deviceType=" + encodeURIComponent(CONFIG.deviceType));
+
+  for (var key in extraQuery) {
+    if (!extraQuery.hasOwnProperty(key)) continue;
+    var value = extraQuery[key];
+    if (value === null || value === undefined || value === "") continue;
+    query.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(value)));
+  }
+
+  if (!query.length) {
+    return CONFIG.apiBaseURL + "/" + normalizedPath;
+  }
+
+  var separator = "?";
+  if (normalizedPath.indexOf("?") !== -1) {
+    separator = /[?&]$/.test(normalizedPath) ? "" : "&";
+  }
+
+  return CONFIG.apiBaseURL + "/" + normalizedPath + separator + query.join("&");
+}
+
+function getJSON(url) {
+  var response = http.get(url, requestHeaders());
+  if (!response || response.error) {
+    throw new Error(response && response.error ? response.error : "request failed");
+  }
+  if (response.statusCode !== 200) {
+    throw new Error("HTTP " + response.statusCode + " for " + url);
+  }
+  return JSON.parse(response.body);
+}
+
+// A long "Temporarily blocked" answer (HTTP 429 with a large Retry-After) applies to the
+// whole client, not to one track. Remember it so that the next track does not ask for
+// another ticket while the gateway is still refusing. Short limits are left to the
+// per-attempt backoff in fetchDownloadInfo. The gateway blocks by IP and can answer with many
+// hours, so the wait is capped: a client that moved to another network recovers on its own.
+var TICKET_BLOCK_MIN_MS = 60 * 1000;
+var TICKET_BLOCK_MAX_MS = 15 * 60 * 1000;
+var ticketBlock = { until: 0 };
+
+function isVerificationRequiredError(error) {
+  var message = String(error && error.message || error || "");
+  return !!(error && error.needsVerification) || message.indexOf("VERIFY_REQUIRED") >= 0 || message.indexOf("verification_required") >= 0;
+}
+
+function parseNumericID(value, resourceType) {
+  var raw = String(value || "").trim();
+  if (!raw) return "";
+
+  var direct = raw.match(/^\d+$/);
+  if (direct) return direct[0];
+
+  var prefixed = raw.match(/^tidal:(\d+)$/i);
+  if (prefixed) return prefixed[1];
+
+  var pattern = new RegExp(resourceType + "\\/(\\d+)", "i");
+  var match = raw.match(pattern);
+  if (match) return match[1];
+
+  return "";
+}
+
+function parseTrackID(value) {
+  return parseNumericID(value, "track");
+}
+
+function parseAlbumID(value) {
+  return parseNumericID(value, "album");
+}
+
+function parseArtistID(value) {
+  return parseNumericID(value, "artist");
+}
+
+function parsePlaylistID(value) {
+  var raw = String(value || "").trim();
+  if (!raw) return "";
+
+  var direct = raw.match(/^[0-9a-f-]{36}$/i);
+  if (direct) return direct[0];
+
+  var pattern = raw.match(/playlist\/([0-9a-f-]{36})/i);
+  if (pattern) return pattern[1];
+
+  return "";
+}
+
+function parseURL(url) {
+  var text = String(url || "").trim();
+  if (!text) return null;
+
+  var prefixed = text.match(/^tidal:(track|album|artist|playlist):([^?#/]+)$/i);
+  if (prefixed) {
+    return { type: prefixed[1].toLowerCase(), id: prefixed[2] };
+  }
+
+  var deepLink = text.match(/^tidal:\/\/\/?(track|album|artist|playlist)\/([^?#/]+)$/i);
+  if (deepLink) {
+    return { type: deepLink[1].toLowerCase(), id: deepLink[2] };
+  }
+
+  var normalized = text;
+  if (normalized.indexOf("http://") !== 0 && normalized.indexOf("https://") !== 0) {
+    normalized = "https://" + normalized;
+  }
+
+  var hostMatch = normalized.match(/^https?:\/\/([^\/?#]+)/i);
+  if (!hostMatch) return null;
+  var host = String(hostMatch[1] || "").toLowerCase();
+  if (host !== "tidal.com" && host !== "www.tidal.com" && host !== "listen.tidal.com") {
+    return null;
+  }
+
+  var pathMatch = normalized.match(/^https?:\/\/[^\/?#]+\/([^?#]+)/i);
+  if (!pathMatch) return null;
+  var path = String(pathMatch[1] || "").replace(/^\/+|\/+$/g, "");
+  if (!path) return null;
+
+  var parts = path.split("/");
+  if (parts.length > 0 && parts[0] === "browse") {
+    parts.shift();
+  }
+  if (parts.length < 2) return null;
+
+  var resourceType = String(parts[0] || "").toLowerCase();
+  var resourceID = String(parts[1] || "").trim();
+  if (!resourceID) return null;
+
+  if (resourceType === "track" || resourceType === "album" || resourceType === "artist" || resourceType === "playlist") {
+    return { type: resourceType, id: resourceID };
+  }
+  return null;
+}
+
+function normalizeSearchText(value) {
+  return removeDiacritics(String(value || ""))
+    .toLowerCase()
+    .replace(/[&]/g, " and ")
+    .replace(/[^\w\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function removeDiacritics(value) {
+  var text = String(value || "");
+  try {
+    text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch (e) {
+  }
+  return text
+    .replace(/[đĐ]/g, "dj")
+    .replace(/[ßẞ]/g, "ss")
+    .replace(/[æÆ]/g, "ae")
+    .replace(/[œŒ]/g, "oe");
+}
+
+function isLatinScript(value) {
+  var text = String(value || "").trim();
+  if (!text) return true;
+  return !(/[^\u0000-\u024f]/.test(text));
+}
+
+function hasAlphaNumericChars(value) {
+  return /[a-z0-9]/i.test(String(value || ""));
+}
+
+function normalizeLooseTitle(value) {
+  return removeDiacritics(String(value || ""))
+    .toLowerCase()
+    .replace(/[\/\\_\-|.&+]/g, " ")
+    .replace(/[^\w\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeSymbolOnlyTitle(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[a-z0-9\s!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/gi, "")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function extractCoreTitle(value) {
+  return String(value || "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .replace(/\s*\[[^\]]*\]\s*$/, "")
+    .replace(/\s+-\s+.*$/, "")
+    .trim();
+}
+
+function cleanTitle(value) {
+  var cleaned = String(value || "");
+  var patterns = [
+    "remaster", "remastered", "deluxe", "bonus", "single",
+    "album version", "radio edit", "original mix", "extended",
+    "club mix", "remix", "live", "acoustic", "demo"
+  ];
+  var changed = true;
+  while (changed) {
+    changed = false;
+    cleaned = cleaned.replace(/\(([^)]*)\)|\[([^\]]*)\]/g, function(match, paren, bracket) {
+      var content = String(paren || bracket || "").toLowerCase();
+      for (var i = 0; i < patterns.length; i++) {
+        if (content.indexOf(patterns[i]) >= 0) {
+          changed = true;
+          return " ";
+        }
+      }
+      return match;
+    });
+  }
+  return cleaned.replace(/\s+/g, " ").trim();
+}
+
+function splitArtists(value) {
+  var normalized = String(value || "").toLowerCase()
+    .replace(/\bfeat\b/g, "|")
+    .replace(/\bfeaturing\b/g, "|")
+    .replace(/\bft\b/g, "|")
+    .replace(/\band\b/g, "|")
+    .replace(/[,&;]/g, "|")
+    .replace(/\bx\b/g, "|");
+  var parts = normalized.split("|");
+  var results = [];
+  for (var i = 0; i < parts.length; i++) {
+    var part = normalizeSearchText(parts[i]);
+    if (part) results.push(part);
+  }
+  return results;
+}
+
+function sameWordsUnordered(a, b) {
+  var wordsA = String(a || "").trim().split(/\s+/).filter(Boolean).sort();
+  var wordsB = String(b || "").trim().split(/\s+/).filter(Boolean).sort();
+  if (!wordsA.length || wordsA.length !== wordsB.length) return false;
+  for (var i = 0; i < wordsA.length; i++) {
+    if (wordsA[i] !== wordsB[i]) return false;
+  }
+  return true;
+}
+
+function titlesMatch(expected, found) {
+  var rawA = String(expected || "").trim();
+  var rawB = String(found || "").trim();
+  var a = normalizeSearchText(rawA);
+  var b = normalizeSearchText(rawB);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.indexOf(b) >= 0 || b.indexOf(a) >= 0) return true;
+
+  var cleanA = cleanTitle(a);
+  var cleanB = cleanTitle(b);
+  if (cleanA && cleanB) {
+    if (cleanA === cleanB) return true;
+    if (cleanA.indexOf(cleanB) >= 0 || cleanB.indexOf(cleanA) >= 0) return true;
+  }
+
+  var coreA = extractCoreTitle(a);
+  var coreB = extractCoreTitle(b);
+  if (coreA && coreB && coreA === coreB) return true;
+
+  var looseA = normalizeLooseTitle(rawA);
+  var looseB = normalizeLooseTitle(rawB);
+  if (looseA && looseB) {
+    if (looseA === looseB) return true;
+    if (looseA.indexOf(looseB) >= 0 || looseB.indexOf(looseA) >= 0) return true;
+  }
+
+  if ((!hasAlphaNumericChars(rawA) || !hasAlphaNumericChars(rawB)) && rawA && rawB) {
+    var symbolsA = normalizeSymbolOnlyTitle(rawA);
+    var symbolsB = normalizeSymbolOnlyTitle(rawB);
+    if (symbolsA && symbolsB && symbolsA === symbolsB) return true;
+    return false;
+  }
+
+  if (isLatinScript(rawA) !== isLatinScript(rawB)) return true;
+  return false;
+}
+
+function artistTokenCount(value) {
+  var trimmed = String(value || "").trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).filter(Boolean).length;
+}
+
+// Containment is only trustworthy when the contained name has at least two
+// tokens; a single common word (e.g. "rock") must not match a longer name
+// like "one ok rock".
+function artistContainmentMatch(a, b) {
+  if (!a || !b) return false;
+  var shorter = a.length <= b.length ? a : b;
+  var longer = a.length <= b.length ? b : a;
+  if (artistTokenCount(shorter) < 2) return false;
+  return longer.indexOf(shorter) >= 0;
+}
+
+function artistNamesMatch(expected, found) {
+  var a = normalizeSearchText(expected);
+  var b = normalizeSearchText(found);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (artistContainmentMatch(a, b)) return true;
+
+  var aParts = splitArtists(expected);
+  var bParts = splitArtists(found);
+  for (var i = 0; i < aParts.length; i++) {
+    for (var j = 0; j < bParts.length; j++) {
+      if (!aParts[i] || !bParts[j]) continue;
+      if (aParts[i] === bParts[j]) return true;
+      if (artistContainmentMatch(aParts[i], bParts[j])) return true;
+      if (sameWordsUnordered(aParts[i], bParts[j])) return true;
+    }
+  }
+
+  if (isLatinScript(expected) !== isLatinScript(found)) return true;
+  return false;
+}
+
+function stripTrackTitleAnnotations(value) {
+  return String(value || "").replace(/[(\[]\s*(?:(?:feat\.?|ft\.?|featuring|with)\s+[^)\]]+|from\s+["“][^)\]]+["”]\s*)[)\]]/gi, function(annotation) {
+    if (/^[(\[]\s*with\b/i.test(annotation) &&
+        /\b(?:mix|remix|live|acoustic|demo|instrumental|karaoke|edit|extended|slowed|sped)\b/i.test(annotation)) {
+      return annotation;
+    }
+    return " ";
+  });
+}
+
+function normalizeTrackIdentityTitle(value) {
+  return normalizeLooseTitle(stripTrackTitleAnnotations(value));
+}
+
+function trackTitlesMatch(expected, found) {
+  expected = stripTrackTitleAnnotations(expected);
+  found = stripTrackTitleAnnotations(found);
+  var a = normalizeLooseTitle(expected);
+  var b = normalizeLooseTitle(found);
+  if (a && a === b) return true;
+  // Version words identify recordings; punctuation around them does not.
+  var version = /\b(?:mix|remix|live|acoustic|demo|instrumental|karaoke|edit|extended|slowed|sped)\b/;
+  if (version.test(a) || version.test(b)) return false;
+  return titlesMatch(expected, found);
+}
+
+function trackDurationMs(track) {
+  var durationMs = Number(track && track.duration_ms || 0);
+  if (durationMs > 0) return durationMs;
+  var durationSec = Number(track && track.duration || 0);
+  if (durationSec > 0) return durationSec * 1000;
+  return 0;
+}
+
+function durationMatches(expectedDurationMs, foundDurationMs) {
+  var expected = Math.round(Number(expectedDurationMs || 0) / 1000);
+  var found = Math.round(Number(foundDurationMs || 0) / 1000);
+  if (expected <= 0 || found <= 0) return true;
+  return Math.abs(expected - found) <= 10;
+}
+
+function tidalTrackMatchesRequest(track, isrc, trackName, artistName, expectedDurationMs) {
+  if (!track) return false;
+
+  var expectedISRC = String(isrc || "").trim().toUpperCase();
+  var foundISRC = String(track.isrc || "").trim().toUpperCase();
+  var exactISRCMatch = !!expectedISRC && !!foundISRC && expectedISRC === foundISRC;
+
+  if (!exactISRCMatch) {
+    if (trackName && !trackTitlesMatch(trackName, track.name || "")) {
+      return false;
+    }
+    if (artistName && !artistNamesMatch(artistName, track.artists || "")) {
+      return false;
+    }
+  }
+
+  if (!durationMatches(expectedDurationMs, trackDurationMs(track))) {
+    // Catalog durations can disagree for the same identified recording.
+    // Actual audio is checked against this provider's duration after transfer.
+    return exactISRCMatch && !!trackName && !!artistName &&
+      normalizeTrackIdentityTitle(trackName) === normalizeTrackIdentityTitle(track.name) &&
+      artistNamesMatch(artistName, track.artists) &&
+      !(trackDurationMs(track) <= 35000 && expectedDurationMs > 45000);
+  }
+
+  return true;
+}
+
+function selectBestSearchTrack(tracks, isrc, trackName, artistName, expectedDurationMs) {
+  if (!tracks || !tracks.length) return null;
+
+  var normalizedISRC = String(isrc || "").trim().toUpperCase();
+  if (normalizedISRC) {
+    var identifiedTrack = null;
+    for (var i = 0; i < tracks.length; i++) {
+      if (tracks[i] && tracks[i].id &&
+          String(tracks[i].isrc || "").trim().toUpperCase() === normalizedISRC &&
+          tidalTrackMatchesRequest(tracks[i], normalizedISRC, trackName, artistName, expectedDurationMs)) {
+        if (durationMatches(expectedDurationMs, trackDurationMs(tracks[i]))) return tracks[i];
+        if (!identifiedTrack) identifiedTrack = tracks[i];
+      }
+    }
+    if (identifiedTrack) return identifiedTrack;
+  }
+
+  if (!String(trackName || "").trim()) {
+    return null;
+  }
+
+  for (var j = 0; j < tracks.length; j++) {
+    var candidate = tracks[j];
+    if (tidalTrackMatchesRequest(candidate, isrc, trackName, artistName, expectedDurationMs)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function externalTrackURL(track) {
+  if (!track) return "";
+  if (track.url) return ensureHTTPS(track.url);
+  if (track.id) return "https://tidal.com/browse/track/" + track.id;
+  return "";
+}
+
+function externalAlbumURL(album) {
+  if (!album) return "";
+  if (album.url) return ensureHTTPS(album.url);
+  if (album.id) return "https://tidal.com/browse/album/" + album.id;
+  return "";
+}
+
+function uniqueNames(values) {
+  var names = [];
+  var seen = {};
+  values = values || [];
+  for (var i = 0; i < values.length; i++) {
+    var name = String(values[i] || "").trim();
+    var key = name.toLowerCase();
+    if (!name || seen[key]) continue;
+    seen[key] = true;
+    names.push(name);
+  }
+  return names;
+}
+
+function creditContributorNames(credits, creditType) {
+  credits = credits || [];
+  var expected = String(creditType || "").trim().toLowerCase();
+  var names = [];
+  for (var i = 0; i < credits.length; i++) {
+    var credit = credits[i] || {};
+    if (String(credit.type || "").trim().toLowerCase() !== expected) continue;
+    var contributors = credit.contributors || [];
+    for (var j = 0; j < contributors.length; j++) {
+      names.push(contributors[j] && contributors[j].name);
+    }
+  }
+  return uniqueNames(names).join(", ");
+}
+
+function mergeAlbumData(primary, fallback) {
+  var result = {};
+  var key;
+  fallback = fallback || {};
+  primary = primary || {};
+  for (key in fallback) {
+    if (fallback.hasOwnProperty(key)) result[key] = fallback[key];
+  }
+  for (key in primary) {
+    if (!primary.hasOwnProperty(key)) continue;
+    var value = primary[key];
+    if (value === null || value === undefined || value === "") continue;
+    result[key] = value;
+  }
+  return result;
+}
+
+function albumArtistsDisplay(album) {
+  if (!album) return "";
+  return joinArtistNames(album.artists || []);
+}
+
+function trackArtistID(track) {
+  if (track && track.artist && track.artist.id) {
+    return withPrefix(track.artist.id);
+  }
+  if (track && track.artists && track.artists.length && track.artists[0].id) {
+    return withPrefix(track.artists[0].id);
+  }
+  return "";
+}
+
+// Returns a comma-separated list of artist IDs aligned positionally with the
+// names produced by joinArtistNames, so the app can map each artist name to
+// its own ID (not just the primary artist). Artists with a name but no ID get
+// an empty slot to preserve alignment.
+function joinArtistIDs(artists) {
+  if (!artists || !artists.length) return "";
+  var ids = [];
+  for (var i = 0; i < artists.length; i++) {
+    var artist = artists[i] || {};
+    var name = String(artist.name || "").trim();
+    if (!name) continue;
+    ids.push(artist.id ? withPrefix(artist.id) : "");
+  }
+  return ids.join(",");
+}
+
+function trackArtistIDs(track) {
+  var artists = (track && track.artists && track.artists.length)
+    ? track.artists
+    : (track && track.artist ? [track.artist] : []);
+  var joined = joinArtistIDs(artists);
+  if (joined.replace(/,/g, "").length) return joined;
+  return trackArtistID(track);
+}
+
+function tidalMediaTags(track) {
+  var meta = track.mediaMetadata;
+  if (!meta || !meta.tags || !Array.isArray(meta.tags)) return [];
+  var tags = [];
+  for (var i = 0; i < meta.tags.length; i++) {
+    tags.push(String(meta.tags[i] || "").toUpperCase());
+  }
+  return tags;
+}
+
+function tidalHasTag(tags, tag) {
+  for (var i = 0; i < tags.length; i++) {
+    if (tags[i] === tag) return true;
+  }
+  return false;
+}
+
+function tidalAudioQualityLabel(track) {
+  var tags = tidalMediaTags(track);
+
+  if (tidalHasTag(tags, "HIRES_LOSSLESS") || tidalHasTag(tags, "HI_RES_LOSSLESS")) {
+    return "24bit";
+  }
+  if (tidalHasTag(tags, "MQA")) {
+    return "MQA";
+  }
+  if (tidalHasTag(tags, "LOSSLESS")) {
+    return "16bit/44.1kHz";
+  }
+
+  var quality = String(track.audioQuality || "").toUpperCase();
+  switch (quality) {
+    case "HI_RES_LOSSLESS":
+      return "24bit";
+    case "HI_RES":
+      return "MQA";
+    case "LOSSLESS":
+      return "16bit/44.1kHz";
+    case "HIGH":
+      return "320kbps";
+    case "LOW":
+      return "96kbps";
+    default:
+      return "";
+  }
+}
+
+function tidalAudioModes(track) {
+  var tags = tidalMediaTags(track);
+  if (tidalHasTag(tags, "DOLBY_ATMOS")) return "DOLBY_ATMOS";
+
+  var modes = track.audioModes || [];
+  if (!Array.isArray(modes)) return "";
+  for (var i = 0; i < modes.length; i++) {
+    if (String(modes[i] || "").toUpperCase() === "DOLBY_ATMOS") {
+      return "DOLBY_ATMOS";
+    }
+  }
+  return "";
+}
+
+function tidalTrackTitle(track) {
+  if (!track) return "";
+
+  var title = String(track.title || "").trim();
+  var version = String(track.version || "").trim();
+  if (!title || !version) return title;
+
+  var normalizedTitle = title.toLowerCase();
+  var normalizedVersion = version.toLowerCase();
+  if (normalizedTitle.indexOf("(" + normalizedVersion + ")") >= 0 ||
+      normalizedTitle.indexOf("[" + normalizedVersion + "]") >= 0 ||
+      normalizedTitle.indexOf(" - " + normalizedVersion) >= 0 ||
+      normalizedTitle === normalizedVersion) {
+    return title;
+  }
+
+  return title + " (" + version + ")";
+}
+
+function tidalAlbumTitle(album) {
+  if (!album) return "";
+  var title = String(album.title || "").trim();
+  var version = String(album.version || "").trim();
+  if (!title || !version) return title;
+  var normalizedTitle = title.toLowerCase();
+  var normalizedVersion = version.toLowerCase();
+  if (normalizedTitle.indexOf("(" + normalizedVersion + ")") >= 0 ||
+      normalizedTitle.indexOf("[" + normalizedVersion + "]") >= 0 ||
+      normalizedTitle.indexOf(" - " + normalizedVersion) >= 0) {
+    return title;
+  }
+  return title + " (" + version + ")";
+}
+
+function formatTrack(track, context) {
+  if (!track || !track.id) return null;
+
+  context = context || {};
+  var album = mergeAlbumData(context.album, track.album);
+  var albumURL = externalAlbumURL(album);
+  var totalTracks = Number(context.totalTracks || album.numberOfTracks || 0);
+  var totalDiscs = Number(context.totalDiscs || album.numberOfVolumes || 0);
+  var composer = firstNonEmpty(
+    context.composer,
+    creditContributorNames(context.credits || track.credits, "Composer"),
+    track.composer
+  );
+  var label = firstNonEmpty(context.label, album.label, track.label);
+  var genre = firstNonEmpty(context.genre, album.genre, track.genre);
+
+  var resolvedReleaseDate = firstNonEmpty(
+    album.releaseDate,
+    track.releaseDate,
+    track.streamStartDate,
+    album.streamStartDate
+  );
+
+  return {
+    id: withPrefix(track.id),
+    spotify_id: withPrefix(track.id),
+    tidal_id: String(track.id),
+    name: tidalTrackTitle(track),
+    artists: joinArtistNames(track.artists || []),
+    album_name: tidalAlbumTitle(album),
+    album_artist: albumArtistsDisplay(album) || albumArtistNames(track),
+    artist_id: trackArtistIDs(track),
+    album_id: withPrefix(album.id || ""),
+    album_url: albumURL,
+    duration_ms: Number(track.duration || 0) * 1000,
+    cover_url: imageURL(album.cover || "", "1280x1280"),
+    images: imageURL(album.cover || "", "1280x1280"),
+    release_date: normalizeDate(resolvedReleaseDate),
+    track_number: Number(track.trackNumber || 0),
+    total_tracks: totalTracks,
+    disc_number: Number(track.volumeNumber || 0),
+    total_discs: totalDiscs,
+    isrc: String(track.isrc || ""),
+    provider_id: "tidal-web",
+    item_type: "track",
+    external_urls: externalTrackURL(track),
+    external_links: {
+      tidal_track: externalTrackURL(track),
+      tidal_album: albumURL
+    },
+    genre: genre,
+    label: label,
+    copyright: firstNonEmpty(track.copyright, album.copyright),
+    composer: composer,
+    comment: albumURL,
+    explicit: track.explicit === true,
+    audio_quality: tidalAudioQualityLabel(track),
+    audio_modes: tidalAudioModes(track)
+  };
+}
+
+function formatAlbumTrack(track, albumInfo, credits, label, totalDiscs) {
+  return formatTrack(track, {
+    album: albumInfo,
+    credits: credits || [],
+    label: label || "",
+    totalTracks: Number(albumInfo && albumInfo.numberOfTracks || 0),
+    totalDiscs: Number(totalDiscs || albumInfo && albumInfo.numberOfVolumes || 0)
+  });
+}
+
+function formatAlbumInfo(album, label) {
+  if (!album || !album.id) return null;
+
+  var albumType = String(album.type || "").trim().toLowerCase();
+  if (!albumType) albumType = "album";
+
+  return {
+    id: withPrefix(album.id),
+    name: tidalAlbumTitle(album),
+    artists: albumArtistsDisplay(album),
+    album_artist: albumArtistsDisplay(album),
+    artist_id: album.artists && album.artists.length ? withPrefix(album.artists[0].id) : "",
+    cover_url: imageURL(album.cover || "", "1280x1280"),
+    images: imageURL(album.cover || "", "1280x1280"),
+    release_date: normalizeDate(album.releaseDate || ""),
+    total_tracks: Number(album.numberOfTracks || 0),
+    total_discs: Number(album.numberOfVolumes || 0),
+    album_type: albumType,
+    provider_id: "tidal-web",
+    item_type: "album",
+    album_url: externalAlbumURL(album),
+    external_urls: externalAlbumURL(album),
+    label: String(label || ""),
+    copyright: String(album.copyright || ""),
+    comment: externalAlbumURL(album),
+    explicit: album.explicit === true
+  };
+}
+
+function albumBelongsToArtist(album, targetID) {
+  if (!album) return false;
+  var target = String(targetID || "");
+  if (!target) return true;
+  var hasArtistInfo = false;
+  if (album.artist && album.artist.id !== undefined && album.artist.id !== null && String(album.artist.id) !== "") {
+    hasArtistInfo = true;
+    if (String(album.artist.id) === target) return true;
+  }
+  var artists = album.artists || [];
+  for (var i = 0; i < artists.length; i++) {
+    var a = artists[i] || {};
+    if (a.id === undefined || a.id === null || String(a.id) === "") continue;
+    hasArtistInfo = true;
+    var type = String(a.type || "MAIN").toUpperCase();
+    if (type === "MAIN" && String(a.id) === target) return true;
+  }
+  return !hasArtistInfo;
+}
+
+function formatArtistAlbum(album, fallbackType) {
+  if (!album || !album.id) return null;
+
+  var albumType = String(album.type || "").trim().toLowerCase();
+  if (!albumType) albumType = String(fallbackType || "").trim().toLowerCase();
+  if (!albumType) albumType = "album";
+
+  return {
+    id: withPrefix(album.id),
+    name: tidalAlbumTitle(album),
+    artists: albumArtistsDisplay(album),
+    cover_url: imageURL(album.cover || "", "1280x1280"),
+    images: imageURL(album.cover || "", "1280x1280"),
+    release_date: normalizeDate(album.releaseDate || ""),
+    total_tracks: Number(album.numberOfTracks || 0),
+    total_discs: Number(album.numberOfVolumes || 0),
+    album_type: albumType,
+    provider_id: "tidal-web",
+    item_type: "album",
+    album_url: externalAlbumURL(album),
+    external_urls: externalAlbumURL(album),
+    copyright: String(album.copyright || ""),
+    comment: externalAlbumURL(album),
+    explicit: album.explicit === true
+  };
+}
+
+function formatArtistInfo(artist) {
+  if (!artist || !artist.id) return null;
+
+  var image = imageURL(artist.picture || "", "750x750");
+  return {
+    id: withPrefix(artist.id),
+    name: String(artist.name || ""),
+    image_url: image,
+    images: image,
+    header_image: image,
+    listeners: 0,
+    provider_id: "tidal-web",
+    item_type: "artist"
+  };
+}
+
+function formatPlaylistInfo(playlist) {
+  if (!playlist || !playlist.uuid) return null;
+
+  var coverURL = imageURL(firstNonEmpty(playlist.squareImage, playlist.image), "origin");
+  return {
+    id: String(playlist.uuid),
+    name: String(playlist.title || ""),
+    artists: String(playlist.creator && playlist.creator.name || "TIDAL"),
+    cover_url: coverURL,
+    images: coverURL,
+    total_tracks: Number(playlist.numberOfTracks || 0),
+    provider_id: "tidal-web",
+    item_type: "playlist"
+  };
+}
+
+function findModule(page, moduleType) {
+  if (!page || !page.rows) return null;
+
+  for (var i = 0; i < page.rows.length; i++) {
+    var row = page.rows[i] || {};
+    var modules = row.modules || [];
+    for (var j = 0; j < modules.length; j++) {
+      var module = modules[j] || {};
+      if (module.type === moduleType) {
+        return module;
+      }
+    }
+  }
+  return null;
+}
+
+function artistAlbumTypeFromModuleTitle(title) {
+  var normalized = String(title || "").trim().toLowerCase();
+  if (normalized === "albums" || normalized === "compilations" || normalized === "appears on") {
+    return "album";
+  }
+  if (normalized === "ep & singles" || normalized === "eps & singles" || normalized === "singles" || normalized === "ep" || normalized === "eps") {
+    return "single";
+  }
+  return "";
+}
+
+function fetchTrack(trackID) {
+  var id = parseTrackID(trackID);
+  if (!id) throw new Error("Invalid TIDAL track ID: " + trackID);
+  var key = "track:" + id;
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  return metadataCacheSet(key, getJSON(buildMetadataURL("tracks/" + encodeURIComponent(id), null)));
+}
+
+function fetchAlbumDetails(albumID) {
+  var id = parseAlbumID(albumID);
+  if (!id) throw new Error("Invalid TIDAL album ID: " + albumID);
+  var key = "album:" + id;
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  return metadataCacheSet(key, getJSON(buildMetadataURL("albums/" + encodeURIComponent(id), null)));
+}
+
+function fetchAlbumCredits(albumID) {
+  var id = parseAlbumID(albumID);
+  if (!id) return [];
+  var key = "album-credits:" + id;
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  var credits = getJSON(buildMetadataURL("albums/" + encodeURIComponent(id) + "/credits", null));
+  return metadataCacheSet(key, Array.isArray(credits) ? credits : (credits.items || []));
+}
+
+function fetchTrackCredits(trackID) {
+  var id = parseTrackID(trackID);
+  if (!id) return [];
+  var key = "track-credits:" + id;
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  var credits = getJSON(buildMetadataURL("tracks/" + encodeURIComponent(id) + "/credits", null));
+  return metadataCacheSet(key, Array.isArray(credits) ? credits : (credits.items || []));
+}
+
+function fetchAllAlbumItemsWithCredits(albumID) {
+  var id = parseAlbumID(albumID);
+  if (!id) return [];
+  var key = "album-items-credits:" + id;
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  var items = [];
+  var offset = 0;
+  while (offset < CONFIG.maxAlbumItems) {
+    var page = getJSON(buildMetadataURL(
+      "albums/" + encodeURIComponent(id) + "/items/credits",
+      { offset: offset, limit: CONFIG.pageSize }
+    ));
+    var pageItems = page.items || [];
+    if (!pageItems.length) break;
+    items = items.concat(pageItems);
+    offset += pageItems.length;
+    if (offset >= Number(page.totalNumberOfItems || 0) || pageItems.length < CONFIG.pageSize) {
+      break;
+    }
+  }
+  return metadataCacheSet(key, items);
+}
+
+function tryMetadataFetch(label, fetcher, fallback) {
+  try {
+    return fetcher();
+  } catch (e) {
+    log.debug("[TidalWeb] " + label + " unavailable: " + e.message);
+    return fallback;
+  }
+}
+
+function hydrateRawTrack(track) {
+  if (!track || !track.id) return null;
+  var baseAlbum = track.album || {};
+  var albumID = baseAlbum.id || "";
+  var album = baseAlbum;
+  var label = "";
+  if (albumID) {
+    var details = tryMetadataFetch(
+      "album details",
+      function() { return fetchAlbumDetails(albumID); },
+      null
+    );
+    if (details) album = mergeAlbumData(details, baseAlbum);
+    label = firstNonEmpty(album.label, track.label);
+    if (!label) {
+      var albumCredits = tryMetadataFetch(
+        "album credits",
+        function() { return fetchAlbumCredits(albumID); },
+        []
+      );
+      label = creditContributorNames(albumCredits, "Record Label");
+    }
+  }
+  var trackCredits = tryMetadataFetch(
+    "track credits",
+    function() { return fetchTrackCredits(track.id); },
+    []
+  );
+  return formatTrack(track, {
+    album: album,
+    credits: trackCredits,
+    label: label,
+    totalTracks: Number(album.numberOfTracks || 0),
+    totalDiscs: Number(album.numberOfVolumes || 0)
+  });
+}
+
+function fetchAlbumPage(albumID) {
+  var id = parseAlbumID(albumID);
+  if (!id) throw new Error("Invalid TIDAL album ID: " + albumID);
+  var key = "album-page:" + id;
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  return metadataCacheSet(key, getJSON(buildMetadataURL("pages/album", { albumId: id })));
+}
+
+function fetchArtistPage(artistID) {
+  var id = parseArtistID(artistID);
+  if (!id) throw new Error("Invalid TIDAL artist ID: " + artistID);
+  return getJSON(buildMetadataURL("pages/artist", { artistId: id }));
+}
+
+function fetchArtistAlbumsPage(dataAPIPath, offset, limit) {
+  return getJSON(buildMetadataURL(dataAPIPath, {
+    offset: offset,
+    limit: limit
+  }));
+}
+
+function fetchPlaylist(playlistID) {
+  var id = parsePlaylistID(playlistID);
+  if (!id) throw new Error("Invalid TIDAL playlist ID: " + playlistID);
+  return getJSON(buildMetadataURL("playlists/" + encodeURIComponent(id), null));
+}
+
+function fetchPlaylistItemsPage(playlistID, offset, limit) {
+  var id = parsePlaylistID(playlistID);
+  if (!id) throw new Error("Invalid TIDAL playlist ID: " + playlistID);
+  return getJSON(buildMetadataURL("playlists/" + encodeURIComponent(id) + "/items", {
+    offset: offset,
+    limit: limit
+  }));
+}
+
+function searchEndpoint(kind, query, limit) {
+  var key = "search:" + String(kind || "").toLowerCase() + ":" +
+    String(query || "").trim().toLowerCase().replace(/\s+/g, " ") + ":" + Number(limit || 0);
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  return metadataCacheSet(key, getJSON(buildMetadataURL("search/" + kind, {
+    query: query,
+    limit: limit,
+    offset: 0
+  })), CONFIG.searchCacheTtlMs);
+}
+
+function fetchTrackRadio(trackID, limit) {
+  var id = parseTrackID(trackID);
+  if (!id) throw new Error("Invalid TIDAL track ID: " + trackID);
+  var key = "radio:" + id + ":" + Number(limit || 0);
+  var cached = metadataCacheGet(key);
+  if (cached) return cached;
+  return metadataCacheSet(key, getJSON(buildMetadataURL("tracks/" + encodeURIComponent(id) + "/radio", {
+    limit: limit,
+    offset: 0
+  })));
+}
+
+function getTrack(trackID) {
+  try {
+    return hydrateRawTrack(fetchTrack(trackID));
+  } catch (e) {
+    log.error("[TidalWeb] getTrack failed:", e.message);
+    return null;
+  }
+}
+
+function getAlbum(albumID) {
+  try {
+    var page = fetchAlbumPage(albumID);
+    var headerModule = findModule(page, "ALBUM_HEADER");
+    var itemsModule = findModule(page, "ALBUM_ITEMS");
+    if (!headerModule || !headerModule.album) {
+      throw new Error("TIDAL album page missing album header");
+    }
+    if (!itemsModule || !itemsModule.pagedList || !itemsModule.pagedList.items) {
+      throw new Error("TIDAL album page missing track list");
+    }
+
+    var richAlbum = tryMetadataFetch(
+      "album details",
+      function() { return fetchAlbumDetails(albumID); },
+      null
+    );
+    var albumData = mergeAlbumData(richAlbum, headerModule.album);
+    var pageCredits = headerModule.credits && headerModule.credits.items || [];
+    var label = firstNonEmpty(
+      albumData.label,
+      creditContributorNames(pageCredits, "Record Label")
+    );
+    if (!label) {
+      var albumCredits = tryMetadataFetch(
+        "album credits",
+        function() { return fetchAlbumCredits(albumID); },
+        []
+      );
+      label = creditContributorNames(albumCredits, "Record Label");
+    }
+    var album = formatAlbumInfo(albumData, label);
+    var tracks = [];
+    var items = tryMetadataFetch(
+      "album item credits",
+      function() { return fetchAllAlbumItemsWithCredits(albumID); },
+      []
+    );
+    if (!items.length) items = itemsModule.pagedList.items || [];
+    var totalDiscs = Number(albumData.numberOfVolumes || 0);
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i] || {};
+      if (item.type && item.type !== "track") continue;
+      var track = item.item || {};
+      if (i === 0) {
+        log.info("[TidalWeb] album track[0] audioQuality=" + (track.audioQuality || "NONE") +
+          " mediaMetadata=" + JSON.stringify(track.mediaMetadata || "NONE") +
+          " audioModes=" + JSON.stringify(track.audioModes || "NONE"));
+      }
+      if (Number(track.volumeNumber || 0) > totalDiscs) {
+        totalDiscs = Number(track.volumeNumber || 0);
+      }
+      var formattedTrack = formatAlbumTrack(
+        track,
+        albumData,
+        item.credits || [],
+        label,
+        totalDiscs
+      );
+      if (formattedTrack) tracks.push(formattedTrack);
+    }
+
+    if (!totalDiscs && tracks.length) totalDiscs = 1;
+    for (var j = 0; j < tracks.length; j++) {
+      tracks[j].total_discs = totalDiscs;
+      tracks[j].total_tracks = album.total_tracks;
+      tracks[j].album_type = album.album_type;
+      if (!tracks[j].copyright) tracks[j].copyright = album.copyright || "";
+    }
+
+    album.total_discs = totalDiscs;
+    album.tracks = tracks;
+    return album;
+  } catch (e) {
+    log.error("[TidalWeb] getAlbum failed:", e.message);
+    return null;
+  }
+}
+
+function appendArtistAlbums(albums, items, artistID, fallbackType, seen) {
+  for (var i = 0; i < items.length; i++) {
+    if (!albumBelongsToArtist(items[i], artistID)) continue;
+    var album = formatArtistAlbum(items[i], fallbackType);
+    if (!album || !album.id || seen[album.id]) continue;
+    seen[album.id] = true;
+    albums.push(album);
+  }
+}
+
+function artistAlbumsCursor(artistID, pages) {
+  if (!pages.length) return "";
+  return "artist-albums:" + encodeURIComponent(JSON.stringify({ id: artistID, pages: pages }));
+}
+
+function fetchArtistAlbumsContinuation(cursor) {
+  var state = JSON.parse(decodeURIComponent(cursor.slice("artist-albums:".length)));
+  if (!state || !/^\d+$/.test(String(state.id || "")) || !Array.isArray(state.pages) || !state.pages.length) {
+    throw new Error("Invalid artist albums cursor");
+  }
+  var pending = state.pages;
+  var current = pending[0];
+  if (!current || typeof current.path !== "string" || !current.path.trim() ||
+      !Number.isInteger(current.offset) || current.offset < 0) {
+    throw new Error("Invalid artist albums page");
+  }
+  // One provider request per app scroll request. The remaining module cursors
+  // travel with the result, so pagination survives cache expiry or app restart.
+  var page = fetchArtistAlbumsPage(current.path, current.offset, CONFIG.pageSize);
+  var items = page.items || [];
+  var albums = [];
+  appendArtistAlbums(albums, items, state.id, current.type, {});
+  var offset = current.offset + items.length;
+  var total = Number(page.totalNumberOfItems === undefined
+    ? current.total : page.totalNumberOfItems);
+  if (!items.length || offset >= total) {
+    pending.shift();
+  } else {
+    current.offset = offset;
+    current.total = total;
+  }
+  return {
+    id: withPrefix(state.id),
+    albums: albums,
+    albums_next: artistAlbumsCursor(state.id, pending),
+    provider_id: "tidal-web",
+    item_type: "artist"
+  };
+}
+
+function getArtist(artistID) {
+  try {
+    var resourceID = String(artistID || "").trim();
+    var cacheKey = "artist:" + CONFIG.countryCode + ":" + CONFIG.locale + ":" + resourceID;
+    var cached = metadataCacheGet(cacheKey);
+    if (cached) return cached;
+    if (resourceID.indexOf("artist-albums:") === 0) {
+      return metadataCacheSet(cacheKey, fetchArtistAlbumsContinuation(resourceID));
+    }
+    var page = fetchArtistPage(artistID);
+    var headerModule = findModule(page, "ARTIST_HEADER");
+    if (!headerModule || !headerModule.artist) {
+      throw new Error("TIDAL artist page missing artist header");
+    }
+
+    var artistInfo = formatArtistInfo(headerModule.artist);
+    var targetArtistID = String(headerModule.artist.id || "");
+    var albums = [];
+    var seen = {};
+    var pending = [];
+    var seenPaths = {};
+
+    if (page.rows) {
+      for (var rowIndex = 0; rowIndex < page.rows.length; rowIndex++) {
+        var row = page.rows[rowIndex] || {};
+        var modules = row.modules || [];
+        for (var moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+          var module = modules[moduleIndex] || {};
+          if (module.type !== "ALBUM_LIST" || !module.pagedList) continue;
+
+          var fallbackType = artistAlbumTypeFromModuleTitle(module.title);
+          var items = module.pagedList.items || [];
+          appendArtistAlbums(albums, items, targetArtistID, fallbackType, seen);
+          var offset = Number(module.pagedList.offset || 0) + items.length;
+          var total = Number(module.pagedList.totalNumberOfItems || 0);
+          var dataPath = String(module.pagedList.dataApiPath || "").trim();
+          if (offset < total && dataPath && !seenPaths[dataPath]) {
+            seenPaths[dataPath] = true;
+            pending.push({ path: dataPath, offset: offset, total: total, type: fallbackType });
+          }
+        }
+      }
+    }
+
+    artistInfo.albums = albums;
+    artistInfo.albums_next = artistAlbumsCursor(targetArtistID, pending);
+    return metadataCacheSet(cacheKey, artistInfo);
+  } catch (e) {
+    log.error("[TidalWeb] getArtist failed:", e.message);
+    return null;
+  }
+}
+
+function getPlaylist(playlistID) {
+  try {
+    var playlist = fetchPlaylist(playlistID);
+    var playlistInfo = formatPlaylistInfo(playlist);
+    var tracks = [];
+    var offset = 0;
+    var totalTracks = Number(playlist.numberOfTracks || 0);
+
+    while (offset < CONFIG.maxPlaylistTracks) {
+      var page = fetchPlaylistItemsPage(playlistID, offset, CONFIG.pageSize);
+      var items = page.items || [];
+      if (!items.length) break;
+
+      if (!totalTracks && Number(page.totalNumberOfItems || 0) > 0) {
+        totalTracks = Number(page.totalNumberOfItems || 0);
+      }
+
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i] || {};
+        if (item.type !== "track") continue;
+        if (offset === 0 && i === 0) {
+          var pTrack = item.item || {};
+          log.info("[TidalWeb] playlist track[0] audioQuality=" + (pTrack.audioQuality || "NONE") +
+            " mediaMetadata=" + JSON.stringify(pTrack.mediaMetadata || "NONE") +
+            " audioModes=" + JSON.stringify(pTrack.audioModes || "NONE"));
+        }
+        var formattedTrack = formatTrack(item.item || {});
+        if (formattedTrack) tracks.push(formattedTrack);
+      }
+
+      if (offset + items.length >= totalTracks || items.length < CONFIG.pageSize) {
+        break;
+      }
+      offset += items.length;
+    }
+
+    playlistInfo.tracks = tracks;
+    return playlistInfo;
+  } catch (e) {
+    log.error("[TidalWeb] getPlaylist failed:", e.message);
+    return null;
+  }
+}
+
+function formatSearchArtist(item) {
+  if (!item || !item.id) return null;
+  return {
+    id: withPrefix(item.id),
+    name: String(item.name || ""),
+    images: imageURL(item.picture || "", "750x750"),
+    provider_id: "tidal-web",
+    item_type: "artist",
+    followers: 0,
+    popularity: Number(item.popularity || 0)
+  };
+}
+
+function formatSearchAlbum(item) {
+  return formatArtistAlbum(item, item && item.type);
+}
+
+function formatSearchPlaylist(item) {
+  if (!item || !item.uuid) return null;
+  return {
+    id: String(item.uuid),
+    name: String(item.title || ""),
+    owner: String(item.creator && item.creator.name || "TIDAL"),
+    images: imageURL(firstNonEmpty(item.squareImage, item.image), "origin"),
+    cover_url: imageURL(firstNonEmpty(item.squareImage, item.image), "origin"),
+    total_tracks: Number(item.numberOfTracks || 0),
+    provider_id: "tidal-web",
+    item_type: "playlist"
+  };
+}
+
+function searchOne(query, filter, limit) {
+  var response;
+  var items;
+  var results = [];
+  query = String(query || "").trim();
+  if (!query) return results;
+
+  switch (String(filter || "").trim().toLowerCase()) {
+    case "track":
+      response = searchEndpoint("tracks", query, limit);
+      items = response.items || [];
+      for (var i = 0; i < items.length; i++) {
+        var track = formatTrack(items[i]);
+        if (track) results.push(track);
+      }
+      return results;
+    case "artist":
+      response = searchEndpoint("artists", query, limit);
+      items = response.items || [];
+      for (var j = 0; j < items.length; j++) {
+        var artist = formatSearchArtist(items[j]);
+        if (artist) results.push(artist);
+      }
+      return results;
+    case "album":
+      response = searchEndpoint("albums", query, limit);
+      items = response.items || [];
+      for (var k = 0; k < items.length; k++) {
+        var album = formatSearchAlbum(items[k]);
+        if (album) results.push(album);
+      }
+      return results;
+    case "playlist":
+      response = searchEndpoint("playlists", query, limit);
+      items = response.items || [];
+      for (var m = 0; m < items.length; m++) {
+        var playlist = formatSearchPlaylist(items[m]);
+        if (playlist) results.push(playlist);
+      }
+      return results;
+    default:
+      return results;
+  }
+}
+
+function customSearch(query, options) {
+  query = String(query || "").trim();
+  if (!query) return [];
+
+  options = options || {};
+  var limit = Number(options.limit || 20);
+  if (!limit || limit <= 0) limit = 20;
+  if (limit > 50) limit = 50;
+
+  var filter = String(options.filter || "").trim().toLowerCase();
+  if (!filter || filter === "all") filter = "";
+
+  try {
+    if (filter) {
+      return searchOne(query, filter, limit);
+    }
+
+    var results = [];
+    results = results.concat(searchOne(query, "track", limit));
+    results = results.concat(searchOne(query, "artist", 5));
+    results = results.concat(searchOne(query, "album", 5));
+    results = results.concat(searchOne(query, "playlist", 5));
+    return results;
+  } catch (e) {
+    log.error("[TidalWeb] customSearch failed:", e.message);
+    if (isVerificationRequiredError(e)) throw e;
+    return [];
+  }
+}
+
+function searchTracks(query, limit) {
+  return searchOne(query, "track", limit || 20);
+}
+
+function enrichTrack(track) {
+  track = track || {};
+  try {
+    var id = parseTrackID(firstNonEmpty(track.tidal_id, track.id));
+    if (!id) {
+      var candidates = searchOne(
+        (String(track.name || "") + " " + String(track.artists || "")).trim(),
+        "track",
+        8
+      );
+      var best = selectBestSearchTrack(
+        candidates,
+        track.isrc,
+        track.name,
+        track.artists,
+        Number(track.duration_ms || 0)
+      );
+      id = best && parseTrackID(best.id);
+    }
+    if (!id) return track;
+    return hydrateRawTrack(fetchTrack(id)) || track;
+  } catch (e) {
+    log.debug("[TidalWeb] enrichTrack failed: " + e.message);
+    return track;
+  }
+}
+
+function resolveRelatedSeedID(seed) {
+  if (String(seed.provider_id || "").trim() === "tidal-web") {
+    return parseTrackID(seed.id);
+  }
+  var name = String(seed.name || "").trim();
+  var artists = String(seed.artists || "").trim();
+  if (!name) return "";
+  var candidates = searchOne((name + " " + artists).trim(), "track", 8);
+  var best = selectBestSearchTrack(
+    candidates,
+    seed.isrc,
+    name,
+    artists,
+    Number(seed.duration_ms || 0)
+  );
+  return best ? parseTrackID(best.id) : "";
+}
+
+function getRelatedTracks(seeds, options) {
+  var limit = Number(options && options.limit) || 25;
+  limit = Math.max(1, Math.min(50, Math.floor(limit)));
+  var list = Array.isArray(seeds) ? seeds.slice(0, 10) : [];
+
+  var excludedIDs = {};
+  var excludedISRCs = {};
+  for (var i = 0; i < list.length; i++) {
+    var seed = list[i] || {};
+    if (String(seed.provider_id || "").trim() === "tidal-web") {
+      var ownID = parseTrackID(seed.id);
+      if (ownID) excludedIDs[ownID] = true;
+    }
+    var seedISRC = String(seed.isrc || "").trim().toUpperCase();
+    if (seedISRC) excludedISRCs[seedISRC] = true;
+  }
+
+  var resolvedIDs = [];
+  var batches = [];
+  var succeeded = 0;
+  var lastError = null;
+  for (var j = 0; j < list.length && resolvedIDs.length < 5; j++) {
+    var seedID = "";
+    try {
+      seedID = resolveRelatedSeedID(list[j] || {});
+    } catch (e) {
+      lastError = e;
+      log.debug("[TidalWeb] related seed resolution failed: " + e.message);
+      continue;
+    }
+    if (!seedID || resolvedIDs.indexOf(seedID) >= 0) continue;
+    resolvedIDs.push(seedID);
+    excludedIDs[seedID] = true;
+
+    try {
+      var response = fetchTrackRadio(seedID, Math.min(50, limit + 1));
+      succeeded++;
+      var items = response && response.items || [];
+      var batch = [];
+      for (var k = 0; k < items.length; k++) {
+        var track = formatTrack(items[k]);
+        if (track) batch.push(track);
+      }
+      batches.push(batch);
+    } catch (radioError) {
+      lastError = radioError;
+      log.debug("[TidalWeb] track radio failed: " + radioError.message);
+    }
+  }
+
+  if (!succeeded && lastError) throw lastError;
+
+  var results = [];
+  var seen = {};
+  for (var round = 0; results.length < limit; round++) {
+    var added = false;
+    for (var b = 0; b < batches.length && results.length < limit; b++) {
+      var candidate = batches[b][round];
+      if (!candidate) continue;
+      added = true;
+      var candidateID = stripPrefix(candidate.id);
+      var candidateISRC = String(candidate.isrc || "").trim().toUpperCase();
+      if (seen[candidateID] || excludedIDs[candidateID]) continue;
+      if (candidateISRC && excludedISRCs[candidateISRC]) continue;
+      seen[candidateID] = true;
+      results.push(candidate);
+    }
+    if (!added) break;
+  }
+  return results;
+}
+
+function handleUrl(url) {
+  try {
+    var parsed = parseURL(url);
+    if (!parsed) {
+      return {
+        success: false,
+        error: "Unsupported TIDAL URL"
+      };
+    }
+
+    if (parsed.type === "track") {
+      return {
+        type: "track",
+        track: getTrack(parsed.id)
+      };
+    }
+
+    if (parsed.type === "album") {
+      var album = getAlbum(parsed.id);
+      return {
+        type: "album",
+        name: album ? album.name : "",
+        cover_url: album ? album.cover_url : "",
+        album: album,
+        tracks: album ? album.tracks : []
+      };
+    }
+
+    if (parsed.type === "artist") {
+      return {
+        type: "artist",
+        artist: getArtist(parsed.id)
+      };
+    }
+
+    if (parsed.type === "playlist") {
+      var playlist = getPlaylist(parsed.id);
+      return {
+        type: "playlist",
+        name: playlist ? playlist.name : "",
+        cover_url: playlist ? playlist.cover_url : "",
+        tracks: playlist ? playlist.tracks : []
+      };
+    }
+
+    return {
+      success: false,
+      error: "Unsupported TIDAL URL type"
+    };
+  } catch (e) {
+    log.error("[TidalWeb] handleUrl failed:", e.message);
+    return {
+      success: false,
+      error: e.message || "Failed to fetch TIDAL URL metadata"
+    };
+  }
+}
+
+registerExtension({
+  initialize: initialize,
+  cleanup: cleanup,
+  customSearch: customSearch,
+  handleUrl: handleUrl,
+  getTrack: getTrack,
+  getAlbum: getAlbum,
+  getArtist: getArtist,
+  getPlaylist: getPlaylist,
+  enrichTrack: enrichTrack,
+  searchTracks: searchTracks,
+  getRelatedTracks: getRelatedTracks
+});
+
+log.info("[TidalWeb] TIDAL web metadata extension loaded");

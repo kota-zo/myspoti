@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Oprește traducerea versurilor</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Nu știm versurile acestei melodii.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Momentan, aceste versuri nu sunt sincronizate în timp.</string>
-    <string name="av_switch_to_video" formatted="false">Comută la video</string>
-    <string name="av_switch_to_audio" formatted="false">Comută la audio</string>
-    <string name="av_content_desc" formatted="false">Comută între audio și video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Acasă</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Caută</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Biblioteca ta</string>

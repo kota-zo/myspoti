@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">播放列表</string>
     <string name="aa_albums">专辑</string>
     <string name="aa_artists">艺人</string>
@@ -16,8 +16,6 @@
 
     <string name="energy_saver_title">省电模式</string>
     <string name="energy_saver_summary">关闭 Canvas，视频和动画更轻量</string>
-    <string name="video_fullscreen_enter">全屏</string>
-    <string name="video_fullscreen_exit">退出全屏</string>
     <string name="playback_seek_description">播放位置</string>
     <string name="account_page_title">Spotify 账号</string>
     <string name="account_page_detail">订阅、隐私和设备，在 spotify.com 上管理</string>

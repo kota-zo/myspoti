@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">ಇನ್ನೂ %d ಸ್ಟೇಷನ್ ಹೊಂದುತ್ತದೆ, ಆದರೆ ಅದು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡದ (http) ಅಥವಾ HLS ಸ್ಟ್ರೀಮ್ ಬಳಸುತ್ತದೆ, ಅದನ್ನು ಆ್ಯಪ್ ಇನ್ನೂ ಪ್ಲೇ ಮಾಡಲಾರದು.</item>
+        <item quantity="other">ಇನ್ನೂ %d ಸ್ಟೇಷನ್‌ಗಳು ಹೊಂದುತ್ತವೆ, ಆದರೆ ಅವು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡದ (http) ಅಥವಾ HLS ಸ್ಟ್ರೀಮ್ ಬಳಸುತ್ತವೆ, ಅವನ್ನು ಆ್ಯಪ್ ಇನ್ನೂ ಪ್ಲೇ ಮಾಡಲಾರದು.</item>
+    </plurals>
+</resources>

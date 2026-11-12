@@ -51,7 +51,6 @@ import app.myspoti.api.BlendGroup
 import app.myspoti.api.BlendStory
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import kotlinx.coroutines.Dispatchers
@@ -172,7 +171,7 @@ private fun StoryCard(story: BlendStory) {
         story.image?.let {
             Spacer(Modifier.width(12.dp))
             GlideImage(
-                model = it, contentDescription = null, contentScale = ContentScale.Crop, transition = CrossFade,
+                model = it, contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.size(72.dp).clip(CircleShape),
             )
         }

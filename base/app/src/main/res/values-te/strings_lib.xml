@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">మరో %d స్టేషన్ సరిపోతుంది, కానీ అది ఎన్‌క్రిప్ట్ చేయని (http) లేదా HLS స్ట్రీమ్‌లో ప్రసారం చేస్తుంది, దాన్ని యాప్ ఇంకా ప్లే చేయలేదు.</item>
+        <item quantity="other">మరో %d స్టేషన్‌లు సరిపోతాయి, కానీ అవి ఎన్‌క్రిప్ట్ చేయని (http) లేదా HLS స్ట్రీమ్‌లో ప్రసారం చేస్తాయి, వాటిని యాప్ ఇంకా ప్లే చేయలేదు.</item>
+    </plurals>
+</resources>

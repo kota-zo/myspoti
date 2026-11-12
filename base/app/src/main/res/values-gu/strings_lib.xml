@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">વધુ %d સ્ટેશન મેળ ખાય છે, પણ તે એન્ક્રિપ્ટ વિનાના (http) અથવા HLS સ્ટ્રીમમાં ચાલે છે, જે ઍપ હજુ વગાડી શકતી નથી.</item>
+        <item quantity="other">વધુ %d સ્ટેશન મેળ ખાય છે, પણ તે એન્ક્રિપ્ટ વિનાના (http) અથવા HLS સ્ટ્રીમમાં ચાલે છે, જે ઍપ હજુ વગાડી શકતી નથી.</item>
+    </plurals>
+</resources>

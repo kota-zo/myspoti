@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">Otwórz stronę wydania</string>
+    <string name="sys_update_conflict">Android odrzucił tę wersję nad zainstalowaną aplikacją: podpisano ją innym kluczem. Pobierz ją ze strony wydania, a jeśli Android o to poprosi, najpierw odinstaluj tę aplikację.</string>
+</resources>

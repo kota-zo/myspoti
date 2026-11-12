@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">%d stasiun lain cocok, tetapi menyiarkan tanpa enkripsi (http) atau dalam HLS, yang belum dapat diputar aplikasi.</item>
+    </plurals>
+</resources>

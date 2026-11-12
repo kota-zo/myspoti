@@ -4,8 +4,9 @@
     <string name="sources_download_title">Allalaadimisallikad</string>
     <string name="sources_audio_footer">Igale loole küsitakse ülevalt alla: esimene, millel see on, mängib selle. Järjekorra muutmiseks kasuta nooli.</string>
     <string name="sources_download_footer">Küsitakse ülevalt alla: esimene allikas, millel laul on, annab faili. Järjekorra muutmiseks kasuta nooli.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Mängib, kui ülal ükski allikas laulu ei oma</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Mängib, kui ülal ükski allikas laulu ei oma</string>
+    <string name="sources_account_player">Sinu konto mängija</string>
     <string name="sources_ready">Valmis</string>
     <string name="sources_details_show">Näita üksikasju</string>
     <string name="sources_details_hide">Peida üksikasjad</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Viimane: %1$s, %2$s</string>
     <string name="sources_open">Ava laiend</string>
     <string name="sources_order_hint">Allikaid küsitakse seadetes (Esitus, Allalaadimised) määratud järjekorras.</string>
-    <string name="sources_below_spotify">Ei küsita: Spotify on ülal</string>
+    <string name="sources_below_account">Ei küsita: Spotify on ülal</string>
 </resources>

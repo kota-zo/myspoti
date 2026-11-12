@@ -5,6 +5,7 @@ import com.music.spotui.ui.theme.AppText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -57,10 +58,16 @@ fun DownloadBadge(status: OfflineStatus?, size: Dp = 16.dp, modifier: Modifier =
  * download, then a bin once all of them are on the phone (tap = remove the downloads).
  */
 @Composable
-fun DownloadListButton(downloaded: Int, total: Int, busy: Boolean, kept: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun DownloadListButton(
+    downloaded: Int, total: Int, busy: Boolean, kept: Boolean, modifier: Modifier = Modifier,
+    /** The square that answers the finger, the 28 dp glyph centred in it. */
+    touch: androidx.compose.ui.unit.Dp = 28.dp,
+    onClick: () -> Unit,
+) {
     // A downloaded list shows the bin (tap = stop keeping it); its progress while songs arrive.
     val all = kept && !busy
-    Box(contentAlignment = Alignment.Center, modifier = modifier.size(28.dp).pressable(0.92f, onClick = onClick)) {
+    Box(contentAlignment = Alignment.Center, modifier = modifier.size(maxOf(touch, 28.dp)).pressable(0.92f, onClick = onClick)
+        .wrapContentSize().size(28.dp)) {
         when {
             all -> Icon(Icons.Outlined.DeleteOutline, stringResource(R.string.context_menu_undownload),
                 tint = AppText.copy(alpha = 0.8f), modifier = Modifier.size(28.dp))

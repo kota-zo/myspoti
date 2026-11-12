@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">ሜታዳታ</string>
+    <string name="metadata_footer">ፍለጋዎች፣ አልበሞች እና አርቲስቶች ከእነዚህ አገልግሎቶች ይመጣሉ፤ ከላይ ወደ ታች ይጠየቃሉ። ሁለት ጊዜ የተገኘ ያው ዘፈን አንድ ጊዜ ይታያል። የጠፋ አገልግሎት በፍጹም አይጠየቅም።</string>
+    <string name="metadata_spotify_detail">ገብተው እስካሉ ድረስ የእርስዎ መለያ</string>
+    <string name="metadata_signed_out">አይጠየቅም፦ የገባ መለያ የለም</string>
+    <string name="metadata_asked">ይጠየቃል</string>
+    <string name="metadata_off">ጠፍቷል፦ በፍጹም አይጠየቅም</string>
+    <string name="metadata_reset">ወደ ነባሪው ቅደም ተከተል ይመለሱ</string>
+    <string name="metadata_not_on_spotify">በSpotify ላይ አልተገኘም፦ ይህ ዘፈን ገና መጫወት አይችልም</string>
+    <string name="metadata_switch">%1$sን ይጠይቁ</string>
+</resources>

@@ -6,8 +6,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.data.preferences.isDownloadsEnabled
 import com.music.spotui.di.Graph
-import com.music.spotui.video.InterruptibleHttp
-import com.music.spotui.video.YouTubeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -546,8 +544,17 @@ object OfflineDownloader {
         ).also { if (it.title.isBlank() || it.artist.isBlank()) throw Unavailable("no track metadata") }
     }
 
+    // Covers and other plain files of the downloads (not music video): data saver aware, as before.
+    private val plainHttp: okhttp3.OkHttpClient by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .addInterceptor(com.music.spotui.data.DataSaver.interceptor)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     private suspend fun httpGet(url: String, out: File) = runInterruptible {
-        InterruptibleHttp.read(YouTubeSource.http.newCall(okhttp3.Request.Builder().url(url).build())) { res ->
+        InterruptibleHttp.read(plainHttp.newCall(okhttp3.Request.Builder().url(url).build())) { res ->
             if (!res.isSuccessful) throw IOException("HTTP ${res.code}")
             val body = res.body ?: throw IOException("empty body")
             out.outputStream().use { body.byteStream().copyTo(it) }

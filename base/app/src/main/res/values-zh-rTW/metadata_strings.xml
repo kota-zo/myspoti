@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">中繼資料</string>
+    <string name="metadata_footer">搜尋、專輯和藝人來自這些服務，依由上到下的順序查詢。找到兩次的同一首歌只會顯示一次。已關閉的服務絕不會被查詢。</string>
+    <string name="metadata_spotify_detail">你的帳戶（登入期間）</string>
+    <string name="metadata_signed_out">不查詢：沒有已登入的帳戶</string>
+    <string name="metadata_asked">查詢中</string>
+    <string name="metadata_off">已關閉：絕不查詢</string>
+    <string name="metadata_reset">恢復預設順序</string>
+    <string name="metadata_not_on_spotify">在 Spotify 上找不到：這首歌暫時無法播放</string>
+    <string name="metadata_switch">查詢 %1$s</string>
+</resources>

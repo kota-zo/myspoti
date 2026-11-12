@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">ಸಾಹಿತ್ಯ ಅನುವಾದಿಸುವುದನ್ನು ನಿಲ್ಲಿಸಿ</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ಹ್ಞೂಂ. ನಮಗೆ ಇದರ ಗೀತಸಾಹಿತ್ಯ ತಿಳಿದಿಲ್ಲ.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">ಈ ಸಾಹಿತ್ಯವು ಇನ್ನೂ ಟೈಂ-ಸಿಂಕ್ ಆಗಿಲ್ಲ.</string>
-    <string name="av_switch_to_video" formatted="false">ವೀಡಿಯೊಗೆ ಬದಲಿಸಿ</string>
-    <string name="av_switch_to_audio" formatted="false">ಆಡಿಯೋಗೆ ಬದಲಿಸಿ</string>
-    <string name="av_content_desc" formatted="false">ಆಡಿಯೋ ಮತ್ತು ವೀಡಿಯೊ ನಡುವೆ ಟಾಗಲ್ ಮಾಡಿ</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ಹೋಮ್</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">ಹುಡುಕಿ</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">ನಿಮ್ಮ ಲೈಬ್ರರಿ</string>

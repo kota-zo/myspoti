@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">May %d pang istasyong tumutugma, pero nag-i-stream ito nang walang encryption (http) o sa HLS, na hindi pa kayang i-play ng app.</item>
+        <item quantity="other">May %d pang istasyong tumutugma, pero nag-i-stream ang mga ito nang walang encryption (http) o sa HLS, na hindi pa kayang i-play ng app.</item>
+    </plurals>
+</resources>

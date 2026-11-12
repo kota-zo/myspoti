@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BluetoothAudio
@@ -49,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
@@ -166,6 +166,9 @@ private fun SkeletonRows(tile: Color, line: Color, count: Int) {
     }
 }
 
+/** The mini player's buttons' touch squares: Material allows 44 dp where 48 does not fit. */
+private val MINI_TOUCH = 44.dp
+
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun MiniPlayer() {
@@ -275,7 +278,7 @@ fun MiniPlayer() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
-                .padding(start = 8.dp, end = 12.dp)
+                .padding(start = 8.dp, end = 3.dp)
         ) {
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pager,
@@ -299,7 +302,6 @@ fun MiniPlayer() {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp))) {
                         GlideImage(
-                            transition = CrossFade,
                             modifier = Modifier.size(40.dp),
                             model = m.cover,
                             contentScale = ContentScale.Crop,
@@ -376,19 +378,22 @@ fun MiniPlayer() {
             Icon(
                 painter = painterResource(id = if (SongPlayer.activeDevice.value != null) R.drawable.ic_devices else R.drawable.ic_devices),
                 tint = if (SongPlayer.activeDevice.value != null) com.music.spotui.ui.theme.AppAccent else Color.White.copy(alpha = 0.8f),
-                modifier = Modifier.pressable(0.96f) { showDevices = true }
+                // Devices, the + and play / pause answer in 44 dp squares around their glyphs (22, 24
+                // and 26 dp were the whole target); 48 dp does not fit between their centres, 43-45 dp
+                // apart. The gaps and the end padding give back the difference: the glyphs stay put.
+                modifier = Modifier.size(MINI_TOUCH).pressable(0.96f) { showDevices = true }
+                    .wrapContentSize()
                     .size(22.dp)
                     ,
                 contentDescription = stringResource(R.string.mr_user_route_category_name),
             )
-            Spacer(modifier = Modifier.width(20.dp))
-            if (SongPlayer.canLike) com.music.spotui.ui.screens.AddButton(song = { com.music.spotui.ui.screens.nowPlayingSong(vm) }, liked = liked, size = 24.dp) { vm.updateLikeState(true) }
-            Spacer(modifier = Modifier.width(20.dp))
+            if (SongPlayer.canLike) com.music.spotui.ui.screens.AddButton(song = { com.music.spotui.ui.screens.nowPlayingSong(vm) }, liked = liked, size = 24.dp, touch = MINI_TOUCH) { vm.updateLikeState(true) }
+            Spacer(modifier = Modifier.width(1.dp))
             com.music.spotui.ui.components.PlayPauseIcon(
                 playing = songPlayingState,
                 contentDescription = if (songPlayingState) stringResource(R.string.content_description_pause_button) else stringResource(R.string.content_description_play_button),
                 tint = Color.White,
-                modifier = Modifier.pressable(0.96f) {
+                modifier = Modifier.size(MINI_TOUCH).pressable(0.96f) {
                         if (songPlayingState) {
                             SongPlayer.pause()
                             vm.updateSongState(songCoverUri, songTitle, songSinger, false, songId, vm.currentSongIndex.value, vm.currentSongAlbum.value)
@@ -397,6 +402,7 @@ fun MiniPlayer() {
                             vm.updateSongState(songCoverUri, songTitle, songSinger, true, songId, vm.currentSongIndex.value, vm.currentSongAlbum.value)
                         }
                     }
+                    .wrapContentSize()
                     .size(26.dp)
                     
             )

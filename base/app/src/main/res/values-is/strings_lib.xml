@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d stöð í viðbót passar, en hún streymir ódulkóðað (http) eða í HLS, sem forritið getur ekki spilað enn.</item>
+        <item quantity="other">%d stöðvar í viðbót passa, en þær streyma ódulkóðað (http) eða í HLS, sem forritið getur ekki spilað enn.</item>
+    </plurals>
+</resources>

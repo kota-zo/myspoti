@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="nerd_title">Statistiche per nerd</string>
-    <string name="nerd_section_exo">Player di Myspoti (ExoPlayer)</string>
+    <string name="nerd_section_exo">Player di Orpheon (ExoPlayer)</string>
     <string name="nerd_section_spotify">Spotify (player web)</string>
     <string name="nerd_source">Sorgente</string>
     <string name="nerd_source_extension">Estensione: %1$s</string>

@@ -29,4 +29,14 @@ class CrossfadeRampTest {
         assertEquals(1f, CrossfadeRamp.incomingGain(1f), 1e-6f)
         assertEquals(1f, CrossfadeRamp.progress(9999, 5000), 0f)
     }
+
+    @Test fun noCrossfadeMeansNoTimerAndOneLooksSoonOnlyNearTheFade() {
+        assertEquals(null, CrossfadeRamp.nextLookMs(0, 200_000, 10_000))
+        // 6 s fade on a 200 s song, at 10 s: looked at again in 5 s at most.
+        assertEquals(CrossfadeRamp.MAX_LOOK_MS, CrossfadeRamp.nextLookMs(6, 200_000, 10_000))
+        // 2 s before the fade: in 1.8 s (just ahead of it), twice as soon at double speed.
+        assertEquals(1_800L, CrossfadeRamp.nextLookMs(6, 200_000, 192_000))
+        assertEquals(900L, CrossfadeRamp.nextLookMs(6, 200_000, 192_000, speed = 2f))
+        assertEquals(CrossfadeRamp.MIN_LOOK_MS, CrossfadeRamp.nextLookMs(6, 200_000, 195_000))
+    }
 }

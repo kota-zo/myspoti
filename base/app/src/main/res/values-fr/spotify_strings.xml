@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Arrêter de traduire les paroles</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hum, nous ne connaissons pas les paroles de ce titre.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Ces paroles n’ont pas encore été synchronisées avec la musique.</string>
-    <string name="av_switch_to_video" formatted="false">Passer à la vidéo</string>
-    <string name="av_switch_to_audio" formatted="false">Passer à l\'audio</string>
-    <string name="av_content_desc" formatted="false">Basculer entre l\'audio et la vidéo</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Accueil</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Rechercher</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Bibliothèque</string>

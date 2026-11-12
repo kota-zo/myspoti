@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">మెటాడేటా</string>
+    <string name="metadata_footer">శోధనలు, ఆల్బమ్‌లు, కళాకారులు ఈ సేవల నుండి వస్తాయి; పై నుండి కిందికి అడుగుతారు. రెండుసార్లు దొరికిన ఒకే పాట ఒకసారి కనిపిస్తుంది. ఆఫ్ చేసిన సేవను ఎప్పుడూ అడగరు.</string>
+    <string name="metadata_spotify_detail">మీరు సైన్ ఇన్ అయి ఉన్నంత వరకు మీ ఖాతా</string>
+    <string name="metadata_signed_out">అడగబడదు: ఏ ఖాతా సైన్ ఇన్ కాలేదు</string>
+    <string name="metadata_asked">అడగబడుతుంది</string>
+    <string name="metadata_off">ఆఫ్: ఎప్పుడూ అడగబడదు</string>
+    <string name="metadata_reset">డిఫాల్ట్ క్రమానికి తిరిగి వెళ్లు</string>
+    <string name="metadata_not_on_spotify">Spotifyలో దొరకలేదు: ఈ పాటను ఇంకా ప్లే చేయలేరు</string>
+    <string name="metadata_switch">%1$sను అడుగు</string>
+</resources>

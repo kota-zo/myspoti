@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Peata laulusõnade tõlkimine</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Me ei tea selle laulu sõnu.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Neid laulusõnu ei saa veel sünkroonselt kuvada.</string>
-    <string name="av_switch_to_video" formatted="false">Lülitu videole</string>
-    <string name="av_switch_to_audio" formatted="false">Lülitu helile</string>
-    <string name="av_content_desc" formatted="false">Lülita heli ja video vahel</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Avaleht</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Otsing</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Sinu teek</string>

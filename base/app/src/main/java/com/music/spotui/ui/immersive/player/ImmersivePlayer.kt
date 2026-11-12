@@ -35,6 +35,7 @@ import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -102,7 +103,6 @@ import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
@@ -196,6 +196,18 @@ internal fun Modifier.dragToClose(): Modifier {
             }
             current.release(if (finished) velocity.calculateVelocity().y else 0f)
         }
+    }
+}
+
+/** The grab handle over the full player: a drag down closes the sheet, and so does a tap. */
+@Composable
+internal fun PlayerDismissStrip(tint: Color, onClose: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
     }
 }
 
@@ -315,8 +327,10 @@ fun ImmersivePlayer(
         // beside the controls. Very wide windows (DeX, large tablets): the lyrics and the queue
         // open in a third pane instead of over the cover.
         val window = com.music.spotui.ui.components.windowSize()
-        val landscape = maxWidth > maxHeight || window.twoPane
+        // Never a phone held upright, whatever this box measures for a moment (WindowSize.portraitPhone).
+        val landscape = window.playerSideBySide(maxWidth, maxHeight)
         val sidePane = window.large && maxWidth >= SIDE_PANE_MIN_WIDTH
+        val playerWidth = maxWidth
         PlayerBackdrop(palette, outgoingPalette, blend, state.coverUrl)
         if (canvasUrl != null) {
             com.music.spotui.ui.screens.CanvasVideo(
@@ -358,17 +372,18 @@ fun ImmersivePlayer(
                 sidePane = sidePane,
             ) else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
-                Box(
-                    Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
-                }
+                PlayerDismissStrip(tint) { actions.close() }
 
+                // Large windows (a portrait tablet): the box below is no taller than the cover and
+                // the credits need, and the two are centred with the controls under the handle.
+                // Filled, the box's spare height went between the cover and the credits (190 dp).
+                // Phones keep the box filling the height (the cap is then never reached).
+                val blockMax = if (window.large) minOf(playerWidth - PLAYER_GUTTER * 2, PLAYER_MAX_WIDTH) +
+                    ART_BOX_TOP_PAD + ART_TITLE_GAP + HEADER_HEIGHT + 16.dp else Dp.Infinity
+                Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center) {
                 // Everything that changes between the full player and the panels lives in this
                 // one weighted box, so the controls below it never move.
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                BoxWithConstraints(Modifier.weight(1f, fill = !window.large).heightIn(max = blockMax).fillMaxWidth()) {
                     val contentWidth = minOf(maxWidth - PLAYER_GUTTER * 2, PLAYER_MAX_WIDTH)
                     val left = (maxWidth - contentWidth) / 2
                     val fullArt = minOf(contentWidth, maxHeight - ART_BOX_TOP_PAD - ART_TITLE_GAP - HEADER_HEIGHT - 16.dp)
@@ -443,7 +458,6 @@ fun ImmersivePlayer(
                             model = state.coverUrl.takeIf { it.isNotBlank() },
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            transition = CrossFade,
                             loading = placeholder(R.drawable.placeholder),
                             failure = placeholder(R.drawable.placeholder),
                             modifier = Modifier.fillMaxSize(),
@@ -497,14 +511,21 @@ fun ImmersivePlayer(
                         .padding(horizontal = PLAYER_GUTTER)
                         .align(Alignment.CenterHorizontally),
                 ) {
+                    val showVolume = com.music.spotui.data.preferences.PlayerVolumePref.on
                     PlayerControlsBlock(
                         state = state, actions = actions, volume = volume, lyricsOpen = lyricsOpen, queueOpen = queueOpen,
-                        showVolume = com.music.spotui.data.preferences.PlayerVolumePref.on,
+                        showVolume = showVolume,
                         // Lyrics and the queue are two things to show in one place: opening one closes the other.
                         onToggleLyrics = { panel = if (lyricsOpen) Panel.NONE else Panel.LYRICS },
                         onToggleQueue = { panel = if (queueOpen) Panel.NONE else Panel.QUEUE },
                         onOpenDevices = { showDevices = true },
                     )
+                    // A hidden volume bar keeps its room, under the controls: without it the block got
+                    // shorter and the cover, the credits, the scrubber and the transport dropped into
+                    // the space it left (#186). Only the bottom row moves up.
+                    // The same sum as PlayerControlsBlock's: the larger gap above the bar, the bar, the gap below.
+                    if (!showVolume) Spacer(Modifier.height(12.dp - 4.dp + VOLUME_ROW_HEIGHT + 6.dp))
+                }
                 }
             }
         }
@@ -599,6 +620,9 @@ private fun RowScope.PlayerCredits(
     val sourceLabel = com.music.spotui.ui.components.playingSourceLabel()
     val sourceShown = com.music.spotui.data.preferences.PlayerSourceLinePref.shown
     val hasSource = sourceLabel.isNotBlank() && !state.adPlaying
+    // Its room is kept only where a source line can come (an audio-source extension, the app's own
+    // player): with none, the title and artist sat high over an empty line (reported).
+    val sourceRoom = hasSource || com.music.spotui.extensions.Extensions.hasAudioSource() || com.music.spotui.di.LocalPlayer.active.value
     val sourceAlpha by animateFloatAsState(if (hasSource) 1f else 0f, tween(250), label = "sourceLine")
     val lineH = if (state.adPlaying) 24.sp else 22.sp
     Column(
@@ -646,20 +670,24 @@ private fun RowScope.PlayerCredits(
         if (!state.adPlaying) {
             // One tap per artist when the song's artists are known; the whole line otherwise.
             val credit = com.music.spotui.ui.components.rememberArtistCredit(state.trackId, state.artist, tint.copy(alpha = 0.55f)) { a -> actions.openArtistRef(a) }
+            // The names are tap targets only while the line holds still: a scrolling line draws them
+            // away from where their taps land, and is one target for the choice of its artists.
+            val lineScrolls = com.music.spotui.ui.components.rememberArtistLineScrolls(state.artist)
             Text(
-                text = credit ?: androidx.compose.ui.text.AnnotatedString(state.artist),
+                text = credit?.takeIf { !lineScrolls.value } ?: androidx.compose.ui.text.AnnotatedString(state.artist),
                 style = Immersive.Title.copy(fontSize = 20.sp, lineHeight = lineH, fontWeight = FontWeight.W500),
                 color = tint.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (it.hasVisualOverflow) lineScrolls.value = true },
                 modifier = Modifier
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.openArtist() }
-                    .titleMarquee(enabled = scrolls, iterations = Int.MAX_VALUE),
+                    .titleMarquee(enabled = scrolls && lineScrolls.value, iterations = Int.MAX_VALUE),
             )
         }
         // What the sound is when Myspoti's own player plays it (an extension's stream, a
         // download); a tap opens what plays and its quality. Same state as the Classic player.
-        if (!state.adPlaying && sourceShown) Text(
+        if (!state.adPlaying && sourceShown && sourceRoom) Text(
             text = sourceLabel.ifEmpty { " " },
             style = Immersive.Caption.copy(lineHeight = 14.sp),
             color = tint.copy(alpha = 0.45f),
@@ -763,13 +791,7 @@ private fun LandscapePlayer(
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         // The handle: always hands its drags to the sheet.
-        Box(
-            Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
-        }
+        PlayerDismissStrip(tint) { actions.close() }
         Row(
             Modifier.weight(1f).fillMaxWidth().padding(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(PLAYER_GUTTER),
@@ -803,7 +825,6 @@ private fun LandscapePlayer(
                                     model = state.coverUrl.takeIf { it.isNotBlank() },
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
-                                    transition = CrossFade,
                                     loading = placeholder(R.drawable.placeholder),
                                     failure = placeholder(R.drawable.placeholder),
                                     modifier = Modifier.fillMaxSize(),

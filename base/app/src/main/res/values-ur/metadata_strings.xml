@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">میٹا ڈیٹا</string>
+    <string name="metadata_footer">تلاش، البم اور فنکار ان سروسز سے آتے ہیں، جن سے اوپر سے نیچے پوچھا جاتا ہے۔ دو بار ملنے والا ایک ہی گانا ایک بار دکھایا جاتا ہے۔ بند سروس سے کبھی نہیں پوچھا جاتا۔</string>
+    <string name="metadata_spotify_detail">آپ کا اکاؤنٹ، جب تک آپ سائن اِن ہیں</string>
+    <string name="metadata_signed_out">نہیں پوچھا جاتا: کوئی اکاؤنٹ سائن اِن نہیں</string>
+    <string name="metadata_asked">پوچھا جاتا ہے</string>
+    <string name="metadata_off">بند: کبھی نہیں پوچھا جاتا</string>
+    <string name="metadata_reset">ڈیفالٹ ترتیب پر واپس جائیں</string>
+    <string name="metadata_not_on_spotify">Spotify پر نہیں ملا: یہ گانا ابھی نہیں چل سکتا</string>
+    <string name="metadata_switch">%1$s سے پوچھیں</string>
+</resources>

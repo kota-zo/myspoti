@@ -140,7 +140,10 @@ fun ImmersiveArtistScreen(navController: NavController, artistName: String, arti
     BoxWithConstraints(Modifier.fillMaxSize().background(Immersive.Page)) {
         // Measured rather than read off the window, and capped against the window's own height so
         // a landscape window still shows the track list under the photo.
-        val artHeight = (maxWidth / ARTIST_PHOTO_RATIO).coerceAtMost(maxHeight * 0.6f)
+        // Large windows and a phone on its side: at most 45 % of the height (60 % filled the first
+        // screen there); portrait phones keep their 60 %.
+        val window = com.music.spotui.ui.components.windowSize()
+        val artHeight = (maxWidth / ARTIST_PHOTO_RATIO).coerceAtMost(maxHeight * if (window.large || window.shortAndWide) 0.45f else 0.6f)
         when (val state = overview) {
             is Response.Loading -> ArtistLoading(navController, artistName, artHeight)
             is Response.Error -> Box(Modifier.fillMaxSize()) {
@@ -232,7 +235,10 @@ private fun ArtistOverviewContent(
 
     // Follow state straight from the user's library.
     var following by remember(overview.id) { mutableStateOf(false) }
+    // An artist of another provider (its id a whole uri): Spotify cannot follow it; its page reads, its songs play.
+    val onSpotify = !overview.id.contains(':')
     LaunchedEffect(overview.id) {
+        if (!onSpotify) return@LaunchedEffect
         val uris = tracks.map { "spotify:track:${it.song.spotifyTrackId}" } + "spotify:artist:${overview.id}"
         val res = SongPlayer.libraryContains(uris)
         following = "spotify:artist:${overview.id}" in res
@@ -315,7 +321,7 @@ private fun ArtistOverviewContent(
             }
 
             // "Your #3 artist of the past 4 weeks", from the account's Spotify top artists.
-            item(key = "top-badge") { com.music.spotui.ui.screens.ArtistTopBadge(overview.id) }
+            if (onSpotify) item(key = "top-badge") { com.music.spotui.ui.screens.ArtistTopBadge(overview.id) }
 
             // Shuffle, Play, Follow: a large Play flanked by two smaller circles.
             item(key = "actions") {
@@ -346,7 +352,7 @@ private fun ArtistOverviewContent(
                         iconScale = PLAY_ICON_SCALE,
                         containerColor = Color.White,
                     )
-                    ImmersiveCircleButton(
+                    if (onSpotify) ImmersiveCircleButton(
                         icon = if (isFollowing) Icons.Rounded.Check else Icons.Rounded.PersonAdd,
                         contentDescription = stringResource(if (isFollowing) R.string.immersive_detail_unfollow else R.string.immersive_detail_follow),
                         onClick = {
@@ -479,7 +485,7 @@ private fun ArtistOverviewContent(
             collapse = collapse,
             onBack = { navController.navigateUp() },
             actions = {
-                ImmersiveBarAction(
+                if (onSpotify) ImmersiveBarAction(
                     icon = Icons.Rounded.MoreHoriz,
                     contentDescription = stringResource(R.string.content_description_context_menu),
                     onClick = { showArtistMenu = true },

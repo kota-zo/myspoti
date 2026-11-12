@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d ਹੋਰ ਸਟੇਸ਼ਨ ਮਿਲਦਾ ਹੈ, ਪਰ ਇਹ ਬਿਨਾਂ ਇਨਕ੍ਰਿਪਸ਼ਨ (http) ਜਾਂ HLS ਵਿੱਚ ਚੱਲਦਾ ਹੈ, ਜਿਸ ਨੂੰ ਐਪ ਅਜੇ ਨਹੀਂ ਚਲਾ ਸਕਦੀ।</item>
+        <item quantity="other">%d ਹੋਰ ਸਟੇਸ਼ਨ ਮਿਲਦੇ ਹਨ, ਪਰ ਇਹ ਬਿਨਾਂ ਇਨਕ੍ਰਿਪਸ਼ਨ (http) ਜਾਂ HLS ਵਿੱਚ ਚੱਲਦੇ ਹਨ, ਜਿਨ੍ਹਾਂ ਨੂੰ ਐਪ ਅਜੇ ਨਹੀਂ ਚਲਾ ਸਕਦੀ।</item>
+    </plurals>
+</resources>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">Εγγενής αναπαραγωγή (πειραματικό)</string>
+    <string name="settings_native_audio_detail">Τα τραγούδια του λογαριασμού παίζονται από τον ίδιο τον player της εφαρμογής αντί για την κρυφή ιστοσελίδα. Υπό δοκιμή: οι ταξινομημένες λίστες παίζουν με τη δική τους σειρά και ορισμένα χειριστήρια μπορεί να καθυστερούν.</string>
+    <string name="welcome_rotate_sources">από τις πηγές που επιλέγεις.</string>
+    <string name="welcome_rotate_mix">μιξαρισμένη σαν DJ set.</string>
+    <string name="album_label">Δισκογραφική: %1$s</string>
+    <string name="settings_automix_options">Επιλογές</string>
+    <string name="settings_automix_analysis">Ανάλυση</string>
+    <string name="settings_automix_display">Εμφάνιση</string>
+    <string name="settings_automix_duration_auto">Αυτόματο</string>
+    <string name="settings_automix_duration_none">Χωρίς όριο</string>
+    <string name="settings_automix_seconds">%1$d δ</string>
+    <string name="settings_local_files_shown">Εμφάνιση Τοπικών αρχείων</string>
+    <string name="settings_local_files_shown_detail">Η γραμμή Τοπικά αρχεία στη βιβλιοθήκη σου. Ανενεργό: κρυμμένη, κανένα αρχείο δεν αλλάζει.</string>
+    <string name="pass_section">Άλλες συσκευές</string>
+    <string name="pass_send">Αποστολή σε άλλη συσκευή</string>
+    <string name="pass_send_detail">Σάρωσε τον κωδικό της τηλεόρασης, του υπολογιστή ή άλλου τηλεφώνου: λαμβάνει ρυθμίσεις, επεκτάσεις και σύνδεση.</string>
+    <string name="pass_receive">Λήψη από άλλη συσκευή</string>
+    <string name="pass_receive_detail">Δείχνει έναν κωδικό για σάρωση από το τηλέφωνο.</string>
+    <string name="pass_receive_title">Σάρωσε αυτόν τον κωδικό με το τηλέφωνο</string>
+    <string name="pass_receive_hint">Στρέψτε την κάμερα του τηλεφώνου σε αυτόν ή στο τηλέφωνο: Ρυθμίσεις › Άλλες συσκευές › Αποστολή σε άλλη συσκευή. Και οι δύο στο ίδιο Wi-Fi.</string>
+    <string name="pass_no_network">Χωρίς Wi-Fi: σύνδεσε τη συσκευή στο ίδιο Wi-Fi με το τηλέφωνο.</string>
+    <string name="pass_received">Λήφθηκε από %1$s. Η εφαρμογή επανεκκινεί.</string>
+    <string name="pass_confirm_title">Αποστολή σε %1$s;</string>
+    <string name="pass_confirm_text">Οι ρυθμίσεις, οι επεκτάσεις και η σύνδεση Spotify αντιγράφονται σε αυτή τη συσκευή, απευθείας μέσω Wi-Fi και κρυπτογραφημένα. Στείλ’ τα μόνο στις δικές σου συσκευές.</string>
+    <string name="pass_send_action">Αποστολή</string>
+    <string name="pass_sent">Στάλθηκε σε %1$s</string>
+    <string name="pass_failed">Δεν στάλθηκε: %1$s</string>
+    <string name="pass_not_invite">Δεν είναι κωδικός αυτής της εφαρμογής.</string>
+    <string name="pass_scan_unavailable">Δεν υπάρχει σαρωτής κωδικών (υπηρεσίες Google Play).</string>
+    <string name="pass_sign_in_with_device">Σύνδεση με το τηλέφωνο</string>
+    <string name="pass_link_warning">Άνοιξε από σύνδεσμο. Στείλτε μόνο αν μόλις σαρώσατε αυτόν τον κωδικό στην οθόνη της δικής σας συσκευής.</string>
+    <string name="pass_need_sign_in">Συνδεθείτε πρώτα σε αυτό το τηλέφωνο και μετά σαρώστε ξανά τον κωδικό.</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">Τι σημαίνουν τα τραγούδια και οι σημειώσεις στους στίχους τους, και οι στίχοι του Genius όταν δεν τους έχει άλλη πηγή. Απενεργοποιημένο: τίποτα δεν ζητείται από το Genius.</string>
+    <string name="welcome_start">Ας ξεκινήσουμε</string>
+    <string name="setup_account_spotify_next">Μετά συνδέεσαι στη σελίδα του Spotify. Το Orpheon δεν βλέπει ποτέ τον κωδικό σου.</string>
+</resources>

@@ -21,6 +21,12 @@ object Haptics {
     /** Buttons: play/pause, next/previous, add to queue. */
     fun click() = perform(HapticFeedbackConstants.CONTEXT_CLICK)
 
+    /** A held queue row taking another place: a faint tick. */
+    fun tick() = perform(
+        if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_FREQUENT_TICK else HapticFeedbackConstants.CLOCK_TICK,
+        HapticFeedbackConstants.CLOCK_TICK,
+    )
+
     /** Toggles: like, shuffle, repeat. */
     fun toggle(on: Boolean) = perform(
         if (Build.VERSION.SDK_INT >= 34) (if (on) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.TOGGLE_OFF)

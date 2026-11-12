@@ -1,0 +1,332 @@
+{
+ "header": {
+  "musicImmersiveHeaderRenderer": {
+   "title": {
+    "runs": [
+     {
+      "text": "Artist A"
+     }
+    ]
+   },
+   "thumbnail": {
+    "musicThumbnailRenderer": {
+     "thumbnail": {
+      "thumbnails": [
+       {
+        "url": "https://img.example/artA-60",
+        "width": 60,
+        "height": 60
+       },
+       {
+        "url": "https://img.example/artA-226",
+        "width": 226,
+        "height": 226
+       }
+      ]
+     }
+    }
+   },
+   "description": {
+    "runs": [
+     {
+      "text": "A synthetic artist."
+     }
+    ]
+   }
+  }
+ },
+ "contents": {
+  "singleColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicShelfRenderer": {
+           "title": {
+            "runs": [
+             {
+              "text": "Top songs"
+             }
+            ]
+           },
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/vidAAAAAAA1-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/vidAAAAAAA1-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song One",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "vidAAAAAAA1",
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Artist A",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCartistA000000000000000",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Album X",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_albumX",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               }
+              ],
+              "fixedColumns": [
+               {
+                "musicResponsiveListItemFixedColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3:45"
+                   }
+                  ]
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "vidAAAAAAA1"
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "contents": [
+            {
+             "musicTwoRowItemRenderer": {
+              "title": {
+               "runs": [
+                {
+                 "text": "Album X"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Single"
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "2021"
+                }
+               ]
+              },
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/albumx-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/albumx-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_albumX",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "title": {
+               "runs": [
+                {
+                 "text": "Album Y"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Album"
+                },
+                {
+                 "text": " \u2022 "
+                },
+                {
+                 "text": "2019"
+                }
+               ]
+              },
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/albumy-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/albumy-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_albumY",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                 }
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "contents": [
+            {
+             "musicTwoRowItemRenderer": {
+              "title": {
+               "runs": [
+                {
+                 "text": "Artist B"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "1M subscribers"
+                }
+               ]
+              },
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/artB-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/artB-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCartistB000000000000000",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ }
+}

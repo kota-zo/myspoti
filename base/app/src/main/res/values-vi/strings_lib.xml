@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">Còn %d đài khác khớp, nhưng phát không mã hóa (http) hoặc bằng HLS, ứng dụng chưa phát được.</item>
+    </plurals>
+</resources>

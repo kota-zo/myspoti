@@ -4,8 +4,9 @@
     <string name="sources_download_title">Источники загрузки</string>
     <string name="sources_audio_footer">Опрашиваются сверху вниз для каждой песни: первый, у которого она есть, воспроизводит её. Стрелками меняется порядок.</string>
     <string name="sources_download_footer">Опрашиваются сверху вниз: первый источник, у которого есть песня, отдаёт файл. Стрелками меняется порядок.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Воспроизводится, когда ни один источник выше не содержит песню</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Воспроизводится, когда ни один источник выше не содержит песню</string>
+    <string name="sources_account_player">Плеер вашего аккаунта</string>
     <string name="sources_ready">Готово</string>
     <string name="sources_details_show">Показать подробности</string>
     <string name="sources_details_hide">Скрыть подробности</string>
@@ -13,15 +14,15 @@
     <string name="sources_last_used">Последнее: %1$s, %2$s</string>
     <string name="sources_open">Открыть расширение</string>
     <string name="sources_order_hint">Источники опрашиваются в порядке, заданном в Настройках (Воспроизведение, Загрузки).</string>
-    <string name="sources_below_spotify">Не запрашивается: Spotify выше</string>
+    <string name="sources_below_account">Не запрашивается: Spotify выше</string>
     <string name="source_pick_title">Источник</string>
-    <string name="source_pick_detail">Воспроизводит эту песню и следующие из выбранного источника, пока Myspoti не перезапустится. Ваш порядок в Настройках остаётся прежним.</string>
+    <string name="source_pick_detail">Воспроизводит эту песню и следующие из выбранного источника, пока Orpheon не перезапустится. Ваш порядок в Настройках остаётся прежним.</string>
     <string name="source_pick_playing">Играет сейчас</string>
-    <string name="source_pick_temporary">Временно: первым, пока Myspoti не перезапустится</string>
+    <string name="source_pick_temporary">Временно: первым, пока Orpheon не перезапустится</string>
     <string name="source_pick_reset">Вернуться к моему порядку</string>
     <string name="source_pick_reset_detail">Порядок, заданный в Настройки → Воспроизведение</string>
     <string name="source_pick_tag">временно</string>
     <string name="source_pick_missing">В %1$s нет этой песни: она продолжается с того места, где играла, а ваш порядок остаётся прежним.</string>
     <string name="source_pick_next">%1$s играет со следующей песни: эта продолжается как играла.</string>
-    <string name="source_pick_active">Временный выбор на этот сеанс: %1$s опрашивается первым, пока Myspoti не перезапустится.</string>
+    <string name="source_pick_active">Временный выбор на этот сеанс: %1$s опрашивается первым, пока Orpheon не перезапустится.</string>
 </resources>

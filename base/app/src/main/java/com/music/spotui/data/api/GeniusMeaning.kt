@@ -40,8 +40,22 @@ object GeniusMeaning {
 
     fun cached(title: String, artist: String): Meaning? = recent[key(title, artist)]
 
-    /** null: no song on Genius matches, or it says nothing about it. Throws when Genius can't be reached. */
+    /** Genius turned off in the settings: nothing is asked of it, nothing of it is shown. */
+    private val off get() = !com.music.spotui.data.preferences.GeniusPref.on
+
+    /** Genius turned off: the song playing's meaning and the look-up under way are dropped. */
+    fun forget() {
+        prefetchJob?.cancel()
+        prefetchFor = ""
+        current.value = null
+    }
+
+    /** The meaning of [trackId] when it is the song playing's and Genius is on, else null. */
+    fun currentFor(trackId: String): Meaning? = if (off) null else current.value?.takeIf { it.first == trackId }?.second
+
+    /** null: no song on Genius matches, or it says nothing about it (or Genius is off). Throws when Genius can't be reached. */
     suspend fun find(title: String, artist: String): Meaning? = withContext(Dispatchers.IO) {
+        if (off) return@withContext null
         val k = key(title, artist)
         if (recent.containsKey(k)) return@withContext recent[k]
         val cleanTitle = clean(title)
@@ -99,7 +113,7 @@ object GeniusMeaning {
      * the light bulb and the underlined lines are there the moment the lyrics open.
      */
     fun prefetch(trackId: String, title: String, artist: String, lang: String) {
-        if (trackId.isBlank() || title.isBlank() || current.value?.first == trackId) return
+        if (off || trackId.isBlank() || title.isBlank() || current.value?.first == trackId) return
         if (prefetchFor == trackId && prefetchJob?.isActive == true) return
         prefetchFor = trackId
         prefetchJob?.cancel()

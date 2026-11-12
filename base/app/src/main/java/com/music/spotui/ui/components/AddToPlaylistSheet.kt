@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.data.api.EditablePlaylist
@@ -149,7 +148,6 @@ internal fun PickRow(playlist: EditablePlaylist, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),
             model = playlist.imageUrl,
             contentScale = ContentScale.Crop,

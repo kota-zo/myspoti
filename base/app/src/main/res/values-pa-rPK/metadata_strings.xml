@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">میٹا ڈیٹا</string>
+    <string name="metadata_footer">کھوجاں، البم تے فنکار انہاں سروساں توں آؤندے نیں، جنہاں توں اُتوں تھلے پچھیا جاندا اے۔ دو وار لبھیا اکو گانا اک وار وکھایا جاندا اے۔ بند سروس توں کدی نئیں پچھیا جاندا۔</string>
+    <string name="metadata_spotify_detail">تہاڈا اکاؤنٹ، جدوں تک تسیں سائن اِن او</string>
+    <string name="metadata_signed_out">نئیں پچھیا جاندا: کوئی اکاؤنٹ سائن اِن نئیں</string>
+    <string name="metadata_asked">پچھیا جاندا اے</string>
+    <string name="metadata_off">بند: کدی نئیں پچھیا جاندا</string>
+    <string name="metadata_reset">ڈیفالٹ ترتیب تے واپس جاؤ</string>
+    <string name="metadata_not_on_spotify">Spotify تے نئیں لبھیا: ایہہ گانا حالے نئیں چل سکدا</string>
+    <string name="metadata_switch">%1$s توں پچھو</string>
+</resources>

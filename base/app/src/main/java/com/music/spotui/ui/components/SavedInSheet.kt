@@ -58,7 +58,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
@@ -214,6 +213,9 @@ fun SavedInSheet(
 
             when (val list = playlists) {
                 null -> Text(stringResource(R.string.loading_playlists), color = Color.Gray, fontSize = 14.sp, modifier = Modifier.padding(20.dp, 12.dp))
+                // Said, rather than Liked Songs alone looking like all there is (reported in the Immersive look).
+                emptyList<com.music.spotui.data.api.EditablePlaylist>() -> if (folder == null) Text(stringResource(R.string.add_to_playlist_empty),
+                    color = Color.Gray, fontSize = 14.sp, modifier = Modifier.padding(20.dp, 12.dp))
                 else -> LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
                     items(list.size) { i ->
                         val pl = list[i]
@@ -238,7 +240,6 @@ fun SavedInSheet(
                             saved = saved,
                             cover = {
                                 GlideImage(
-                                    transition = CrossFade,
                                     modifier = Modifier
                                         .size(48.dp)
                                         .clip(RoundedCornerShape(4.dp)),

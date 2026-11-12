@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metaməlumatlar</string>
+    <string name="metadata_footer">Axtarışlar, albomlar və ifaçılar bu xidmətlərdən gəlir, yuxarıdan aşağı soruşulur. İki dəfə tapılan eyni mahnı bir dəfə göstərilir. Söndürülmüş xidmətə heç vaxt müraciət edilmir.</string>
+    <string name="metadata_spotify_detail">Daxil olduğun müddətdə hesabın</string>
+    <string name="metadata_signed_out">Soruşulmur: daxil olmuş hesab yoxdur</string>
+    <string name="metadata_asked">Soruşulur</string>
+    <string name="metadata_off">Söndürülüb: heç vaxt soruşulmur</string>
+    <string name="metadata_reset">Defolt sıraya qayıt</string>
+    <string name="metadata_not_on_spotify">Spotify-da tapılmadı: bu mahnı hələ oxudula bilməz</string>
+    <string name="metadata_switch">%1$s xidmətinə soruş</string>
+</resources>

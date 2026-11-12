@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Zatrzymać tłumaczenie tekstu</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmmm. My też nie znamy tekstu.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Tekst utworu nie jest jeszcze zsynchronizowany czasowo.</string>
-    <string name="av_switch_to_video" formatted="false">Przełącz na wideo</string>
-    <string name="av_switch_to_audio" formatted="false">Przełącz na audio</string>
-    <string name="av_content_desc" formatted="false">Przełączanie formatu między audio a wideo</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Home</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Wyszukaj</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Biblioteka</string>

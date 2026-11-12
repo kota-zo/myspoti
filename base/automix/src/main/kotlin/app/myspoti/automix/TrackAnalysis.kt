@@ -80,10 +80,29 @@ class TrackAnalysis(
 
     /** This analysis with its voices taken from [spans], seconds from the song's start where it is known to be sung. */
     fun withSung(spans: List<Pair<Double, Double>>): TrackAnalysis {
-        val sorted = spans.filter { it.second > it.first }.sortedBy { it.first }
+        // Timed providers can repeat a line (translations, duets) or overlap word and line timing.
+        // Coverage is elapsed sung time, so overlapping annotations must never be added twice.
+        val sorted = spans.asSequence()
+            .filter { it.first.isFinite() && it.second.isFinite() }
+            .map { max(contentStart, it.first) to min(contentEnd, it.second) }
+            .filter { it.second > it.first }.sortedBy { it.first }.toList()
+        val merged = ArrayList<Pair<Double, Double>>()
+        for (span in sorted) {
+            val last = merged.lastOrNull()
+            if (last != null && span.first <= last.second) {
+                merged[merged.lastIndex] = last.first to max(last.second, span.second)
+            } else merged.add(span)
+        }
+        var firstSpan = 0
         val risk = FloatArray(bars) { i ->
             val from = barStarts[i]; val to = barEnd(i)
-            val sung = sorted.sumOf { (a, b) -> max(0.0, min(to, b) - max(from, a)) }
+            while (firstSpan < merged.size && merged[firstSpan].second <= from) firstSpan++
+            var sung = 0.0
+            var j = firstSpan
+            while (j < merged.size && merged[j].first < to) {
+                val (a, b) = merged[j++]
+                sung += max(0.0, min(to, b) - max(from, a))
+            }
             if (to > from && sung / (to - from) >= SUNG_BAR_SHARE) SUNG_RISK else UNSUNG_RISK
         }
         return TrackAnalysis(duration, contentStart, contentEnd, loudnessDb, key, keyStrength, bpm, steady, head, tail, beats, barStarts,

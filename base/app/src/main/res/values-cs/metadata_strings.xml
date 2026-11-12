@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Vyhledávání, alba a interpreti pocházejí z těchto služeb, dotazovaných shora dolů. Stejná skladba nalezená dvakrát se zobrazí jednou. Vypnutá služba se nikdy nedotazuje.</string>
+    <string name="metadata_spotify_detail">Váš účet, dokud jste přihlášeni</string>
+    <string name="metadata_signed_out">Nedotazuje se: není přihlášen žádný účet</string>
+    <string name="metadata_asked">Dotazuje se</string>
+    <string name="metadata_off">Vypnuto: nikdy se nedotazuje</string>
+    <string name="metadata_reset">Zpět na výchozí pořadí</string>
+    <string name="metadata_not_on_spotify">Na Spotify nenalezeno: tuto skladbu zatím nelze přehrát</string>
+    <string name="metadata_switch">Dotazovat %1$s</string>
+</resources>

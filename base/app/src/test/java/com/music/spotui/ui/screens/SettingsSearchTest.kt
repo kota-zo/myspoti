@@ -23,8 +23,19 @@ class SettingsSearchTest {
 
     @Test fun everyPlaceIsReachable() {
         val pages = setOf("Root", "Playback", "Sources", "Lyrics", "StreamingWifi", "StreamingCell", "Crossfade", "Downloads", "DownloadQuality",
-            "Storage", "Data", "Display", "Look", "Rotation", "Language", "LyricsLanguage", "App", "Accounts")
+            "Storage", "Data", "Display", "Look", "Rotation", "Language", "LyricsLanguage", "App", "Accounts", "Library")
         assertTrue(SettingsSearch.immersive.all { it.place in pages })
-        assertTrue(SettingsSearch.classic.all { it.place == "transitions" || it.place.toIntOrNull() in 0..6 })
+        assertTrue(SettingsSearch.classic.all { it.place == "transitions" || it.place.toIntOrNull() in 0..7 })
+    }
+
+    /** The listen sync and the passing to another device sit with the music account, the library rows on their own. */
+    @Test fun rowsSitWithWhatTheyAreAbout() {
+        fun place(list: List<SettingsEntry>, title: Int) = list.first { it.title == title }.place
+        assertEquals("Accounts", place(SettingsSearch.immersive, app.myspoti.engine.R.string.settings_connect_mirror_title))
+        assertEquals("Accounts", place(SettingsSearch.immersive, app.myspoti.engine.R.string.pass_send))
+        assertEquals("Library", place(SettingsSearch.immersive, app.myspoti.engine.R.string.hidden_songs_title))
+        assertEquals("6", place(SettingsSearch.classic, app.myspoti.engine.R.string.settings_connect_mirror_title))
+        assertEquals("6", place(SettingsSearch.classic, app.myspoti.engine.R.string.pass_receive))
+        assertEquals("7", place(SettingsSearch.classic, app.myspoti.engine.R.string.live_radio_settings_title))
     }
 }

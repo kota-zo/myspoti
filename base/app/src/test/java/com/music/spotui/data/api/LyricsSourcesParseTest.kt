@@ -95,4 +95,18 @@ class LyricsSourcesParseTest {
         assertEquals(1, LyricsApi.voiceOf("v1")); assertEquals(0, LyricsApi.voiceOf("v1000"))
         assertNull(LyricsApi.voiceOf("narrator")); assertNull(LyricsApi.voiceOf(null))
     }
+
+    @Test fun neteaseYrcGivesWordTimedLinesAndLeavesCreditsOut() {
+        val yrc = """{"t":0,"c":[{"tx":"作词: "},{"tx":"Someone"}]}
+            |[1000,2000](1000,500,0)One (1500,500,0)more (2000,1000,0)time
+            |[4000,1000](4000,1000,0)Music
+            |[5000,500](5000,500,0)作词 : Someone""".trimMargin()
+        val l = LyricsApi.parseYrc(yrc)
+        assertEquals(2, l.size)
+        assertEquals("One more time", l[0].text)
+        assertEquals(1000L, l[0].timeMs)
+        assertEquals(listOf(1000L, 1500L, 2000L), l[0].words!!.map { it.startMs })
+        assertEquals(3000L, l[0].words!!.last().endMs)
+        assertEquals("Music", l[1].text)
+    }
 }

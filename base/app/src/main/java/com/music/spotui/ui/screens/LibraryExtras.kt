@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.RemoveCircleOutline
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -77,7 +78,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.data.api.LibraryEdits
@@ -437,7 +437,6 @@ private fun LocalItemRow(item: LocalItem, current: Boolean, onClick: () -> Unit)
         modifier = Modifier.fillMaxWidth().pressable(0.97f, onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         GlideImage(
-            transition = CrossFade,
             model = item.artUri, contentDescription = null, contentScale = ContentScale.Crop,
             loading = placeholder(R.drawable.placeholder), failure = placeholder(R.drawable.local_files_cover),
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),
@@ -573,7 +572,7 @@ private fun PickRow(name: String, detail: String, cover: String?, onClick: () ->
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
         if (cover == null) Image(painterResource(R.drawable.local_files_cover), null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)))
-        else GlideImage(transition = CrossFade, model = cover, contentDescription = null, contentScale = ContentScale.Crop,
+        else GlideImage(model = cover, contentDescription = null, contentScale = ContentScale.Crop,
             loading = placeholder(R.drawable.placeholder), failure = placeholder(R.drawable.placeholder),
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)))
         Column(Modifier.padding(start = 12.dp)) {
@@ -585,8 +584,19 @@ private fun PickRow(name: String, detail: String, cover: String?, onClick: () ->
 
 
 /**
+ * Whether the row's ⋯ menu offers "Remove from Your Library": a playlist of someone else (its
+ * owner known), an album, an artist or a show. The user's own playlists are deleted, not removed.
+ */
+internal fun removable(entry: LibraryEntry, me: String? = com.music.spotui.data.api.ProfileCache.id): Boolean {
+    val uri = entry.uri
+    if (entry.isFolder) return false
+    if (uri.startsWith("spotify:playlist:")) return me != null && entry.ownerUri.isNotBlank() && entry.ownerUri != "spotify:user:$me"
+    return uri.startsWith("spotify:album:") || uri.startsWith("spotify:artist:") || uri.startsWith("spotify:show:")
+}
+
+/**
  * A library row's ⋯ menu: pin it at the top, move a playlist or folder into another folder
- * (or back to the top level), delete a folder. Each shows in the list at once ([LibraryEdits]),
+ * (or back to the top level), delete a folder, remove what is not the user's own ([removable]). Each shows in the list at once ([LibraryEdits]),
  * which reads itself again when Spotify has had time to catch up; [onChanged] is kept for callers.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -625,6 +635,12 @@ fun LibraryItemSheet(entry: LibraryEntry, onDismiss: () -> Unit, onChanged: () -
                 if (entry.uri.startsWith("spotify:playlist:") || entry.uri.startsWith("spotify:album:"))
                     SheetRow(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(R.string.context_menu_add_to_playlist)) { merging = true }
                 if (entry.isFolder) SheetRow(Icons.Outlined.Delete, stringResource(R.string.folder_delete)) { deleting = true }
+                // Someone else's playlist, an album, an artist or a show: out of the library from here,
+                // without opening it and relying on its heart (reported: a playlist listed with an
+                // empty heart could not be taken out).
+                if (removable(entry)) SheetRow(Icons.Outlined.RemoveCircleOutline, stringResource(R.string.whats_new_remove_library)) {
+                    com.music.spotui.di.SongPlayer.setSaved(entry.uri, false); onDismiss()
+                }
             } else {
                 val folders by androidx.compose.runtime.produceState<List<app.myspoti.api.LibraryItem>?>(null) {
                     value = runCatching { api.library.items(folderUri = null, limit = 200).items.filter { it.kind == app.myspoti.api.MediaKind.FOLDER && it.uri != entry.uri } }

@@ -1,6 +1,7 @@
 package app.myspoti.spotify
 
 import app.myspoti.api.Image
+import app.myspoti.api.canonicalUri
 import app.myspoti.api.Library
 import app.myspoti.api.LibraryFilter
 import app.myspoti.api.LibraryItem
@@ -221,7 +222,7 @@ class SpotifyPlaylists(private val gql: Gql, private val bridge: Bridge, private
         fun walk(items: List<JsonElement>) {
             for (item in items) when (item.str("type")) {
                 "folder" -> walk(item.list("items"))
-                else -> item.str("uri")?.takeIf { it.startsWith("spotify:playlist:") }?.let { uri ->
+                else -> item.str("uri")?.let(::canonicalUri)?.takeIf { it.startsWith("spotify:playlist:") }?.let { uri ->
                     out += Playlist(
                         uri = uri,
                         name = item.str("name") ?: "",

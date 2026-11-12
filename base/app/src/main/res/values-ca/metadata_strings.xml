@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadades</string>
+    <string name="metadata_footer">Les cerques, els àlbums i els artistes vénen d\'aquests serveis, consultats de dalt a baix. La mateixa cançó trobada dues vegades apareix una sola vegada. Un servei desactivat no es consulta mai.</string>
+    <string name="metadata_spotify_detail">El teu compte, mentre tinguis la sessió iniciada</string>
+    <string name="metadata_signed_out">No es consulta: cap compte amb la sessió iniciada</string>
+    <string name="metadata_asked">Es consulta</string>
+    <string name="metadata_off">Desactivat: no es consulta mai</string>
+    <string name="metadata_reset">Torna a l\'ordre predeterminat</string>
+    <string name="metadata_not_on_spotify">No s\'ha trobat a Spotify: aquesta cançó encara no es pot reproduir</string>
+    <string name="metadata_switch">Consulta %1$s</string>
+</resources>

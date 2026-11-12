@@ -15,7 +15,11 @@ import android.os.SystemClock
  * Runs only while the app is on screen (and [TAIL_MS] after, for the stall of leaving it).
  */
 object MainThreadWatch {
-    private const val PING_MS = 100L
+    /**
+     * Ten pings a second woke both threads all the time the app was on screen (beta and debug
+     * builds); a stall of [STALL_MS] or more is still caught, its start known to half a second.
+     */
+    private const val PING_MS = 500L
     private const val STALL_MS = 150L
     private const val TAIL_MS = 3_000L
     private const val FRAMES = 6

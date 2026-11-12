@@ -1,7 +1,23 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+// Parts adapted from Android's Jetcaster sample (https://github.com/android/compose-samples), Copyright 2024 The Android Open Source Project, Apache License 2.0.
+// Parts adapted from Android's JetStream sample (https://github.com/android/tv-samples), Copyright 2023 Google LLC, Apache License 2.0.
 package com.music.spotui.ui.tv
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -99,68 +115,83 @@ internal fun TvArtist(page: TvPage.Artist, onOpen: (TvPage) -> Unit, onPlayed: (
     }
 }
 
+/**
+ * An artist over its picture: the header faded into the page as JetStream's MovieDetails fades its
+ * poster (towards the bottom and the left), the name large, Play; then the popular songs in two
+ * columns and the shelves of releases and related artists.
+ */
 @Composable
 internal fun TvArtistPage(o: ArtistOverviewModel, onOpen: (TvPage) -> Unit, onPlayTrack: (Int) -> Unit) {
     val playFocus = remember { FocusRequester() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-        item("head") {
-            Box(Modifier.fillMaxWidth()) {
-                // The header picture, faded into the black under the name.
-                if (o.headerImage.isNotBlank()) {
-                    TvCover(o.headerImage, Modifier.fillMaxWidth().height(300.dp), RoundedCornerShape(0.dp))
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x33000000), 1f to TvBg)))
-                }
-                Row(Modifier.padding(start = 64.dp, top = if (o.headerImage.isNotBlank()) 150.dp else 24.dp), verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                    if (o.headerImage.isBlank()) TvCover(o.avatarImage, Modifier.size(180.dp), RoundedCornerShape(90.dp))
-                    Column {
-                        Text(o.name, color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        o.monthlyListeners?.let {
-                            Text(stringResource(R.string.monthly_listeners_text, NumberFormat.getIntegerInstance().format(it)), color = TvSubtle, fontSize = 16.sp)
-                        }
-                        Row(Modifier.padding(top = 16.dp)) {
-                            if (o.topTracks.isNotEmpty()) TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true,
-                                modifier = Modifier.focusRequester(playFocus)) { onPlayTrack(0) }
-                        }
-                    }
-                }
-            }
-        }
-        if (o.topTracks.isNotEmpty()) item("popular") {
-            Column(Modifier.padding(horizontal = 64.dp)) {
-                TvSectionTitle(stringResource(R.string.artist_popular_tracks), Modifier.padding(start = 0.dp))
-                // Two columns of five, as a TV is wide.
-                val tracks = o.topTracks.take(10)
-                Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    listOf(tracks.take(5), tracks.drop(5)).forEachIndexed { col, part ->
-                        Column(Modifier.weight(1f)) {
-                            part.forEachIndexed { i, t -> TvSongRow(t.song, col * 5 + i + 1) { onPlayTrack(col * 5 + i) } }
+    val header = o.headerImage.isNotBlank()
+    TvBackdrop(o.headerImage.ifBlank { o.avatarImage }, o.name, Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(TvSpace.section - 12.dp)) {
+            item("head") {
+                Box(Modifier.fillMaxWidth().then(if (header) Modifier.height(320.dp) else Modifier)) {
+                    if (header) TvCover(o.headerImage, Modifier.matchParentSize().tvFadeOut(), RoundedCornerShape(0.dp))
+                    Row(Modifier.align(Alignment.BottomStart).padding(start = TvSpace.start, top = 20.dp, end = TvSpace.start),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TvSpace.large)) {
+                        if (!header) TvCover(o.avatarImage, Modifier.size(200.dp).shadow(24.dp, CircleShape), RoundedCornerShape(100.dp), seed = o.name)
+                        Column {
+                            Text(stringResource(R.string.artist_subtitle).uppercase(), color = TvAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+                            Text(o.name, style = TvType.displayMedium.copy(shadow = TvType.overImage), color = Color.White, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                            o.monthlyListeners?.let {
+                                Text(stringResource(R.string.monthly_listeners_text, NumberFormat.getIntegerInstance().format(it)), style = TvType.titleMedium,
+                                    color = Color.White.copy(alpha = 0.7f))
+                            }
+                            Row(Modifier.padding(top = TvSpace.default)) {
+                                if (o.topTracks.isNotEmpty()) TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true,
+                                    modifier = Modifier.focusRequester(playFocus)) { onPlayTrack(0) }
+                            }
                         }
                     }
                 }
             }
-        }
-        val releases = o.popularReleases.filter { it.spotifyId.isNotBlank() }
-        if (releases.isNotEmpty()) item("releases") {
-            TvShelf(stringResource(R.string.popular_releases_section_title)) {
-                itemsIndexed(releases, key = { i, a -> "$i:${a.spotifyId}" }) { _, a ->
-                    TvAlbumCard(a.name, a.year, a.coverUri, 140.dp) {
-                        onOpen(TvPage.Songs(LibraryEntry(a.spotifyId, a.name, a.artists, a.coverUri, isPlaylist = false, uri = "spotify:album:${a.spotifyId}")))
+            if (o.topTracks.isNotEmpty()) item("popular") {
+                Column(Modifier.padding(horizontal = TvSpace.start)) {
+                    TvSectionTitle(stringResource(R.string.artist_popular_tracks), Modifier)
+                    // Two columns of five, as a TV is wide.
+                    val tracks = o.topTracks.take(10)
+                    Row(horizontalArrangement = Arrangement.spacedBy(TvSpace.large)) {
+                        listOf(tracks.take(5), tracks.drop(5)).forEachIndexed { col, part ->
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                part.forEachIndexed { i, t -> TvSongRow(t.song, col * 5 + i + 1) { onPlayTrack(col * 5 + i) } }
+                            }
+                        }
                     }
                 }
             }
-        }
-        val related = o.relatedArtists.filter { it.id.isNotBlank() }
-        if (related.isNotEmpty()) item("related") {
-            TvShelf(stringResource(R.string.fans_also_like_section_title)) {
-                itemsIndexed(related, key = { i, a -> "$i:${a.id}" }) { _, a ->
-                    TvAlbumCard(a.name, "", a.coverUri, 130.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
+            val releases = o.popularReleases.filter { it.spotifyId.isNotBlank() }
+            if (releases.isNotEmpty()) item("releases") {
+                TvShelf(stringResource(R.string.popular_releases_section_title)) {
+                    itemsIndexed(releases, key = { i, a -> "$i:${a.spotifyId}" }) { _, a ->
+                        TvAlbumCard(a.name, a.year, a.coverUri, 156.dp) {
+                            onOpen(TvPage.Songs(LibraryEntry(a.spotifyId, a.name, a.artists, a.coverUri, isPlaylist = false, uri = "spotify:album:${a.spotifyId}")))
+                        }
+                    }
+                }
+            }
+            val related = o.relatedArtists.filter { it.id.isNotBlank() }
+            if (related.isNotEmpty()) item("related") {
+                TvShelf(stringResource(R.string.fans_also_like_section_title)) {
+                    itemsIndexed(related, key = { i, a -> "$i:${a.id}" }) { _, a ->
+                        TvAlbumCard(a.name, "", a.coverUri, 140.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
+                    }
                 }
             }
         }
     }
     LaunchedEffect(o.id) { runCatching { delay(80); playFocus.requestFocus() } }
 }
+
+/** A picture faded out towards the bottom and the left, into whatever lies under it (JetStream's MovieImageWithGradients). */
+private fun Modifier.tvFadeOut(): Modifier = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(Brush.verticalGradient(0.35f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
+        drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.55f to Color.Black), blendMode = BlendMode.DstIn)
+    }
 
 /** A podcast: its cover, name and publisher on the left, its episodes on the right. */
 @Composable
@@ -190,21 +221,25 @@ internal fun TvShow(page: TvPage.Show, onPlayed: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun TvShowPage(s: ShowPage, onEpisode: (SongsModel) -> Unit) {
     val first = remember { FocusRequester() }
-    Row(Modifier.fillMaxSize().padding(start = 64.dp, end = 48.dp, top = 24.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
-        Column(Modifier.width(300.dp)) {
-            TvCover(s.coverUri.ifBlank { s.show.coverUri }, Modifier.size(300.dp), RoundedCornerShape(12.dp))
-            Text(s.show.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 16.dp))
-            if (s.show.publisher.isNotBlank()) Text(s.show.publisher, color = TvAccent, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (s.show.description.isNotBlank()) Text(s.show.description, color = TvSubtle, fontSize = 13.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 14.dp))
-        }
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            itemsIndexed(s.items, key = { i, e -> "$i:${e.url}" }) { i, e ->
-                Box(if (i == 0) Modifier.focusRequester(first) else Modifier) { TvSongRow(e, null) { onEpisode(e) } }
+    val cover = s.coverUri.ifBlank { s.show.coverUri }
+    TvBackdrop(cover, s.show.name, Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize().padding(start = TvSpace.detailStart, end = TvSpace.start, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(TvSpace.twoColumn)) {
+            Column(Modifier.width(TvDetailCover)) {
+                TvCover(cover, Modifier.size(TvDetailCover).shadow(24.dp, RoundedCornerShape(12.dp)), RoundedCornerShape(12.dp), seed = s.show.name)
+                Text(s.show.name, style = TvType.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = TvSpace.default))
+                if (s.show.publisher.isNotBlank()) Text(s.show.publisher, style = TvType.titleSmall, color = TvAccent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (s.show.description.isNotBlank()) Text(s.show.description, style = TvType.bodySmall, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = TvSpace.small + TvSpace.tiny))
+            }
+            LazyColumn(Modifier.weight(1f).focusRestorer(), contentPadding = PaddingValues(top = 4.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                itemsIndexed(s.items, key = { i, e -> "$i:${e.url}" }) { i, e ->
+                    Box(if (i == 0) Modifier.focusRequester(first) else Modifier) { TvSongRow(e, null) { onEpisode(e) } }
+                }
             }
         }
     }
@@ -224,25 +259,41 @@ internal fun TvDevicesDialog(onDismiss: () -> Unit) {
 @Composable
 internal fun TvDevicesList(devices: List<SongPlayer.ConnectDevice>?, onPick: (SongPlayer.ConnectDevice) -> Unit) {
     val first = remember { FocusRequester() }
-    Column(Modifier.width(420.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF1C1C1E)).padding(12.dp)) {
-        Text(stringResource(R.string.listen_on), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+    Column(Modifier.width(440.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF232327))
+        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp)).padding(14.dp)) {
+        Text(stringResource(R.string.listen_on), style = TvType.titleLarge, fontWeight = FontWeight.Bold, color = Color.White,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp))
         val list = devices
         if (list == null) TvShelfSkeletonLine()
         else list.forEachIndexed { i, d ->
             val playing = d.isActive || (d.isSelf && list.none { it.isActive })
-            Row(
-                (if (i == 0) Modifier.focusRequester(first) else Modifier).fillMaxWidth()
-                    .tvPill(RoundedCornerShape(10.dp), focusedFill = Color(0x26FFFFFF), focusedScale = 1.02f) { onPick(d) }
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(deviceIcon(d.type), null, tint = if (playing) TvAccent else Color.White, modifier = Modifier.size(26.dp))
-                Text(d.name, color = if (playing) TvAccent else Color.White, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 16.dp))
-            }
+            TvDeviceRow(d, playing, if (i == 0) Modifier.focusRequester(first) else Modifier) { onPick(d) }
         }
         LaunchedEffect(list?.isNotEmpty()) { if (!list.isNullOrEmpty()) runCatching { delay(80); first.requestFocus() } }
+    }
+}
+
+/** A device as tv-material's ListItem: its icon on a disc and its name; light when focused. */
+@Composable
+private fun TvDeviceRow(d: SongPlayer.ConnectDevice, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val f by animateFloatAsState(if (focused) 1f else 0f, tween(150), label = "deviceFocus")
+    val fg = when { playing -> TvAccent; focused -> TvInverseOnSurface; else -> Color.White }
+    Row(
+        modifier.fillMaxWidth()
+            .graphicsLayer { val sc = 1f + 0.02f * f; scaleX = sc; scaleY = sc }
+            .clip(RoundedCornerShape(12.dp)).background(TvOnSurface.copy(alpha = f))
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(if (focused) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center) {
+            Icon(deviceIcon(d.type), null, tint = fg, modifier = Modifier.size(24.dp))
+        }
+        Text(d.name, style = TvType.titleMedium, fontWeight = if (playing) FontWeight.SemiBold else FontWeight.Medium, color = fg, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 16.dp))
     }
 }
 
@@ -260,15 +311,18 @@ private fun TvShelfSkeletonLine() {
 }
 
 @Composable
-internal fun TvSectionTitle(title: String, modifier: Modifier = Modifier.padding(start = 48.dp)) {
-    Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = modifier.padding(bottom = 14.dp))
+internal fun TvSectionTitle(title: String, modifier: Modifier = Modifier.padding(start = TvSpace.start)) {
+    // Jetcaster's section title (headline, sectionTitle padding).
+    Text(title, style = TvType.headlineSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier.padding(bottom = 4.dp))
 }
 
-/** A titled row of cards. */
+/** A titled row of cards, as Jetcaster's Catalog sections: the row gives the focus back to the card it last had. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun TvShelf(title: String, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        TvSectionTitle(title, Modifier.padding(start = 64.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 64.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), content = content)
+        TvSectionTitle(title, Modifier.padding(start = TvSpace.start))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = TvSpace.start, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(TvSpace.item), content = content)
     }
 }

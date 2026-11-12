@@ -8,7 +8,7 @@
     <string name="stats_artists_ranked">Wykonawcy w Twoich odsłuchach: %1$d</string>
     <string name="stats_empty">Spotify nie ma jeszcze najczęściej słuchanych wykonawców ani utworów za ten okres. Słuchaj dalej i zajrzyj później.</string>
     <string name="stats_failed">Spotify nie wysłał Twoich statystyk.</string>
-    <string name="stats_spotify_note">Ranking Spotify na podstawie wszystkiego, co to konto odtworzyło na każdym urządzeniu. Spotify nie udostępnia liczby odtworzeń ani przesłuchanych minut: minuty w sekcji „Na tym telefonie” to własne zliczanie Myspoti.</string>
+    <string name="stats_spotify_note">Ranking Spotify na podstawie wszystkiego, co to konto odtworzyło na każdym urządzeniu. Spotify nie udostępnia liczby odtworzeń ani przesłuchanych minut: minuty w sekcji „Na tym telefonie” to własne zliczanie Orpheon.</string>
     <string name="stats_weekly_minutes">Minuty tygodniowo</string>
     <string name="stats_this_week">W tym tygodniu: %1$d min</string>
     <string name="stats_listening_stats">Statystyki słuchania</string>

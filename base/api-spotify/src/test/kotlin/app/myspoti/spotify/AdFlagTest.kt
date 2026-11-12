@@ -1,15 +1,12 @@
 package app.myspoti.spotify
 
-import app.myspoti.spotify.bridge.AdBlock
+import app.myspoti.spotify.bridge.AdSchedule
 import app.myspoti.spotify.bridge.Bridge
 import app.myspoti.spotify.bridge.BridgeHost
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -32,23 +29,22 @@ class AdFlagTest {
         suspend fun post(json: String) = messages.emit(json)
     }
 
+    private val time = VirtualTime()
     private lateinit var scope: CoroutineScope
     private lateinit var host: FakeHost
     private lateinit var bridge: Bridge
     private lateinit var player: SpotifyPlayer
 
     @BeforeEach fun up() {
-        AdBlock.ahead.value = null
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        AdSchedule.clear()
+        scope = time.scope
         host = FakeHost()
-        bridge = Bridge(host, scope)
+        bridge = Bridge(host, scope, time::now)
         player = SpotifyPlayer(bridge, scope)
-        // A message posted before the bridge listens is lost (a slow CI machine): wait for it.
-        waitFor("bridge listening") { host.messages.subscriptionCount.value > 0 }
     }
 
     @AfterEach fun down() {
-        AdBlock.ahead.value = null
+        AdSchedule.clear()
         scope.cancel()
     }
 
@@ -57,19 +53,13 @@ class AdFlagTest {
 
     private fun stateOf(item: String) =
         """{"track":$item,"contextUri":"spotify:playlist:C","next":null,"isPaused":false,"isBuffering":false,
-            |"positionMs":0,"timestamp":${System.currentTimeMillis()},"restrictions":{}}""".trimMargin()
+            |"positionMs":0,"timestamp":${time.now()},"restrictions":{}}""".trimMargin()
 
     private val ad = """{"kind":"ad","uri":"spotify:ad:1","name":"ad","durationMs":30000}"""
 
-    private fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = runBlocking {
-        val end = System.currentTimeMillis() + ms
-        while (!cond()) {
-            check(System.currentTimeMillis() < end) { "timed out: $what" }
-            delay(20)
-        }
-    }
+    private suspend fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = time.waitFor(what, ms, cond)
 
-    @Test fun `a read that finds nothing playing does not end the break`() = runBlocking {
+    @Test fun `a read that finds nothing playing does not end the break`() = time.test {
         host.post("""{"type":"ready"}""")
         waitFor("page ready") { bridge.ready.value }
         host.post("""{"type":"state","state":${stateOf(track("A"))}}""")
@@ -81,7 +71,7 @@ class AdFlagTest {
         assertEquals(true, player.adPlaying.value, "the break is still on")
     }
 
-    @Test fun `an ad break whose end was never pushed is cleared once the page plays a song`() = runBlocking {
+    @Test fun `an ad break whose end was never pushed is cleared once the page plays a song`() = time.test {
         host.post("""{"type":"ready"}""")
         waitFor("page ready") { bridge.ready.value }
         host.post("""{"type":"state","state":${stateOf(track("A"))}}""")

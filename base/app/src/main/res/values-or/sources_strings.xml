@@ -4,8 +4,9 @@
     <string name="sources_download_title">ଡାଉନଲୋଡ୍ ଉତ୍ସ</string>
     <string name="sources_audio_footer">ପ୍ରତ୍ୟେକ ଗୀତ ପାଇଁ ଉପରରୁ ତଳକୁ ପଚରାଯାଏ: ଯାହା ପାଖରେ ଥାଏ ପ୍ରଥମଟି ତାହା ଚଲାଏ। କ୍ରମ ବଦଳାଇବାକୁ ତୀର ବ୍ୟବହାର କରନ୍ତୁ।</string>
     <string name="sources_download_footer">ଉପରରୁ ତଳକୁ ପଚରାଯାଏ: ଗୀତ ଥିବା ପ୍ରଥମ ଉତ୍ସ ଫାଇଲ୍ ଦିଏ। କ୍ରମ ବଦଳାଇବାକୁ ତୀର ବ୍ୟବହାର କରନ୍ତୁ।</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">ଉପରେ ଥିବା କୌଣସି ଉତ୍ସରେ ଗୀତ ନ ଥିଲେ ଚାଲେ</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">ଉପରେ ଥିବା କୌଣସି ଉତ୍ସରେ ଗୀତ ନ ଥିଲେ ଚାଲେ</string>
+    <string name="sources_account_player">ଆପଣଙ୍କ ଆକାଉଣ୍ଟର ପ୍ଲେୟାର</string>
     <string name="sources_ready">ପ୍ରସ୍ତୁତ</string>
     <string name="sources_details_show">ବିବରଣୀ ଦେଖାନ୍ତୁ</string>
     <string name="sources_details_hide">ବିବରଣୀ ଲୁଚାନ୍ତୁ</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">ଶେଷ: %1$s, %2$s</string>
     <string name="sources_open">ଏକ୍ସଟେନସନ୍ ଖୋଲନ୍ତୁ</string>
     <string name="sources_order_hint">ସେଟିଂସ୍ (ପ୍ଲେବ୍ୟାକ୍, ଡାଉନଲୋଡ୍) ରେ ସେଟ୍ ହୋଇଥିବା କ୍ରମରେ ଉତ୍ସ ପଚରାଯାଏ।</string>
-    <string name="sources_below_spotify">ପଚରାଯାଏ ନାହିଁ: Spotify ଉପରେ ଅଛି</string>
+    <string name="sources_below_account">ପଚରାଯାଏ ନାହିଁ: Spotify ଉପରେ ଅଛି</string>
 </resources>

@@ -4,8 +4,9 @@
     <string name="sources_download_title">Mga pinagmumulan ng download</string>
     <string name="sources_audio_footer">Tinatanong mula sa itaas pababa para sa bawat kanta: ang unang may kanta ang magpapatugtog nito. Gamitin ang mga arrow para baguhin ang ayos.</string>
     <string name="sources_download_footer">Tinatanong mula sa itaas pababa: ang unang pinagmumulan na may kanta ang magbibigay ng file. Gamitin ang mga arrow para baguhin ang ayos.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Tumutugtog kapag walang pinagmumulan sa itaas na may kanta</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Tumutugtog kapag walang pinagmumulan sa itaas na may kanta</string>
+    <string name="sources_account_player">Ang player ng iyong account</string>
     <string name="sources_ready">Handa</string>
     <string name="sources_details_show">Ipakita ang detalye</string>
     <string name="sources_details_hide">Itago ang detalye</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Huling ginamit: %1$s, %2$s</string>
     <string name="sources_open">Buksan ang extension</string>
     <string name="sources_order_hint">Tinatanong ang mga pinagmumulan ayon sa ayos na nakatakda sa Mga Setting (Playback, Mga Download).</string>
-    <string name="sources_below_spotify">Hindi tinatanong: nasa itaas ang Spotify</string>
+    <string name="sources_below_account">Hindi tinatanong: nasa itaas ang Spotify</string>
 </resources>

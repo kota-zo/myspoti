@@ -3,7 +3,6 @@ package com.music.spotui.ui.viewmodel
 import com.music.spotui.di.Graph
 import android.content.Context
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,14 +32,6 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
 
     fun updateQueue(songs: List<SongsModel>) = currentSongState.updateQueue(songs)
 
-    /** "Play next" / "Add to queue": Spotify's own queue. */
-    fun playNext(song: SongsModel) = SongPlayer.playNext(song.spotifyTrackId)
-
-    fun addToQueue(song: SongsModel): Boolean {
-        if (song.spotifyTrackId.isBlank()) return false
-        SongPlayer.addToQueue(song.spotifyTrackId)
-        return true
-    }
 
 
     val shuffleState = currentSongState.shuffle
@@ -140,8 +131,22 @@ class PlayerViewModel constructor(private val currentSongState: CurrentSongState
 internal fun confirmedTrackIdFromUri(uri: String): String =
     if (uri.startsWith("spotify:track:")) uri.removePrefix("spotify:track:") else ""
 
-/** CurrentSongState uses this canonical id after the engine confirms a track. */
-internal fun confirmedTrackIdForDisplay(uri: String, displayedSongId: Int): String {
+/**
+ * The Spotify id of the song shown, once the engine confirms it: CurrentSongState uses this
+ * canonical id. A download the local player plays ("local:<its local id>", shown under that uri's
+ * song id) is its song too, by [downloadedTrackId]: without it a downloaded song had no Canvas
+ * (B23) nor its artists' credit.
+ */
+internal fun confirmedTrackIdForDisplay(
+    uri: String,
+    displayedSongId: Int,
+    downloadedTrackId: (Long) -> String? = { com.music.spotui.data.offline.OfflineStore.byLocalId(it)?.trackId },
+): String {
+    if (uri.startsWith("local:")) {
+        val localId = uri.removePrefix("local:").toLongOrNull() ?: return ""
+        if ((uri.hashCode() and 0x7fffffff) != displayedSongId) return ""
+        return downloadedTrackId(localId).orEmpty()
+    }
     val trackId = confirmedTrackIdFromUri(uri)
     val confirmedSongId = ("track:$trackId").hashCode() and 0x7fffffff
     return trackId.takeIf { it.isNotBlank() && confirmedSongId == displayedSongId }.orEmpty()

@@ -2,9 +2,7 @@ package com.music.spotui.podcast
 
 import com.music.spotui.podcast.SponsorSegments.Segment
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SponsorSegmentsTest {
@@ -55,38 +53,6 @@ class SponsorSegmentsTest {
     @Test fun aSegmentEndsWithTheEpisode() {
         val u = SponsorSegments.usable(listOf(Segment(500_000, 700_000, "outro", "o", 0)), 600_000, all)
         assertEquals(600_000L, u.single().endMs)
-    }
-
-    @Test fun theSameEpisodeOnYouTubeIsAccepted() {
-        assertTrue(SponsorSegments.matches("#412 – The Future of Sleep", "The Huberman Hour", 3_600_000,
-            "The Future of Sleep | The Huberman Hour #412", "Huberman Hour", 3_601))
-    }
-
-    @Test fun anotherLengthIsRefused() {
-        // A clip, or the video edit with its own ad reads: the segments would land elsewhere.
-        assertFalse(SponsorSegments.matches("The Future of Sleep", "The Huberman Hour", 3_600_000,
-            "The Future of Sleep | The Huberman Hour", "Huberman Hour", 3_610))
-    }
-
-    @Test fun anotherEpisodeOfTheShowIsRefused() {
-        assertFalse(SponsorSegments.matches("The Future of Sleep", "The Huberman Hour", 3_600_000,
-            "Why We Dream | The Huberman Hour", "Huberman Hour", 3_600))
-    }
-
-    @Test fun withoutTheShowOnlyAFullLongTitleIsTrusted() {
-        assertFalse(SponsorSegments.matches("Episode 12", "Some Show", 1_800_000, "Episode 12", "Random channel", 1_800))
-        assertTrue(SponsorSegments.matches("Why cities flood every spring", "Some Show", 1_800_000,
-            "Why Cities Flood Every Spring", "Random channel", 1_800))
-    }
-
-    @Test fun bestPicksTheClosestMatch() {
-        val hits = listOf(
-            Triple("Why We Dream | Huberman Hour", "Huberman Hour", 3_600L),
-            Triple("The Future of Sleep - Huberman Hour (full)", "Huberman Hour", 3_599L),
-            Triple("The Future of Sleep | Huberman Hour", "Huberman Hour", 3_600L),
-        )
-        assertEquals(2, SponsorSegments.best("The Future of Sleep", "Huberman Hour", 3_600_200, hits))
-        assertEquals(-1, SponsorSegments.best("Something else entirely", "Huberman Hour", 3_600_200, hits))
     }
 
     @Test fun eachSegmentIsSkippedOnce() {

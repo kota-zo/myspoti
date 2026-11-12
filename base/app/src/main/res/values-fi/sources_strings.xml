@@ -4,8 +4,9 @@
     <string name="sources_download_title">Latauslähteet</string>
     <string name="sources_audio_footer">Kysytään ylhäältä alas jokaiselle kappaleelle: ensimmäinen, jolla se on, toistaa sen. Vaihda järjestystä nuolilla.</string>
     <string name="sources_download_footer">Kysytään ylhäältä alas: ensimmäinen lähde, jolla kappale on, antaa tiedoston. Vaihda järjestystä nuolilla.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Toistetaan, kun mikään yllä oleva lähde ei ole kappaletta</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Toistetaan, kun mikään yllä oleva lähde ei ole kappaletta</string>
+    <string name="sources_account_player">Tilisi soitin</string>
     <string name="sources_ready">Valmis</string>
     <string name="sources_details_show">Näytä tiedot</string>
     <string name="sources_details_hide">Piilota tiedot</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Viimeisin: %1$s, %2$s</string>
     <string name="sources_open">Avaa laajennus</string>
     <string name="sources_order_hint">Lähteet kysytään Asetuksissa (Toisto, Lataukset) määritetyssä järjestyksessä.</string>
-    <string name="sources_below_spotify">Ei kysytä: Spotify on ylempänä</string>
+    <string name="sources_below_account">Ei kysytä: Spotify on ylempänä</string>
 </resources>

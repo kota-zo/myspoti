@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d ایستگاه دیگر هم پیدا شد، اما بدون رمزگذاری (http) یا با HLS پخش می‌کند که برنامه هنوز نمی‌تواند پخشش کند.</item>
+        <item quantity="other">%d ایستگاه دیگر هم پیدا شد، اما بدون رمزگذاری (http) یا با HLS پخش می‌کنند که برنامه هنوز نمی‌تواند پخششان کند.</item>
+    </plurals>
+</resources>

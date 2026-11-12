@@ -78,6 +78,8 @@ object ExtensionAudio {
     val answers = androidx.compose.runtime.mutableIntStateOf(0)
 
     private fun keep(trackId: String, stream: AudioStream) {
+        // Another file than the one cached for the song: its cached bytes go before it is read.
+        com.music.spotui.data.offline.ExtStreamCache.answered(com.music.spotui.di.Graph.app, trackId, stream)
         known[trackId] = Known(stream)
         answers.intValue++
         Saved.put(trackId, stream)
@@ -314,6 +316,15 @@ object ExtensionAudio {
                 else app.myspoti.host.android.Logbook.log("audio: ${picked.title} answered after a newer pick, not played")
             }
         }
+    }
+
+    /** The rest of the list [uri] came after it was picked: see [LocalPlayer.listGrew]. */
+    suspend fun listGrew(uri: String, songs: List<SongsModel>) {
+        if (!LocalPlayer.active.value || LocalPlayer.contextUri != uri) return
+        val tracks = withContext(Dispatchers.Default) {
+            songs.filter { it.spotifyTrackId.isNotBlank() && it.playable }.distinctBy { it.spotifyTrackId }.map(::localTrack)
+        }
+        withContext(Dispatchers.Main) { LocalPlayer.listGrew(uri, tracks) }
     }
 
     /** The local player's item for [s]: its file when downloaded, else asked to the extensions when it plays. */

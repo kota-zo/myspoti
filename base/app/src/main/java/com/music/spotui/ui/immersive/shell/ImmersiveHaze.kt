@@ -34,7 +34,7 @@ import dev.chrisbanes.haze.hazeSource
  * CompositionLocalProvider(LocalImmersiveHaze provides haze) {
  *     Box {
  *         NavHost(Modifier.immersiveHazeSource()) { ... }   // what scrolls under the bars
- *         ImmersiveTabBar(nav, Modifier.align(Alignment.BottomCenter))
+ *         ImmersiveBottomChrome(nav, miniPlayer = { it }, Modifier.align(Alignment.BottomCenter))
  *     }
  * }
  * ```

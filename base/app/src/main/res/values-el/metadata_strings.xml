@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Μεταδεδομένα</string>
+    <string name="metadata_footer">Οι αναζητήσεις, τα άλμπουμ και οι καλλιτέχνες προέρχονται από αυτές τις υπηρεσίες, με τη σειρά από πάνω προς τα κάτω. Το ίδιο τραγούδι που βρίσκεται δύο φορές εμφανίζεται μία φορά. Μια απενεργοποιημένη υπηρεσία δεν ερωτάται ποτέ.</string>
+    <string name="metadata_spotify_detail">Ο λογαριασμός σας, όσο είστε συνδεδεμένοι</string>
+    <string name="metadata_signed_out">Δεν ερωτάται: κανένας συνδεδεμένος λογαριασμός</string>
+    <string name="metadata_asked">Ερωτάται</string>
+    <string name="metadata_off">Ανενεργό: δεν ερωτάται ποτέ</string>
+    <string name="metadata_reset">Επαναφορά στην προεπιλεγμένη σειρά</string>
+    <string name="metadata_not_on_spotify">Δεν βρέθηκε στο Spotify: αυτό το τραγούδι δεν μπορεί να παίξει ακόμα</string>
+    <string name="metadata_switch">Ερώτηση στο %1$s</string>
+</resources>

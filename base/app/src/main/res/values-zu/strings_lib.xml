@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Esinye isiteshi esingu-%d siyafana, kodwa sisakaza ngaphandle kokubethela (http) noma nge-HLS, uhlelo lokusebenza olungakakwazi ukusidlala.</item>
+        <item quantity="other">Ezinye iziteshi ezingu-%d ziyafana, kodwa zisakaza ngaphandle kokubethela (http) noma nge-HLS, uhlelo lokusebenza olungakakwazi ukuzidlala.</item>
+    </plurals>
+</resources>

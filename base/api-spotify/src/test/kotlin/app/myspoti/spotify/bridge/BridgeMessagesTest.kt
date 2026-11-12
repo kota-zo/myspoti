@@ -40,9 +40,16 @@ class BridgeMessagesTest {
     private fun bridgeAfterGarbage(reply: (Int) -> String): Bridge = runBlocking {
         val host = FakeHost(reply)
         val bridge = Bridge(host, scope)
-        host.messages.subscriptionCount.first { it > 0 }
         garbage.forEach { host.messages.emit(it) }
         bridge
+    }
+
+    @Test fun `the bridge listens from its construction on`() {
+        // A message posted right after (a call's answer, "ready") was lost when the collector had
+        // not subscribed yet, and that call waited out its whole timeout (a flaky test, a slow start).
+        val host = FakeHost { "" }
+        Bridge(host, scope)
+        assertEquals(1, host.messages.subscriptionCount.value)
     }
 
     @Test fun `calls still answer after malformed messages`() = runBlocking {
@@ -58,7 +65,6 @@ class BridgeMessagesTest {
     @Test fun `a page going away fails calls at once, the next page answers again`() = runBlocking {
         val host = FakeHost { id -> """{"type":"result","id":$id,"ok":true,"value":1}""" }
         val bridge = Bridge(host, scope)
-        host.messages.subscriptionCount.first { it > 0 }
         bridge.pageGone()
         val started = System.currentTimeMillis()
         val e = assertThrows(BridgeException::class.java) { runBlocking { bridge.call("bridge.version", timeoutMs = 5_000) } }
@@ -86,21 +92,9 @@ class BridgeMessagesTest {
         }
     }
 
-    @Test fun `the Premium flag reaches the page at each injection`() = runBlocking {
-        val host = TellingHost { "true" }
-        val bridge = Bridge(host, scope)
-        host.messages.subscriptionCount.first { it > 0 }
-        app.myspoti.spotify.AccountPlan.set(true)
-        try { bridge.inject() } finally { app.myspoti.spotify.AccountPlan.set(null) }
-        assertEquals(true, "window.__mspKeepAds = true;" in host.scripts.last())
-        bridge.inject()
-        assertEquals(true, "window.__mspKeepAds = false;" in host.scripts.last())
-    }
-
     @Test fun `a call is made for the page of its generation`() = runBlocking {
         val host = TellingHost { "true" }
         val bridge = Bridge(host, scope)
-        host.messages.subscriptionCount.first { it > 0 }
         bridge.pageGone()
         bridge.inject()
         host.messages.emit("""{"type":"ready","version":1}""")

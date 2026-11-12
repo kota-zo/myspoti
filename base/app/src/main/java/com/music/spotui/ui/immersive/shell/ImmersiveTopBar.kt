@@ -471,6 +471,13 @@ fun ImmersiveFloatingHeader(
                 style = Immersive.Title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                // The row's height is fixed: a long greeting with large text ("Good evening" at 130 %
+                // on a 320 dp phone) shrinks before it is cut, and only past that gets an ellipsis.
+                autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(
+                    minFontSize = (Immersive.Title.fontSize.value * 0.7f).sp,
+                    maxFontSize = Immersive.Title.fontSize,
+                    stepSize = 0.5.sp,
+                ),
                 modifier = Modifier.weight(1f),
             )
             if (trailing != null) {

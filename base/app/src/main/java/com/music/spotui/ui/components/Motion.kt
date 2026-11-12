@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -48,6 +49,14 @@ fun Modifier.pressable(
     val hinted = if (onPressHint == null) Modifier else Modifier.pressHint(onPressHint)
     hinted.then(pressScale(source, pressedScale)).clickable(source, indication = null, enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
 }
+
+/**
+ * Material's minimum touch target. A small glyph keeps its drawn size and gets a box this size
+ * to answer the finger: `Modifier.size(MinTouch).pressable { }.wrapContentSize().size(26.dp)`
+ * (the click on the box, the glyph centred in it), with the spacing around it reduced by the
+ * difference so the drawn layout stays where it was. [pressable] itself never grows anything.
+ */
+val MinTouch = 48.dp
 
 /**
  * Calls [onHint] when a finger rests on the element (80 ms without moving past the

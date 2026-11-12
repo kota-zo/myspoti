@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Stop translating lyrics</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. We don’t know the lyrics for this one.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">These lyrics aren’t time-synced yet.</string>
-    <string name="av_switch_to_video" formatted="false">Switch to video</string>
-    <string name="av_switch_to_audio" formatted="false">Switch to audio</string>
-    <string name="av_content_desc" formatted="false">Toggle between audio and video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Home</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Search</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Your Library</string>

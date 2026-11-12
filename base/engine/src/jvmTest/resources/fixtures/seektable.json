@@ -1,0 +1,80 @@
+{
+ "seektableVersion": 2,
+ "offset": 1292,
+ "timescale": 44100,
+ "segments": [
+  {
+   "size": 163393,
+   "duration": 441344
+  },
+  {
+   "size": 165213,
+   "duration": 441344
+  },
+  {
+   "size": 165071,
+   "duration": 440320
+  },
+  {
+   "size": 165453,
+   "duration": 441344
+  },
+  {
+   "size": 165554,
+   "duration": 441344
+  },
+  {
+   "size": 165377,
+   "duration": 440320
+  },
+  {
+   "size": 165383,
+   "duration": 441344
+  },
+  {
+   "size": 165239,
+   "duration": 441344
+  },
+  {
+   "size": 165224,
+   "duration": 440320
+  },
+  {
+   "size": 165529,
+   "duration": 441344
+  },
+  {
+   "size": 165618,
+   "duration": 441344
+  },
+  {
+   "size": 165079,
+   "duration": 440320
+  },
+  {
+   "size": 165513,
+   "duration": 441344
+  },
+  {
+   "size": 165312,
+   "duration": 441344
+  },
+  {
+   "size": 164979,
+   "duration": 440320
+  },
+  {
+   "size": 3679,
+   "duration": 9956
+  }
+ ],
+ "pssh": {
+  "widevine": "AAAAV3Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAADcSEDFhOWE1MWRhZTIzY2YyNDIaB3Nwb3RpZnkiFBqaUdriPPJCbVFCbjsKRHdXjT5vSOPclZsG",
+  "fairplay": "",
+  "playready": ""
+ },
+ "initRange": {
+  "start": 0,
+  "end": 1068
+ }
+}

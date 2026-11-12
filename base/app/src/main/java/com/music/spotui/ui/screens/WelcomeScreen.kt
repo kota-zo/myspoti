@@ -68,8 +68,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * First screen of a signed-out app: what Myspoti is, then Spotify's own login page
- * (shown by the engine once [onLogin] is tapped). The logo, the name, what the app adds and
+ * First screen of an app with no account in place: what Myspoti is, then the music account to use
+ * ([AccountChoiceScreen]; on a TV, Spotify's own login page, shown by the engine), once [onLogin] is tapped. The logo, the name, what the app adds and
  * the button rise into place one after the other, over a soft green light that drifts.
  */
 @Composable
@@ -107,7 +107,7 @@ fun WelcomeScreen(onLogin: () -> Unit) {
                         .background(tone(0xFF181818)),
                 )
                 Spacer(Modifier.height(28.dp))
-                Text("Myspoti", color = AppText, fontFamily = AppSans, fontWeight = FontWeight.ExtraBold, fontSize = 40.sp,
+                Text(stringResource(R.string.brand_name), color = AppText, fontFamily = AppSans, fontWeight = FontWeight.ExtraBold, fontSize = 40.sp,
                     modifier = Modifier.rise(1))
                 Spacer(Modifier.height(12.dp))
                 Box(Modifier.rise(2)) { Features() }
@@ -120,6 +120,8 @@ fun WelcomeScreen(onLogin: () -> Unit) {
                 // focus with no look left nothing on screen to say what OK would do.
                 val ctx = androidx.compose.ui.platform.LocalContext.current
                 val tv = remember { com.music.spotui.ui.tv.Tv.isTv(ctx) }
+                // The account is chosen before any sign-in: Spotify's is no longer the first thing asked.
+                val choosesAccount = Onboarding.welcomeChoosesAccount(tv)
                 val focus = remember { androidx.compose.ui.focus.FocusRequester() }
                 var focused by remember { mutableStateOf(false) }
                 if (tv) LaunchedEffect(Unit) { delay(300); runCatching { focus.requestFocus() } }
@@ -134,10 +136,26 @@ fun WelcomeScreen(onLogin: () -> Unit) {
                         .then(if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(50)) else Modifier)
                         .background(AppAccent),
                 ) {
-                    Text(stringResource(R.string.welcome_login), color = Color.Black, fontFamily = AppSans,
+                    Text(stringResource(if (choosesAccount) R.string.welcome_start else R.string.welcome_login), color = Color.Black, fontFamily = AppSans,
                         fontWeight = FontWeight.Bold, fontSize = 17.sp)
                 }
+                // Or the whole setup of another device of the user's, by its QR code (same Wi-Fi).
+                var passing by remember { mutableStateOf(false) }
+                var passFocused by remember { mutableStateOf(false) }
                 Text(
+                    stringResource(R.string.pass_sign_in_with_device),
+                    color = AppText, fontFamily = AppSans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+                    modifier = Modifier.padding(top = 10.dp)
+                        .onFocusChanged { passFocused = it.isFocused }
+                        .pressable(0.96f, onClick = { passing = true })
+                        .clip(RoundedCornerShape(50))
+                        // The remote's focus shows on a TV, as on the button above.
+                        .then(if (passFocused) Modifier.border(2.dp, Color.White, RoundedCornerShape(50)) else Modifier)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+                if (passing) com.music.spotui.pass.PassReceiveDialog(onDismiss = { passing = false })
+                // Spotify's sign-in is the account choice's to explain when it is not the next page.
+                if (!choosesAccount) Text(
                     stringResource(R.string.welcome_privacy),
                     color = AppText.copy(alpha = 0.5f), fontFamily = AppSans, fontSize = 13.sp, lineHeight = 18.sp,
                     textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp),
@@ -168,9 +186,10 @@ internal fun Glow(modifier: Modifier = Modifier, alpha: Float = 0.30f) {
 @Composable
 private fun Features() {
     val features = listOf(
-        stringResource(R.string.welcome_rotate_ads),
+        // What the app is now: a player for the sources the user picks, not an ad blocker; music videos are gone.
+        stringResource(R.string.welcome_rotate_sources),
         stringResource(R.string.welcome_rotate_lyrics),
-        stringResource(R.string.welcome_rotate_clips),
+        stringResource(R.string.welcome_rotate_mix),
         stringResource(R.string.welcome_rotate_offline),
     )
     var index by remember { mutableIntStateOf(0) }

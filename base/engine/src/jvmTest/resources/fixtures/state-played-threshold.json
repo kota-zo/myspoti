@@ -1,0 +1,20 @@
+{
+ "seq_num": 4,
+ "state_ref": {
+  "state_machine_id": "ChTolnG0YjMQGuhXPusyGlM1BUem0N",
+  "state_id": "b49bfeabd497ab9757f1469c011e95d1",
+  "paused": false
+ },
+ "sub_state": {
+  "playback_speed": 1,
+  "position": 90514,
+  "duration": 150274,
+  "media_type": "AUDIO",
+  "bitrate": 128000,
+  "audio_quality": "HIGH",
+  "format": 10,
+  "is_video_on": false
+ },
+ "previous_position": 90514,
+ "debug_source": "played_threshold_reached"
+}

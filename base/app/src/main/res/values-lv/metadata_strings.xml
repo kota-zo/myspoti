@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadati</string>
+    <string name="metadata_footer">Meklēšanas rezultāti, albumi un izpildītāji nāk no šiem pakalpojumiem, kas tiek vaicāti no augšas uz leju. Viena un tā pati dziesma, atrasta divreiz, tiek parādīta vienreiz. Izslēgts pakalpojums nekad netiek vaicāts.</string>
+    <string name="metadata_spotify_detail">Tavs konts, kamēr esi pierakstījies</string>
+    <string name="metadata_signed_out">Netiek vaicāts: neviens konts nav pierakstījies</string>
+    <string name="metadata_asked">Tiek vaicāts</string>
+    <string name="metadata_off">Izslēgts: nekad netiek vaicāts</string>
+    <string name="metadata_reset">Atpakaļ uz noklusējuma secību</string>
+    <string name="metadata_not_on_spotify">Nav atrasta Spotify: šo dziesmu vēl nevar atskaņot</string>
+    <string name="metadata_switch">Vaicāt %1$s</string>
+</resources>

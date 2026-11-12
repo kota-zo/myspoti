@@ -23,7 +23,31 @@ object CanvasPlayer {
      * Loads the clip of the song now playing before the player screen opens (called while
      * the mini player is on screen, so only when the app is in use). Main thread.
      */
-    fun preload(context: android.content.Context, url: String) { get(context, url) }
+    fun preload(context: android.content.Context, url: String) {
+        // An address looked up while the app was being left: loaded when the app is back.
+        if (!com.music.spotui.di.AppForeground.inForeground) return
+        get(context, url)
+    }
+
+    /**
+     * The app left the screen: the clip's decoder is given back, the clip's address kept, and the
+     * clip prepared again at the next [get]. Paused, a prepared player still held its video decoder
+     * (a hardware one), which the phone counts and powers as video playing for as long as the app
+     * stays in the background: the clip of the last song seen, for the whole background listen.
+     * Main thread.
+     */
+    fun onBackground() {
+        val player = exo ?: return
+        player.playWhenReady = false
+        if (player.playbackState != androidx.media3.common.Player.STATE_IDLE) player.stop()
+        framed = null
+    }
+
+    /** The app is on screen again: the clip given back in the background is loaded again, ready to be shown. Main thread. */
+    fun onForeground() {
+        val player = exo ?: return
+        if (url != null && player.playbackState == androidx.media3.common.Player.STATE_IDLE) player.prepare()
+    }
 
     /**
      * Downloads the clip [url] to the media cache on storage, without a player and without
@@ -59,13 +83,32 @@ object CanvasPlayer {
                     })
                 }.also { exo = it }
         }
+        // A blurred loop under the player: 720p at most, the energy saver's own cap below that
+        // (EnergyPolicy.videoMaxHeight was never applied). Muted, it needs no audio track either.
+        val maxHeight = minOf(CANVAS_MAX_HEIGHT, app.myspoti.power.EnergySettings.state.value.policy.videoMaxHeight)
+        if (player.trackSelectionParameters.maxVideoHeight != maxHeight) {
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setMaxVideoSize(Int.MAX_VALUE, maxHeight)
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_AUDIO, true)
+                .build()
+        }
         if (url != this.url) {
             this.url = url
             framed = null
             player.setMediaItem(androidx.media3.common.MediaItem.fromUri(url))
             player.prepare()
+        } else if (player.playbackState == androidx.media3.common.Player.STATE_IDLE) {
+            // Given back in the background (see onBackground), or stopped by an error: loaded again.
+            player.prepare()
         }
         return player
+    }
+
+    /** Tests: [player] stands for the shared player, with [url] loaded in it. */
+    internal fun attach(player: androidx.media3.exoplayer.ExoPlayer, url: String) {
+        exo = player
+        this.url = url
+        framed = null
     }
 
     fun onFirstFrame(listener: () -> Unit): () -> Unit {
@@ -73,3 +116,6 @@ object CanvasPlayer {
         return { firstFrame -= listener }
     }
 }
+
+/** The Canvas's tallest video (see CanvasPlayer.get). */
+private const val CANVAS_MAX_HEIGHT = 720

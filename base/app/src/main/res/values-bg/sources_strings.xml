@@ -4,8 +4,9 @@
     <string name="sources_download_title">Източници за изтегляне</string>
     <string name="sources_audio_footer">Питат се отгоре надолу за всяка песен: първият, който я има, я възпроизвежда. Използвайте стрелките, за да смените реда.</string>
     <string name="sources_download_footer">Питат се отгоре надолу: първият източник, който има песента, дава файла. Използвайте стрелките, за да смените реда.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Възпроизвежда се, когато никой източник над него няма песента</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Възпроизвежда се, когато никой източник над него няма песента</string>
+    <string name="sources_account_player">Плейърът на акаунта ви</string>
     <string name="sources_ready">Готово</string>
     <string name="sources_details_show">Показване на подробностите</string>
     <string name="sources_details_hide">Скриване на подробностите</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Последно: %1$s, %2$s</string>
     <string name="sources_open">Отвори разширението</string>
     <string name="sources_order_hint">Източниците се питат в реда, зададен в Настройки (Възпроизвеждане, Изтегляния).</string>
-    <string name="sources_below_spotify">Не се пита: Spotify е по-горе</string>
+    <string name="sources_below_account">Не се пита: Spotify е по-горе</string>
 </resources>

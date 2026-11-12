@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -147,6 +148,10 @@ private const val SLEEVE_FRACTION = 0.76f
 /** ...and of its height, so a landscape window still shows the title under it. */
 private const val SLEEVE_MAX_HEIGHT = 0.5f
 
+/** ...on a large window (see albumSleeve). */
+private const val SLEEVE_MAX_HEIGHT_LARGE = 0.4f
+private val SLEEVE_MAX_LARGE = 400.dp
+
 private val SleeveShape = RoundedCornerShape(12.dp)
 private val SleeveShadow = 18.dp
 
@@ -174,7 +179,7 @@ fun ImmersiveContextScreen(navController: NavController, type: String, id: Strin
     remember(type, id) { vm.load(type, id) }
     val resp by vm.page.collectAsState()
     BoxWithConstraints(Modifier.fillMaxSize().background(Immersive.Page)) {
-        val sleeve = albumSleeve(maxWidth, maxHeight)
+        val sleeve = albumSleeve(maxWidth, maxHeight, com.music.spotui.ui.components.windowSize().large)
         when (val r = resp) {
             is Response.Loading -> ContextLoading(navController, sleeve)
             is Response.Error -> {
@@ -193,8 +198,13 @@ fun ImmersiveContextScreen(navController: NavController, type: String, id: Strin
     }
 }
 
-/** The sleeve's side on a page of this size. */
-internal fun albumSleeve(maxWidth: Dp, maxHeight: Dp): Dp = (maxWidth * SLEEVE_FRACTION).coerceAtMost(maxHeight * SLEEVE_MAX_HEIGHT)
+/**
+ * The sleeve's side on a page of this size. On a [large] window at most 40 % of the height and
+ * [SLEEVE_MAX_LARGE]: at half the height (400-540 dp) the header filled the whole first screen.
+ */
+internal fun albumSleeve(maxWidth: Dp, maxHeight: Dp, large: Boolean = false): Dp =
+    if (large) minOf(maxWidth * SLEEVE_FRACTION, maxHeight * SLEEVE_MAX_HEIGHT_LARGE, SLEEVE_MAX_LARGE)
+    else (maxWidth * SLEEVE_FRACTION).coerceAtMost(maxHeight * SLEEVE_MAX_HEIGHT)
 
 /** Nothing is known of the page yet: the sleeve and the track list stand as shimmer. */
 @Composable
@@ -595,6 +605,14 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
             // "Recommended songs", as under an own playlist in the official apps (an empty one too).
             if (p.type == "playlist" && vm.editableContext.value && find.isBlank() && !p.isBlend) immersiveRecommended(vm, p, context, currentSongId)
             // An album: "More like this", albums close to its first song.
+            // Under an album's songs: its release date, label and copyright lines.
+            if (p.type == "album" && p.footer.isNotEmpty() && find.isBlank()) item(key = "album-footer") {
+                Column(Modifier.padding(horizontal = Immersive.Gutter, vertical = 14.dp)) {
+                    p.footer.forEachIndexed { i, line ->
+                        Text(line, style = Immersive.Caption.copy(color = if (i == 0) Immersive.TextSecondary else Immersive.TextTertiary), modifier = Modifier.padding(vertical = 1.dp))
+                    }
+                }
+            }
             if (p.type == "album") item(key = "similar") {
                 SimilarAlbums(navController, p.tracks.firstOrNull()?.spotifyTrackId.orEmpty(), p.uri)
             }
@@ -630,7 +648,8 @@ private fun ImmersiveContextContent(navController: NavController, vm: ContextVie
                             onSort = { sort = it; TrackOrder.save(context, p.uri, it) },
                         )
                     }
-                    if (p.type == "playlist" || p.type == "album" || p.type == "liked" || p.type == "liked-artist") ImmersiveBarAction(
+                    if (!com.music.spotui.data.catalog.CatalogRuntime.isCatalogUri(p.uri) &&
+                        (p.type == "playlist" || p.type == "album" || p.type == "liked" || p.type == "liked-artist")) ImmersiveBarAction(
                         icon = Icons.Rounded.MoreHoriz,
                         contentDescription = stringResource(R.string.content_description_context_menu),
                         onClick = { if (p.type == "playlist") playlistMenu = true else albumMenu = true },
@@ -753,6 +772,9 @@ private fun ContextHeader(
                     .immersiveClickable(onClick = {
                         if (p.ownerUri.startsWith("spotify:artist:")) {
                             navController.navigate(artistRoute(p.ownerName.substringBefore(",").trim(), p.ownerUri.substringAfterLast(":")))
+                        } else if (com.music.spotui.data.catalog.CatalogRuntime.isCatalogUri(p.ownerUri)) {
+                            // The artist of an album of another provider: its page, by its whole uri.
+                            navController.navigate(artistRoute(p.ownerName.substringBefore(",").trim(), p.ownerUri))
                         } else if (p.ownerUri.startsWith("spotify:user:")) {
                             navController.navigate(profileRoute(p.ownerUri.substringAfterLast(":"), p.ownerName))
                         }
@@ -790,15 +812,16 @@ private fun ContextHeader(
         if (p.tracks.isNotEmpty()) {
             val thisPlaying = isThisContext && playing
             Spacer(Modifier.height(18.dp))
+            // Each button at most 240 dp, the pair centred: on a large window they were 400 dp wide.
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Immersive.Gutter),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             ) {
                 ImmersiveButton(
                     text = stringResource(if (thisPlaying) R.string.immersive_detail_pause else R.string.immersive_shell_play),
                     icon = if (thisPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     onClick = onPlay,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = false).widthIn(max = 240.dp).fillMaxWidth(),
                 )
                 ImmersiveButton(
                     text = stringResource(R.string.immersive_shell_shuffle),
@@ -806,11 +829,13 @@ private fun ContextHeader(
                     onClick = onShuffle,
                     // Lit while this list plays shuffled (or smart-shuffled): a tap then plays another random song.
                     filled = shuffled,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = false).widthIn(max = 240.dp).fillMaxWidth(),
                 )
             }
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            // An album of another provider is read only: Spotify can neither save nor download it.
+            val onSpotify = !com.music.spotui.data.catalog.CatalogRuntime.isCatalogUri(p.uri)
+            if (onSpotify) Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (p.type != "liked") ImmersiveCircleButton(
                     icon = if (saved) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     contentDescription = stringResource(if (saved) R.string.immersive_detail_unsave else R.string.immersive_detail_save),

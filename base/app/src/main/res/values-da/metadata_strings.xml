@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Søgninger, album og kunstnere kommer fra disse tjenester, spurgt oppefra og ned. Den samme sang fundet to gange vises én gang. En slået fra tjeneste bliver aldrig spurgt.</string>
+    <string name="metadata_spotify_detail">Din konto, mens du er logget ind</string>
+    <string name="metadata_signed_out">Ikke spurgt: ingen konto logget ind</string>
+    <string name="metadata_asked">Spørges</string>
+    <string name="metadata_off">Fra: spørges aldrig</string>
+    <string name="metadata_reset">Tilbage til standardrækkefølgen</string>
+    <string name="metadata_not_on_spotify">Ikke fundet på Spotify: denne sang kan ikke afspilles endnu</string>
+    <string name="metadata_switch">Spørg %1$s</string>
+</resources>

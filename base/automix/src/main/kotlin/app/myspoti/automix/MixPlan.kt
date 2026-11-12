@@ -113,8 +113,35 @@ class MixPlan(
         }
     }
 
+    // ── Speed ramps on both sides: the data plan's time maps, null for a plan with constant speeds ──
+    private val mapA = segue?.takeIf { it.outgoing.ramp != null }?.let { app.myspoti.automix.segue.SegueTimeMap(it.outgoing, it.span.lengthUs) }
+    private val mapB = segue?.takeIf { it.incoming.ramp != null }?.let { app.myspoti.automix.segue.SegueTimeMap(it.incoming, it.span.lengthUs) }
+
+    /** Both songs change speed along the mix: A's clock is no longer the mix's. */
+    val ramped: Boolean get() = mapA != null
+
+    /** Seconds from the start of the mix when A is at its time [tA]. */
+    fun elapsedAt(tA: Double): Double = mapA?.elapsedUs(tA * 1e6)?.div(1e6) ?: (tA - exitA)
+
+    /** Share of the mix when A is at its time [tA]. */
+    fun progressAt(tA: Double): Double = elapsedAt(tA) / length
+
+    /** Where B must be, seconds of its own time, when A is at [tA]. */
+    fun targetB(tA: Double): Double = mapB?.sourceUs(elapsedAt(tA) * 1e6)?.div(1e6) ?: (entryB + (tA - exitA) * speedB)
+
+    /** A's speed when A is at [tA]; 1 for a plan that does not move it. */
+    fun speedA(tA: Double): Double = mapA?.rate(elapsedAt(tA) * 1e6) ?: 1.0
+
+    /** B's speed when A is at [tA]. */
+    fun speedBAt(tA: Double): Double = mapB?.rate(elapsedAt(tA) * 1e6) ?: speedB
+
+    /** B's speed as it starts. */
+    val speedBStart: Double get() = mapB?.rate(0.0) ?: speedB
+
     /** B's speed at its own time [tB] after the mix: back to 1 over [restoreSec] seconds of B. */
     fun speedAfter(tB: Double): Double {
+        // Its ramp has brought B back to its own speed by the end of the mix.
+        if (ramped) return 1.0
         val past = tB - resumeB
         if (past <= 0) return speedB
         if (past >= restoreSec || restoreSec <= 0) return 1.0

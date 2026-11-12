@@ -1,0 +1,194 @@
+{
+ "messages": [
+  {
+   "type": "media_playback_event_v2",
+   "message": {
+    "events": [
+     {
+      "sn": 10,
+      "ct": 1793034652651,
+      "ms": {
+       "mu": "spotify-audio://699a4ed88e8fd8ff515c38c07128371698249602",
+       "fi": "",
+       "pi": "c12497dd36c5439ae5e69d5a2fd287f6",
+       "si": "",
+       "mt": "audio"
+      },
+      "ps": {
+       "pt": "harmony",
+       "md": 153926,
+       "ip": true,
+       "pp": 122354,
+       "sl": "unknown",
+       "sp": 1,
+       "vo": 19,
+       "ns": "4g",
+       "br": 128000,
+       "pd": "device",
+       "ao": true,
+       "st": "unknown",
+       "su": "unknown"
+      },
+      "et": 10,
+      "rn": 7,
+      "bt": -1,
+      "rf": 0,
+      "df": 0
+     },
+     {
+      "sn": 11,
+      "ct": 1793034682652,
+      "ms": {},
+      "ps": {
+       "md": 153889,
+       "pp": 152371
+      },
+      "et": 10,
+      "rn": 7,
+      "bt": -1,
+      "rf": 0,
+      "df": 0
+     },
+     {
+      "sn": 12,
+      "ct": 1793034683977,
+      "ms": {},
+      "ps": {
+       "pp": 153889
+      },
+      "et": 10,
+      "rn": 5,
+      "bt": -1,
+      "rf": 0,
+      "df": 0
+     },
+     {
+      "sn": 0,
+      "ct": 1793034683981,
+      "ms": {
+       "mu": "spotify-audio://5e7244a63e471cb934108a2834a06322e632dcab",
+       "pi": "80d2cf51e370b10c70438e480e74876d"
+      },
+      "ps": {
+       "md": 0,
+       "pp": 0,
+       "br": 0
+      },
+      "et": 0,
+      "ur": "spotify:track:YtQqm7bltlANtUwdE4cVg3",
+      "pc": "",
+      "xt": "audio"
+     },
+     {
+      "sn": 1,
+      "ct": 1793034683981,
+      "ms": {},
+      "ps": {},
+      "et": 7,
+      "ks": {
+       "nm": "com.widevine.alpha",
+       "im": "native"
+      }
+     },
+     {
+      "sn": 2,
+      "ct": 1793034683982,
+      "ms": {},
+      "ps": {
+       "sp": 0
+      },
+      "et": 2
+     },
+     {
+      "sn": 3,
+      "ct": 1793034684074,
+      "ms": {},
+      "ps": {
+       "sp": 1
+      },
+      "et": 3
+     },
+     {
+      "sn": 4,
+      "ct": 1793034684076,
+      "ms": {},
+      "ps": {
+       "md": 181325
+      },
+      "et": 10,
+      "rn": 0,
+      "bt": 1793034683981,
+      "rf": 0,
+      "df": 0
+     },
+     {
+      "sn": 5,
+      "ct": 1793034684076,
+      "ms": {},
+      "ps": {},
+      "et": 4
+     },
+     {
+      "sn": 6,
+      "ct": 1793034684346,
+      "ms": {},
+      "ps": {
+       "pp": 203,
+       "br": 128000
+      },
+      "et": 9,
+      "ap": {
+       "qi": "1793034674216",
+       "cc": "audio/mp4; codecs=\"mp4a.40.2\"",
+       "ab": 128000,
+       "xb": 128000
+      },
+      "fr": 0,
+      "ty": "audio",
+      "rn": "abr"
+     },
+     {
+      "sn": 7,
+      "ct": 1793034714096,
+      "ms": {},
+      "ps": {
+       "pp": 29940
+      },
+      "et": 10,
+      "rn": 7,
+      "bt": -1,
+      "rf": 0,
+      "df": 0
+     },
+     {
+      "sn": 8,
+      "ct": 1793034744097,
+      "ms": {},
+      "ps": {
+       "pp": 59690
+      },
+      "et": 10,
+      "rn": 7,
+      "bt": -1,
+      "rf": 0,
+      "df": 0
+     }
+    ],
+    "context": {
+     "device": {
+      "manufacturer": "spotify",
+      "model": "web_player",
+      "type": "computer"
+     },
+     "os": {
+      "name": "Name 11",
+      "version": ""
+     }
+    }
+   }
+  }
+ ],
+ "sdk_id": "harmony:4.81.1-1f3d48b7f",
+ "platform": "web_player linux undefined;chrome 156.0.0.0;desktop",
+ "client_version": "0.0.0"
+}

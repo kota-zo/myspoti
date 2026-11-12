@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Beste irrati %d bat dator bat, baina zifratu gabe (http) edo HLS bidez igortzen du, eta aplikazioak ezin du oraindik erreproduzitu.</item>
+        <item quantity="other">Beste %d irrati datoz bat, baina zifratu gabe (http) edo HLS bidez igortzen dute, eta aplikazioak ezin ditu oraindik erreproduzitu.</item>
+    </plurals>
+</resources>

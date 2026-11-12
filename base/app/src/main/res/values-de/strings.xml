@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">Playlists</string>
     <string name="aa_albums">Alben</string>
     <string name="aa_artists">Künstler</string>
@@ -14,8 +14,6 @@
     <string name="notif_shuffle_disable_smart">Smart-Shuffle deaktivieren</string>
     <string name="energy_saver_title">Energiesparmodus</string>
     <string name="energy_saver_summary">Canvas aus, leichtere Videos und Animationen</string>
-    <string name="video_fullscreen_enter">Vollbild öffnen</string>
-    <string name="video_fullscreen_exit">Vollbild beenden</string>
     <string name="playback_seek_description">Wiedergabeposition</string>
     <string name="account_page_title">Spotify-Konto</string>
     <string name="account_page_detail">Abo, Datenschutz und Geräte, auf spotify.com</string>

@@ -4,8 +4,9 @@
     <string name="sources_download_title">Sumber unduhan</string>
     <string name="sources_audio_footer">Ditanyakan dari atas ke bawah untuk setiap lagu: yang pertama memilikinya akan memutarnya. Gunakan panah untuk mengubah urutan.</string>
     <string name="sources_download_footer">Ditanyakan dari atas ke bawah: sumber pertama yang memiliki lagu akan memberikan filenya. Gunakan panah untuk mengubah urutan.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Diputar saat tidak ada sumber di atasnya yang memiliki lagu</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Diputar saat tidak ada sumber di atasnya yang memiliki lagu</string>
+    <string name="sources_account_player">Pemutar akun Anda</string>
     <string name="sources_ready">Siap</string>
     <string name="sources_details_show">Tampilkan detail</string>
     <string name="sources_details_hide">Sembunyikan detail</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Terakhir: %1$s, %2$s</string>
     <string name="sources_open">Buka ekstensi</string>
     <string name="sources_order_hint">Sumber ditanyakan sesuai urutan yang diatur di Pengaturan (Pemutaran, Unduhan).</string>
-    <string name="sources_below_spotify">Tidak ditanyakan: Spotify ada di atas</string>
+    <string name="sources_below_account">Tidak ditanyakan: Spotify ada di atas</string>
 </resources>

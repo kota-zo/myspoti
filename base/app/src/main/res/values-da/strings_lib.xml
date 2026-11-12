@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d station mere passer, men den sender ukrypteret (http) eller i HLS, som appen endnu ikke kan afspille.</item>
+        <item quantity="other">%d stationer mere passer, men de sender ukrypteret (http) eller i HLS, som appen endnu ikke kan afspille.</item>
+    </plurals>
+</resources>

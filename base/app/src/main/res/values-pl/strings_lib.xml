@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Pasuje jeszcze %d stacja, ale nadaje bez szyfrowania (http) lub w HLS, czego aplikacja jeszcze nie odtwarza.</item>
+        <item quantity="few">Pasują jeszcze %d stacje, ale nadają bez szyfrowania (http) lub w HLS, czego aplikacja jeszcze nie odtwarza.</item>
+        <item quantity="many">Pasuje jeszcze %d stacji, ale nadają bez szyfrowania (http) lub w HLS, czego aplikacja jeszcze nie odtwarza.</item>
+        <item quantity="other">Pasuje jeszcze %d stacji, ale nadają bez szyfrowania (http) lub w HLS, czego aplikacja jeszcze nie odtwarza.</item>
+    </plurals>
+</resources>

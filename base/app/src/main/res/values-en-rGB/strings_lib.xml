@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d more station matches, but it streams unencrypted (http) or in HLS, which the app cannot play yet.</item>
+        <item quantity="other">%d more stations match, but they stream unencrypted (http) or in HLS, which the app cannot play yet.</item>
+    </plurals>
+</resources>

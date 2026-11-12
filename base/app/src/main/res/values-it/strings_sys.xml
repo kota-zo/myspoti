@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">Apri la pagina della versione</string>
+    <string name="sys_update_conflict">Android ha rifiutato questa versione sull’app installata: è firmata con un’altra chiave. Scaricala dalla pagina della versione e, se Android lo chiede, disinstalla prima questa app.</string>
+</resources>

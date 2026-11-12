@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Припинити перекладати текст</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Гм… ми не знаємо текст цієї пісні.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Текст поки що не синхронізовано за часом.</string>
-    <string name="av_switch_to_video" formatted="false">Перейти на відео</string>
-    <string name="av_switch_to_audio" formatted="false">Перейти на аудіо</string>
-    <string name="av_content_desc" formatted="false">Перемикання між аудіо та відео</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Головна</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Пошук</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Моя бібліотека</string>

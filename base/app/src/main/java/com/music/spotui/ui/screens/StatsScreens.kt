@@ -58,7 +58,6 @@ import app.myspoti.api.TopContent
 import app.myspoti.api.best
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.api.TopStats
@@ -163,7 +162,7 @@ internal fun SpotifyStatsTab(navController: NavController) {
                             modifier = Modifier.fillMaxWidth().clickable { SongPlayer.playSong(t.uri) }.padding(16.dp, 6.dp),
                         ) {
                             Text("${i + 1}", color = StatsSubtle, fontSize = 16.sp, modifier = Modifier.width(32.dp))
-                            GlideImage(transition = CrossFade, model = spotifyImageUrl(t.album?.images?.best(160)?.url), contentDescription = null,
+                            GlideImage(model = spotifyImageUrl(t.album?.images?.best(160)?.url), contentDescription = null,
                                 contentScale = ContentScale.Crop, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)))
                             Column(Modifier.padding(start = 12.dp).weight(1f)) {
                                 Text(t.name, color = AppText, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -343,7 +342,7 @@ private fun FriendRow(f: FriendActivity, now: Long, navController: NavController
             }
         }
         f.trackImageUrl?.let { cover ->
-            GlideImage(transition = CrossFade, model = spotifyImageUrl(cover.replaceFirst("http://", "https://")), contentDescription = null,
+            GlideImage(model = spotifyImageUrl(cover.replaceFirst("http://", "https://")), contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.padding(start = 10.dp).size(44.dp).clip(RoundedCornerShape(4.dp)))
         }
     }

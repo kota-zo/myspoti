@@ -1,0 +1,112 @@
+{
+ "contents": {
+  "singleColumnMusicWatchNextResultsRenderer": {
+   "tabbedRenderer": {
+    "watchNextTabbedResultsRenderer": {
+     "tabs": [
+      {
+       "tabRenderer": {
+        "content": {
+         "musicQueueRenderer": {
+          "content": {
+           "playlistPanelRenderer": {
+            "contents": [
+             {
+              "playlistPanelVideoRenderer": {
+               "videoId": "vidAAAAAAA1",
+               "title": {
+                "runs": [
+                 {
+                  "text": "Song One"
+                 }
+                ]
+               },
+               "longBylineText": {
+                "runs": [
+                 {
+                  "text": "Artist A",
+                  "navigationEndpoint": {
+                   "browseEndpoint": {
+                    "browseId": "UCartistA000000000000000",
+                    "browseEndpointContextSupportedConfigs": {
+                     "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                     }
+                    }
+                   }
+                  }
+                 },
+                 {
+                  "text": " \u2022 "
+                 },
+                 {
+                  "text": "Album X",
+                  "navigationEndpoint": {
+                   "browseEndpoint": {
+                    "browseId": "MPREb_albumX",
+                    "browseEndpointContextSupportedConfigs": {
+                     "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                     }
+                    }
+                   }
+                  }
+                 },
+                 {
+                  "text": " \u2022 "
+                 },
+                 {
+                  "text": "2021"
+                 }
+                ]
+               },
+               "lengthText": {
+                "runs": [
+                 {
+                  "text": "3:45"
+                 }
+                ]
+               },
+               "thumbnail": {
+                "thumbnails": [
+                 {
+                  "url": "https://img.example/one",
+                  "width": 60,
+                  "height": 60
+                 }
+                ]
+               }
+              }
+             },
+             {
+              "playlistPanelVideoRenderer": {
+               "videoId": "vidOTHER001",
+               "title": {
+                "runs": [
+                 {
+                  "text": "Next One"
+                 }
+                ]
+               },
+               "lengthText": {
+                "runs": [
+                 {
+                  "text": "2:00"
+                 }
+                ]
+               }
+              }
+             }
+            ]
+           }
+          }
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

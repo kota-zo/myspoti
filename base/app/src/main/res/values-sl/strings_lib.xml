@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Ustreza še %d postaja, vendar oddaja nešifrirano (http) ali v HLS, česar aplikacija še ne zna predvajati.</item>
+        <item quantity="two">Ustrezata še %d postaji, vendar oddajata nešifrirano (http) ali v HLS, česar aplikacija še ne zna predvajati.</item>
+        <item quantity="few">Ustrezajo še %d postaje, vendar oddajajo nešifrirano (http) ali v HLS, česar aplikacija še ne zna predvajati.</item>
+        <item quantity="other">Ustreza še %d postaj, vendar oddajajo nešifrirano (http) ali v HLS, česar aplikacija še ne zna predvajati.</item>
+    </plurals>
+</resources>

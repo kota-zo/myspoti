@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -62,6 +63,18 @@ class PullToDismissState internal constructor(
         raw += used
         follow()
         return used
+    }
+
+    /**
+     * Back at rest, pullable again: the sheet opened once more. A pull that closed it left it
+     * [dismissed] and drawn [offset] lower, and the sheet reopened before its close was over (the
+     * mini player tapped during the slide) kept both: the whole player sat some 70 dp low, its
+     * controls near the bottom, and could not be pulled again.
+     */
+    suspend fun reset() {
+        raw = 0f
+        dismissed = false
+        pull.snapTo(0f)
     }
 
     /** The finger lifted at [velocity] pixels a second (down is positive): closes, or springs back. */
@@ -134,12 +147,15 @@ fun Modifier.pullToDismiss(state: PullToDismissState): Modifier = pointerInput(s
     }
 }
 
+/** [open]: the sheet is (again) open, which puts the pull back at rest ([PullToDismissState.reset]). */
 @Composable
-fun rememberPullToDismiss(onDismiss: () -> Unit): PullToDismissState {
+fun rememberPullToDismiss(open: Boolean = true, onDismiss: () -> Unit): PullToDismissState {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val latest = rememberUpdatedState(onDismiss)
-    return remember(density) {
+    val state = remember(density) {
         with(density) { PullToDismissState(scope, 120.dp.toPx(), 1200.dp.toPx()) { latest.value() } }
     }
+    LaunchedEffect(state, open) { if (open) state.reset() }
+    return state
 }

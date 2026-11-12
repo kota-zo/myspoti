@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadaten</string>
+    <string name="metadata_footer">Suchen, Alben und Künstler kommen von diesen Diensten, von oben nach unten abgefragt. Derselbe Song, zweimal gefunden, erscheint nur einmal. Ein ausgeschalteter Dienst wird nie abgefragt.</string>
+    <string name="metadata_spotify_detail">Dein Konto, solange du angemeldet bist</string>
+    <string name="metadata_signed_out">Nicht abgefragt: kein Konto angemeldet</string>
+    <string name="metadata_asked">Wird abgefragt</string>
+    <string name="metadata_off">Aus: wird nie abgefragt</string>
+    <string name="metadata_reset">Zurück zur Standardreihenfolge</string>
+    <string name="metadata_not_on_spotify">Nicht auf Spotify gefunden: dieser Song kann noch nicht abgespielt werden</string>
+    <string name="metadata_spotify_no_answer">Spotify hat nicht geantwortet: tippe den Titel noch einmal an</string>
+    <string name="metadata_switch">%1$s abfragen</string>
+</resources>

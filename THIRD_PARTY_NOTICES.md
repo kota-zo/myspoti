@@ -121,3 +121,65 @@ Copyright The Chromium Authors. Casting to Google Cast devices
 (`base/app/src/main/java/com/music/spotui/cast/`) is Myspoti's own CastV2 sender, without the
 Google Cast SDK. `CastMessage.kt` codes by hand the `CastMessage` message that this file defines
 (its field numbers and types); no Chromium code is included.
+
+## InnerTune — GPL-3.0
+https://github.com/z-huang/InnerTune (commit `bfba5ec`)
+
+By Zion Huang and the InnerTune contributors. YouTube Music as an account provider
+(`base/api-ytmusic/`) follows it for the sign-in url and its "back on music.youtube.com" test
+(`app/.../ui/screens/LoginScreen.kt`), the `SAPISIDHASH` auth header and the `WEB_REMIX` request
+shape (`innertube/.../InnerTube.kt`), and the library's browse ids (`innertube/.../YouTube.kt`).
+`YtmSession.kt`, `InnerTube.kt` and `YtmLibrary.kt` say so in their header and stay under the
+GPL-3.0. No API key, stream or download code is taken.
+
+## Mornye Extension — LGPL-3.0-only
+
+`catalog/src/main/resources/app/myspoti/catalog/metadata/{deezer,tidal,ytmusic}.js` are modified versions of the
+Deezer, Tidal and YouTube Music extensions of [Mornye-Extension](https://github.com/mornyeapp/Mornye-Extension),
+Copyright 2026 zarzet, taken at commit `0c326fa36fc130127d90083808c6b51ea6d83aa2`.
+
+Changes: everything but catalogue metadata was removed (audio, downloads, sign-in, settings of those), and the code
+that remains was left as written otherwise. `catalog/tools/strip_metadata.py` performs these changes from the original
+files, so they can be checked or redone. The texts of the LGPL-3.0 and of the GPL-3.0 it builds on are next to the
+scripts. The ideas behind `catalog/.../Match.kt` also come from Mornye.
+
+Each script runs as source and can be replaced without rebuilding the application.
+
+## uBlock Origin filter lists (uAssets) — GPL-3.0
+https://github.com/uBlockOrigin/uAssets (`filters/filters-2020.txt`, commit `dbc8ad17eea0d9f2815553c099643995f7a0ae83`)
+
+By Raymond Hill and the uAssets contributors. The ad blocker for Spotify Connect devices
+(`base/api-spotify/.../bridge/AdBlock.kt`) refuses the hosts and paths of
+`base/api-spotify/src/main/resources/bridge/page-filter.txt`; the rules marked "uAssets" there are
+taken from the list's open.spotify.com block (`2mdn.net`, `adxcel.com`, `amillionads.com`,
+`adstudio-assets.scdn.co`, the `scdn.co/mp3-ad/` path), reduced to a host or a host and path. No
+filter engine, cosmetic rule or scriptlet is taken.
+
+## EasyList / EasyPrivacy — GPL-3.0 or CC BY-SA 3.0
+https://github.com/easylist/easylist (`easyprivacy/easyprivacy_specific.txt`, commit `876bb4a29090827868d93ab8d00960f959e16028`)
+
+By the EasyList authors. The tracker rule marked "EasyPrivacy" in the same list
+(`spotifycdn.com/cdn/js/retargeting-pixels.`) comes from it, used under the GPL-3.0.
+
+## Hush — GPL-3.0
+
+By coldMEW. The ad host `s0.2mdn.net` came from its list; it is now covered by uAssets' `2mdn.net`.
+
+## Horologist and Wear Compose Material3 — Apache-2.0
+https://github.com/google/horologist
+
+Copyright Google LLC. The watch app's player and library pages (`base/wear`) are built on
+Horologist's media and audio UI (`horologist-media-ui-material3`, `horologist-audio-ui-material3`,
+`horologist-compose-layout`, 0.8.4-alpha) and AndroidX Wear Compose Material3, used as libraries.
+Two icon paths in `base/wear/.../WatchIcons.kt` are Google's Material Icons (Apache-2.0).
+
+## Jetcaster and JetStream samples — Apache-2.0
+https://github.com/android/compose-samples (Jetcaster/tv, Jetcaster/core/designsystem), Copyright 2024 The Android Open Source Project
+https://github.com/android/tv-samples (JetStreamCompose), Copyright 2023 Google LLC
+
+The Android TV screens (`base/app/src/main/java/com/music/spotui/ui/tv/`) adapt parts of these
+samples: spacing and type scale, cover-tinted backgrounds, the two-column list and podcast pages,
+cards, focus look (border, scale, glow), focus restoring rows, the seek bar, the home carousel,
+the tab bar's sliding indicator and gradient placeholders. Modified for Myspoti, 2026-11. Files
+holding adapted code say so at their top. Licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). Neither sample ships a NOTICE file.

@@ -1,5 +1,6 @@
 package com.music.spotui.ui.components
 
+import androidx.compose.material.icons.outlined.ContentCopy
 import com.music.spotui.ui.theme.AppDestructive
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
@@ -196,6 +197,7 @@ fun PlaylistOptionsSheet(
                     }
                 }
                 OptionRow(Icons.Outlined.QrCode2, stringResource(R.string.context_menu_share), onClick = share)
+                OptionRow(Icons.Outlined.ContentCopy, stringResource(R.string.copy_link)) { SpotifyCode.copyLink(context, page.uri); onDismiss() }
                 // Who sees it: one action naming what it does next (not three choices to read).
                 val a = access
                 fun change(target: PlaylistAccess, said: Int) {
@@ -220,6 +222,7 @@ fun PlaylistOptionsSheet(
                 OptionRow(Icons.Outlined.Delete, stringResource(R.string.local_delete_playlist)) { deleting = true }
             } else {
                 OptionRow(Icons.Outlined.QrCode2, stringResource(R.string.context_menu_share), onClick = share)
+                OptionRow(Icons.Outlined.ContentCopy, stringResource(R.string.copy_link)) { SpotifyCode.copyLink(context, page.uri); onDismiss() }
                 // The Web Player offers it only where canCancelMembership is true (a collaborator, not the owner).
                 if (page.canLeave) OptionRow(Icons.AutoMirrored.Outlined.Logout, stringResource(R.string.playlist_leave)) { leavingPlaylist = true }
             }

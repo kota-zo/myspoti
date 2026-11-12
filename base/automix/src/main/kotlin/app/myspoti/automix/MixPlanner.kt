@@ -34,11 +34,18 @@ object MixPlanner {
         val djMode: Boolean = false,
         /** Filtered fade between tempos too far apart to match, seconds. */
         val filterSec: Double = 10.0,
+        /** Limits on A's timeline; apply DurationBounds.forPlaybackRate for a listener speed other than 1. */
+        val durationBounds: DurationBounds = DurationBounds(),
     )
 
-    fun plan(a: TrackAnalysis, b: TrackAnalysis, s: Settings = Settings()): MixPlan =
-        planAfter(a, b, a.contentStart, s) ?: MixPlan(MixPlan.Style.FADE, a.contentStart, b.contentStart,
+    fun plan(a: TrackAnalysis, b: TrackAnalysis, s: Settings = Settings()): MixPlan {
+        require(s.durationBounds.isUnbounded) { "use planBounded for explicit duration constraints; no plan may fit" }
+        return planAfter(a, b, a.contentStart, s) ?: MixPlan(MixPlan.Style.FADE, a.contentStart, b.contentStart,
             0.05, 1.0, 0, 0.5, 0.1, matchGain(a, b), 0.0, "no remaining audio")
+    }
+
+    fun planBounded(a: TrackAnalysis, b: TrackAnalysis, s: Settings = Settings()): MixPlan? =
+        planAfter(a, b, a.contentStart, s)
 
     /**
      * A plan whose exit is at or after [earliestExit] (A seconds). A missed cue is never returned
@@ -47,7 +54,7 @@ object MixPlanner {
     fun planAfter(a: TrackAnalysis, b: TrackAnalysis, earliestExit: Double, s: Settings = Settings()): MixPlan? {
         if (!earliestExit.isFinite() || a.contentEnd <= max(a.contentStart, earliestExit) + 0.05 || b.contentEnd <= b.contentStart) return null
         val sa = summary(a); val sb = summary(b)
-        if (s.style == MixPlan.Style.FADE) return fade(a, b, sa, "smooth fade asked", s.smoothSec, earliestExit)
+        if (s.style == MixPlan.Style.FADE) return fade(a, b, sa, "smooth fade asked", s.smoothSec, earliestExit, s.durationBounds)
         val ga = a.tail; val gb = b.head
         val match = if (ga != null && gb != null && !a.tailDown.isNaN() && !b.headDown.isNaN()) tempoMatch(ga.bpm, gb.bpm) else null
         if (s.style == MixPlan.Style.BLEND && match != null && abs(match.speed - 1) <= s.maxStretch) {
@@ -57,7 +64,7 @@ object MixPlanner {
         // handover. Do not reduce such a pair to a one-second cut merely for its BPM gap.
         if (s.style == MixPlan.Style.BLEND && (s.keyWeight == 0.0 || keyDistance(a, b) < 1.5)) {
             val seconds = max(s.fadeSec, s.smoothSec)
-            val soft = fade(a, b, sa, "soft passages, tempos untouched", seconds, earliestExit)
+            val soft = fade(a, b, sa, "soft passages, tempos untouched", seconds, earliestExit, s.durationBounds)
             if (soft != null && sa.softTexture(a, soft.exitA, soft.endA) &&
                 sb.softTexture(b, soft.entryB, soft.entryB + soft.length)) return soft
         }
@@ -68,11 +75,12 @@ object MixPlanner {
             filterFade(a, b, sa, sb, ga, gb?.takeIf { !b.headDown.isNaN() }, s, earliestExit)?.let { return it }
         }
         if (ga != null && !a.tailDown.isNaN()) cut(a, b, sa, sb, ga, gb, match, s, earliestExit)?.let { return it }
-        return fade(a, b, sa, if (match == null) "no checked beat pair" else "no safe blend ahead", s.fadeSec, earliestExit)
+        return fade(a, b, sa, if (match == null) "no checked beat pair" else "no safe blend ahead", s.fadeSec, earliestExit, s.durationBounds)
     }
 
     /** Next: a short mix from the next downbeat; either analysis may be unavailable. */
     fun planSkip(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double, s: Settings = Settings()): MixPlan {
+        require(s.durationBounds.isUnbounded) { "use planSkipBounded for explicit duration constraints; no plan may fit" }
         val from = now + lead
         val ga = a?.let { gridAt(it, from) }
         val gb = b?.head?.takeIf { !b.headDown.isNaN() }
@@ -94,6 +102,58 @@ object MixPlanner {
             if (s.style == MixPlan.Style.FADE) "skip: fade" else "skip: fade (no beat grid here)")
     }
 
+    /** Nullable skip API: candidates are checked before selection, never shortened after locking. */
+    fun planSkipBounded(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double, s: Settings = Settings()): MixPlan? =
+        if (s.durationBounds.isUnbounded) planSkip(a, b, now, lead, s)
+        else boundedSkip(a, b, now, lead, s, full = false, window = 4.0)
+
+    private fun boundedSkip(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double,
+                            s: Settings, full: Boolean, window: Double): MixPlan? {
+        val from = now + lead
+        if (!from.isFinite() || !lead.isFinite() || lead < 0 || !window.isFinite() || window < 0) return null
+        if (a != null && from >= a.contentEnd) return null
+        val ga = a?.let { gridAt(it, from) }
+        val gb = b?.head?.takeIf { !b.headDown.isNaN() }
+        if (full && (a == null || b == null || ga == null || gb == null || s.style == MixPlan.Style.FADE)) return null
+        val entries = if (b != null && gb != null) entryCues(b, summary(b), gb).sortedByDescending { it.score }.map { it.time }
+            else listOf(b?.contentStart ?: 0.0)
+        val gain = if (a != null && b != null) matchGain(a, b) else 1.0
+        fun fits(exit: Double, entry: Double, len: Double, speed: Double): Boolean =
+            s.durationBounds.contains(len) && exit >= from &&
+                (a == null || exit >= a.contentStart && exit + len <= a.contentEnd) &&
+                (b == null || entry >= b.contentStart - 0.08 && entry + len * speed <= b.contentEnd)
+        if (a != null && ga != null && s.style != MixPlan.Style.FADE) {
+            val (grid, down) = ga
+            val first = firstDown(grid, down, from)
+            val exits = generateSequence(first) { it + 4 * grid.period }
+                .takeWhile { it <= from + window && it < grid.last }.toList()
+                .sortedByDescending { if (full && a.phrasePos(a.barAt(it + 0.05)) == 0) 1 else 0 }
+            val m = gb?.let { tempoMatch(grid.bpm, it.bpm) }
+            if (s.style == MixPlan.Style.BLEND && m != null && abs(m.speed - 1) <= s.maxStretch) {
+                val preferredBars = if (full) listOf(4, 2, 1) else listOf(2, 1)
+                val bars = (preferredBars + (1..min(32, s.maxBars))).distinct()
+                for (n in bars) for (exit in exits) for (entry in entries) {
+                    val len = n * 4 * grid.period
+                    if (n > s.maxBars || len > s.maxSec || !fits(exit, entry, len, m.speed) || exit + len > grid.last + grid.period) continue
+                    return MixPlan(MixPlan.Style.BLEND, exit, entry, len, m.speed, n * 4, 0.5, 1.0 / (n * 4), gain,
+                        restore(m.speed, gb!!.period), "skip: bounded $n bar(s)")
+                }
+            }
+            for (beats in intArrayOf(2, 1)) for (exit in exits) for (entry in entries) {
+                val len = beats * grid.period
+                if (exit > from + CUT_WAIT_SEC || !fits(exit, entry, len, 1.0)) continue
+                return MixPlan(MixPlan.Style.CUT, exit, entry, len, 1.0, beats, 0.0, 1.0 / beats, gain, 0.0, "skip: bounded cut")
+            }
+        }
+        if (full) return null
+        val wanted = 2.5.coerceIn(s.durationBounds.minSeconds, s.durationBounds.maxSeconds)
+        for (entry in entries) {
+            val len = minOf(wanted, a?.let { it.contentEnd - from } ?: wanted, b?.let { it.contentEnd - entry } ?: wanted)
+            if (fits(from, entry, len, 1.0)) return MixPlan(MixPlan.Style.FADE, from, entry, len, 1.0, 0, 0.5, 0.1, gain, 0.0, "skip: bounded fade")
+        }
+        return null
+    }
+
     /**
      * Next with the real mix: A leaves on one of its downbeats within [window] s of [now] + [lead] (a
      * phrase start preferred), B comes in at its best entry (its first downbeat or a phrase of its
@@ -105,6 +165,7 @@ object MixPlanner {
     private const val CUT_WAIT_SEC = 2.0
 
     fun planSkipFull(a: TrackAnalysis?, b: TrackAnalysis?, now: Double, lead: Double, s: Settings = Settings(), window: Double = 4.0): MixPlan? {
+        if (!s.durationBounds.isUnbounded) return boundedSkip(a, b, now, lead, s, full = true, window = window)
         if (a == null || b == null || s.style == MixPlan.Style.FADE) return null
         val from = now + lead
         val (ga, downA) = gridAt(a, from) ?: return null
@@ -170,14 +231,14 @@ object MixPlanner {
     private fun blend(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, sb: Summary, ga: Grid, gb: Grid,
                       m: TempoMatch, s: Settings, earliest: Double): MixPlan? {
         val barA = 4 * ga.period
-        val exits = exitCues(a, sa, ga, s, earliest)
+        val exits = exitCues(a, sa, ga, s, earliest).filter { s.durationBounds.isUnbounded || it.time >= earliest }
         val entries = entryCues(b, sb, gb)
         if (exits.isEmpty() || entries.isEmpty()) return null
         val keyPenalty = keyDistance(a, b)
         val strong = drops(b, sb, gb)
         var best: Choice? = null
         var preferred: Choice? = null
-        for (bars in BARS) {
+        for (bars in if (s.durationBounds.isUnbounded) BARS else (min(32, max(1, s.maxBars)) downTo 1).toList().toIntArray()) {
             if (bars > max(2, s.maxBars)) continue
             // A large stretch is heard on B for the second half and its way back: kept to 16 bars.
             if (abs(m.speed - 1) > WIDE_STRETCH && bars > 16) continue
@@ -185,6 +246,7 @@ object MixPlanner {
             // a mess over a long mix (reported on the phone: 40 s of it).
             if (m.beatsPerB != 1.0 && bars > 8) continue
             val len = bars * barA
+            if (!s.durationBounds.isUnbounded && !s.durationBounds.contains(len)) continue
             if (len > s.maxSec + 0.01 && bars > 2) continue
             val spanB = len * m.speed
             // Each B candidate and its structural/level scores are shared by all A exit candidates.
@@ -258,6 +320,22 @@ object MixPlanner {
 
     private fun cut(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, sb: Summary, ga: Grid, gb: Grid?, m: TempoMatch?,
                     s: Settings, earliest: Double): MixPlan? {
+        if (!s.durationBounds.isUnbounded) {
+            val synced = m != null && abs(m.speed - 1) <= s.maxStretch
+            val speed = if (synced) m!!.speed else 1.0
+            val entries = if (gb != null && !b.headDown.isNaN()) entryCues(b, sb, gb) else listOf(Cue(b.contentStart, 0.0, "B start"))
+            for (beats in intArrayOf(2, 1)) {
+                val len = beats * ga.period
+                if (!s.durationBounds.contains(len)) continue
+                val n = entries.filter { it.time >= b.contentStart - 0.08 && it.time + len * speed <= b.contentEnd }
+                    .maxByOrNull { it.score } ?: continue
+                val e = exitCues(a, sa, ga, s, earliest).filter { it.time >= earliest && it.time + len <= a.contentEnd }
+                    .maxByOrNull { it.score - sa.loudCut(a, it.time + len) * if (s.djMode) 0.08 else 0.6 } ?: continue
+                return MixPlan(MixPlan.Style.CUT, e.time, n.time, len, speed, beats, 0.0, 1.0 / beats,
+                    matchGain(a, b), if (synced) restore(speed, gb!!.period) else 0.0, "cut on ${e.why}", matchA = matchGainA(a, b))
+            }
+            return null
+        }
         val exits = exitCues(a, sa, ga, s, earliest).filter { it.time + 2 * ga.period <= a.contentEnd + 0.01 }
             .let { all -> all.filter { keepsLastLoud(sa, s, it.time, 0.0, 0.0, 4 * ga.period, 2) }.ifEmpty { all } }
         if (exits.isEmpty()) return null
@@ -278,12 +356,15 @@ object MixPlanner {
     private fun filterFade(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, sb: Summary, ga: Grid, gb: Grid?,
                            s: Settings, earliest: Double): MixPlan? {
         val barA = 4 * ga.period
-        val exits = exitCues(a, sa, ga, s, earliest)
+        val exits = exitCues(a, sa, ga, s, earliest).filter { s.durationBounds.isUnbounded || it.time >= earliest }
         val entries = if (gb != null) entryCues(b, sb, gb) else listOf(Cue(b.contentStart, 1.0, "B start"))
         if (exits.isEmpty()) return null
         val wanted = s.filterSec.coerceAtLeast(2.0)
         var best: Pair<Double, MixPlan>? = null
-        for (len in doubleArrayOf(wanted, max(4.0, wanted * 0.6))) {
+        val lengths = if (s.durationBounds.isUnbounded) doubleArrayOf(wanted, max(4.0, wanted * 0.6))
+            else doubleArrayOf(wanted, max(4.0, wanted * 0.6), wanted.coerceIn(s.durationBounds.minSeconds, s.durationBounds.maxSeconds))
+                .distinct().filter { it >= 2.0 && s.durationBounds.contains(it) }.toDoubleArray()
+        for (len in lengths) {
             for (e in exits) {
                 val endA = e.time + len
                 if (endA > a.contentEnd + 0.01 || endA > sa.musicEnd + barA) continue
@@ -310,7 +391,25 @@ object MixPlanner {
         return best?.second
     }
 
-    private fun fade(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, why: String, seconds: Double, earliest: Double): MixPlan? {
+    private fun fade(a: TrackAnalysis, b: TrackAnalysis, sa: Summary, why: String, seconds: Double, earliest: Double,
+                     bounds: DurationBounds = DurationBounds()): MixPlan? {
+        if (!bounds.isUnbounded) {
+            val minExit = max(a.contentStart, earliest)
+            val gb = b.head?.takeIf { !b.headDown.isNaN() }
+            val first = if (gb != null) firstDown(gb, b.headDown, b.contentStart - 0.08) else b.contentStart
+            val wanted = minOf(seconds.coerceIn(bounds.minSeconds, bounds.maxSeconds), a.contentEnd - a.contentStart)
+            if (wanted <= 0.05 || !bounds.contains(wanted)) return null
+            for (entry in listOf(first, b.contentStart).distinct()) {
+                val len = minOf(wanted, a.contentEnd - minExit, b.contentEnd - entry)
+                if (len <= 0.05 || !bounds.contains(len)) continue
+                val target = max(minExit, min(sa.musicEnd - len, a.contentEnd - len))
+                val exit = a.barStarts.lastOrNull { it <= target && it >= max(minExit, target - 6) } ?: target
+                if (exit + len > a.contentEnd) continue
+                return MixPlan(MixPlan.Style.FADE, exit, entry, len, 1.0, 0, 0.5, 0.1, matchGain(a, b), 0.0,
+                    "fade: $why", matchA = matchGainA(a, b))
+            }
+            return null
+        }
         val minExit = max(a.contentStart, earliest)
         val wanted = min(seconds, (a.contentEnd - a.contentStart) / 4).coerceAtLeast(0.05)
         val target = max(minExit, sa.musicEnd - wanted)

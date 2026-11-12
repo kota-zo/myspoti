@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Ταιριάζει ακόμη %d σταθμός, αλλά εκπέμπει χωρίς κρυπτογράφηση (http) ή σε HLS, που η εφαρμογή δεν μπορεί ακόμη να αναπαράγει.</item>
+        <item quantity="other">Ταιριάζουν ακόμη %d σταθμοί, αλλά εκπέμπουν χωρίς κρυπτογράφηση (http) ή σε HLS, που η εφαρμογή δεν μπορεί ακόμη να αναπαράγει.</item>
+    </plurals>
+</resources>

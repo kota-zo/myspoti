@@ -1,9 +1,23 @@
 package com.music.spotui.ui.components
 
+import androidx.compose.material.icons.outlined.ContentCopy
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -75,6 +89,26 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
         }
     }
 
+    /** Liked Songs as the target: every song not liked yet is liked; nothing to ask, a song is liked once. */
+    fun pickLiked() {
+        if (reading) return
+        reading = true
+        val likedName = context.getString(R.string.collection_liked_songs_title)
+        scope.launch {
+            val plan = runCatching { PlaylistMerge.likePlan(MyspotiRuntime.api, sourceUri) }.getOrNull()
+            reading = false
+            onDismiss()
+            when {
+                plan == null -> say(context.getString(R.string.playlist_change_refused))
+                plan.all.isEmpty() -> say(context.getString(R.string.add_collection_nothing))
+                plan.fresh.isEmpty() -> say(context.getString(R.string.duplicate_text_all, likedName))
+                else -> SpotifySync.likeUris(plan.fresh) { ok ->
+                    say(if (ok) context.getString(R.string.add_collection_done, plan.fresh.size, likedName) else context.getString(R.string.playlist_change_refused))
+                }
+            }
+        }
+    }
+
     fun pick(target: EditablePlaylist) {
         if (reading) return
         reading = true
@@ -102,12 +136,15 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             val list = playlists
+            // Liked Songs first, as in the song's "Saved in" sheet (asked for: a whole playlist liked at once).
+            val likedName = stringResource(R.string.collection_liked_songs_title)
+            if (!reading && matchesFind(query, likedName)) LikedPickRow(likedName) { pickLiked() }
             when {
                 list == null || reading -> Text(
                     stringResource(if (reading) R.string.add_collection_reading else R.string.loading_playlists),
                     color = AppMuted, fontSize = 14.sp, modifier = Modifier.padding(20.dp, 12.dp),
                 )
-                shown.isEmpty() -> Text(
+                shown.isEmpty() && !matchesFind(query, likedName) -> Text(
                     stringResource(if (list.isEmpty()) R.string.add_to_playlist_empty else R.string.add_to_playlist_no_match, query.trim()),
                     color = AppMuted, fontSize = 14.sp, modifier = Modifier.padding(20.dp, 12.dp),
                 )
@@ -148,6 +185,7 @@ fun AddCollectionToPlaylistSheet(sourceUri: String, title: String, onDismiss: ()
 fun AlbumOptionsSheet(albumUri: String, name: String, known: com.music.spotui.data.entity.ContextPageModel? = null, onDismiss: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     if (adding) { AddCollectionToPlaylistSheet(albumUri, name, onDismiss); return }
+    val linkContext = LocalContext.current
     com.music.spotui.ui.components.LookSheet(onDismissRequest = onDismiss, containerColor = tone(0xFF282828)) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
             Text(name, color = AppText, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -159,6 +197,29 @@ fun AlbumOptionsSheet(albumUri: String, name: String, known: com.music.spotui.da
             if (albumUri.startsWith("spotify:album:")) OptionRow(Icons.Outlined.QrCode2, stringResource(R.string.context_menu_share)) {
                 SpotifyCode.show(ShareTarget(albumUri, name, known?.ownerName.orEmpty(), known?.coverUri.orEmpty())); onDismiss()
             }
+            if (albumUri.startsWith("spotify:album:")) OptionRow(Icons.Outlined.ContentCopy, stringResource(R.string.copy_link)) {
+                SpotifyCode.copyLink(linkContext, albumUri); onDismiss()
+            }
         }
+    }
+}
+
+/** Liked Songs as a row of the pickers: its heart on Spotify's gradient. */
+@Composable
+internal fun LikedPickRow(name: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4A39EA), Color(0xFF868AE1)))),
+        ) {
+            Icon(Icons.Default.Favorite, contentDescription = null, tint = AppText, modifier = Modifier.size(20.dp))
+        }
+        Text(name, color = AppText, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 14.dp))
+        Icon(Icons.Default.Add, contentDescription = null, tint = AppMuted, modifier = Modifier.size(22.dp))
     }
 }

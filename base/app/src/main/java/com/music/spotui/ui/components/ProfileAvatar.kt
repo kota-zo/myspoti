@@ -19,7 +19,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 
@@ -38,7 +37,6 @@ private val AVATAR_COLORS = listOf(
 fun ProfileAvatar(url: String?, name: String?, size: Dp, modifier: Modifier = Modifier) {
     if (!url.isNullOrBlank()) {
         GlideImage(
-            transition = CrossFade,
             model = url, contentDescription = null, contentScale = ContentScale.Crop,
             modifier = modifier.size(size).clip(CircleShape),
         )

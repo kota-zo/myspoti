@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">بولوں کا ترجمہ کرنا بند کریں۔</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ہمم۔ ہمیں اس کے بول نہیں معلوم۔</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">یہ بول ابھی وقت کے لحاظ سے مطابقت پذیر نہیں ہیں۔</string>
-    <string name="av_switch_to_video" formatted="false">ویڈیو پر سوئچ کریں</string>
-    <string name="av_switch_to_audio" formatted="false">آڈیو پر سوئچ کریں</string>
-    <string name="av_content_desc" formatted="false">آڈیو اور ویڈیو کے درمیان ٹوگل کریں</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ہوم</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">تلاش کریں</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">آپ کی لائبریری</string>

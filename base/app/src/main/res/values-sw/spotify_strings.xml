@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Acha kutafsiri mistari ya nyimbo</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Lo! Hatufahamu mistari ya wimbo huu.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Mistari hii ya nyimbo bado haijasawazishwa na nyimbo.</string>
-    <string name="av_switch_to_video" formatted="false">Badili utazame video</string>
-    <string name="av_switch_to_audio" formatted="false">Badili usikilize sauti</string>
-    <string name="av_content_desc" formatted="false">Badilisha kati ya sauti na video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Mwanzo</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Tafuta</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Maktaba Yako</string>

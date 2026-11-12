@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Şarkı sözlerini çevirmeyi durdur</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Maalesef bu şarkının sözlerini bilmiyoruz.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Bu şarkının sözleri henüz şarkıyla eş zamanlı değil.</string>
-    <string name="av_switch_to_video" formatted="false">Videoya geç</string>
-    <string name="av_switch_to_audio" formatted="false">Sese geç</string>
-    <string name="av_content_desc" formatted="false">Ses ile video arasında geçiş yapar</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Ana sayfa</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Ara</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Kitaplığın</string>

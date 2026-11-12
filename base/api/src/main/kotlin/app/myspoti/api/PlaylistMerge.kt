@@ -53,6 +53,19 @@ object PlaylistMerge {
         else readAll { api.playlists.tracks(source, it, 100) }
     )
 
+    /**
+     * What liking every song of [source] would do: [MergePlan.fresh] holds the ones not liked yet
+     * ([liked] answers, in order, whether each is), each song once.
+     */
+    suspend fun likePlan(source: List<Uri>, liked: suspend (List<Uri>) -> List<Boolean>): MergePlan {
+        val incoming = source.distinct()
+        val flags = liked(incoming)
+        return MergePlan(incoming, incoming.filterIndexed { i, _ -> flags.getOrNull(i) != true })
+    }
+
+    /** [likePlan] for an album or playlist, read from [api]. */
+    suspend fun likePlan(api: MyspotiApi, source: Uri): MergePlan = likePlan(sourceTracks(api, source)) { api.library.contains(it) }
+
     /** What adding [source] to [target] would do. */
     suspend fun plan(api: MyspotiApi, target: Uri, source: Uri): MergePlan =
         plan(readAll { api.playlists.tracks(target, it, 100) }, sourceTracks(api, source))

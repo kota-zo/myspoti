@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.cappedPageWidth
 import com.music.spotui.ui.components.secondaryClick
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppAccent
@@ -70,7 +71,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
@@ -87,6 +87,8 @@ import com.music.spotui.ui.navigation.showRoute
 import com.music.spotui.ui.theme.AppBackground
 import com.music.spotui.ui.theme.AppPalette
 import com.music.spotui.ui.viewmodel.SearchViewModel
+import com.music.spotui.data.preferences.toRecentItem
+import com.music.spotui.data.preferences.toSong
 
 
 @Composable
@@ -185,6 +187,9 @@ fun SumUpSearchScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = com.music.spotui.ui.components.bottomBarsSpace()),
         modifier = Modifier
             .fillMaxSize()
+            // The field and the results capped at a readable width, centred, on wide windows
+            // (they ran 1800 dp long); the browse grid spreads over that width.
+            .cappedPageWidth()
             .background(Color(AppBackground.toArgb()))
             .statusBarsPadding()
 
@@ -236,29 +241,11 @@ fun SumUpSearchScreen(
                 }
                 items(recents.size) { i ->
                     val item = recents[i]
-                    RecentItemRow(
+                    val row: @Composable () -> Unit = { RecentItemRow(
                         item = item,
                         onClick = {
                             when (item.type) {
-                                "song" -> {
-                                    val songUrl = item.songUrl.ifBlank {
-                                        SongPlayer.buildSpotifyPlayQuery(item.spotifyTrackId, item.name, item.singer)
-                                    }.let { savedUrl ->
-                                        if (
-                                            item.spotifyTrackId.isNotBlank() &&
-                                            !savedUrl.startsWith("spotify:track:")
-                                        ) {
-                                            SongPlayer.buildSpotifyPlayQuery(item.spotifyTrackId, item.name, item.singer)
-                                        } else {
-                                            savedUrl
-                                        }
-                                    }
-                                    val song = SongsModel(
-                                        item.songId, item.name, item.songAlbum, item.singer,
-                                        item.image, songUrl, item.spotifyTrackId,
-                                        explicit = item.explicit,
-                                        durationMs = item.durationMs,
-                                    )
+                                "song" -> item.toSong()?.let { song ->
                                     searchViewModel.startRadioFromSong(song)
                                     SongPlayer.playSong(song.url, context, songs = listOf(song), alone = true)
                                     searchViewModel.updateSongState(
@@ -274,7 +261,10 @@ fun SumUpSearchScreen(
                             com.music.spotui.data.preferences.removeRecentItem(context, item)
                             recents = com.music.spotui.data.preferences.getRecentItems(context).filter { com.music.spotui.data.api.Features.PODCASTS || it.type != "show" }
                         },
-                    )
+                    ) }
+                    // A recent song slides into the queue like a result does.
+                    val song = item.toSong()
+                    if (song != null) com.music.spotui.ui.components.SwipeToQueue(song, content = row) else row()
                 }
             } else {
                 // ── Spotify-style "Browse all" category grid ──
@@ -489,21 +479,6 @@ private fun mixSearchResults(results: SearchResults): List<SearchRow> {
     return out
 }
 
-/** Maps a tapped search-result song to a persisted recent item. */
-private fun SongsModel.toRecentItem() = com.music.spotui.data.preferences.RecentItem(
-    type = "song",
-    key = spotifyTrackId.ifBlank { url },
-    name = title,
-    singer = singer,
-    image = coverUri,
-    songId = id,
-    songAlbum = album,
-    songUrl = url,
-    spotifyTrackId = spotifyTrackId,
-    explicit = explicit,
-    durationMs = durationMs,
-)
-
 /** A recent item row (song/artist/album/show the user opened), with remove (x). */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -520,7 +495,6 @@ fun RecentItemRow(
             .padding(16.dp, 8.dp),
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(if (item.type == "artist") 100.dp else 6.dp)),
@@ -606,7 +580,6 @@ fun SearchSongRow(
             modifier = Modifier.weight(1f).padding(end = 8.dp),
         ) {
             GlideImage(
-                transition = CrossFade,
                 modifier = Modifier
                     .padding(0.dp, 0.dp, 10.dp, 0.dp)
                     .size(48.dp)
@@ -655,7 +628,6 @@ fun SearchShowRow(show: com.music.spotui.data.entity.PodcastModel, onClick: () -
             ,
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .padding(0.dp, 0.dp, 10.dp, 0.dp)
                 .size(48.dp)
@@ -687,7 +659,6 @@ fun SearchArtistRow(artist: com.music.spotui.data.entity.ArtistsModel, onClick: 
             ,
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .padding(0.dp, 0.dp, 10.dp, 0.dp)
                 .size(48.dp)
@@ -716,7 +687,6 @@ fun SearchAlbumRow(album: com.music.spotui.data.entity.AlbumsModel, onClick: () 
             ,
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .padding(0.dp, 0.dp, 10.dp, 0.dp)
                 .size(48.dp)
@@ -742,7 +712,6 @@ fun SearchPlaylistRow(playlist: com.music.spotui.data.entity.LibraryEntry, onCli
         modifier = Modifier.pressable(0.96f) { onClick() }.fillMaxWidth().padding(16.dp, 8.dp),
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier.padding(0.dp, 0.dp, 10.dp, 0.dp).size(48.dp).clip(RoundedCornerShape(6.dp)),
             model = playlist.coverUri,
             contentScale = ContentScale.Crop,
@@ -785,8 +754,11 @@ fun BrowseAllSection(onCategoryClick: (genre: String, title: String) -> Unit) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp),
         )
-        // Large windows: more tiles per row (two on phones).
-        val cols = com.music.spotui.ui.components.windowSize().columns(2, 220.dp)
+        // Wide windows: more tiles per row (two on phones), counted in the list's own width
+        // (capped on wide windows), not the window's.
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val cols = com.music.spotui.ui.components.WindowSize.columnsIn(maxWidth, 2, 220.dp)
+        Column(Modifier.fillMaxWidth()) {
         tiles.chunked(cols).forEach { rowItems ->
             Row(
                 modifier = Modifier
@@ -800,6 +772,8 @@ fun BrowseAllSection(onCategoryClick: (genre: String, title: String) -> Unit) {
                 // Keep the tiles' width on a last row that is not full.
                 repeat(cols - rowItems.size) { Spacer(Modifier.weight(1f)) }
             }
+        }
+        }
         }
     }
 }
@@ -825,7 +799,6 @@ private fun BrowseCategoryTile(
     ) {
         if (cover.isNotBlank()) {
             GlideImage(
-                transition = CrossFade,
                 model = cover,
                 contentScale = ContentScale.Crop,
                 contentDescription = null,
@@ -917,12 +890,16 @@ fun SearchStickyBar(
                 singleLine = true,
                 onValueChange = onTextChange,
                 placeholder = {
+                    // At the field's start, after the magnifier, where the typed text goes, and on
+                    // one line: a hint longer than the field is cut short, never wrapped onto two
+                    // lines centred in the bar.
                     Text(
-                        textAlign = TextAlign.Center,
+                        textAlign = TextAlign.Start,
                         color = AppMuted,
                         fontWeight = FontWeight.Bold,
-                        text = stringResource(R.string.search_header_field_hint)
-
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        text = stringResource(R.string.search_header_field_hint),
                     )
                 },
                 trailingIcon = if (text.isEmpty()) null else {
@@ -960,7 +937,6 @@ private fun SearchProfileRow(name: String, image: String?, onClick: () -> Unit) 
         modifier = Modifier.fillMaxWidth().pressable(0.98f, onClick = onClick).padding(16.dp, 8.dp),
     ) {
         com.bumptech.glide.integration.compose.GlideImage(
-            transition = CrossFade,
             model = image, contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             failure = com.bumptech.glide.integration.compose.placeholder(R.drawable.placeholder),
             modifier = Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape),

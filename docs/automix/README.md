@@ -18,8 +18,7 @@ song, with strict checks, so most pairs fell back to a plain fade.
 Two Media3 facts shaped the new design (read in Media3 1.8.0, the version the app uses):
 - A speed change through the sink's Sonic drains the processors and starts a new Sonic: the
   join is a hard switch, and the new speed is heard only after the AudioTrack buffer
-  (250–750 ms). BitChord turned its live phase correction off for the same reason
-  ("cracked on some phones"). With `setEnableAudioTrackPlaybackParams(true)` the speed is the
+  (250–750 ms). With `setEnableAudioTrackPlaybackParams(true)` the speed is the
   AudioTrack's own: applied at once, without a drain.
 - An AudioProcessor sees no timestamps and acts a whole buffer before the sound is heard; a
   player's volume (`AudioTrack.setVolume`) and an audio effect on its session act on what is heard now.
@@ -168,5 +167,4 @@ plans, the deck's distance to its place once a second, the mix's largest gap).
 
 Methods only, no code copied: Mixxx (intro/outro model, sync), Zehren, Alunno and Bientinesi,
 "Automatic detection of cue points for DJ mixing" (2020), Foscarin et al., "Beat This!" (2024),
-Ellis, "Beat tracking by dynamic programming" (2007), Krumhansl and Kessler key profiles, BitChord's
-two-player automix (GPL-3.0; its design only), kckDeepak/AI-DJ-Mixing-System (MIT; its rules).
+Ellis, "Beat tracking by dynamic programming" (2007), Krumhansl and Kessler key profiles, kckDeepak/AI-DJ-Mixing-System (MIT; its rules).

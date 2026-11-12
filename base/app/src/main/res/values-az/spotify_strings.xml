@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Mahnı sözlərinin tərcüməsini dayandır</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Bu mahnının sözlərini bilmirik.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Bu sözlər hələ vaxtla sinxronlaşdırılmayıb.</string>
-    <string name="av_switch_to_video" formatted="false">Videoya keçin</string>
-    <string name="av_switch_to_audio" formatted="false">Audioya keçin</string>
-    <string name="av_content_desc" formatted="false">Audio və video arasında keçid edin</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Əsas səhifə</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Axtarış</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Kitabxanan</string>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">আরও %dটি স্টেশন মিলেছে, কিন্তু এটি এনক্রিপ্ট না করা (http) বা HLS স্ট্রিমে চলে, যা অ্যাপটি এখনও চালাতে পারে না।</item>
+        <item quantity="other">আরও %dটি স্টেশন মিলেছে, কিন্তু সেগুলি এনক্রিপ্ট না করা (http) বা HLS স্ট্রিমে চলে, যা অ্যাপটি এখনও চালাতে পারে না।</item>
+    </plurals>
+</resources>

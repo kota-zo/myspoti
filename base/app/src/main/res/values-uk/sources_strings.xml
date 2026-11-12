@@ -4,8 +4,9 @@
     <string name="sources_download_title">Джерела завантаження</string>
     <string name="sources_audio_footer">Опитуються згори донизу для кожної пісні: перше, яке її має, відтворює її. Стрілками змінюйте порядок.</string>
     <string name="sources_download_footer">Опитуються згори донизу: перше джерело, що має пісню, надає файл. Стрілками змінюйте порядок.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Відтворюється, коли жодне джерело вище не має пісні</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Відтворюється, коли жодне джерело вище не має пісні</string>
+    <string name="sources_account_player">Плеєр вашого акаунта</string>
     <string name="sources_ready">Готово</string>
     <string name="sources_details_show">Показати деталі</string>
     <string name="sources_details_hide">Сховати деталі</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Останнє: %1$s, %2$s</string>
     <string name="sources_open">Відкрити розширення</string>
     <string name="sources_order_hint">Джерела опитуються в порядку, заданому в Налаштуваннях (Відтворення, Завантаження).</string>
-    <string name="sources_below_spotify">Не запитується: Spotify вище</string>
+    <string name="sources_below_account">Не запитується: Spotify вище</string>
 </resources>

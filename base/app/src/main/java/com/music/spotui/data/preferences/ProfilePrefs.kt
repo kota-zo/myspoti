@@ -16,8 +16,6 @@ object ProfilePrefs {
         if (runtime.isStarted) runtime.host.accounts.list.value.active else null
     }.getOrNull() ?: app.myspoti.host.android.AccountList.DEFAULT_PROFILE
 
-    val isDefault: Boolean get() = profile() == app.myspoti.host.android.AccountList.DEFAULT_PROFILE
-
     /** [base] as the active account stores it. */
     fun key(base: String): String = profile().let { if (it == app.myspoti.host.android.AccountList.DEFAULT_PROFILE) base else "$base@$it" }
 

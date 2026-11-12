@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Searches, albums and artists come from these services, asked from top to bottom. The same song found twice shows once. A service turned off is never asked.</string>
+    <string name="metadata_spotify_detail">Your account, while you\'re signed in</string>
+    <string name="metadata_signed_out">Not asked: no account signed in</string>
+    <string name="metadata_asked">Asked</string>
+    <string name="metadata_off">Off: never asked</string>
+    <string name="metadata_reset">Back to the default order</string>
+    <string name="metadata_not_on_spotify">Not found on Spotify: this song can\'t play yet</string>
+    <string name="metadata_spotify_no_answer">Spotify didn\'t answer: tap the song again</string>
+    <string name="metadata_switch">Ask %1$s</string>
+</resources>

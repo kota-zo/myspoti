@@ -55,7 +55,6 @@ import app.myspoti.api.best
 import app.myspoti.api.whatsNewSections
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.ui.components.wideClickable
@@ -345,7 +344,6 @@ private fun WhatsNewRow(item: WhatsNewItem, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
     ) {
         GlideImage(
-            transition = CrossFade,
             model = item.coverUrl.orEmpty(),
             contentDescription = null,
             contentScale = ContentScale.Crop,

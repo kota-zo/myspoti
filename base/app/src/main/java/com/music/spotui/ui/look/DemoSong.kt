@@ -25,9 +25,6 @@ object DemoSong {
     /** The cover's two loud colours and the night behind them, as the Immersive backdrop. */
     val mesh = MeshPalette(listOf(Color(0xFFFF3D7F), Color(0xFF7B2FF7), Color(0xFFFF9A3C), Color(0xFF241A8C)))
 
-    /** What the Classic player takes from the cover: its dark vibrant colour. */
-    val dominant = Color(0xFF8E1B5A)
-
     /** The Classic lyrics page: the cover's colour, dark unsung words, white sung ones. */
     val lyricsBackground = Color(0xFFC2386F)
     val lyricsText = Color(0xFF3D0B24)

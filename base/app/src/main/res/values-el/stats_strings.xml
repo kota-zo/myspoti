@@ -8,7 +8,7 @@
     <string name="stats_artists_ranked">%1$d καλλιτέχνες στο ιστορικό ακρόασής σας</string>
     <string name="stats_empty">Το Spotify δεν έχει ακόμη κορυφαίους καλλιτέχνες ή κομμάτια για αυτό το διάστημα. Συνεχίστε να ακούτε και ελέγξτε ξανά αργότερα.</string>
     <string name="stats_failed">Το Spotify δεν έστειλε τα στατιστικά σας.</string>
-    <string name="stats_spotify_note">Κατάταξη από το Spotify βάσει όσων αναπαρήγαγε αυτός ο λογαριασμός, σε κάθε συσκευή. Το Spotify δεν μοιράζεται αναπαραγωγές ή λεπτά ακρόασης: τα λεπτά στο «Σε αυτό το τηλέφωνο» είναι η δική μέτρηση του Myspoti.</string>
+    <string name="stats_spotify_note">Κατάταξη από το Spotify βάσει όσων αναπαρήγαγε αυτός ο λογαριασμός, σε κάθε συσκευή. Το Spotify δεν μοιράζεται αναπαραγωγές ή λεπτά ακρόασης: τα λεπτά στο «Σε αυτό το τηλέφωνο» είναι η δική μέτρηση του Orpheon.</string>
     <string name="stats_weekly_minutes">Λεπτά ανά εβδομάδα</string>
     <string name="stats_this_week">Αυτή την εβδομάδα: %1$d λεπτά</string>
     <string name="stats_listening_stats">Στατιστικά ακρόασης</string>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">%d lagi stesen sepadan, tetapi menstrim tanpa penyulitan (http) atau dalam HLS, yang belum boleh dimainkan oleh apl.</item>
+    </plurals>
+</resources>

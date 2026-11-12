@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Метадані</string>
+    <string name="metadata_footer">Пошук, альбоми й виконавці надходять із цих сервісів, які опитуються згори донизу. Та сама пісня, знайдена двічі, показується один раз. Вимкнений сервіс ніколи не опитується.</string>
+    <string name="metadata_spotify_detail">Ваш обліковий запис, поки ви в ньому</string>
+    <string name="metadata_signed_out">Не опитується: немає облікового запису, у який виконано вхід</string>
+    <string name="metadata_asked">Опитується</string>
+    <string name="metadata_off">Вимкнено: ніколи не опитується</string>
+    <string name="metadata_reset">Повернути типовий порядок</string>
+    <string name="metadata_not_on_spotify">Не знайдено в Spotify: цю пісню поки не можна відтворити</string>
+    <string name="metadata_switch">Опитувати %1$s</string>
+</resources>

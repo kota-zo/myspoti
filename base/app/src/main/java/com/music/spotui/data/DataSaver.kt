@@ -40,7 +40,7 @@ object DataSaver {
         if (active) throw Blocked()
     }
 
-    /** For OkHttp clients (and Ktor's OkHttp engine). */
+    /** For OkHttp clients. */
     val interceptor = okhttp3.Interceptor { chain -> check(); chain.proceed(chain.request()) }
 
     /** Shuts the hidden Spotify player down when the saver starts applying, rebuilds it when it stops. */

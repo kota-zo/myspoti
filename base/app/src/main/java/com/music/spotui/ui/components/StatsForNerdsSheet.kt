@@ -28,7 +28,7 @@ import com.music.spotui.cast.CastPlayback
 import com.music.spotui.data.offline.OfflineStore
 import com.music.spotui.data.preferences.CrossfadePref
 import com.music.spotui.data.preferences.StreamingQuality
-import com.music.spotui.di.ConnectMirror
+import com.music.spotui.di.AccountSync
 import com.music.spotui.di.LocalPlayer
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.extensions.ExtensionAudio
@@ -212,7 +212,7 @@ internal object NerdStats {
         val extension = Extensions.mirrorBy.value
         rows += c.getString(R.string.nerd_mirror) to when {
             extension != null -> c.getString(R.string.nerd_mirror_extension, extension)
-            ConnectMirror.running -> c.getString(R.string.nerd_mirror_on)
+            AccountSync.listen.running -> c.getString(R.string.nerd_mirror_on)
             else -> c.getString(R.string.nerd_mirror_off)
         }
         // The level the page is given (the lowest one while it only mirrors), and what it says it plays aloud.

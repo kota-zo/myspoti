@@ -1,11 +1,16 @@
 package com.music.spotui.connect
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Bundle
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,21 +28,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
 import com.music.spotui.ui.theme.AppMuted
@@ -45,13 +52,14 @@ import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.tone
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Spotify's consent page for its desktop client ([CodeExchange.authorizeUrl]), the last way to a
- * Sonos code: shown full screen over the device picker (both looks share it), in a web view of the
- * default profile, so accounts.spotify.com sees the session the Web Player signed in and the user
- * only allows. Nothing in the page is touched or read but its address: when it goes to the desktop
+ * Sonos code: shown full screen over the device picker (both looks share it), in an activity of its
+ * own ([DesktopConsentActivity]), in a web view of the active account's profile, so
+ * accounts.spotify.com sees the session the Web Player signed in and the user only allows. Nothing in the page is touched or read but its address: when it goes to the desktop
  * redirect, it closes on that address. Closed, refused, a page that cannot load, or the picker gone:
  * no code.
  */
@@ -89,7 +97,12 @@ object DesktopConsent {
     }
 }
 
-/** In the device picker: the consent page while one is asked. */
+/**
+ * In the device picker: opens [DesktopConsentActivity] when a page is asked. Not a dialog window:
+ * on an Android 10 phone the page showed only a strip of 160 px, the rest left blank (a Compose
+ * dialog sizes its window itself and pads it for a keyboard that older Androids report wrongly);
+ * an activity's window is sized and resized for the keyboard by Android.
+ */
 @Composable
 fun DesktopConsentHost() {
     DisposableEffect(Unit) {
@@ -97,12 +110,39 @@ fun DesktopConsentHost() {
         onDispose { DesktopConsent.hosted(false) }
     }
     val o by DesktopConsent.open.collectAsState()
-    val current = o ?: return
-    key(current) {
-        Dialog(
-            onDismissRequest = { DesktopConsent.finish(current, null) },
-            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-        ) { ConsentPage(current) }
+    val context = LocalContext.current
+    LaunchedEffect(o) {
+        if (o == null) return@LaunchedEffect
+        val intent = Intent(context, DesktopConsentActivity::class.java)
+        if (context !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+}
+
+/** The page asked by [DesktopConsent.ask]; it closes once that page is answered or dropped. */
+class DesktopConsentActivity : ComponentActivity() {
+    private var asked: DesktopConsent.Open? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Nothing asked (gone already, or the app restarted under it): nothing to show.
+        val o = DesktopConsent.open.value ?: run { finish(); return }
+        asked = o
+        setContent { ConsentPage(o) }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = DesktopConsent.finish(o, null)
+        })
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.CREATED) {
+                DesktopConsent.open.collect { if (it !== o) finish() }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        // Left by the task switcher or the system, not turned: the page is refused.
+        if (isFinishing) asked?.let { if (DesktopConsent.open.value === it) DesktopConsent.finish(it, null) }
+        super.onDestroy()
     }
 }
 
@@ -133,8 +173,10 @@ private fun ConsentPage(o: DesktopConsent.Open) {
 
 @SuppressLint("SetJavaScriptEnabled")
 private fun consentView(ctx: android.content.Context, o: DesktopConsent.Open, onHost: (String) -> Unit): WebView {
-    // The default profile, on purpose: its cookies are the Web Player's, so the account is signed in already.
+    // The active account's profile, before anything else: its cookies are the Web Player's, so the
+    // account is signed in already (the default profile is another account's once there are several).
     val view = WebView(ctx)
+    MyspotiRuntime.host.useProfile(view)
     view.settings.apply {
         javaScriptEnabled = true
         domStorageEnabled = true

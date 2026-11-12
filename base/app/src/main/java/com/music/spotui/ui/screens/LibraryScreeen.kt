@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import com.music.spotui.ui.components.cappedPageWidth
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
@@ -84,7 +85,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.api.Api
 import com.music.spotui.data.api.LibraryEdits
@@ -148,6 +148,9 @@ fun LibraryScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // The rows (and their header with them) capped at a readable width, centred, on wide
+            // windows; the grid uses the whole width.
+            .then(if (gridView) Modifier else Modifier.cappedPageWidth())
             .background(Color(AppBackground.toArgb()))
             .statusBarsPadding()
     ) {
@@ -303,7 +306,7 @@ fun LibraryScreen(navController: NavController) {
                 val radioOn = com.music.spotui.radio.RadioFeaturePref.on
                 val radioName = stringResource(R.string.live_radio_title)
                 val rootPinned = ((entries as? Response.Success)?.data ?: emptyList())
-                    .indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + 2 + (if (hasDownloads) 1 else 0) + (if (radioOn) 1 else 0)
+                    .indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + (if (com.music.spotui.data.preferences.LocalFilesPref.shown) 2 else 1) + (if (hasDownloads) 1 else 0) + (if (radioOn) 1 else 0)
                 val allEntries = ((entries as? Response.Success)?.data ?: emptyList()).map {
                     if (it.spotifyId == Api.HomeCache.LIKED_SONGS_ID) it.copy(name = likedName, subtitle = "") else it
                 }.let { list ->
@@ -329,7 +332,7 @@ fun LibraryScreen(navController: NavController) {
                             subtitle = localSubtitle, coverUri = "", isPlaylist = true,
                         )
                     }
-                    list.take(at) + local + (if (radioOn) listOf(radio) else emptyList()) +
+                    list.take(at) + (if (com.music.spotui.data.preferences.LocalFilesPref.shown) listOf(local) else emptyList()) + (if (radioOn) listOf(radio) else emptyList()) +
                         (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
                 }.let { list ->
                     LibraryOrder.version
@@ -413,7 +416,6 @@ private fun LibraryChipRow(chosen: com.music.spotui.data.local.LibraryChip, onTa
 @Composable
 private fun AccountAvatar(url: String, size: androidx.compose.ui.unit.Dp) {
     GlideImage(
-        transition = CrossFade,
         modifier = Modifier.size(size).clip(CircleShape),
         model = url,
         contentScale = ContentScale.Crop,
@@ -523,12 +525,16 @@ fun SumUpLibraryScreen(
         contentPadding = PaddingValues(top = 10.dp, bottom = com.music.spotui.ui.components.bottomBarsSpace()),
         modifier = Modifier
             .fillMaxSize()
+            // Rows capped at a readable width, centred, on wide windows (they ran 1800 dp long);
+            // the grid layout keeps the whole width.
+            .cappedPageWidth()
             .background(com.music.spotui.ui.theme.AppBackground)
     ) {
         itemsIndexed(rows, key = { _, e -> LibraryOrder.key(e) }) { index, entry ->
             val key = LibraryOrder.key(entry)
             val dragged = dragKey == key
             val movable = reorderLevel != null && index >= pinned
+            val hasMenu = entry.uri.isNotBlank() && !LibraryEdits.isPending(entry.spotifyId)
             Row(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically,
@@ -560,7 +566,9 @@ fun SumUpLibraryScreen(
                         ) } finally { if (dragKey == key) finish() }
                     })
                     .fillMaxWidth()
-                    .padding(20.dp, 6.dp)
+                    // The ⋮'s 48 dp touch square reaches 6 dp further than its old 36 dp circle:
+                    // the end padding gives them back, the glyph stays 26 dp from the edge.
+                    .padding(start = 20.dp, end = if (hasMenu) 14.dp else 20.dp, top = 6.dp, bottom = 6.dp)
             ) {
                 LibraryEntryCover(entry, Modifier
                     .size(55.dp)
@@ -574,8 +582,8 @@ fun SumUpLibraryScreen(
                         Text(text = entry.subtitle, color = AppMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                if (entry.uri.isNotBlank() && !LibraryEdits.isPending(entry.spotifyId)) Icon(Icons.Default.MoreVert, stringResource(R.string.content_description_context_menu),
-                    tint = AppMuted, modifier = Modifier.size(36.dp).clip(CircleShape).clickable { itemMenu = entry }.padding(6.dp))
+                if (hasMenu) Icon(Icons.Default.MoreVert, stringResource(R.string.content_description_context_menu),
+                    tint = AppMuted, modifier = Modifier.size(com.music.spotui.ui.components.MinTouch).clip(CircleShape).clickable { itemMenu = entry }.padding(12.dp))
             }
         }
         // ── Artists the user follows on Spotify ──
@@ -598,7 +606,6 @@ fun SumUpLibraryScreen(
                         
                 ) {
                     GlideImage(
-                        transition = CrossFade,
                         modifier = Modifier
                             .size(55.dp)
                             .clip(CircleShape),
@@ -632,7 +639,7 @@ fun LibraryEntryCover(entry: LibraryEntry, modifier: Modifier) {
     }
     // Vector drawables are drawn directly (Glide left them blank).
     if (drawn != 0) androidx.compose.foundation.Image(painterResource(drawn), contentDescription = null, modifier = modifier)
-    else GlideImage(transition = CrossFade, model = entry.coverUri, contentScale = ContentScale.Crop, contentDescription = "", modifier = modifier)
+    else GlideImage(model = entry.coverUri, contentScale = ContentScale.Crop, contentDescription = "", modifier = modifier)
 }
 
 /** Library ids of the phone's own playlists (see LocalPlaylists). */
@@ -829,7 +836,6 @@ fun LibraryGridScreen(
                     modifier = Modifier.pressable(0.96f) { navController.navigate(artistRoute(artist.name, artist.id)) }
                 ) {
                     GlideImage(
-                        transition = CrossFade,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)

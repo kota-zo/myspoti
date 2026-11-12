@@ -26,13 +26,13 @@ class DeviceRegistrationTest {
     """.trimIndent()
 
     @Test fun `the device name becomes the phone's own`() {
-        val out = AdBlock.withDeviceName(registration, "Test Phone")
+        val out = DeviceRegistration.withDeviceName(registration, "Test Phone")
         assertTrue(""""name":"Test Phone"""" in out, out)
         assertFalse("Web Player (Chrome)" in out, out)
     }
 
     @Test fun `nothing else in the registration changes`() {
-        val out = AdBlock.withDeviceName(registration, "Test Phone")
+        val out = DeviceRegistration.withDeviceName(registration, "Test Phone")
         // The capability list is the Web Player's own, duplicate entry included: it is the shape
         // every other client has, and lying about it is what stood out.
         assertTrue("\"manifest_urls_audio_ad\",\"manifest_ids_video\"" in out, out)
@@ -45,28 +45,21 @@ class DeviceRegistrationTest {
     }
 
     @Test fun `a name with quotes is escaped, an empty one changes nothing`() {
-        val tricky = AdBlock.withDeviceName(registration, "The \"Test\" Phone")
+        val tricky = DeviceRegistration.withDeviceName(registration, "The \"Test\" Phone")
         val expected = "\"name\":\"The \\\"Test\\\" Phone\""
         assertTrue(expected in tricky, tricky)
-        assertEquals(registration, AdBlock.withDeviceName(registration, ""))
-        assertEquals(registration, AdBlock.withDeviceName(registration, "Web Player (Chrome)"))
+        assertEquals(registration, DeviceRegistration.withDeviceName(registration, ""))
+        assertEquals(registration, DeviceRegistration.withDeviceName(registration, "Web Player (Chrome)"))
     }
 
     @Test fun `other bodies stay as they are`() {
-        assertEquals("not json", AdBlock.withDeviceName("not json", "Test Phone"))
-        assertEquals("""{"seq_num":2}""", AdBlock.withDeviceName("""{"seq_num":2}""", "Test Phone"))
+        assertEquals("not json", DeviceRegistration.withDeviceName("not json", "Test Phone"))
+        assertEquals("""{"seq_num":2}""", DeviceRegistration.withDeviceName("""{"seq_num":2}""", "Test Phone"))
     }
 
     @Test fun `only the registration is rewritten`() {
-        assertTrue(AdBlock.isDeviceRegistration("POST", "https://gew4-spclient.spotify.com/track-playback/v1/devices"))
-        assertFalse(AdBlock.isDeviceRegistration("PUT", "https://gew4-spclient.spotify.com/track-playback/v1/devices/abc/state"))
-        assertFalse(AdBlock.isDeviceRegistration("POST", "https://gew4-spclient.spotify.com/track-playback/v1/devices/abc/state"))
-    }
-
-    @Test fun `the ad hosts are still refused`() {
-        assertTrue(AdBlock.isBlocked("https://adstudio-assets.scdn.co/audio/ad.mp3"))
-        assertTrue(AdBlock.isBlocked("https://pubads.g.doubleclick.net/gampad/ads"))
-        assertFalse(AdBlock.isBlocked("https://audio-fa.scdn.co/audio/abc"))
-        assertFalse(AdBlock.isBlocked("https://gew4-spclient.spotify.com/track-playback/v1/devices"))
+        assertTrue(DeviceRegistration.isDeviceRegistration("POST", "https://gew4-spclient.spotify.com/track-playback/v1/devices"))
+        assertFalse(DeviceRegistration.isDeviceRegistration("PUT", "https://gew4-spclient.spotify.com/track-playback/v1/devices/abc/state"))
+        assertFalse(DeviceRegistration.isDeviceRegistration("POST", "https://gew4-spclient.spotify.com/track-playback/v1/devices/abc/state"))
     }
 }

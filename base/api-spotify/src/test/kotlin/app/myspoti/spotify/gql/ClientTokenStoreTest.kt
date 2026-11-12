@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -49,9 +50,16 @@ class ClientTokenStoreTest {
     private fun launch(store: ClientTokenStore, scope: CoroutineScope, device: String = "dev1", clientId: String = "c1") =
         SpotifyHttp(http, Bridge(TokenHost(clientId), scope), deviceId = device, tokenStore = store)
 
+    /*
+     * It failed now and then: the page's answer to token.get was posted before the bridge's
+     * collector had subscribed (it was launched on another thread), so the answer was lost and the
+     * send waited out the call's 20 s timeout. The bridge now listens from its construction
+     * (BridgeMessagesTest); the whole test is bounded well below that timeout, so a lost answer
+     * fails here at once instead of hanging the run.
+     */
     @Test fun aTokenKeptOnDiskIsNotMintedAgain() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        try {
+        try { withTimeout(TEST_BOUND_MS) {
             val store = MemoryStore()
             launch(store, scope).send("GET", "https://api-partner.spotify.com/x")
             launch(store, scope).send("GET", "https://api-partner.spotify.com/x")
@@ -60,8 +68,16 @@ class ClientTokenStoreTest {
             // Another device id, or a token minted for another client id, is minted afresh.
             launch(store, scope, device = "dev2").send("GET", "https://api-partner.spotify.com/x")
             assertEquals(2, mints)
+            // The web token kept from the last launch is used until it ends; once it has, the page's
+            // new one (another client id) gets a client token of its own.
+            store.save("dev1-web", "")
             launch(store, scope, clientId = "c2").send("GET", "https://api-partner.spotify.com/x")
             assertEquals(3, mints)
-        } finally { scope.cancel() }
+        } } finally { scope.cancel() }
+    }
+
+    private companion object {
+        /** Each send answers in milliseconds here; a lost page answer would wait 20 s. */
+        const val TEST_BOUND_MS = 5_000L
     }
 }

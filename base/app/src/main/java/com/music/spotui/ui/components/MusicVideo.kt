@@ -104,7 +104,7 @@ fun VideoSwitchPill(on: Boolean, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         SwitchPill(on)
         // With the video on: the clip's own sound instead of the song's (the song still plays, unheard).
-        if (on) {
+        if (false) {
             val clip = MusicVideoController.clipSound.value
             val context = androidx.compose.ui.platform.LocalContext.current
             Spacer(Modifier.width(8.dp))

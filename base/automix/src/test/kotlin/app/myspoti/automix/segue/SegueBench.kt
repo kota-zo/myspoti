@@ -2,6 +2,7 @@
 package app.myspoti.automix.segue
 
 import app.myspoti.automix.BenchCache
+import app.myspoti.automix.DurationBounds
 import app.myspoti.automix.BeatTracker
 import app.myspoti.automix.Features
 import app.myspoti.automix.Render
@@ -28,24 +29,32 @@ object SegueBench {
     private const val RATE = Render.SR
 
     fun run(dir: File, args: List<String>) {
+        val known = setOf("fold", "limit", "only", "with", "min-seconds", "max-seconds")
+        require(args.filter { '=' in it }.all { it.substringBefore('=') in known }) { "Unknown bench option" }
         val fold = args.firstOrNull { it.startsWith("fold=") }?.removePrefix("fold=")
         val limit = args.firstOrNull { it.startsWith("limit=") }?.removePrefix("limit=")?.toInt()
         val rest = args.filter { !it.contains('=') && it != "sung" }
         sung = "sung" in args
+        bounds = durationBounds(args)
         tuning = args.firstOrNull { it.startsWith("with=") }?.removePrefix("with=")?.split(',')?.fold(SegueTuning()) { t, kv ->
             val (k, v) = kv.split(':'); SegueCorpus.withValue(t, k, v.toDouble())
         } ?: SegueTuning()
+        println("request\tmin_seconds=${bounds.minSeconds}\tmax_seconds=${bounds.maxSeconds}\tsung=$sung")
         when (rest.firstOrNull()) {
             "split" -> printSplit(dir)
             "tempos" -> tempos(dir, fold)
             "bars" -> bars(dir, fold)
             "voices" -> voices(dir, fold)
-            "tails" -> tails(dir, fold, limit ?: 12)
             "matrix" -> matrix(dir, fold, rest.contains("fresh"))
             "measure" -> measure(dir, fold, limit ?: 100, args.firstOrNull { it.startsWith("only=") }?.removePrefix("only="))
+            "audit-peaks" -> auditPeaks(dir, rest.drop(1).filter { it.contains(',') })
             "stability" -> stability(dir, fold, limit ?: 60)
+            "orpheon" -> OrpheonBench.run(dir, tuning)
+            "rawgrid" -> OrpheonBench.rawGrid(dir, File(rest.getOrNull(1) ?: error("rawgrid <dir> <out>")))
+            "songmaps" -> OrpheonBench.export(dir, File(rest.getOrNull(1) ?: error("songmaps <dir> <out>")))
             "render" -> render(dir, rest.drop(1).filter { it.contains(',') })
-            else -> println("segue <dir> split | matrix [fresh] | measure [limit=N] | stability [limit=N] | render a,b ... ; all take fold=")
+            "render-float" -> render(dir, rest.drop(1).filter { it.contains(',') }, rawFloat = true)
+            else -> println("segue <dir> split | matrix [fresh] | measure [limit=N] | audit-peaks a,b ... | stability [limit=N] | render[-float] a,b ... | orpheon (maps/, plans.jsonl) ; all take fold=")
         }
     }
 
@@ -86,45 +95,39 @@ object SegueBench {
 
     /** `with=field:value,field:value`: a what-if on the bench only; the plans' parameters stay in [SegueTuning]. */
     private var tuning = SegueTuning()
+    private var bounds = DurationBounds()
 
-    private fun request(a: TrackAnalysis, b: TrackAnalysis, t: SegueTuning = tuning) = SegueRequest(a, b, tuning = t)
+    internal fun durationBounds(args: List<String>): DurationBounds {
+        fun seconds(key: String): Double {
+            val matches = args.filter { it.startsWith("$key=") }
+            require(matches.size <= 1) { "Repeated $key" }
+            if (matches.isEmpty()) return 0.0
+            val number = matches.single().substringAfter('=').toDoubleOrNull()
+            require(number != null && number.isFinite() && number >= 0) { "$key must be finite and nonnegative; 0 means auto" }
+            return number
+        }
+        val minimum = seconds("min-seconds")
+        val maximum = seconds("max-seconds")
+        return DurationBounds(minimum, if (maximum == 0.0) Double.POSITIVE_INFINITY else maximum)
+    }
+
+    init {
+        // ORPHEON_TRACE=<file>: every locked place the Orpheon planner scored, with its costs.
+        System.getenv("ORPHEON_TRACE")?.let { path -> File(path).let { f -> f.writeText(""); OrpheonPolicy.trace = { line -> f.appendText(line + "\n") } } }
+    }
+
+    private fun request(a: TrackAnalysis, b: TrackAnalysis, t: SegueTuning = tuning) = SegueRequest(a, b, tuning = t, durationBounds = bounds,
+        genreA = genreOf(a), genreB = genreOf(b),
+        minBars = System.getenv("ORPHEON_MIN_BARS")?.toInt(), fadeSec = System.getenv("ORPHEON_FADE_SEC")?.toDouble())
+
+    /** Catalogue genres for the bench (`ORPHEON_GENRES=n03:hiphop,n70:pop`), as the app reads them from the artists. */
+    private val genres: Map<String, GenreFamily> by lazy {
+        System.getenv("ORPHEON_GENRES").orEmpty().split(',').filter { ':' in it }.associate { it.substringBefore(':') to GenreFamily.parse(it.substringAfter(':')) }
+    }
+    private var names = HashMap<TrackAnalysis, String>()
+    private fun genreOf(a: TrackAnalysis): GenreFamily? = names[a]?.let(genres::get)
 
     // ── Every pair: which level, why ──
-
-    /** For each shape that rings: how loud the outgoing song's tail is against the incoming one, and whether the mix clips. */
-    private fun tails(dir: File, fold: String?, limit: Int) {
-        val names = names(dir, fold)
-        val songs = analyses(dir, names)
-        val tmp = File(dir, ".segue-tmp").apply { mkdirs() }
-        val cache = HashMap<String, FloatArray>()
-        val shapes = setOf(SegueShape.ECHO_OUT, SegueShape.WASH_OUT, SegueShape.ECHO_TAIL, SegueShape.RISE_OUT)
-        val seen = HashMap<SegueShape, Int>()
-        println("pair\tshape\tseconds\ttail_db\tb_db\ttail_minus_b\tpeak\tclipped_ms")
-        for ((x, y) in pairs(names, null).shuffled(java.util.Random(7))) {
-            val d = SeguePolicy.decide(request(songs.getValue(x), songs.getValue(y)))
-            val shape = d.shape ?: continue
-            val p = d.plan ?: continue
-            if (shape !in shapes || seen.getOrDefault(shape, 0) >= limit) continue
-            seen.merge(shape, 1, Int::plus)
-            cache.clear()
-            val st = stems(dir, x, y, p, 2.0, 4.0, cache, tmp)
-            val end = st.preFrames + (p.span.lengthUs / 1e6 * RATE).toInt()
-            fun rms(v: FloatArray, from: Int, to: Int): Double {
-                var e = 0.0; var n = 0
-                for (i in 2 * from until min(2 * to, v.size)) { e += v[i] * v[i]; n++ }
-                return 10 * log10(max(1e-12, e / max(1, n)))
-            }
-            // From where the send is at its height, or the end of the window when there is none.
-            val height = p.lanes.firstOrNull { it.side == LaneSide.OUTGOING && (it.target == Target.SEND_ECHO || it.target == Target.SEND_ROOM) }?.knots?.maxByOrNull { it.valueMilli ?: 0 }?.t
-            val from = if (height == null) end else st.preFrames + (height.toDouble() / SegueFormat.T_MAX * p.span.lengthUs / 1e6 * RATE).toInt() + RATE / 3
-            val to = from + RATE
-            val ma = mix(st)
-            val peak = ma.maxOf { abs(it) }
-            val clipped = ma.count { abs(it) > 1f } / 2 * 1000 / RATE
-            println(String.format(L, "%s,%s\t%s\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%d", x, y, shape, p.span.lengthUs / 1e6, rms(st.a, from, to), rms(st.b, from, to), rms(st.a, from, to) - rms(st.b, from, to), peak, clipped))
-        }
-        tmp.deleteRecursively()
-    }
 
     /** Each song's bars and how likely a voice is on them. */
     private fun voices(dir: File, fold: String?) {
@@ -159,7 +162,7 @@ object SegueBench {
         println(String.format(L, "songs\t%d\twith phase on tail %d\ton head %d\treliable tail %d", names.size,
             songs.values.count { it.tailPhase != null }, songs.values.count { it.headPhase != null }, songs.values.count { it.tail?.let { g -> g.steadiness >= 0.6 && g.driftMs <= 30 } == true }))
         val levels = java.util.EnumMap<SegueLevel, Int>(SegueLevel::class.java)
-        val causes = HashMap<String, Int>(); val refused = HashMap<String, Int>()
+        val causes = HashMap<String, Int>()
         val ms = ArrayList<Double>(); var unstable = 0; var invalid = 0
         val lengths = ArrayList<Double>(); val cuts = ArrayList<Double>()
         println("pair\tlevel\tseconds\texit\tentry\trate\tscore\tms\tshape\twhy")
@@ -171,7 +174,6 @@ object SegueBench {
             levels[d.level] = (levels[d.level] ?: 0) + 1
             for (at in d.attempts) {
                 causes.merge("${at.level}:${at.cause}", 1, Int::plus)
-                if (at.cause == SegueCause.GUARDS) Regex("([A-Z_0-9]+)×").findAll(at.detail).forEach { refused.merge("${at.level.cls}:${it.groupValues[1]}", 1, Int::plus) }
             }
             if (SeguePolicy.decide(request(a, b)).fingerprint != d.fingerprint) unstable++
             d.plan?.let { p ->
@@ -187,14 +189,14 @@ object SegueBench {
         println("summary\tpairs=${ms.size}\t" + levels.entries.joinToString("\t") { "${it.key}=${it.value}" } + "\tnot_reproducible=$unstable\tinvalid=$invalid")
         println(String.format(L, "summary\tplan_median_ms=%.2f\tplan_p95_ms=%.2f\tmedian_seconds=%.1f\tmedian_cut_seconds=%.1f", at(ms, 0.5), at(ms, 0.95), at(lengths, 0.5), at(cuts, 0.5)))
         for ((k, v) in causes.toSortedMap()) println("cause\t$k\t$v")
-        for ((k, v) in refused.toSortedMap()) println("refused\t$k\t$v")
     }
 
     private fun at(x: List<Double>, q: Double) = if (x.isEmpty()) Double.NaN else x[((x.size - 1) * q).toInt()]
 
     // ── Rendering: both stems through the same sound as the phone ──
 
-    private class Stems(val a: FloatArray, val b: FloatArray, val dryA: FloatArray, val dryB: FloatArray, val preFrames: Int)
+    private class Stems(val a: FloatArray, val b: FloatArray, val dryA: FloatArray, val dryB: FloatArray, val preFrames: Int,
+                        val sourceB: FloatArray, val processedSourceB: FloatArray)
 
     private fun stems(dir: File, x: String, y: String, p: SeguePlan, pre: Double, post: Double, cache: MutableMap<String, FloatArray>, tmp: File): Stems {
         val length = p.span.lengthUs / 1e6
@@ -210,7 +212,7 @@ object SegueBench {
         val dryB = slice(pcmB, Math.floorDiv(startUs * RATE, 1_000_000L).toInt(), sourceFrames)
         val b = dryB.copyOf()
         SegueDeck(p, LaneSide.INCOMING, RATE, 2).process(b, sourceFrames, startUs)
-        return Stems(a, fit(stretch(b, rate, tmp), frames), dryA, fit(stretch(dryB, rate, tmp), frames), (pre * RATE).toInt())
+        return Stems(a, fit(stretch(b, rate, tmp), frames), dryA, fit(stretch(dryB, rate, tmp), frames), (pre * RATE).toInt(), dryB, b)
     }
 
     private fun slice(pcm: FloatArray, firstFrame: Int, frames: Int): FloatArray {
@@ -240,6 +242,39 @@ object SegueBench {
 
     private fun mix(s: Stems) = FloatArray(s.a.size) { s.a[it] + s.b[it] }
 
+    /** Attribute over-range decoded samples separately from overlap/EQ/stretch contributions. */
+    private fun auditPeaks(dir: File, asked: List<String>) {
+        val tmp = File(dir, ".segue-audit-tmp").apply { mkdirs() }
+        val cache = HashMap<String, FloatArray>()
+        println("pair\tregion\tstage\tpeak\tover_range_samples\tfirst_over_range_frame")
+        try {
+            for (pair in asked) {
+                val (x, y) = pair.split(',')
+                val p = SeguePolicy.decide(request(analysis(dir, x), analysis(dir, y))).plan ?: continue
+                val s = stems(dir, x, y, p, 4.0, 4.0, cache, tmp)
+                val sum = mix(s)
+                val rate = p.incoming.ratePpm.toDouble() / SegueFormat.RATE_NOMINAL
+                val end = s.preFrames + (p.span.lengthUs / 1e6 * RATE).toInt()
+                fun report(region: String, stage: String, pcm: FloatArray, from: Int, to: Int) {
+                    var peak = 0.0; var clipped = 0; var first = -1
+                    for (i in max(0, from) * 2 until min(pcm.size / 2, to) * 2) {
+                        val v = abs(pcm[i]).toDouble(); peak = max(peak, v); if (v > 1.0) { clipped++; if (first < 0) first = i / 2 }
+                    }
+                    println(String.format(L, "%s\t%s\t%s\t%.7f\t%d\t%d", pair, region, stage, peak, clipped, first))
+                }
+                for ((region, range) in listOf("pre" to (0 to s.preFrames), "overlap" to (s.preFrames to end), "post" to (end to s.a.size / 2))) {
+                    report(region, "dry_A", s.dryA, range.first, range.second)
+                    report(region, "A_processed", s.a, range.first, range.second)
+                    report(region, "dry_B_source", s.sourceB, (range.first * rate).toInt(), (range.second * rate).toInt())
+                    report(region, "B_processed_source", s.processedSourceB, (range.first * rate).toInt(), (range.second * rate).toInt())
+                    report(region, "dry_B_atempo", s.dryB, range.first, range.second)
+                    report(region, "B_processed_atempo", s.b, range.first, range.second)
+                    report(region, "sum", sum, range.first, range.second)
+                }
+            }
+        } finally { tmp.deleteRecursively() }
+    }
+
     private fun envelope(stereo: FloatArray, fromFrame: Int, toFrame: Int): FloatArray {
         val n = (toFrame - fromFrame) / 2
         val mid = FloatArray(n) { i -> val f = 2 * (fromFrame + 2 * i); (stereo[f] + stereo[f + 1] + stereo[f + 2] + stereo[f + 3]) / 4 }
@@ -255,7 +290,8 @@ object SegueBench {
         val tmp = File(dir, ".segue-tmp").apply { mkdirs() }
         val cache = object : LinkedHashMap<String, FloatArray>(16, .75f, true) { override fun removeEldestEntry(e: MutableMap.MutableEntry<String, FloatArray>?) = size > 16 }
         val results = ArrayList<Pair<SegueLevel, SegueMetrics.Result>>()
-        println("pair\tlevel\tseconds\tpeak\tclipped\tjump_db\tclick\tgap_ms\tresidual_ms\tmeasured_ms")
+        println("metrics\tlegacy_clipped=abs(Float32)>1_no_clamp\tcontext=outside_nominal_overlap\tstretch=desktop_atempo_not_Android")
+        println("pair\tlevel\tseconds\tpeak\tclipped\tjump_db\tclick\tgap_ms\tresidual_ms\tmeasured_ms\toverlap_peak\toverlap_over_range\tcontext_over_range")
         for ((x, y) in pairs(names, Int.MAX_VALUE).sortedBy { (a, b) -> SegueCodec.hex("$a|$b".toByteArray()) }) {
             if (results.size >= limit) break
             val d = SeguePolicy.decide(request(songs.getValue(x), songs.getValue(y)))
@@ -268,8 +304,8 @@ object SegueBench {
             val lag = if (locked) SegueMetrics.lagMs(envelope(s.dryA, s.preFrames, s.preFrames + win), envelope(s.dryB, s.preFrames, s.preFrames + win), Features.FPS) else null
             val r = SegueMetrics.of(mix(s), s.preFrames, win, RATE, p.pulse.residualUs?.let { it / 1000.0 }, lag)
             results += d.level to r
-            println(String.format(L, "%s,%s\t%s\t%.3f\t%.3f\t%d\t%.2f\t%.1f\t%.1f\t%s\t%s", x, y, d.level, win.toDouble() / RATE, r.peak, r.clipped, r.jumpDb, r.click, r.gapMs,
-                r.residualMs?.let { String.format(L, "%.1f", it) } ?: "-", r.measuredMs?.let { String.format(L, "%.1f", it) } ?: "-"))
+            println(String.format(L, "%s,%s\t%s\t%.3f\t%.3f\t%d\t%.2f\t%.1f\t%.1f\t%s\t%s\t%.7f\t%d\t%d", x, y, d.level, win.toDouble() / RATE, r.peak, r.clipped, r.jumpDb, r.click, r.gapMs,
+                r.residualMs?.let { String.format(L, "%.1f", it) } ?: "-", r.measuredMs?.let { String.format(L, "%.1f", it) } ?: "-", r.overlapPeak, r.overlapClipped, r.contextClipped))
         }
         tmp.deleteRecursively()
         fun line(label: String, rs: List<SegueMetrics.Result>) {
@@ -277,22 +313,32 @@ object SegueBench {
             fun q(f: (SegueMetrics.Result) -> Double?, v: Double) = at(rs.mapNotNull(f).sorted(), v)
             println(String.format(L, "summary\t%s\tn=%d\tpeak_p95=%.2f\twith_clipping=%d\tjump_median=%.2f\tjump_p95=%.2f\tclick_p95=%.2f\tgap_p95_ms=%.1f\tresidual_median_ms=%.1f\tmeasured_median_ms=%.1f\tmeasured_p95_ms=%.1f",
                 label, rs.size, q({ it.peak }, 0.95), rs.count { it.clipped > 0 }, q({ it.jumpDb }, 0.5), q({ it.jumpDb }, 0.95), q({ it.click }, 0.95), q({ it.gapMs }, 0.95),
-                q({ it.residualMs }, 0.5), q({ it.measuredMs?.let(::abs) }, 0.5), q({ it.measuredMs?.let(::abs) }, 0.95)))
+                q({ it.residualMs }, 0.5), q({ it.measuredMs?.let(::abs) }, 0.5), q({ it.measuredMs?.let(::abs) }, 0.95)) +
+                "\toverlap_over_range_pairs=${rs.count { it.overlapClipped > 0 }}\tcontext_over_range_pairs=${rs.count { it.contextClipped > 0 }}")
         }
         line("all", results.map { it.second })
         for (l in SegueLevel.values()) line(l.name, results.filter { it.first == l }.map { it.second })
     }
 
-    private fun render(dir: File, asked: List<String>) {
+    private fun render(dir: File, asked: List<String>, rawFloat: Boolean = false) {
         val tmp = File(dir, ".segue-tmp").apply { mkdirs() }
         val cache = HashMap<String, FloatArray>()
         for (pair in asked) {
             val (x, y) = pair.split(',')
-            val d = SeguePolicy.decide(request(analysis(dir, x), analysis(dir, y)))
+            val ax = analysis(dir, x).also { names[it] = x }; val ay = analysis(dir, y).also { names[it] = y }
+            val d = SeguePolicy.decide(request(ax, ay))
             val p = d.plan
             println("$x,$y ${d.level} ${d.fingerprint ?: ""} | ${d.why}")
             if (p == null) continue
-            Render.writeWav(File(dir, "mix-$x-$y.wav"), mix(stems(dir, x, y, p, 12.0, 15.0, cache, tmp)))
+            println(String.format(L, "%s,%s window out %.3f in %.3f length %.3f shape %s style %s score %.3f", x, y, p.outgoing.anchorUs / 1e6, p.incoming.anchorUs / 1e6, p.span.lengthUs / 1e6, d.shape ?: "-", d.style ?: "-", d.score ?: 0.0))
+            val pcm = mix(stems(dir, x, y, p, 12.0, 15.0, cache, tmp))
+            if (rawFloat) {
+                Render.writeFloatWav(File(dir, "mix-$x-$y.float.wav"), pcm)
+                println("$x,$y raw_float=true preview_gain=1.0")
+            } else {
+                val gain = Render.writeWav(File(dir, "mix-$x-$y.wav"), pcm)
+                println("$x,$y raw_float=false preview_gain=$gain")
+            }
         }
         tmp.deleteRecursively()
     }
@@ -322,14 +368,20 @@ object SegueBench {
 
 /** What is measured on a render: its integrity, then its timing against the plan's own expectation. */
 object SegueMetrics {
-    class Result(val peak: Double, val clipped: Int, val jumpDb: Double, val click: Double, val gapMs: Double, val residualMs: Double?, val measuredMs: Double?)
+    class Result(val peak: Double, val clipped: Int, val jumpDb: Double, val click: Double, val gapMs: Double, val residualMs: Double?, val measuredMs: Double?,
+                 val overlapPeak: Double, val overlapClipped: Int, val contextClipped: Int)
 
     fun of(mix: FloatArray, preFrames: Int, windowFrames: Int, rate: Int, residualMs: Double?, measuredMs: Double?): Result {
-        var peak = 0.0; var clipped = 0
-        for (v in mix) { val m = abs(v).toDouble(); if (m > peak) peak = m; if (m > 1.0) clipped++ }
+        var peak = 0.0; var clipped = 0; var overlapPeak = 0.0; var overlapClipped = 0
+        val from = max(0, preFrames) * 2; val to = min(mix.size / 2, preFrames + windowFrames) * 2
+        for (i in mix.indices) {
+            val m = abs(mix[i]).toDouble(); if (m > peak) peak = m; if (m > 1.0) clipped++
+            if (i >= from && i < to) { overlapPeak = max(overlapPeak, m); if (m > 1.0) overlapClipped++ }
+        }
         val w = (0.4 * rate).toInt()
         val before = rms(mix, preFrames - w, preFrames); val after = rms(mix, preFrames + windowFrames, preFrames + windowFrames + w)
-        return Result(peak, clipped, abs(db(after) - db(before)), click(mix, preFrames, windowFrames, rate), longestGapMs(mix, preFrames, preFrames + windowFrames + w, rate), residualMs, measuredMs)
+        return Result(peak, clipped, abs(db(after) - db(before)), click(mix, preFrames, windowFrames, rate), longestGapMs(mix, preFrames, preFrames + windowFrames + w, rate), residualMs, measuredMs,
+            overlapPeak, overlapClipped, clipped - overlapClipped)
     }
 
     private fun db(x: Double) = 20 * log10(max(x, 1e-6))
@@ -425,14 +477,24 @@ object SegueCorpus {
     }
 
     /** [base] with one numeric parameter set to [value]. */
-    fun withValue(base: SegueTuning, field: String, value: Double): SegueTuning {
-        val fields = SegueTuning::class.java.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.onEach { it.isAccessible = true }
-        val ctor = SegueTuning::class.java.declaredConstructors.first { it.parameterCount == fields.size }
+    /** One value changed; `compact.<name>` and `headroom.<name>` reach the nested values. */
+    fun withValue(base: SegueTuning, field: String, value: Double): SegueTuning = when {
+        field.startsWith("compact.") -> base.copy(compact = changed(base.compact, field.removePrefix("compact."), value))
+        field.startsWith("orpheon.") -> base.copy(orpheon = changed(base.orpheon, field.removePrefix("orpheon."), value))
+        field.startsWith("headroom.") -> base.copy(headroom = changed(base.headroom, field.removePrefix("headroom."), value))
+        else -> changed(base, field, value)
+    }
+
+    private fun <T : Any> changed(base: T, field: String, value: Double): T {
+        val type = base.javaClass
+        val fields = type.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.onEach { it.isAccessible = true }
+        val ctor = type.declaredConstructors.first { it.parameterCount == fields.size }
         val i = fields.indexOfFirst { it.name == field }
         require(i >= 0) { "no parameter $field" }
         val values = fields.map { it.get(base) }.toMutableList()
-        values[i] = when (values[i]) { is Long -> Math.round(value); is Int -> Math.round(value).toInt(); is Double -> value; else -> throw IllegalArgumentException("$field is not a number") }
-        return ctor.newInstance(*values.toTypedArray()) as SegueTuning
+        values[i] = when (values[i]) { is Long -> Math.round(value); is Int -> Math.round(value).toInt(); is Double -> value; is Boolean -> value != 0.0; else -> throw IllegalArgumentException("$field is not a number") }
+        @Suppress("UNCHECKED_CAST")
+        return ctor.newInstance(*values.toTypedArray()) as T
     }
 
     /** Each numeric parameter at ±[SegueTuning.STABILITY_RANGE], named `field×factor`, the others unchanged. */

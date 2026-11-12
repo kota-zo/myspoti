@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">另有 %d 個電台符合，但它們使用未加密 (http) 或 HLS 串流，應用程式暫時無法播放。</item>
+    </plurals>
+</resources>

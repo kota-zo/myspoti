@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Myspoti's own texts (English default, French, Italian). -->
+<!-- Orpheon's own texts (English default, French, Italian). -->
 <resources>
     <string name="welcome_lead">Ваша музыка,</string>
     <string name="welcome_rotate_ads">без рекламы.</string>
@@ -7,7 +7,7 @@
     <string name="welcome_rotate_clips">с официальными клипами.</string>
     <string name="welcome_rotate_offline">офлайн, через расширения.</string>
     <string name="welcome_login">Войти через Spotify</string>
-    <string name="welcome_privacy">Вы входите на странице самого Spotify. Myspoti никогда не видит ваш пароль.</string>
+    <string name="welcome_privacy">Вы входите на странице самого Spotify. Orpheon никогда не видит ваш пароль.</string>
     <string name="remove_from_liked">Убрать из «Любимых треков»</string>
     <string name="repeat_on">Повтор: вкл.</string>
     <string name="repeat_one">Повтор одного трека</string>
@@ -61,7 +61,7 @@
     <string name="background_playback_title">Фоновое воспроизведение</string>
     <string name="background_playback_on">Оптимизация батареи отключена: музыка и Spotify Connect продолжают играть при выключенном экране.</string>
     <string name="background_playback_off">Отключите оптимизацию батареи, чтобы Android не приостанавливал приложение в фоне.</string>
-    <string name="background_playback_samsung">Samsung всё ещё может усыплять Myspoti при выключенном экране. Добавьте приложение в «Приложения, которые никогда не переходят в спящий режим»: Настройки &gt; Батарея &gt; Ограничения работы в фоновом режиме.</string>
+    <string name="background_playback_samsung">Samsung всё ещё может усыплять Orpheon при выключенном экране. Добавьте приложение в «Приложения, которые никогда не переходят в спящий режим»: Настройки &gt; Батарея &gt; Ограничения работы в фоновом режиме.</string>
     <string name="background_playback_open">Открыть настройки приложения</string>
     <plurals name="local_files_count">
         <item quantity="one">%d трек</item>
@@ -72,7 +72,7 @@
     <string name="local_files_none_subtitle">На этом устройстве не найдено подходящих аудиофайлов. Когда они появятся, вы увидите их здесь.</string>
     <string name="downloads_empty_title">Скачивайте, чтобы слушать офлайн</string>
     <string name="downloads_empty_subtitle">Нажмите «Скачать» в меню трека или кнопку загрузки у альбома или плейлиста.</string>
-    <string name="downloads_source">Lossless FLAC, сверенный с оригинальной записью. Хранится только внутри Myspoti.</string>
+    <string name="downloads_source">Lossless FLAC, сверенный с оригинальной записью. Хранится только внутри Orpheon.</string>
     <string name="downloads_size">%1$s на этом телефоне</string>
     <string name="download_unavailable">Подходящая запись не найдена</string>
     <string name="download_retry">Повторить</string>
@@ -85,8 +85,8 @@
     <string name="playlist_not_found">Плейлист не найден</string>
     <string name="browse_new_releases">Новинки</string>
     <string name="language_auto">Автоматически</string>
-    <string name="language_auto_detail">Язык вашего телефона, если он есть в Myspoti (английский, греческий, испанский, итальянский, китайский, немецкий, польский, португальский, русский, французский), иначе английский</string>
-    <string name="language_partial_note">Остальные языки: переведены только надписи самого Spotify, тексты Myspoti остаются на английском.</string>
+    <string name="language_auto_detail">Язык вашего телефона, если он есть в Orpheon (английский, греческий, испанский, итальянский, китайский, немецкий, польский, португальский, русский, французский), иначе английский</string>
+    <string name="language_partial_note">Остальные языки: переведены только надписи самого Spotify, тексты Orpheon остаются на английском.</string>
     <string name="restart_player_title">Перезапустить плеер</string>
     <string name="restart_player_detail">Если музыка не отвечает: перезагружает плеер Spotify</string>
     <string name="ad_playing">Реклама</string>
@@ -105,22 +105,22 @@
     <string name="playlist_change_refused">Spotify отклонил изменение этого плейлиста</string>
     <string name="download_kept_by_list">Остаётся скачанным: его держит скачанный плейлист</string>
     <string name="download_kept_by_named">Остаётся скачанным: «%1$s» скачан и содержит его</string>
-    <string name="support_title">Поддержать Myspoti</string>
-    <string name="support_body">Myspoti бесплатен, без рекламы и создан в моё свободное время. Если он вам нравится, небольшое пожертвование поможет проекту жить дальше.</string>
+    <string name="support_title">Поддержать Orpheon</string>
+    <string name="support_body">Orpheon бесплатен, без рекламы и создан в моё свободное время. Если он вам нравится, небольшое пожертвование поможет проекту жить дальше.</string>
     <string name="support_scan">Отсканируйте телефоном</string>
     <string name="support_action">Поддержать на Ko-fi</string>
     <string name="support_decline">Нет, спасибо</string>
     <string name="support_row_detail">Небольшое пожертвование на Ko-fi или GitHub Sponsors помогает развивать приложение</string>
     <string name="supporter_perks_title">Бонусы для поддержавших</string>
     <string name="supporter_perks_detail">Цвет акцента, значок приложения и бейдж в знак благодарности</string>
-    <string name="supporter_perks_locked">Открывается, если вы поддержали Myspoti. На честное слово: ничего не проверяется.</string>
-    <string name="supporter_i_supported">Я поддержал(а) Myspoti</string>
+    <string name="supporter_perks_locked">Открывается, если вы поддержали Orpheon. На честное слово: ничего не проверяется.</string>
+    <string name="supporter_i_supported">Я поддержал(а) Orpheon</string>
     <string name="supporter_how">Как вы поддержали?</string>
     <string name="supporter_once">Пожертвование</string>
     <string name="supporter_monthly">Каждый месяц</string>
     <string name="supporter_badge">Поддержка</string>
     <string name="supporter_thanks_title">Спасибо за поддержку!</string>
-    <string name="supporter_thanks_body">Если Myspoti по-прежнему вам полезен, новое небольшое пожертвование поможет проекту жить дальше.</string>
+    <string name="supporter_thanks_body">Если Orpheon по-прежнему вам полезен, новое небольшое пожертвование поможет проекту жить дальше.</string>
     <string name="support_again">Поддержать ещё раз</string>
     <string name="supporter_accent">Цвет акцента</string>
     <string name="supporter_icon">Значок приложения</string>
@@ -143,7 +143,7 @@
     <string name="song_radio_name">Радио: %1$s</string>
     <string name="local_files_find_hint">Найти в локальных файлах</string>
     <string name="data_saver_title">Экономия трафика</string>
-    <string name="data_saver_summary">В мобильной сети Myspoti не расходует трафик: играют только скачанные треки и локальные файлы</string>
+    <string name="data_saver_summary">В мобильной сети Orpheon не расходует трафик: играют только скачанные треки и локальные файлы</string>
     <string name="data_saver_blocked">Экономия трафика: в мобильной сети играют только скачанные треки и локальные файлы</string>
     <string name="new_releases_followed">От исполнителей, на которых вы подписаны</string>
     <string name="new_releases_latest">Последние релизы</string>
@@ -186,7 +186,7 @@
     <string name="recap_top_tracks">Топ треков</string>
     <string name="recap_top_artists">Топ исполнителей</string>
     <string name="recap_top_albums">Топ альбомов</string>
-    <string name="recap_private_note">Учитывает всё, что воспроизведено в Myspoti (Spotify, загрузки, локальные файлы). Хранится только на этом телефоне и никогда не отправляется в Spotify.</string>
+    <string name="recap_private_note">Учитывает всё, что воспроизведено в Orpheon (Spotify, загрузки, локальные файлы). Хранится только на этом телефоне и никогда не отправляется в Spotify.</string>
     <string name="recap_detail">Ваше прослушивание, включая загрузки и локальные файлы</string>
     <string name="track_credits">Авторы</string>
     <string name="exclude_taste">Исключить из музыкального профиля</string>
@@ -214,7 +214,7 @@
     <string name="track_sort_artist">Исполнитель</string>
     <string name="track_sort_album">Альбом</string>
     <string name="track_sort_duration">Длительность</string>
-    <string name="setup_title">Настройка Myspoti</string>
+    <string name="setup_title">Настройка Orpheon</string>
     <string name="setup_subtitle">Разрешите что хотите; позже это можно изменить в настройках телефона.</string>
     <string name="setup_notifications_title">Уведомления</string>
     <string name="setup_notifications_detail">Управление на экране блокировки и в шторке уведомлений</string>
@@ -226,7 +226,7 @@
     <string name="setup_battery_detail">Музыка продолжает играть при выключенном экране</string>
     <string name="setup_enable">Разрешить</string>
     <string name="setup_continue">Продолжить</string>
-    <string name="setup_intro_title">Как работает Myspoti</string>
+    <string name="setup_intro_title">Как работает Orpheon</string>
     <string name="setup_intro_subtitle">Три вещи, которые стоит знать.</string>
     <string name="setup_intro_spotify_title">Spotify без рекламы</string>
     <string name="setup_intro_spotify_detail">Ваш аккаунт, плейлисты и лайки — через собственный веб-плеер Spotify. Бесплатные аккаунты тоже работают.</string>
@@ -235,7 +235,7 @@
     <string name="setup_intro_ext_title">Расширения — по желанию</string>
     <string name="setup_intro_ext_detail">Дополнения от сообщества: другие источники звука, загрузки и многое другое. Подробнее — дальше.</string>
     <string name="setup_ext_title">Расширения</string>
-    <string name="setup_ext_subtitle">Myspoti работает и без них: он воспроизводит Spotify. Расширения — необязательные дополнения от сообщества, которые умеют больше.</string>
+    <string name="setup_ext_subtitle">Orpheon работает и без них: он воспроизводит Spotify. Расширения — необязательные дополнения от сообщества, которые умеют больше.</string>
     <string name="setup_ext_audio_title">Другие источники звука</string>
     <string name="setup_ext_audio_detail">Расширение может воспроизводить ваши треки из другого источника, в том качестве, которое оно предлагает.</string>
     <string name="setup_ext_download_title">Загрузки</string>
@@ -243,7 +243,7 @@
     <string name="setup_ext_more_detail">Разделы главной, страницы и инструменты от их авторов.</string>
     <string name="setup_ext_safe_title">Всё под вашим контролем</string>
     <string name="setup_ext_safe_detail">Перед установкой расширение показывает, что ему разрешено. За всё остальное оно спросит снова, а удалить его можно в любой момент.</string>
-    <string name="setup_ext_where">Ищите их в Настройки, Расширения — с GitHub, GitLab и Codeberg. Их пишут авторы, а не Myspoti.</string>
+    <string name="setup_ext_where">Ищите их в Настройки, Расширения — с GitHub, GitLab и Codeberg. Их пишут авторы, а не Orpheon.</string>
     <string name="setup_ext_browse">Посмотреть расширения</string>
     <string name="local_folders_button">Папки</string>
     <string name="local_folders_title">Папки</string>
@@ -276,7 +276,7 @@
     <string name="quality_download_hires">FLAC Hi-Res</string>
     <string name="quality_download_hires_detail">24 бит, если доступно; файлы примерно втрое больше</string>
     <string name="setup_quality_title">Качество звука</string>
-    <string name="setup_quality_subtitle">Выберите, как Myspoti воспроизводит и сохраняет вашу музыку. Позже это можно изменить в настройках.</string>
+    <string name="setup_quality_subtitle">Выберите, как Orpheon воспроизводит и сохраняет вашу музыку. Позже это можно изменить в настройках.</string>
     <string name="downloads_off_toast">Загрузки отключены. Включите их в настройках.</string>
     <string name="quality_streaming_high_detail">160 kbit/s</string>
     <string name="quality_download_small">Наименьшее</string>
@@ -290,7 +290,7 @@
     <string name="quality_now_unknown">Пока неизвестно: запустите трек</string>
     <string name="update_downloading">Загрузка… %1$d%%</string>
     <string name="update_installing">Установка…</string>
-    <string name="update_needs_permission">Чтобы обновиться, разрешите Myspoti устанавливать приложения и вернитесь сюда.</string>
+    <string name="update_needs_permission">Чтобы обновиться, разрешите Orpheon устанавливать приложения и вернитесь сюда.</string>
     <string name="update_allow">Разрешить</string>
     <string name="update_failed">Не удалось обновить: %1$s</string>
     <string name="update_retry">Повторить</string>
@@ -374,9 +374,9 @@
     <string name="share_as_image">Поделиться изображением</string>
     <string name="settings_autoplay_title">Автовоспроизведение</string>
     <string name="settings_autoplay_detail">Когда ваша музыка закончится, продолжать воспроизведение похожих треков</string>
-    <string name="myspoti_shuffle_title">Перемешивание Myspoti</string>
+    <string name="myspoti_shuffle_title">Перемешивание Orpheon</string>
     <string name="myspoti_shuffle_detail">Если перемешивание включено, плейлист, альбом или «Любимые треки» воспроизводят каждый трек один раз в случайном порядке, а затем начинают заново. Выключено: перемешивание Spotify. Бесплатный аккаунт может сохранять перемешивание Spotify в некоторых списках.</string>
-    <string name="myspoti_shuffle_imposed">Spotify сохраняет для вашего аккаунта собственное перемешивание в этом списке: перемешивание Myspoti для него выключено.</string>
+    <string name="myspoti_shuffle_imposed">Spotify сохраняет для вашего аккаунта собственное перемешивание в этом списке: перемешивание Orpheon для него выключено.</string>
     <string name="settings_crossfade_title">Плавный переход (треки затихают, но не накладываются)</string>
     <string name="settings_crossfade_detail">Трек затихает в последние секунды, следующий плавно нарастает. Они никогда не звучат одновременно: один плеер, один аудиопоток.</string>
     <string name="settings_crossfade_off">Выкл.</string>
@@ -449,7 +449,7 @@
     <string name="playlist_invite_join">Присоединиться</string>
     <string name="playlist_invite_joined">Теперь вы соавтор</string>
     <string name="settings_keep_playing_title">Продолжать играть после закрытия приложения</string>
-    <string name="settings_keep_playing_detail">Если выключено, закрытие Myspoti из списка недавних приложений останавливает музыку</string>
+    <string name="settings_keep_playing_detail">Если выключено, закрытие Orpheon из списка недавних приложений останавливает музыку</string>
     <string name="recommended_songs_from_name">По названию этого плейлиста</string>
     <string name="recommended_songs_from_songs">По содержимому этого плейлиста</string>
     <string name="recommended_songs_refresh">Обновить</string>
@@ -549,7 +549,7 @@
     <string name="song_unavailable">Трек «%1$s» недоступен.</string>
     <string name="songs_skipped_by_spotify">Spotify продолжал пропускать треки, которые не смог воспроизвести, поэтому воспроизведение приостановлено. Нажмите «Воспроизвести», чтобы повторить, или проверьте аккаунт и подключение.</string>
     <string name="licences_refused_by_spotify">Spotify пока отказывается воспроизводить треки на этом аккаунте (аудиолицензия отклонена), поэтому воспроизведение приостановлено. Немного подождите и нажмите «Воспроизвести», чтобы повторить, и проверьте, работает ли аккаунт в официальном приложении Spotify.</string>
-    <string name="licences_refused_old_widevine">Spotify отклоняет аудиолицензии этого телефона: его DRM (Widevine %1$s) старее, чем принимает веб-плеер Spotify, независимо от аккаунта, поэтому воспроизведение приостановлено. Треки Spotify нельзя воспроизвести через Myspoti на этом телефоне; расширение-источник аудио может их воспроизвести.</string>
+    <string name="licences_refused_old_widevine">Spotify отклоняет аудиолицензии этого телефона: его DRM (Widevine %1$s) старее, чем принимает веб-плеер Spotify, независимо от аккаунта, поэтому воспроизведение приостановлено. Треки Spotify нельзя воспроизвести через Orpheon на этом телефоне; расширение-источник аудио может их воспроизвести.</string>
     <string name="playlist_member_listener">Слушатель</string>
     <string name="playlist_member_remove_collab">Убрать из соавторов</string>
     <string name="playlist_member_make_collab">Сделать соавтором</string>
@@ -602,10 +602,8 @@
     <string name="settings_look_title">Оформление</string>
     <string name="settings_headset_skip_title">Кнопки наушников: 15 с в подкастах</string>
     <string name="settings_headset_skip_detail">Если выключено, переключают на следующий или предыдущий выпуск</string>
-    <string name="settings_connect_mirror_title">Учитывать прослушивания расширений в Spotify</string>
-    <string name="settings_download_sync_title">Синхронизировать скачанные треки со Spotify</string>
-    <string name="settings_download_sync_detail">В сети скачанный трек также беззвучно играет в Spotify: прослушивание засчитывается, а ваши устройства видят его и могут им управлять. Если выключено, скачанное играет только с телефона.</string>
-    <string name="settings_connect_mirror_detail">Воспроизводит трек Spotify без звука в фоне, чтобы прослушивание засчитывалось и ваши устройства могли им управлять. Расходует немного больше трафика и заряда: отключите, если это не нужно.</string>
+    <string name="settings_connect_mirror_title">Учитывать прослушивания из расширений в вашем музыкальном аккаунте</string>
+    <string name="settings_connect_mirror_detail">Воспроизводит трек без звука в фоне в выбранном музыкальном аккаунте, чтобы он попал в историю (в Spotify им также могут управлять ваши устройства). Тратит немного больше трафика и заряда: отключите, если не нужно.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
     <string name="aa_downloaded_lists">Скачанные плейлисты и альбомы</string>
@@ -622,7 +620,7 @@
     <string name="cast_lost">Связь с %1$s потеряна: снова на этом телефоне</string>
     <string name="cast_spotify_detail">Google Cast · воспроизводит Spotify на устройстве</string>
     <string name="cast_spotify_failed">Не удалось запустить Spotify на %1$s</string>
-    <string name="downloads_need_source_detail">Треки скачивают расширения. Пока ни одно не установлено: откройте магазин расширений и установите Mornye, чтобы скачивать.</string>
+    <string name="downloads_need_source_detail">Треки скачивают расширения. Пока ни одно не установлено: откройте магазин расширений и установите расширение от сообщества, чтобы скачивать.</string>
     <string name="downloads_need_source_title">Для загрузок нужно расширение</string>
     <string name="episode_new">Новый</string>
     <string name="player_source_spotify">Spotify · %1$s</string>
@@ -639,7 +637,7 @@
         <item quantity="other">%d трека заиграют следующими</item>
     </plurals>
     <string name="queue_list_none">Ни один из этих треков нельзя добавить в очередь</string>
-    <string name="setup_ext_download_mornye_detail">Загрузки и другие источники звука дают расширения. Установите Mornye на следующей странице, чтобы скачивать треки и слушать офлайн. Треки остаются зашифрованными в Myspoti.</string>
+    <string name="setup_ext_download_detail">Загрузки и другие источники звука дают расширения. Установите расширение от сообщества на следующей странице, чтобы скачивать треки и слушать офлайн. Треки остаются зашифрованными в Orpheon.</string>
     <string name="setup_ext_home">На главную</string>
     <string name="show_filter_all">Порядок по умолчанию</string>
     <string name="show_filter_all_played">Все выпуски прослушаны.</string>
@@ -697,7 +695,7 @@
     <string name="settings_player_volume_title">Полоса громкости в плеере</string>
     <string name="settings_player_volume_detail">Ползунок громкости под кнопками. Если выключено, громкость по-прежнему меняют кнопки телефона.</string>
     <string name="settings_lyrics_keep_awake_title">Не гасить экран с текстом песни</string>
-    <string name="settings_lyrics_keep_awake_detail">Пока открыт текст песни, экран не гаснет сам.</string>
+    <string name="settings_lyrics_keep_awake_detail">Пока открыт текст песни, экран не гаснет сам в течение 10 минут после последнего касания или пока телефон заряжается.</string>
     <string name="settings_section_podcasts">Подкасты</string>
     <string name="sponsorblock_detail">Пропускает спонсорские вставки и другие части выпусков подкастов, отмеченные сообществом SponsorBlock. Запрашивает у sponsor.ajay.app данные о текущем выпуске (и у YouTube, чтобы при необходимости найти его загрузку); ничего о вас и вашем аккаунте не отправляется.</string>
     <string name="sponsorblock_skip_header">Что пропускать</string>
@@ -715,8 +713,8 @@
     <string name="spatial_detail">Обработка mid/side: то, что звучит по бокам, выходит вперёд, то, что в центре, остаётся на месте. Только песни из расширений, загрузки и локальные файлы: собственные потоки Spotify не обрабатываются. Моно-песни, а в выключенном состоянии и всё остальное, проходят нетронутыми.</string>
     <string name="spatial_width">Ширина</string>
     <string name="playlist_reorder_hint">Перетащите трек за маркер, чтобы переместить его</string>
-    <string name="lan_sonos_consent">Чтобы подключить %1$s, Spotify один раз запрашивает разрешение, которое использует его приложение для компьютера. Разрешите его или закройте эту страницу. Myspoti читает только адрес, на котором заканчивается страница.</string>
-    <string name="lan_sonos_refused">%1$s требует входа в Spotify, который Myspoti не удалось получить. Откройте его один раз в приложении Spotify и повторите попытку.</string>
+    <string name="lan_sonos_consent">Чтобы подключить %1$s, Spotify один раз запрашивает разрешение, которое использует его приложение для компьютера. Разрешите его или закройте эту страницу. Orpheon читает только адрес, на котором заканчивается страница.</string>
+    <string name="lan_sonos_refused">%1$s требует входа в Spotify, который Orpheon не удалось получить. Откройте его один раз в приложении Spotify и повторите попытку.</string>
     <string name="lan_sonos_group">%1$s сгруппирован с другими колонками: выберите главную колонку группы или разгруппируйте его в приложении Sonos.</string>
     <string name="voice_search">Голосовой поиск</string>
     <string name="voice_search_unavailable">Для голосового поиска нужно приложение Google</string>
@@ -735,7 +733,7 @@
     <string name="settings_automix_album_order">Альбомы целиком</string>
     <string name="settings_automix_album_order_detail">Без сведения между треками, идущими подряд на своём альбоме: они переходят друг в друга, как на пластинке.</string>
     <string name="settings_automix_show">Показывать сведение в плеере</string>
-    <string name="settings_automix_show_detail">Участок сведения выделен цветом на полосе воспроизведения, а обложка светится и пульсирует в такт, пока оно идёт.</string>
+    <string name="settings_automix_show_detail">Следующий трек подписан поверх обложки, пока два трека звучат вместе, а обложка пульсирует в такт во время микса.</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Переходы в стиле диджея между треками из расширений, загрузок и локальных файлов: каждый трек анализируется один раз (доли, такты, фразы, тональность), и следующий вступает в такт, с выровненным темпом и сменой баса. Треки, которые нельзя свести, получают склейку в такт или затухание. Потоки анализируются в безлимитных сетях или по мобильной сети, если вы разрешите это ниже.</string>
     <string name="settings_automix_length">Длина сведения</string>
@@ -774,7 +772,7 @@
     <string name="settings_dynamic_color_title">Динамические цвета (Material You)</string>
     <string name="settings_dynamic_color_detail">Акцентный цвет оформления «Классическое» берётся из обоев. Оформление «Иммерсивное» сохраняет цвета текущей обложки.</string>
     <string name="settings_system_font_title">Системный шрифт</string>
-    <string name="settings_system_font_detail">Показывает текст приложения шрифтом телефона вместо шрифта Myspoti</string>
+    <string name="settings_system_font_detail">Показывает текст приложения шрифтом телефона вместо шрифта Orpheon</string>
     <string name="settings_download_lyrics_title">Скачивать тексты вместе с треками</string>
     <string name="settings_download_lyrics_detail">Скачанный трек сохраняет свой текст, который виден без подключения</string>
     <string name="settings_section_storage">Хранилище</string>
@@ -790,7 +788,7 @@
     <string name="settings_automix_cache_detail">%1$s на этом телефоне. После очистки треки анализируются заново при воспроизведении.</string>
     <string name="settings_automix_cache_clear">Очистить</string>
     <string name="settings_automix_intro_title">Как работает AutoMix</string>
-    <string name="settings_automix_intro_text">AutoMix сводит треки, которые Myspoti играет сам: из расширений, загрузок и файлов на этом телефоне. Треки Spotify играют в веб-плеере Spotify, звук которого приложению недоступен: они сменяются только плавным переходом.\n\nКаждый трек анализируется один раз (доли, такты, тональность). Потоки анализируются по Wi-Fi или по мобильной сети, если вы это разрешите; трек, не проанализированный вовремя, сменяется плавным переходом.</string>
+    <string name="settings_automix_intro_text">AutoMix сводит треки, которые Orpheon играет сам: из расширений, загрузок и файлов на этом телефоне. Треки Spotify играют в веб-плеере Spotify, звук которого приложению недоступен: они сменяются только плавным переходом.\n\nКаждый трек анализируется один раз (доли, такты, тональность). Потоки анализируются по Wi-Fi или по мобильной сети, если вы это разрешите; трек, не проанализированный вовремя, сменяется плавным переходом.</string>
     <string name="settings_automix_intro_ok">Понятно</string>
     <string name="automix_reason_spotify">Сейчас без сведения: треки Spotify играют в веб-плеере Spotify и сменяются только плавным переходом.</string>
     <string name="automix_reason_cast">Сейчас без сведения: на устройстве Cast треки сменяются без сведения.</string>
@@ -802,7 +800,7 @@
     <string name="notify_releases_channel">Новинки</string>
     <string name="notify_release_title">Новое от %1$s</string>
     <string name="settings_release_notify">Уведомления о новинках</string>
-    <string name="settings_release_notify_detail">Уведомление, когда артист, на которого вы подписаны, что-то выпускает; проверка каждые несколько часов, пока Myspoti работает</string>
+    <string name="settings_release_notify_detail">Уведомление, когда артист, на которого вы подписаны, что-то выпускает; проверка каждые несколько часов, пока Orpheon работает</string>
     <string name="quality_streaming_very_high">Очень высокое</string>
     <string name="quality_streaming_very_high_detail">256 кбит/с, только для Premium</string>
     <string name="login_help_button">Помощь</string>
@@ -816,4 +814,15 @@
     <string name="settings_sources_none">Пока ни одно расширение не воспроизводит и не скачивает музыку: всё играет Spotify. Добавьте его в разделе «Расширения».</string>
     <string name="ext_settings_header">Настройки расширений</string>
     <string name="queue_autoplay_heading">Автовоспроизведение</string>
+    <string name="settings_account_provider_title">Музыкальный аккаунт</string>
+    <string name="settings_account_provider_detail">Сервис, где учитываются прослушивания из расширений и откуда читается ваша медиатека. Только один одновременно.</string>
+    <string name="settings_account_provider_none">Нет</string>
+    <string name="settings_ytm_account_title">Аккаунт YouTube Music</string>
+    <string name="settings_ytm_signed_in">Вход выполнен</string>
+    <string name="settings_ytm_signed_out">Вход не выполнен: нажмите, чтобы войти</string>
+    <string name="settings_ytm_sign_out">Выйти из YouTube Music</string>
+    <string name="settings_ytm_sign_in_title">Войти в YouTube Music</string>
+    <string name="settings_ytm_sync_note">Прослушивания учитывает сам веб-плеер YouTube Music, без звука. Приложения YouTube Music не могут им управлять.</string>
+    <string name="settings_sign_in_close">Закрыть</string>
+    <string name="connect_after_ad">Перейдёт на %1$s после рекламы</string>
 </resources>

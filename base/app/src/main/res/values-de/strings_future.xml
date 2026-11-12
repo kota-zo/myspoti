@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">Nativer Player (experimentell)</string>
+    <string name="settings_native_audio_detail">Die Titel des Kontos werden vom eigenen Player der App statt von der versteckten Webseite abgespielt. In Erprobung: Sortierte Listen laufen in ihrer eigenen Reihenfolge, einige Bedienelemente können verzögert reagieren.</string>
+    <string name="welcome_rotate_sources">aus den Quellen deiner Wahl.</string>
+    <string name="welcome_rotate_mix">gemixt wie ein DJ-Set.</string>
+    <string name="album_label">Label: %1$s</string>
+    <string name="settings_automix_options">Optionen</string>
+    <string name="settings_automix_analysis">Analyse</string>
+    <string name="settings_automix_display">Anzeige</string>
+    <string name="settings_automix_duration_auto">Automatisch</string>
+    <string name="settings_automix_duration_none">Keine Grenze</string>
+    <string name="settings_automix_seconds">%1$d s</string>
+    <string name="settings_local_files_shown">Lokale Dateien anzeigen</string>
+    <string name="settings_local_files_shown_detail">Die Zeile „Lokale Dateien“ in deiner Bibliothek. Aus: ausgeblendet, keine Datei wird verändert.</string>
+    <string name="pass_section">Andere Geräte</string>
+    <string name="pass_send">An ein anderes Gerät senden</string>
+    <string name="pass_send_detail">Scanne den Code auf deinem Fernseher, Computer oder anderen Handy: Er erhält deine Einstellungen, Erweiterungen und Anmeldung.</string>
+    <string name="pass_receive">Von einem anderen Gerät empfangen</string>
+    <string name="pass_receive_detail">Zeigt einen Code, den dein Handy scannt.</string>
+    <string name="pass_receive_title">Scanne diesen Code mit deinem Handy</string>
+    <string name="pass_receive_hint">Richte die Kamera deines Handys darauf, oder auf dem Handy: Einstellungen › Andere Geräte › An ein anderes Gerät senden. Beide müssen im selben WLAN sein.</string>
+    <string name="pass_no_network">Kein WLAN: Verbinde dieses Gerät mit demselben WLAN wie dein Handy.</string>
+    <string name="pass_received">Von %1$s empfangen. Die App startet neu.</string>
+    <string name="pass_confirm_title">An %1$s senden?</string>
+    <string name="pass_confirm_text">Deine Einstellungen, Erweiterungen und Spotify-Anmeldung werden direkt über dein WLAN und verschlüsselt auf dieses Gerät kopiert. Sende sie nur an deine eigenen Geräte.</string>
+    <string name="pass_send_action">Senden</string>
+    <string name="pass_sent">An %1$s gesendet</string>
+    <string name="pass_failed">Nicht gesendet: %1$s</string>
+    <string name="pass_not_invite">Das ist kein Code dieser App.</string>
+    <string name="pass_scan_unavailable">Kein Code-Scanner auf diesem Handy (Google Play-Dienste).</string>
+    <string name="pass_sign_in_with_device">Mit dem Handy anmelden</string>
+    <string name="pass_link_warning">Über einen Link geöffnet. Sende nur, wenn du diesen Code gerade auf dem Bildschirm deines eigenen Geräts gescannt hast.</string>
+    <string name="pass_need_sign_in">Melde dich zuerst auf diesem Handy an und scanne den Code dann erneut.</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">Was Songs bedeuten und die Annotationen zu ihren Zeilen, sowie Genius-Songtexte, wenn keine andere Quelle sie hat. Aus: Genius wird nichts gefragt.</string>
+    <string name="welcome_start">Los geht\'s</string>
+    <string name="setup_account_spotify_next">Danach meldest du dich auf Spotifys eigener Seite an. Orpheon sieht dein Passwort nie.</string>
+</resources>

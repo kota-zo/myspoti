@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">歌詞の翻訳を停止します</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">申し訳ありません。この曲の歌詞情報はありません。</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">この歌詞はまだ音楽と同期されていません。</string>
-    <string name="av_switch_to_video" formatted="false">ビデオに切り替える</string>
-    <string name="av_switch_to_audio" formatted="false">オーディオに切り替える</string>
-    <string name="av_content_desc" formatted="false">オーディオとビデオを切り替えます</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ホーム</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">検索</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">マイライブラリ</string>

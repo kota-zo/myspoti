@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadate</string>
+    <string name="metadata_footer">Căutările, albumele și artiștii vin de la aceste servicii, întrebate de sus în jos. Aceeași melodie găsită de două ori apare o singură dată. Un serviciu dezactivat nu este întrebat niciodată.</string>
+    <string name="metadata_spotify_detail">Contul tău, cât timp ești conectat</string>
+    <string name="metadata_signed_out">Nu este întrebat: niciun cont conectat</string>
+    <string name="metadata_asked">Întrebat</string>
+    <string name="metadata_off">Dezactivat: nu este întrebat niciodată</string>
+    <string name="metadata_reset">Revino la ordinea implicită</string>
+    <string name="metadata_not_on_spotify">Nu a fost găsită pe Spotify: această melodie nu poate fi redată încă</string>
+    <string name="metadata_switch">Întreabă %1$s</string>
+</resources>

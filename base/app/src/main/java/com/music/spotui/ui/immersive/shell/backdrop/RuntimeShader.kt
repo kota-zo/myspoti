@@ -15,7 +15,6 @@ package com.music.spotui.ui.immersive.shell.backdrop
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.toArgb
 import org.intellij.lang.annotations.Language
 

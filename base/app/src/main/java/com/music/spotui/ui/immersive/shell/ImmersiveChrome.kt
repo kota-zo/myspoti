@@ -43,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.coerceIn
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.myspoti.engine.R
@@ -150,6 +151,8 @@ private val CHROME_GAP = 8.dp
 private val MINI_MARGIN = 14.dp
 /** Large windows: the mini player beside the tab bar, never wider than this. */
 private val LargeMiniPlayerWidth = 560.dp
+/** ...and never narrower than this while there is room: under it the title shows a word or two. */
+private val MIN_ROW_MINI_PLAYER = 360.dp
 private val TAB_INSET = Immersive.Gutter - MINI_MARGIN
 
 /**
@@ -170,19 +173,24 @@ fun ImmersiveBottomChrome(
     // The keyboard is up (a search, a name to type): the bar and the mini player would sit on it or
     // over the results right above it, so they step aside until it goes.
     if (WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0) return
-    // Large windows (tablets, foldables, DeX): the tab bar and the mini player side by side in one
-    // floating row, centred, each at its own capped width; there is room, so it never folds.
-    if (com.music.spotui.ui.components.windowSize().large) {
-        Box(
+    // Windows 840 dp and wider (tablets, DeX) and a phone on its side: the tab bar and the mini
+    // player side by side in one floating row, centred, each at its own capped width; there is
+    // room, so it never folds. Narrower large windows (a foldable, a portrait tablet) stack them
+    // as phones do: beside the tab bar the mini player was squeezed to 200-320 dp.
+    if (com.music.spotui.ui.components.windowSize().chromeInOneRow) {
+        androidx.compose.foundation.layout.BoxWithConstraints(
             modifier.fillMaxWidth().windowInsetsPadding(ImmersiveBarInsets)
                 .padding(horizontal = MINI_MARGIN).padding(bottom = 2.dp),
             contentAlignment = Alignment.BottomCenter,
         ) {
+            // The tab bar gives up width before the mini player drops under MIN_ROW_MINI_PLAYER
+            // (a phone on its side narrower than 840 dp).
+            val tabsMax = (maxWidth - CHROME_GAP - MIN_ROW_MINI_PLAYER).coerceIn(0.dp, ImmersiveBarMaxWidth)
             androidx.compose.foundation.layout.Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(CHROME_GAP),
             ) {
-                Box(Modifier.widthIn(max = ImmersiveBarMaxWidth)) {
+                Box(Modifier.widthIn(max = tabsMax)) {
                     TabBarContent(selectedTab = tabs.selectedTab, onTabClick = tabs.onTabClick, modifier = Modifier)
                 }
                 Box(Modifier.weight(1f, fill = false).widthIn(max = LargeMiniPlayerWidth)) { miniPlayer(Modifier) }

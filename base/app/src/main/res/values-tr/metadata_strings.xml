@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Meta veriler</string>
+    <string name="metadata_footer">Aramalar, albümler ve sanatçılar bu hizmetlerden gelir; yukarıdan aşağıya sorulur. İki kez bulunan aynı şarkı bir kez gösterilir. Kapatılan bir hizmete asla sorulmaz.</string>
+    <string name="metadata_spotify_detail">Oturum açık olduğu sürece hesabın</string>
+    <string name="metadata_signed_out">Sorulmuyor: oturum açmış hesap yok</string>
+    <string name="metadata_asked">Soruluyor</string>
+    <string name="metadata_off">Kapalı: asla sorulmaz</string>
+    <string name="metadata_reset">Varsayılan sıraya dön</string>
+    <string name="metadata_not_on_spotify">Spotify\'da bulunamadı: bu şarkı henüz çalınamıyor</string>
+    <string name="metadata_switch">%1$s hizmetine sor</string>
+</resources>

@@ -5,11 +5,6 @@
  */
 package com.music.spotui.ui.immersive.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +33,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.ui.components.spotifyImageUrl
@@ -81,7 +75,6 @@ fun ImmersiveCover(
                 model = model,
                 contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
-                transition = CrossFade,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -117,30 +110,18 @@ fun ImmersiveCoverPlaceholder(
 
 /**
  * Three bars dancing on a dark plate, laid over a cover to mark the song that is playing.
- * The plate is a fixed square so only the bars move.
+ * The plate is a fixed square so only the bars move. They step [PLAYING_BARS_FPS] times a second
+ * ([com.music.spotui.ui.components.rememberFrameClock], on screen only): three endless animations
+ * redrew the window at the screen's top rate (120 Hz) for a 24 dp mark whenever its row was shown.
  */
 @Composable
 fun ImmersivePlayingBars(modifier: Modifier = Modifier) {
     val reduceMotion = rememberReduceMotion()
+    val clock = com.music.spotui.ui.components.rememberFrameClock(running = !reduceMotion, fps = PLAYING_BARS_FPS)
     val barHeights = listOf(0.38f, 0.78f, 0.52f).mapIndexed { index, minimum ->
         // Under "reduce motion" the bars rest at their low mark instead of dancing.
         if (reduceMotion) return@mapIndexed ({ minimum })
-        val transition = rememberInfiniteTransition(label = "immersive playing bar $index")
-        val height = transition.animateFloat(
-            initialValue = minimum,
-            targetValue = 1f - (index * 0.12f),
-            animationSpec = infiniteRepeatable(
-                animation = keyframes {
-                    durationMillis = 520 + index * 130
-                    minimum at 0
-                    1f at (260 + index * 50)
-                    minimum at durationMillis
-                },
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "immersive playing bar height $index",
-        )
-        ({ height.value })
+        ({ playingBarHeight(index, minimum, clock.value / 1_000_000L) })
     }
     Box(
         modifier = modifier
@@ -174,4 +155,20 @@ fun ImmersivePlayingBars(modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/** The bars' steps a second: the eye sees no difference on a mark this small. */
+private const val PLAYING_BARS_FPS = 12
+
+/**
+ * Bar [index]'s height at [nowMs]: up from [minimum] to full and back, each bar at its own pace
+ * (the keyframes the infinite animation had, played forth and back).
+ */
+internal fun playingBarHeight(index: Int, minimum: Float, nowMs: Long): Float {
+    val length = 520 + index * 130
+    val peakAt = 260 + index * 50
+    val cycle = (nowMs % (2L * length)).toInt()
+    val t = if (cycle < length) cycle else 2 * length - cycle
+    val rise = if (t <= peakAt) t.toFloat() / peakAt else (length - t).toFloat() / (length - peakAt)
+    return minimum + (1f - minimum) * rise.coerceIn(0f, 1f)
 }

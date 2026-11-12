@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="nerd_title">极客统计信息</string>
-    <string name="nerd_section_exo">Myspoti 播放器（ExoPlayer）</string>
+    <string name="nerd_section_exo">Orpheon 播放器（ExoPlayer）</string>
     <string name="nerd_section_spotify">Spotify（网页播放器）</string>
     <string name="nerd_source">来源</string>
     <string name="nerd_source_extension">扩展：%1$s</string>

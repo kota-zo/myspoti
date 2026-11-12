@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Imethadatha</string>
+    <string name="metadata_footer">Ukusesha, ama-albhamu nabaculi kuvela kulezi zinsiza, ezibuzwa kusukela phezulu kuya phansi. Ingoma efanayo etholwe kabili iboniswa kanye. Insiza evaliwe ayibuzwa neze.</string>
+    <string name="metadata_spotify_detail">I-akhawunti yakho, uma ungene ngemvume</string>
+    <string name="metadata_signed_out">Ayibuzwa: ayikho i-akhawunti engene ngemvume</string>
+    <string name="metadata_asked">Iyabuzwa</string>
+    <string name="metadata_off">Ivaliwe: ayibuzwa neze</string>
+    <string name="metadata_reset">Buyela ekuhlelweni okuzenzakalelayo</string>
+    <string name="metadata_not_on_spotify">Ayitholakali ku-Spotify: le ngoma ayikakwazi ukudlala</string>
+    <string name="metadata_switch">Buza i-%1$s</string>
+</resources>

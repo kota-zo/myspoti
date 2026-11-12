@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Yeka ukuhumusha amagama engoma</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Nathi asiwazi amagama ale ngoma.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">La magama wengoma awavumelanisiwe nesikhathi, okwamanje.</string>
-    <string name="av_switch_to_video" formatted="false">Shintshela kuvidiyo</string>
-    <string name="av_switch_to_audio" formatted="false">Shintshela kokulalelwayo</string>
-    <string name="av_content_desc" formatted="false">Guqula phakathi komsindo nevidiyo</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Ikhaya</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Sesha</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Umtapo Wakho</string>

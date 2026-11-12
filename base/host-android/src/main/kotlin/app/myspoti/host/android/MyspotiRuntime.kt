@@ -10,6 +10,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.Locale
 
 /**
@@ -19,14 +20,24 @@ import java.util.Locale
 object MyspotiRuntime {
     lateinit var host: WebPlayerHost
     private var appContext: Context? = null
-        private set
     lateinit var spotify: SpotifyApi
         private set
-    val api: MyspotiApi get() = spotify
+    /**
+     * What the app reads its music from: [spotify] itself, or the app's wrapper over it ([useApi]: the metadata
+     * catalog, for searches and the items they lead to). Spotify's own parts stay [spotify]'s.
+     */
+    val api: MyspotiApi get() = wrapped ?: spotify
+    @Volatile private var wrapped: MyspotiApi? = null
+
+    /** The app's wrapper over [spotify], set once [start] made it. */
+    fun useApi(api: MyspotiApi) { wrapped = api }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /** A plan not known yet is asked again after this (a failed or unclear answer). */
     private const val PLAN_ASK_GAP_MS = 60_000L
+    /** The status loop's pace while a song plays or the page is not up, and while nothing plays. */
+    private const val STATUS_MS = 10_000L
+    private const val STATUS_IDLE_MS = 60_000L
 
     val isStarted: Boolean get() = ::host.isInitialized
     val loginRequired: StateFlow<Boolean> get() = host.loginRequired
@@ -51,8 +62,13 @@ object MyspotiRuntime {
     /** The phone moved to another network: the API's idle connections belong to the old one. Not on the main thread. */
     fun resetApiConnections() { if (::host.isInitialized) apiHttp.connectionPool.evictAll() }
 
-    /** [loadPage] false (data saver on a metered network): nothing goes out until [resume]. */
-    fun start(context: Context, loadPage: Boolean = true) {
+    /**
+     * [loadPage] false: the page is not loaded now. With [held] (the data saver on a metered
+     * network) nothing goes out until [resume]; without, the page loads at the first call made into
+     * it ([Bridge.onCallUnready]): a music account other than Spotify (YouTube Music, none) had the
+     * whole Web Player loaded, compiled and connected at every start of the process, for nothing.
+     */
+    fun start(context: Context, loadPage: Boolean = true, held: Boolean = false) {
         if (isStarted) return
         appContext = context.applicationContext
         val updater = app.myspoti.spotify.gql.GqlOpsUpdater(apiHttp, java.io.File(context.filesDir, "spotify/gql-ops.json"))
@@ -61,6 +77,10 @@ object MyspotiRuntime {
         spotify = SpotifyApi(host, scope, http = apiHttp, language = Locale.getDefault().language, ops = updater.load(), deviceId = clientDeviceId(context, host.accounts.list.value.active), userAgent = host.userAgent,
             tokenStore = clientTokens(context))
         spotify.bridge.logger = { line -> Logbook.log(line) }
+        // Each call to the page and its answer (up to a few thousand characters): dev builds only.
+        spotify.bridge.verbose = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+        pageHeld = held
+        spotify.bridge.onCallUnready = { loadOnDemand() }
         host.onPageLoaded = { scope.launch { spotify.onPageLoaded() } }
         host.onPageStarting = { spotify.onPageStarting() }
         spotify.player.reloadHost = { host.reload() }
@@ -70,6 +90,16 @@ object MyspotiRuntime {
         // And while the phone is offline (airplane mode): a stalled song got a seek, a skip, then
         // a reload whose page could not load, so the music on screen was thrown away for nothing.
         // Downloads and extension audio play outside the page and never ask this.
+        // Chromium runs the page at full speed only while it is of use; else it throttles it as
+        // a background tab (see WebPlayerHost.setUseful). A command wakes it on its own.
+        scope.launch {
+            kotlinx.coroutines.flow.combine(spotify.ready, spotify.player.state, spotify.player.adPlaying, spotify.player.playsElsewhere, host.loginRequired) { ready, s, ad, elsewhere, login ->
+                // The native engine playing the account's songs: the page is their remote only, idle
+                // as when paused (it ran at full speed for the length of every engine play).
+                val engine = spotify.player.audio?.let { it.on && it.holdsPlayback } == true
+                !ready || login || ad || elsewhere || (s != null && !s.isPaused && !engine)
+            }.distinctUntilChanged().collect { host.setUseful(it) }
+        }
         spotify.player.recoveryHeld = { host.licenseLimited() || host.loginRequired.value || !host.online.value }
         spotify.player.playbackHeld = { host.licenseLimited() }
         // Spotify limiting this client: stop asking (a paused player requests no licence).
@@ -89,7 +119,10 @@ object MyspotiRuntime {
             var notReadySince = 0L
             var notReadyWait = 60_000L
             while (true) {
-                kotlinx.coroutines.delay(10_000)
+                // Every 10 s while a song plays or the page is not up yet; once a minute when
+                // nothing plays (it ran every 10 s for the life of the process, paused or not).
+                val idle = spotify.ready.value && spotify.player.state.value.let { it == null || it.isPaused }
+                kotlinx.coroutines.delay(if (idle) STATUS_IDLE_MS else STATUS_MS)
                 val clock = android.os.SystemClock.elapsedRealtime()
                 val waiting = !spotify.ready.value && !host.loginRequired.value && !host.licenseLimited() &&
                     host.online.value && host.url.value.startsWith(WebPlayerHost.PLAYER_URL)
@@ -104,7 +137,14 @@ object MyspotiRuntime {
                 // The account's plan (AccountPlan: Premium turns the ad machinery off), asked while it is not
                 // known, once the page is signed in; forgotten at a sign-out (below). Its log line is the first
                 // thing a refused play (402) needs. No name, no id, only what decides what the account may play.
-                if (spotify.ready.value && runCatching { isSignedIn() }.getOrDefault(false)) {
+                // The page is asked (token.get) only while the plan is not known or no token is in
+                // hand: it was asked every 10 s, as a fresh answer is what a sign-in needs (those
+                // flows still ask it themselves). A sign-out, a login page or another account
+                // forgets the plan and the token, so the page is asked again then.
+                val known = spotify.signedInHint() == true && AccountPlan.premium.value != null
+                val signedIn = spotify.ready.value && !host.loginRequired.value &&
+                    (known || runCatching { isSignedIn() }.getOrDefault(false))
+                if (signedIn) {
                     host.noteSignedIn(fresh = sawSignedOut)
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (AccountPlan.premium.value == null && (planAskedAt == 0L || now - planAskedAt >= PLAN_ASK_GAP_MS)) {
@@ -147,6 +187,7 @@ object MyspotiRuntime {
             }
         }
         if (!loadPage) return
+        pageWanted = true
         host.load()
         // New Spotify build: pick up its operation hashes (public bundles, no account). Once the
         // page is up rather than beside its load, at most every 6 h, and a new build's bundles
@@ -195,15 +236,23 @@ object MyspotiRuntime {
         scope.launch { spotify.forgetAccount() }
     }
 
-    /** Data saver: frees the page; [resume] loads it again. */
-    fun suspendPlayer() = host.unload()
-    fun resume() = host.load()
+    /** The data saver holds the page off ([suspendPlayer] to [resume]). */
+    @Volatile private var pageHeld = false
+    /** The page was loaded (at start, or since by a call into it): the data saver's end loads it again. */
+    @Volatile private var pageWanted = false
 
-    /**
-     * The client's device id, kept across launches: a client token is issued per (client, device)
-     * pair, and a fresh id at every start made the app look like a brand-new client each time.
-     */
-    /** The client's device id for the account kept in [profile]: the first account keeps the one it always had. */
+    /** A call into a page that is not up: loaded now, once, unless the data saver holds it off. */
+    private fun loadOnDemand() {
+        if (pageHeld || pageWanted || !isStarted) return
+        pageWanted = true
+        Logbook.log("spotify: the Web Player is loaded now, at its first use")
+        host.load()
+    }
+
+    /** Data saver: frees the page; [resume] loads it again (if it was in use). */
+    fun suspendPlayer() { pageHeld = true; host.unload() }
+    fun resume() { pageHeld = false; if (pageWanted) host.load() }
+
     /** The client token of each client device id, in the app's own files (spotify/client-token-<id>). */
     private fun clientTokens(context: Context) = object : app.myspoti.spotify.gql.ClientTokenStore {
         private fun file(id: String) = java.io.File(context.filesDir, "spotify/client-token-" + id.filter { it.isLetterOrDigit() || it == '-' })
@@ -214,6 +263,11 @@ object MyspotiRuntime {
         }
     }
 
+    /**
+     * The client's device id for the account kept in [profile], kept across launches: a client
+     * token is issued per (client, device) pair, and a fresh id at every start made the app look
+     * like a brand-new client each time. The first account keeps the one it always had.
+     */
     private fun clientDeviceId(context: Context, profile: String): String {
         val name = if (profile == AccountList.DEFAULT_PROFILE) "device-id" else "device-id-" + profile.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
         val file = java.io.File(context.filesDir, "spotify/$name")

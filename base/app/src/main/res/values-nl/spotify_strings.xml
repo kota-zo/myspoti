@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Te stoppen met het vertalen van songteksten</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Hier kennen we de songtekst niet van.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Deze songtekst loopt nog niet synchroon.</string>
-    <string name="av_switch_to_video" formatted="false">Overschakelen naar video</string>
-    <string name="av_switch_to_audio" formatted="false">Overschakelen naar audio</string>
-    <string name="av_content_desc" formatted="false">Audio of juist video aanzetten</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Home</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Zoeken</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Bibliotheek</string>

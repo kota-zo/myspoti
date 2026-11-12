@@ -24,9 +24,10 @@ object Analyzer {
     /**
      * [mid] and [side] (or null) at [Features.RATE] Hz. With [model], Beat This reads the whole song
      * for the metrical level and the downbeats; without it (or when it finds no
-     * beats) the onsets alone decide.
+     * beats) the onsets alone decide. [length]: the samples of the signals that are the song
+     * (see [Features.of]).
      */
-    fun analyze(mid: FloatArray, side: FloatArray?, model: BeatThis? = null, cancelled: () -> Boolean = { false }, threads: Int = 1): TrackAnalysis {
+    fun analyze(mid: FloatArray, side: FloatArray?, model: BeatThis? = null, cancelled: () -> Boolean = { false }, threads: Int = 1, length: Int = mid.size): TrackAnalysis {
         // The onset features and Beat This side by side (the model reads the whole file; its beats
         // outside the audible part are dropped below).
         var feats: Features? = null
@@ -34,8 +35,8 @@ object Analyzer {
         val budget = max(1, threads)
         val split = max(1, budget / 2)
         parallel(if (model != null) 2 else 1, if (model != null && budget > 1) 2 else 1) { task ->
-            if (task == 0) feats = Features.of(mid, side, cancelled, if (model != null) split else budget)
-            else act = model!!.run(mid, 0, mid.size, cancelled, max(1, budget - split))
+            if (task == 0) feats = Features.of(mid, side, cancelled, if (model != null) split else budget, length)
+            else act = model!!.run(mid, 0, length, cancelled, max(1, budget - split))
         }
         if (cancelled()) throw InterruptedException("analysis cancelled")
         val f = feats!!
@@ -177,7 +178,7 @@ object Analyzer {
         val loud = loudness(f.rmsDb, peak - 20f)
         return TrackAnalysis(f.durationSec, contentStart, contentEnd, loud, key, keyStrength, bpm, steady, head, tail,
             beats, barStarts, barDb, barLow, barHigh, barCentre, novelty, phraseOffset, f.stereo, headDown, tailDown, why.toString().trimEnd(' ', ';'), vocalRisk,
-            signalKey(mid, side), barBass, phaseStats(head, mb, headSpan), phaseStats(tail, mb, tailSpan), metre(head, headSpan), metre(tail, tailSpan),
+            signalKey(mid, side, length), barBass, phaseStats(head, mb, headSpan), phaseStats(tail, mb, tailSpan), metre(head, headSpan), metre(tail, tailSpan),
             mb, barDownConfidence)
     }
 
@@ -191,12 +192,12 @@ object Analyzer {
     }
 
     /** SHA-256 of the signal the analysis read. */
-    private fun signalKey(mid: FloatArray, side: FloatArray?): String {
+    private fun signalKey(mid: FloatArray, side: FloatArray?, length: Int): String {
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         val bytes = java.nio.ByteBuffer.allocate(64 * 1024).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         for (signal in listOfNotNull(mid, side)) {
-            for (v in signal) {
-                bytes.putFloat(v)
+            for (i in 0 until length) {
+                bytes.putFloat(signal[i])
                 if (!bytes.hasRemaining()) { digest.update(bytes.array(), 0, bytes.position()); bytes.clear() }
             }
         }

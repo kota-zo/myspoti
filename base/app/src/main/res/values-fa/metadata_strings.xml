@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">فراداده</string>
+    <string name="metadata_footer">جست‌وجوها، آلبوم‌ها و هنرمندان از این سرویس‌ها می‌آیند که از بالا به پایین پرسیده می‌شوند. آهنگی که دو بار پیدا شود یک بار نشان داده می‌شود. از سرویس خاموش هرگز پرسیده نمی‌شود.</string>
+    <string name="metadata_spotify_detail">حساب شما، تا وقتی وارد شده‌اید</string>
+    <string name="metadata_signed_out">پرسیده نمی‌شود: هیچ حسابی وارد نشده</string>
+    <string name="metadata_asked">پرسیده می‌شود</string>
+    <string name="metadata_off">خاموش: هرگز پرسیده نمی‌شود</string>
+    <string name="metadata_reset">بازگشت به ترتیب پیش‌فرض</string>
+    <string name="metadata_not_on_spotify">در Spotify پیدا نشد: این آهنگ هنوز پخش نمی‌شود</string>
+    <string name="metadata_switch">پرسیدن از %1$s</string>
+</resources>

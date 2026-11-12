@@ -89,8 +89,12 @@ class MainActivity : AppCompatActivity() {
     private var loginWait: kotlinx.coroutines.Job? = null
     /** The wait ended with a player that never became ready: an error with Try again, not another spinner. */
     private var loginProblem by mutableStateOf(false)
-    /** The one-time setup screen (permissions, battery) after signing in. */
+    /** The one-time setup screen (permissions, battery) once the account is in place. */
     private var setupNeeded by mutableStateOf(false)
+    /** The music account was chosen (before any sign-in on a new install; see [com.music.spotui.ui.screens.Onboarding]). */
+    private var accountChosen by mutableStateOf(false)
+    /** On the account choice, between the welcome screen and any sign-in. */
+    private var choosingAccount by mutableStateOf(false)
     /** In the picture-in-picture window: only the music video (or, with [pipSong], the song card) is drawn. */
     private var inPip by mutableStateOf(false)
     /** The window holds the song ([com.music.spotui.ui.components.SongPip]), not the music video. */
@@ -99,13 +103,17 @@ class MainActivity : AppCompatActivity() {
     private var pipWatch: kotlinx.coroutines.Job? = null
     /** Debug builds: `am start ... --ez showLook true` opens the look step alone, signed in or not. */
     private var showLook by mutableStateOf(false)
-    /** The "new look" popup was already shown (or the onboarding look step covered it). */
-    private var lookOffered by mutableStateOf(true)
 
     private val prefs get() = getSharedPreferences("myspoti_prefs", Context.MODE_PRIVATE)
     /** Android TV: the short TV version of the app (see [com.music.spotui.ui.tv.TvApp]). */
     private val tv by lazy { com.music.spotui.ui.tv.Tv.isTv(this) }
 
+
+    /** Every finger down on the window: the lyrics keep the screen on for a while after the last one. */
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) com.music.spotui.ui.components.UserTouch.touched()
+        return super.dispatchTouchEvent(ev)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,9 +125,9 @@ class MainActivity : AppCompatActivity() {
         requestedOrientation = orientationFor(resources.configuration)
         signedIn = prefs.getBoolean("LoggedIn", false)
         setupNeeded = com.music.spotui.ui.screens.Setup.needed(this)
-        lookOffered = com.music.spotui.data.preferences.LookPref.isOffered(this)
+        accountChosen = com.music.spotui.ui.screens.Setup.accountSeen(this)
         // A TV has one look of its own and no setup to go through (no battery or file prompts there).
-        if (tv) { setupNeeded = false; lookOffered = true }
+        if (tv) setupNeeded = false
         root = FrameLayout(this)
         val compose = ComposeView(this).apply {
             setContent {
@@ -131,17 +139,28 @@ class MainActivity : AppCompatActivity() {
                         requestedOrientation = orientationFor(config)
                     }
                     androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                        // The music account first, Spotify's sign-in only when Spotify is the one chosen.
+                        val entry = com.music.spotui.ui.screens.Onboarding.entry(
+                            signedIn, accountChosen, com.music.spotui.data.preferences.AccountProviderPref.id,
+                            setupNeeded, connecting, choosingAccount, tv,
+                        )
                         when {
                             showLook -> com.music.spotui.ui.look.LookStep(onNext = {
                                 com.music.spotui.data.preferences.LookPref.setChosen(this@MainActivity); showLook = false
                                 setupNeeded = com.music.spotui.ui.screens.Setup.needed(this@MainActivity)
                             })
-                            signedIn && setupNeeded -> com.music.spotui.ui.screens.SetupScreen(
+                            entry == com.music.spotui.ui.screens.Entry.SETUP -> com.music.spotui.ui.screens.SetupScreen(
                                 onDone = { setupNeeded = false },
                             )
-                            signedIn -> if (tv) com.music.spotui.ui.tv.TvApp() else App()
-                            connecting -> ConnectingScreen()
-                            else -> WelcomeScreen(onLogin = { showLogin() })
+                            entry == com.music.spotui.ui.screens.Entry.APP -> if (tv) com.music.spotui.ui.tv.TvApp() else App()
+                            entry == com.music.spotui.ui.screens.Entry.CONNECTING -> ConnectingScreen()
+                            entry == com.music.spotui.ui.screens.Entry.ACCOUNT -> com.music.spotui.ui.screens.AccountChoiceScreen(
+                                onBack = { choosingAccount = false },
+                                onDone = { accountDone() },
+                            )
+                            else -> WelcomeScreen(onLogin = {
+                                if (com.music.spotui.ui.screens.Onboarding.welcomeChoosesAccount(tv)) choosingAccount = true else showLogin()
+                            })
                         }
                         // The sign-in page opening (the app's own screen, never a white page) or not coming (an
                         // error with Try again, never a page that stays blank): over whatever is under it.
@@ -157,17 +176,18 @@ class MainActivity : AppCompatActivity() {
                                 else -> com.music.spotui.ui.components.LoginHelpButton()
                             }
                         }
-                        // Existing users, once, right after the update: the new look, live.
-                        if (signedIn && !setupNeeded && !showLook && !showingLogin && !inPip && !lookOffered) {
+                        // Existing users, once, right after the update: the new look, live. Never after the
+                        // onboarding, whose look step asked it already (LookPref.offered, read live).
+                        if (com.music.spotui.ui.screens.Onboarding.lookOfferShown(
+                                entry, showLook, showingLogin, inPip, com.music.spotui.data.preferences.LookPref.offered, tv)) {
                             if (com.music.spotui.data.preferences.LookPref.look == com.music.spotui.data.preferences.Look.IMMERSIVE) {
                                 androidx.compose.runtime.LaunchedEffect(Unit) {
-                                    com.music.spotui.data.preferences.LookPref.setOffered(this@MainActivity); lookOffered = true
+                                    com.music.spotui.data.preferences.LookPref.setOffered(this@MainActivity)
                                 }
                             } else {
                                 val close = { look: com.music.spotui.data.preferences.Look ->
                                     com.music.spotui.data.preferences.LookPref.set(this@MainActivity, look)
                                     com.music.spotui.data.preferences.LookPref.setOffered(this@MainActivity)
-                                    lookOffered = true
                                 }
                                 val keep = { close(com.music.spotui.data.preferences.Look.CLASSIC) }
                                 androidx.compose.ui.window.Dialog(
@@ -181,6 +201,8 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                         }
+                        // A pass QR code scanned with the camera: the yes before sending this phone's setup.
+                        if (signedIn) com.music.spotui.pass.PassLinkHost()
                         // "Ask each time": the download quality question, above every screen.
                         com.music.spotui.ui.components.DownloadAskHost()
                         // An extension about to change the Spotify account waits for the user's yes.
@@ -207,17 +229,19 @@ class MainActivity : AppCompatActivity() {
         // Debug builds: `am start ... --ez showPlayer true` shows the Web Player page full screen.
         val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
         MyspotiRuntime.host.attach(root, visible = debuggable && intent.getBooleanExtra("showPlayer", false))
+        // The hidden page of the account provider other than Spotify (YouTube Music), when chosen.
+        com.music.spotui.di.YtmRuntime.attach(root)
         // A new activity while the sign-in page is open (the system let the old one go while the user
         // read the e-mail code): the page is still there and is put back in front as it was left. It
         // used to stay hidden behind the welcome screen, and "Log in" started the flow over.
-        if (!signedIn && MyspotiRuntime.loginRequired.value) {
+        if (!signedIn && MyspotiRuntime.loginRequired.value && !withoutSpotify()) {
             showingLogin = true
             MyspotiRuntime.host.attach(root, visible = true)
         }
         showLook = debuggable && intent.getBooleanExtra("showLook", false)
         // Debug builds: `am start ... --ez resetLookOffer true` shows the new-look popup again.
         if (debuggable && intent.getBooleanExtra("resetLookOffer", false)) {
-            com.music.spotui.data.preferences.LookPref.clearOffered(this); lookOffered = false
+            com.music.spotui.data.preferences.LookPref.clearOffered(this)
         }
         watchSession()
         watchLoginReturn()
@@ -353,10 +377,13 @@ class MainActivity : AppCompatActivity() {
 
     // The clip player follows the app on screen: paused with its side jobs in the background.
     override fun onStart() {
-        // Beta and dev builds only, like the log button: a stable release has no freeze reports to read.
-        if (com.music.spotui.data.api.UpdateChecker.isBeta || app.myspoti.engine.BuildConfig.DEBUG) app.myspoti.host.android.MainThreadWatch.start()
+        // Dev builds only: it woke two threads every half second while the app was on screen, for a
+        // freeze report no one using the app reads (the beta too: "checks that run all the time for nothing").
+        if (app.myspoti.engine.BuildConfig.DEBUG) app.myspoti.host.android.MainThreadWatch.start()
         super.onStart()
+        com.music.spotui.di.AppForeground.onForeground()
         com.music.spotui.video.MusicVideoController.onForeground()
+        com.music.spotui.ui.components.CanvasPlayer.onForeground()
         // The song shown may have been liked or unliked in another app meanwhile.
         com.music.spotui.di.SongPlayer.refreshLikedIfStale()
         // Asked for over adb (TestControlReceiver's "screenon"): One UI ignores the huge
@@ -370,7 +397,11 @@ class MainActivity : AppCompatActivity() {
         // The sign-in is only in memory until the WebView saves it: leaving the app (and being swiped away) must not lose it.
         MyspotiRuntime.host.flushCookies()
         app.myspoti.host.android.MainThreadWatch.stop()
-        if (!isChangingConfigurations) com.music.spotui.video.MusicVideoController.onBackground()
+        if (!isChangingConfigurations) {
+            com.music.spotui.di.AppForeground.onBackground()
+            com.music.spotui.video.MusicVideoController.onBackground()
+            com.music.spotui.ui.components.CanvasPlayer.onBackground()
+        }
     }
 
     override fun onDestroy() {
@@ -380,7 +411,26 @@ class MainActivity : AppCompatActivity() {
         // detach it, or view.parent -> root keeps the destroyed activity (and its
         // whole view tree) alive for the rest of the playback session.
         MyspotiRuntime.host.detach(root)
+        com.music.spotui.di.YtmRuntime.detach(root)
         super.onDestroy()
+    }
+
+    /** Another music account than Spotify (or none) was chosen: no Spotify sign-in is ever asked of the user. */
+    private fun withoutSpotify(): Boolean = com.music.spotui.ui.screens.Onboarding.opensWithoutSpotify(
+        accountChosen, com.music.spotui.data.preferences.AccountProviderPref.id, tv)
+
+    /**
+     * The account choice's Continue: Spotify's sign-in page for Spotify; for another account (signed
+     * in on its own page by then) or none, the setup and the app, with no sign-in.
+     */
+    private fun accountDone() {
+        com.music.spotui.ui.screens.Setup.setAccountSeen(this)
+        accountChosen = true
+        choosingAccount = false
+        val provider = com.music.spotui.data.preferences.AccountProviderPref.id
+        Logbook.log("onboarding: music account $provider chosen before any sign-in")
+        if (com.music.spotui.ui.screens.Onboarding.afterChoice(provider, com.music.spotui.di.YtmRuntime.signedIn) ==
+            com.music.spotui.ui.screens.AfterChoice.SPOTIFY_SIGN_IN) showLogin()
     }
 
     /** Spotify's login page, full screen, until the Web Player comes back signed in. */
@@ -594,7 +644,12 @@ class MainActivity : AppCompatActivity() {
                     login && !showingLogin && signedIn -> {
                         // The session expired: whoever signs in on that page may be another account.
                         com.music.spotui.di.SessionActions.sessionLost()
-                        showLogin()
+                        // Another music account was chosen: the app goes on without Spotify, nothing asked.
+                        if (withoutSpotify()) {
+                            Logbook.log("Spotify session gone, another music account chosen: no sign-in asked")
+                            prefs.edit().putBoolean("LoggedIn", false).apply()
+                            signedIn = false
+                        } else showLogin()
                     }
                     ready && !login -> {
                         val answer = runCatching { MyspotiRuntime.isSignedIn() }
@@ -612,7 +667,7 @@ class MainActivity : AppCompatActivity() {
                                 signedIn = false
                                 connecting = false
                                 com.music.spotui.di.SessionActions.sessionLost()
-                                showLogin()
+                                if (!withoutSpotify()) showLogin()
                             }
                         }
                     }
@@ -622,12 +677,17 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    /** Spotify links (open.spotify.com/...) play their item; voice search plays its best match. */
+    /**
+     * Spotify links (open.spotify.com/...) play their item; a pass QR code (orpheon://pass?…) asks
+     * whether to send this phone's setup; voice search plays its best match.
+     */
     private fun handle(intent: Intent?) {
         intent ?: return
         when (intent.action) {
             Intent.ACTION_VIEW -> {
                 val link = intent.data?.toString() ?: return
+                // A pass QR code opened by the camera (orpheon://pass?…): its confirmation, never a send on its own.
+                if (com.music.spotui.pass.PassLinks.offer(this, link, signedIn)) return
                 // A collaborative-playlist invitation (…?pt=) or a spotify.link short link: kept / resolved there.
                 if (com.music.spotui.data.api.InviteLinks.handle(link)) return
                 val uri = spotifyUri(link) ?: return

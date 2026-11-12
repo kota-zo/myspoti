@@ -50,7 +50,6 @@ import app.myspoti.api.best
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.ui.components.pressable
@@ -236,7 +235,6 @@ fun ProfileScreen(navController: NavController, userId: String, userName: String
                             .padding(16.dp, 8.dp),
                     ) {
                         GlideImage(
-                            transition = CrossFade,
                             model = spotifyImageUrl(pl.images.best(160)?.url), contentDescription = null, contentScale = ContentScale.Crop,
                             failure = placeholder(R.drawable.placeholder), loading = placeholder(R.drawable.placeholder),
                             modifier = Modifier.size(56.dp).clip(RoundedCornerShape(4.dp)),

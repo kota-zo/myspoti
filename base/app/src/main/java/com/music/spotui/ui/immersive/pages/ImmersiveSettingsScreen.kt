@@ -17,12 +17,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Palette
@@ -75,7 +77,7 @@ import com.music.spotui.ui.screens.shareDiagnosticReport
 import kotlinx.coroutines.launch
 
 /** Where the Immersive Settings are: the list of categories, one category, or a choice inside it. */
-private enum class SettingsPage { Root, Playback, Sources, Lyrics, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts }
+private enum class SettingsPage { Root, Playback, Sources, Lyrics, StreamingWifi, StreamingCell, Crossfade, Downloads, DownloadQuality, Storage, Data, Display, Look, Rotation, Language, LyricsLanguage, App, Accounts, Library }
 
 private val StreamingChoices = listOf(
     Triple(StreamingQuality.AUTO, R.string.quality_streaming_auto, R.string.quality_streaming_auto_detail),
@@ -151,6 +153,7 @@ fun ImmersiveSettingsScreen(navController: NavController) {
             SettingsPage.LyricsLanguage -> LyricsLanguagePage(back)
             SettingsPage.App -> AppPage(navController, back)
             SettingsPage.Accounts -> AccountsPage(back)
+            SettingsPage.Library -> LibraryPage(navController, back)
         }
     }
 }
@@ -200,19 +203,29 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
                 return@ImmersivePage
             }
         }
-        // What is changed most, first: playback, the order of the sources, the transitions.
-        immersiveGroup("root") {
-            row { ImmersiveGroupRow(stringResource(R.string.settings_section_playback), icon = Icons.Rounded.PlayArrow, chevron = true, onClick = { open(SettingsPage.Playback) }) }
+        // Where the music comes from, first: the music account (the library, the recommendations)
+        // and the sources that play and download; then how it is listened to; then the app itself.
+        immersiveGroup("music") {
+            row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.accounts_title), detail = com.music.spotui.ui.components.switchAccountDetail(),
+                    icon = Icons.Rounded.Person, chevron = true, onClick = { open(SettingsPage.Accounts) },
+                )
+            }
             row {
                 ImmersiveGroupRow(stringResource(R.string.settings_sources_tab), icon = Icons.Rounded.Extension, chevron = true,
                     detail = audioLine ?: stringResource(R.string.settings_sources_detail), onClick = { open(SettingsPage.Sources) })
             }
+        }
+        immersiveGroup("root") {
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_playback), icon = Icons.Rounded.PlayArrow, chevron = true, onClick = { open(SettingsPage.Playback) }) }
             row {
                 ImmersiveGroupRow(
                     stringResource(R.string.settings_transitions_title), icon = Icons.Rounded.GraphicEq, chevron = true,
                     value = transitionValue(crossfade), onClick = { open(SettingsPage.Crossfade) },
                 )
             }
+            row { ImmersiveGroupRow(stringResource(R.string.settings_section_library), icon = Icons.Rounded.LibraryMusic, chevron = true, onClick = { open(SettingsPage.Library) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_downloads), icon = Icons.Rounded.Download, chevron = true, onClick = { open(SettingsPage.Downloads) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_lyrics), icon = Icons.Rounded.Lyrics, chevron = true, onClick = { open(SettingsPage.Lyrics) }) }
         }
@@ -221,14 +234,6 @@ private fun SettingsRoot(navController: NavController, open: (SettingsPage) -> U
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_data), icon = Icons.Rounded.SignalCellularAlt, chevron = true, onClick = { open(SettingsPage.Data) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_storage), icon = Icons.Rounded.Storage, chevron = true, onClick = { open(SettingsPage.Storage) }) }
             row { ImmersiveGroupRow(stringResource(R.string.settings_section_app), icon = Icons.Rounded.Info, chevron = true, onClick = { open(SettingsPage.App) }) }
-        }
-        immersiveGroup("accounts") {
-            row {
-                ImmersiveGroupRow(
-                    stringResource(R.string.accounts_title), detail = com.music.spotui.ui.components.switchAccountDetail(),
-                    icon = Icons.Rounded.Person, chevron = true, onClick = { open(SettingsPage.Accounts) },
-                )
-            }
         }
     }
 }
@@ -257,6 +262,12 @@ private fun SourcesPage(navController: NavController, back: () -> Unit) {
     ImmersivePage(title = stringResource(R.string.settings_sources_tab), onBack = back) {
         sourcesGroup(app.myspoti.extensions.Action.AUDIO_SOURCE, navController)
         sourcesGroup(app.myspoti.extensions.Action.DOWNLOAD_SOURCE, navController)
+        // Where searches, albums and artists come from: the metadata providers, in their order.
+        immersiveGroup("metadata", headerRes = R.string.metadata_title, footerRes = R.string.metadata_footer) {
+            row {
+                com.music.spotui.ui.screens.MetadataOrderList(ImmersiveSourceLook, rowPadding = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
         // The installed extensions that declare settings, each opening its page.
         immersiveGroup("extension-settings", headerRes = if (withSettings.isEmpty()) null else R.string.ext_settings_header) {
             withSettings.forEach { (e, settings) ->
@@ -293,7 +304,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sourcesGroup(action: 
         headerRes = if (audio) R.string.sources_audio_title else R.string.sources_download_title,
         footerRes = if (audio) R.string.sources_audio_footer else R.string.sources_download_footer) {
         row {
-            com.music.spotui.ui.screens.SourceOrderList(action, spotifyLast = audio, look = ImmersiveSourceLook,
+            com.music.spotui.ui.screens.SourceOrderList(action, withAccount = audio, look = ImmersiveSourceLook,
                 onOpen = { navController.navigate(com.music.spotui.ui.screens.installedRoute(it)) },
                 rowPadding = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         }
@@ -346,14 +357,6 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
             }
             row {
                 ImmersiveSwitchRow(
-                    stringResource(R.string.settings_release_notify),
-                    checked = com.music.spotui.data.NewReleaseNotifier.on,
-                    onChecked = { com.music.spotui.data.NewReleaseNotifier.setOn(ctx, it) },
-                    detail = stringResource(R.string.settings_release_notify_detail),
-                )
-            }
-            row {
-                ImmersiveSwitchRow(
                     stringResource(R.string.myspoti_shuffle_title),
                     checked = com.music.spotui.data.preferences.AppShufflePref.on,
                     onChecked = { com.music.spotui.data.preferences.AppShufflePref.set(ctx, it) },
@@ -379,6 +382,14 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
         // What keeps the music going and what the headset buttons do.
         immersiveGroup("controls", headerRes = R.string.settings_section_controls) {
             row {
+                var nativeAudio by remember { mutableStateOf(com.music.spotui.di.NativeAudio.enabled) }
+                ImmersiveSwitchRow(
+                    stringResource(R.string.settings_native_audio_title), checked = nativeAudio,
+                    onChecked = { nativeAudio = it; com.music.spotui.di.NativeAudio.set(ctx, it) },
+                    detail = stringResource(R.string.settings_native_audio_detail),
+                )
+            }
+            row {
                 ImmersiveSwitchRow(
                     stringResource(R.string.settings_keep_playing_title), checked = keepPlaying,
                     onChecked = { keepPlaying = it; app.myspoti.host.android.PlaybackService.setKeepsPlayingOnClose(ctx, it) },
@@ -393,28 +404,32 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                 )
             }
         }
-        // What other devices see of this phone, and a Jam joined here.
-        immersiveGroup("connect", headerRes = R.string.settings_section_connect) {
-            // Songs an extension streams, played by Spotify too (unheard): counted there, seen by Connect.
-            if (com.music.spotui.extensions.Extensions.sources(app.myspoti.extensions.Action.AUDIO_SOURCE).isNotEmpty()) row {
-                ImmersiveSwitchRow(
-                    stringResource(R.string.settings_connect_mirror_title),
-                    checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
-                    onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
-                    detail = stringResource(R.string.settings_connect_mirror_detail),
-                )
-            }
-            // Downloaded songs, played from their files online, played by Spotify too (unheard), as an extension's.
+        sourcesLink(app.myspoti.extensions.Action.AUDIO_SOURCE, open)
+    }
+}
+
+/** The library: what it shows (local files, Live Radio, hidden songs), new releases, and podcasts' SponsorBlock. */
+@Composable
+private fun LibraryPage(navController: NavController, back: () -> Unit) {
+    val ctx = LocalContext.current
+    ImmersivePage(title = stringResource(R.string.settings_section_library), onBack = back) {
+        immersiveGroup("library") {
             row {
                 ImmersiveSwitchRow(
-                    stringResource(R.string.settings_download_sync_title),
-                    checked = com.music.spotui.data.preferences.DownloadSyncPref.on,
-                    onChecked = { com.music.spotui.data.preferences.DownloadSyncPref.set(ctx, it) },
-                    detail = stringResource(R.string.settings_download_sync_detail),
+                    stringResource(R.string.settings_release_notify),
+                    checked = com.music.spotui.data.NewReleaseNotifier.on,
+                    onChecked = { com.music.spotui.data.NewReleaseNotifier.setOn(ctx, it) },
+                    detail = stringResource(R.string.settings_release_notify_detail),
                 )
             }
-        }
-        immersiveGroup("library", headerRes = R.string.settings_section_library) {
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.settings_local_files_shown),
+                    checked = com.music.spotui.data.preferences.LocalFilesPref.shown,
+                    onChecked = { com.music.spotui.data.preferences.LocalFilesPref.set(ctx, it) },
+                    detail = stringResource(R.string.settings_local_files_shown_detail),
+                )
+            }
             // Live Radio: adds the pinned Library row under Local Files (see com.music.spotui.radio).
             row {
                 ImmersiveSwitchRow(
@@ -432,7 +447,6 @@ private fun PlaybackPage(navController: NavController, open: (SettingsPage) -> U
                 )
             }
         }
-        sourcesLink(app.myspoti.extensions.Action.AUDIO_SOURCE, open)
         // Podcasts: SponsorBlock (SponsorBlockGroup.kt).
         sponsorBlockGroup()
     }
@@ -471,6 +485,15 @@ private fun LyricsPage(open: (SettingsPage) -> Unit, back: () -> Unit) {
                         com.music.spotui.data.api.LyricsApi.forgetAll()
                     },
                     detail = stringResource(R.string.lyrics_extra_summary),
+                )
+            }
+            // Genius: the meaning of songs and the notes on their lines, and its lyrics as a last resort.
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.settings_genius_title),
+                    checked = com.music.spotui.data.preferences.GeniusPref.on,
+                    onChecked = { com.music.spotui.data.preferences.GeniusPref.set(ctx, it) },
+                    detail = stringResource(R.string.settings_genius_detail),
                 )
             }
             row {
@@ -566,12 +589,47 @@ private fun CrossfadePage(back: () -> Unit) {
                     Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
-        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_title, footerRes = R.string.settings_automix_detail) {
-            row {
+        // AutoMix, in the order its engine decides: how the songs are joined, how long and how far
+        // the tempo may move, what Next does, then the musical options, the analysis and what is shown.
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-style", headerRes = R.string.settings_automix_style, footerRes = R.string.settings_automix_style_detail) {
+            listOf(R.string.settings_automix_style_blend, R.string.settings_automix_style_cut, R.string.settings_automix_style_fade).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.style == i, onClick = { automix.changeStyle(i) }) }
+            }
+            // The data-plan transitions are the blend's own engine: shown only with it.
+            if (automix.style == 0) row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_segue), checked = automix.segue,
                     onChecked = automix::changeSegue, detail = stringResource(R.string.settings_automix_segue_detail))
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_session), checked = automix.sessionDj,
-                    onChecked = automix::changeSessionDj, detail = stringResource(R.string.settings_automix_session_detail))
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-length", headerRes = R.string.settings_automix_length, footerRes = R.string.settings_automix_length_detail) {
+            listOf(R.string.settings_automix_length_short, R.string.settings_automix_length_auto, R.string.settings_automix_length_long).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.mixLength == i, onClick = { automix.changeMixLength(i) }) }
+            }
+            row { DurationStepper(R.string.settings_automix_duration_min, automix.minDurationSeconds, zero = R.string.settings_automix_duration_auto) { v ->
+                automix.changeDurationBounds(v, if (automix.maxDurationSeconds in 1 until v) v else automix.maxDurationSeconds)
+            } }
+            row { DurationStepper(R.string.settings_automix_duration_max, automix.maxDurationSeconds, zero = R.string.settings_automix_duration_none) { v ->
+                automix.changeDurationBounds(if (v in 1 until automix.minDurationSeconds) v else automix.minDurationSeconds, v)
+            } }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-tempo", headerRes = R.string.settings_automix_tempo, footerRes = R.string.settings_automix_tempo_detail) {
+            listOf(R.string.settings_automix_tempo_strict, R.string.settings_automix_tempo_normal, R.string.settings_automix_tempo_wide).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.tempoRange == i, onClick = { automix.changeTempoRange(i) }) }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-next", headerRes = R.string.settings_automix_on_next, footerRes = R.string.settings_automix_on_next_detail) {
+            listOf(R.string.settings_automix_next_cut, R.string.settings_automix_next_quick, R.string.settings_automix_next_full).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(label), selected = automix.nextStyle == i, onClick = { automix.changeNextStyle(i) }) }
+            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix", headerRes = R.string.settings_automix_options, footerRes = R.string.settings_automix_detail) {
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_harmonic), checked = automix.harmonic,
+                    onChecked = automix::changeHarmonic, detail = stringResource(R.string.settings_automix_harmonic_detail))
+            }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_eq), checked = automix.djEq,
+                    onChecked = automix::changeDjEq, detail = stringResource(R.string.settings_automix_eq_detail))
             }
             row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_album_order), checked = automix.albumOrder,
@@ -582,45 +640,32 @@ private fun CrossfadePage(back: () -> Unit) {
                     onChecked = automix::changeMixPodcasts, detail = stringResource(R.string.settings_automix_podcasts_detail))
             }
             row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_harmonic), checked = automix.harmonic,
-                    onChecked = automix::changeHarmonic, detail = stringResource(R.string.settings_automix_harmonic_detail))
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_orpheon), checked = automix.orpheon,
+                    onChecked = automix::changeOrpheon, detail = stringResource(R.string.settings_automix_orpheon_detail))
             }
-            row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_eq), checked = automix.djEq,
-                    onChecked = automix::changeDjEq, detail = stringResource(R.string.settings_automix_eq_detail))
+            // The session DJ steers the older planner only: the data-plan transitions decide on their own.
+            if (!automix.segueActive) row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_session), checked = automix.sessionDj,
+                    onChecked = automix::changeSessionDj, detail = stringResource(R.string.settings_automix_session_detail))
             }
-            row {
-                ImmersiveSwitchRow(stringResource(R.string.settings_automix_show), checked = automix.showInPlayer,
-                    onChecked = automix::changeShowInPlayer, detail = stringResource(R.string.settings_automix_show_detail))
-            }
+        }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-analysis", headerRes = R.string.settings_automix_analysis) {
             row {
                 ImmersiveSwitchRow(stringResource(R.string.settings_automix_mobile_data), checked = automix.analyzeOnMobileData,
                     onChecked = automix::changeAnalyzeOnMobileData, detail = stringResource(R.string.settings_automix_mobile_data_detail))
             }
-        }
-        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-style", headerRes = R.string.settings_automix_style, footerRes = R.string.settings_automix_style_detail) {
-            listOf(R.string.settings_automix_style_blend, R.string.settings_automix_style_cut, R.string.settings_automix_style_fade).forEachIndexed { i, label ->
-                row { ImmersiveChoiceRow(stringResource(label), selected = automix.style == i, onClick = { automix.changeStyle(i) }) }
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_performance), checked = automix.performancePriority,
+                    onChecked = automix::changePerformancePriority, detail = stringResource(R.string.settings_automix_performance_detail))
             }
         }
-        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-next", headerRes = R.string.settings_automix_on_next, footerRes = R.string.settings_automix_on_next_detail) {
-            listOf(R.string.settings_automix_next_cut, R.string.settings_automix_next_quick, R.string.settings_automix_next_full).forEachIndexed { i, label ->
-                row { ImmersiveChoiceRow(stringResource(label), selected = automix.nextStyle == i, onClick = { automix.changeNextStyle(i) }) }
+        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-display", headerRes = R.string.settings_automix_display) {
+            row {
+                ImmersiveSwitchRow(stringResource(R.string.settings_automix_show), checked = automix.showInPlayer,
+                    onChecked = automix::changeShowInPlayer, detail = stringResource(R.string.settings_automix_show_detail))
             }
-        }
-        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-length", headerRes = R.string.settings_automix_length, footerRes = R.string.settings_automix_length_detail) {
-            listOf(R.string.settings_automix_length_short, R.string.settings_automix_length_auto, R.string.settings_automix_length_long).forEachIndexed { i, label ->
-                row { ImmersiveChoiceRow(stringResource(label), selected = automix.mixLength == i, onClick = { automix.changeMixLength(i) }) }
-            }
-        }
-        if (mode == TransitionMode.AUTOMIX) immersiveGroup("automix-tempo", headerRes = R.string.settings_automix_tempo, footerRes = R.string.settings_automix_tempo_detail) {
-            listOf(R.string.settings_automix_tempo_strict, R.string.settings_automix_tempo_normal, R.string.settings_automix_tempo_wide).forEachIndexed { i, label ->
-                row { ImmersiveChoiceRow(stringResource(label), selected = automix.tempoRange == i, onClick = { automix.changeTempoRange(i) }) }
-            }
-        }
-        if (mode == TransitionMode.AUTOMIX && automix.showInPlayer) immersiveGroup("automix-pulse", headerRes = R.string.settings_automix_pulse) {
-            listOf(R.string.settings_crossfade_off, R.string.settings_automix_pulse_subtle, R.string.settings_automix_pulse_strong).forEachIndexed { i, label ->
-                row { ImmersiveChoiceRow(stringResource(label), selected = automix.pulseLevel == i, onClick = { automix.changePulseLevel(i) }) }
+            if (automix.showInPlayer) listOf(R.string.settings_crossfade_off, R.string.settings_automix_pulse_subtle, R.string.settings_automix_pulse_strong).forEachIndexed { i, label ->
+                row { ImmersiveChoiceRow(stringResource(R.string.settings_automix_pulse) + " · " + stringResource(label), selected = automix.pulseLevel == i, onClick = { automix.changePulseLevel(i) }) }
             }
         }
         // The analyses kept on the phone: dropped, the songs are analysed again when they play.
@@ -1134,7 +1179,48 @@ private fun AppPage(navController: NavController, back: () -> Unit) {
 /** The Spotify accounts kept on the phone ([com.music.spotui.ui.components.AccountsList]), and signing this one out. */
 @Composable
 private fun AccountsPage(back: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // Passing the setup to or from another of the user's devices (a QR code, the same Wi-Fi).
+    var passSend by remember { mutableStateOf(false) }
+    var passReceive by remember { mutableStateOf(false) }
+    if (passSend) com.music.spotui.pass.PassSendFlow { passSend = false }
+    if (passReceive) com.music.spotui.pass.PassReceiveDialog { passReceive = false }
+    val isTv = remember { ctx.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) }
     ImmersivePage(title = stringResource(R.string.accounts_title), onBack = back) {
+        // The account provider: where extension plays are counted and the library is read from (one at a time).
+        immersiveGroup("account", headerRes = R.string.settings_account_provider_title, footerRes = R.string.settings_account_provider_detail) {
+            for (id in app.myspoti.api.account.AccountProviders.OFFERED) row {
+                ImmersiveChoiceRow(
+                    com.music.spotui.ui.components.accountProviderLabel(id),
+                    selected = com.music.spotui.data.preferences.AccountProviderPref.id == id,
+                    onClick = { com.music.spotui.data.preferences.AccountProviderPref.set(ctx, id) },
+                )
+            }
+            if (com.music.spotui.data.preferences.AccountProviderPref.id == app.myspoti.api.account.AccountProviders.YTMUSIC) row {
+                val ytm = com.music.spotui.di.YtmRuntime
+                var signingIn by remember { mutableStateOf(false) }
+                ImmersiveGroupRow(
+                    title = stringResource(if (ytm.signedIn) R.string.settings_ytm_sign_out else R.string.settings_ytm_account_title),
+                    detail = stringResource(if (ytm.signedIn) R.string.settings_ytm_signed_in else R.string.settings_ytm_signed_out) + "\n" +
+                        stringResource(R.string.settings_ytm_sync_note),
+                    destructive = ytm.signedIn,
+                    chevron = !ytm.signedIn,
+                    onClick = { if (ytm.signedIn) ytm.signOut() else signingIn = true },
+                )
+                if (signingIn) com.music.spotui.ui.components.YtmSignInDialog(onDismiss = { signingIn = false })
+            }
+        }
+        // Songs an extension streams, played by the chosen provider too (unheard): counted there.
+        if (com.music.spotui.data.preferences.AccountProviderPref.id != app.myspoti.api.account.AccountProviders.NONE) immersiveGroup("listen-sync") {
+            row {
+                ImmersiveSwitchRow(
+                    stringResource(R.string.settings_connect_mirror_title),
+                    checked = com.music.spotui.data.preferences.ConnectMirrorPref.on,
+                    onChecked = { com.music.spotui.data.preferences.ConnectMirrorPref.set(ctx, it) },
+                    detail = stringResource(R.string.settings_connect_mirror_detail),
+                )
+            }
+        }
         immersiveGroup("accounts") {
             row { com.music.spotui.ui.components.AccountsList() }
         }
@@ -1146,5 +1232,28 @@ private fun AccountsPage(back: () -> Unit) {
                 )
             }
         }
+        immersiveGroup("pass", headerRes = R.string.pass_section) {
+            // A TV has no camera: it only receives.
+            if (!isTv) row { ImmersiveGroupRow(stringResource(R.string.pass_send), detail = stringResource(R.string.pass_send_detail), chevron = true, onClick = { passSend = true }) }
+            row { ImmersiveGroupRow(stringResource(R.string.pass_receive), detail = stringResource(R.string.pass_receive_detail), chevron = true, onClick = { passReceive = true }) }
+        }
     }
+}
+
+
+/** A whole number of seconds from 0 to 90 with − and +; 0 reads as [zero] ("Automatic", "No limit"). */
+@Composable
+private fun DurationStepper(title: Int, value: Int, zero: Int, onChange: (Int) -> Unit) {
+    val steps = listOf(0, 2, 4, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75, 90)
+    val at = steps.indexOfFirst { it >= value }.let { if (it < 0) steps.lastIndex else it }
+    ImmersiveGroupRow(
+        stringResource(title),
+        value = if (value == 0) stringResource(zero) else stringResource(R.string.settings_automix_seconds, value),
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(enabled = at > 0, onClick = { onChange(steps[at - 1]) }) { Text("−", style = Immersive.Headline) }
+                TextButton(enabled = at < steps.lastIndex, onClick = { onChange(steps[(if (steps[at] == value) at + 1 else at).coerceAtMost(steps.lastIndex)]) }) { Text("+", style = Immersive.Headline) }
+            }
+        },
+    )
 }

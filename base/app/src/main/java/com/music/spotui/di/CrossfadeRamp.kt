@@ -16,6 +16,22 @@ object CrossfadeRamp {
         return fade > 0 && positionMs >= 0 && durationMs - positionMs <= fade
     }
 
+    /**
+     * When the player looks again for the fade's start ([shouldStart]), in real ms at [speed]:
+     * null with no crossfade (nothing to wait for: it looked 5 times a second all song long), soon
+     * near the start, else up to [MAX_LOOK_MS] away (a seek or a new song is looked at by itself).
+     */
+    fun nextLookMs(seconds: Int, durationMs: Long, positionMs: Long, speed: Float = 1f): Long? {
+        if (seconds <= 0) return null
+        if (durationMs <= 0) return MAX_LOOK_MS
+        val left = durationMs - positionMs - fadeMs(seconds, durationMs)
+        if (left <= MIN_LOOK_MS) return MIN_LOOK_MS
+        return ((left - MIN_LOOK_MS) / speed.coerceAtLeast(0.25f)).toLong().coerceIn(MIN_LOOK_MS, MAX_LOOK_MS)
+    }
+
+    const val MIN_LOOK_MS = 200L
+    const val MAX_LOOK_MS = 5_000L
+
     /** Progress 0..1 of a fade of [fadeMs] when the incoming song is at [incomingPositionMs]. */
     fun progress(incomingPositionMs: Long, fadeMs: Long): Float =
         if (fadeMs <= 0) 1f else (incomingPositionMs.toFloat() / fadeMs).coerceIn(0f, 1f)

@@ -23,10 +23,11 @@ class CodeExchangeTest {
         assertEquals(8, f.size)
     }
 
-    @Test fun theAudienceIsTheDevicesClientElseSonos() {
+    @Test fun theAudienceIsSonosForASonosElseTheDevicesClient() {
         val info = Zeroconf.parseInfo("""{"status":101,"deviceID":"d","clientID":"abc","tokenType":"authorization_code"}""")!!
         assertEquals("abc", CodeExchange.audience(info))
         assertEquals(CodeExchange.SONOS_CLIENT_ID, CodeExchange.audience(info.copy(clientId = "")))
+        assertEquals(CodeExchange.SONOS_CLIENT_ID, CodeExchange.audience(info.copy(brand = "Sonos")))
     }
 
     @Test fun refreshAndConsentForms() {

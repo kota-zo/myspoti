@@ -1,0 +1,1143 @@
+{
+ "headers": {
+  "content-type": "application/json"
+ },
+ "payloads": [
+  {
+   "type": "replace_state",
+   "selected_alias_id": null,
+   "prev_state_ref": null,
+   "state_machine": {
+    "state_machine_id": "ChTzNcYQb9y0CEopTlnfCwaodgw8yw",
+    "tracks": [
+     {
+      "metadata": {
+       "uri": "spotify:track:LdNSn4oYx839bj9aqZvpjQ",
+       "linked_from_uri": null,
+       "context_description": "Name 12",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "name": "Name 13",
+       "group_name": "Name 12",
+       "group_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "authors": [
+        {
+         "name": "Name 14",
+         "uri": "spotify:artist:m784H2ejPl4M63gmSUhKDo"
+        },
+        {
+         "name": "Name 15",
+         "uri": "spotify:artist:ieKFBsuwUdR9c2tr979EpW"
+        },
+        {
+         "name": "Name 16",
+         "uri": "spotify:artist:cbzykbmREehQGKcJvnSepT"
+        }
+       ],
+       "duration": 152687,
+       "images": [
+        {
+         "url": "https://i.scdn.co/image/a57ace06002ddf64603349e9d7b8df40bb0b97eb",
+         "height": 640,
+         "width": 640
+        }
+       ],
+       "episode_content_type": null,
+       "show_content_type": null,
+       "is_explicit": true
+      },
+      "manifest": {
+       "file_ids_mp4_dual": [
+        {
+         "bitrate": 128000,
+         "file_id": "d55704a0fe0b6ce04bddf6ec79b47c7ac3203ff8",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "12",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132442
+        }
+       ],
+       "file_ids_mp4": [
+        {
+         "bitrate": 128000,
+         "file_id": "08600b811e1c1ea28444e96d4635e3de071062b5",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "10",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132232
+        }
+       ]
+      },
+      "audio_id": null,
+      "video_id": null,
+      "track_type": "AUDIO",
+      "ms_played_until_update": 30000,
+      "ms_playing_update_interval": 0,
+      "content_type": "TRACK"
+     },
+     {
+      "metadata": {
+       "uri": "spotify:track:FGFu5zrjcM53gLgLGKw9Uy",
+       "linked_from_uri": null,
+       "context_description": "Name 12",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "name": "Name 17",
+       "group_name": "Name 12",
+       "group_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "authors": [
+        {
+         "name": "Name 14",
+         "uri": "spotify:artist:m784H2ejPl4M63gmSUhKDo"
+        },
+        {
+         "name": "Name 15",
+         "uri": "spotify:artist:ieKFBsuwUdR9c2tr979EpW"
+        }
+       ],
+       "duration": 153873,
+       "images": [
+        {
+         "url": "https://i.scdn.co/image/a57ace06002ddf64603349e9d7b8df40bb0b97eb",
+         "height": 640,
+         "width": 640
+        }
+       ],
+       "episode_content_type": null,
+       "show_content_type": null,
+       "is_explicit": true
+      },
+      "manifest": {
+       "file_ids_mp4_dual": [
+        {
+         "bitrate": 128000,
+         "file_id": "52aaafe8df7ca4920413fa51ab816dddedb0acfa",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "12",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132452
+        }
+       ],
+       "file_ids_mp4": [
+        {
+         "bitrate": 128000,
+         "file_id": "699a4ed88e8fd8ff515c38c07128371698249602",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "10",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132243
+        }
+       ]
+      },
+      "audio_id": null,
+      "video_id": null,
+      "track_type": "AUDIO",
+      "ms_played_until_update": 30000,
+      "ms_playing_update_interval": 0,
+      "content_type": "TRACK"
+     },
+     {
+      "metadata": {
+       "uri": "spotify:track:YtQqm7bltlANtUwdE4cVg3",
+       "linked_from_uri": null,
+       "context_description": "Name 12",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "name": "Name 18",
+       "group_name": "Name 12",
+       "group_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "authors": [
+        {
+         "name": "Name 14",
+         "uri": "spotify:artist:m784H2ejPl4M63gmSUhKDo"
+        },
+        {
+         "name": "Name 15",
+         "uri": "spotify:artist:ieKFBsuwUdR9c2tr979EpW"
+        }
+       ],
+       "duration": 181276,
+       "images": [
+        {
+         "url": "https://i.scdn.co/image/a57ace06002ddf64603349e9d7b8df40bb0b97eb",
+         "height": 640,
+         "width": 640
+        }
+       ],
+       "episode_content_type": null,
+       "show_content_type": null,
+       "is_explicit": true
+      },
+      "manifest": {
+       "file_ids_mp4_dual": [
+        {
+         "bitrate": 128000,
+         "file_id": "2b67f20493ca3cdc0534fa85ffa2ad10930265ed",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "12",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132418
+        }
+       ],
+       "file_ids_mp4": [
+        {
+         "bitrate": 128000,
+         "file_id": "5e7244a63e471cb934108a2834a06322e632dcab",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "10",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132241
+        }
+       ]
+      },
+      "audio_id": null,
+      "video_id": null,
+      "track_type": "AUDIO",
+      "ms_played_until_update": 30000,
+      "ms_playing_update_interval": 0,
+      "content_type": "TRACK"
+     },
+     {
+      "metadata": {
+       "uri": "spotify:track:VmMyxc3XtT9M8c4SJxbGMA",
+       "linked_from_uri": null,
+       "context_description": "Name 12",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "name": "Name 19",
+       "group_name": "Name 12",
+       "group_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "authors": [
+        {
+         "name": "Name 14",
+         "uri": "spotify:artist:m784H2ejPl4M63gmSUhKDo"
+        },
+        {
+         "name": "Name 15",
+         "uri": "spotify:artist:ieKFBsuwUdR9c2tr979EpW"
+        }
+       ],
+       "duration": 176221,
+       "images": [
+        {
+         "url": "https://i.scdn.co/image/a57ace06002ddf64603349e9d7b8df40bb0b97eb",
+         "height": 640,
+         "width": 640
+        }
+       ],
+       "episode_content_type": null,
+       "show_content_type": null,
+       "is_explicit": true
+      },
+      "manifest": {
+       "file_ids_mp4_dual": [
+        {
+         "bitrate": 128000,
+         "file_id": "db92a87137893641e2ec6eea3f26cb209c63d6d6",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "12",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132427
+        }
+       ],
+       "file_ids_mp4": [
+        {
+         "bitrate": 128000,
+         "file_id": "ae229c2a8dbb1bf6df6f90545352f373f8b4b1e8",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "10",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132245
+        }
+       ]
+      },
+      "audio_id": null,
+      "video_id": null,
+      "track_type": "AUDIO",
+      "ms_played_until_update": 30000,
+      "ms_playing_update_interval": 0,
+      "content_type": "TRACK"
+     },
+     {
+      "metadata": {
+       "uri": "spotify:track:NwFITCtNLQZ2uw0YOf9Ps6",
+       "linked_from_uri": null,
+       "context_description": "Name 12",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "name": "Name 20",
+       "group_name": "Name 12",
+       "group_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "authors": [
+        {
+         "name": "Name 14",
+         "uri": "spotify:artist:m784H2ejPl4M63gmSUhKDo"
+        },
+        {
+         "name": "Name 15",
+         "uri": "spotify:artist:ieKFBsuwUdR9c2tr979EpW"
+        }
+       ],
+       "duration": 145358,
+       "images": [
+        {
+         "url": "https://i.scdn.co/image/a57ace06002ddf64603349e9d7b8df40bb0b97eb",
+         "height": 640,
+         "width": 640
+        }
+       ],
+       "episode_content_type": null,
+       "show_content_type": null,
+       "is_explicit": true
+      },
+      "manifest": {
+       "file_ids_mp4_dual": [
+        {
+         "bitrate": 128000,
+         "file_id": "7a7e9ee0317923bae7caaa3828523794e4601acf",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "12",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132438
+        }
+       ],
+       "file_ids_mp4": [
+        {
+         "bitrate": 128000,
+         "file_id": "b8eb34380d0fcb707e5a4d5376c84fec5f3ba303",
+         "file_url": null,
+         "impression_urls": null,
+         "track_type": "AUDIO",
+         "format": "10",
+         "audio_quality": "HIGH",
+         "hifi_status": "NONE",
+         "gain_db": -6.511958,
+         "expires_at": null,
+         "average_bitrate": 132216
+        }
+       ]
+      },
+      "audio_id": null,
+      "video_id": null,
+      "track_type": "AUDIO",
+      "ms_played_until_update": 30000,
+      "ms_playing_update_interval": 0,
+      "content_type": "TRACK"
+     }
+    ],
+    "states": [
+     {
+      "state_id": "a2100872df12976c1df7fd64cafd81ec",
+      "disallow_seeking": false,
+      "track": 0,
+      "track_uid": "2c6ff27036edd8a0fd72",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "7226b571a7a84357e3a70e866436504d",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "126b02e7dfee3006b56728fbbc43bd0f",
+      "disallow_seeking": false,
+      "track": 1,
+      "track_uid": "be161571e2e6da00fb27",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "906a5903b35be667952ec8bce007dcc8",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "c12497dd36c5439ae5e69d5a2fd287f6",
+      "disallow_seeking": true,
+      "track": 1,
+      "track_uid": "be161571e2e6da00fb27",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": {
+        "state_index": 6,
+        "paused": false,
+        "active_alias": null
+       },
+       "skip_prev": {
+        "state_index": 9,
+        "paused": false,
+        "active_alias": null
+       },
+       "show_next": {
+        "state_index": 10,
+        "paused": false,
+        "active_alias": null
+       },
+       "show_prev": {
+        "state_index": 11,
+        "paused": false,
+        "active_alias": null
+       },
+       "advance": {
+        "state_index": 3,
+        "paused": true,
+        "active_alias": null
+       }
+      },
+      "restrictions": {
+       "disallow_pausing_reasons": [
+        "already_paused"
+       ],
+       "disallow_seeking_reasons": [
+        "unknown_reason"
+       ],
+       "disallow_setting_playback_speed_reasons": [
+        "not_supported_by_content_type"
+       ],
+       "disallow_removing_from_next_tracks_reasons": [],
+       "disallow_removing_from_context_tracks_reasons": [],
+       "disallow_updating_context_reasons": [],
+       "disallow_setting_modes": {
+        "context_enhancement": {
+         "values": {
+          "NONE": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "RECOMMENDATION": {
+           "reasons": [
+            "not_supported_by_content_type"
+           ]
+          }
+         }
+        },
+        "media": {
+         "values": {
+          "audio": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "video": {
+           "reasons": [
+            "no_associated_track"
+           ]
+          }
+         }
+        }
+       },
+       "disallow_signals": {
+        "switch-to-video": {
+         "reasons": [
+          "no_associated_track"
+         ]
+        }
+       },
+       "disallow_play_as_next_in_queue_reasons": []
+      },
+      "player_cookie": "f2a8821c0084b1b2ebb016ba6f1bbb7f",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO",
+      "end_content_info": {
+       "cur_track_reason_start": "remote",
+       "prev_track_reason_end": "endplay",
+       "source_start": "harmony",
+       "provider": "context",
+       "referrer": "",
+       "page_instance_id": "",
+       "interaction_id": "",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "shuffle": false,
+       "decision_id": "",
+       "play_context_decision_id": "",
+       "custom_reporting_attribution": "",
+       "jam_session_id": null,
+       "on_demand_type": null,
+       "reporting_uri": null,
+       "original_uri": null,
+       "reporting_id": "c12497dd36c5439ae5e69d5a2fd287f6",
+       "parent_reporting_id": null,
+       "agentic_product_type": null
+      }
+     },
+     {
+      "state_id": "80d2cf51e370b10c70438e480e74876d",
+      "disallow_seeking": true,
+      "track": 2,
+      "track_uid": "0f7a9ce6c2e583e5ad97",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": {
+        "state_index": 0,
+        "paused": false,
+        "active_alias": null
+       },
+       "show_prev": {
+        "state_index": 1,
+        "paused": false,
+        "active_alias": null
+       },
+       "advance": null
+      },
+      "restrictions": {
+       "disallow_pausing_reasons": [
+        "already_paused"
+       ],
+       "disallow_seeking_reasons": [
+        "unknown_reason"
+       ],
+       "disallow_setting_playback_speed_reasons": [
+        "not_supported_by_content_type"
+       ],
+       "disallow_removing_from_next_tracks_reasons": [],
+       "disallow_removing_from_context_tracks_reasons": [],
+       "disallow_updating_context_reasons": [],
+       "disallow_setting_modes": {
+        "context_enhancement": {
+         "values": {
+          "NONE": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "RECOMMENDATION": {
+           "reasons": [
+            "not_supported_by_content_type"
+           ]
+          }
+         }
+        },
+        "media": {
+         "values": {
+          "audio": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "video": {
+           "reasons": [
+            "no_associated_track"
+           ]
+          }
+         }
+        }
+       },
+       "disallow_signals": {
+        "switch-to-video": {
+         "reasons": [
+          "no_associated_track"
+         ]
+        }
+       },
+       "disallow_play_as_next_in_queue_reasons": []
+      },
+      "player_cookie": "dac2692caa263b806bead978b2c1e25a",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO",
+      "end_content_info": {
+       "cur_track_reason_start": "trackdone",
+       "prev_track_reason_end": "trackdone",
+       "source_start": "harmony",
+       "provider": "context",
+       "referrer": "",
+       "page_instance_id": "",
+       "interaction_id": "",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "shuffle": false,
+       "decision_id": "",
+       "play_context_decision_id": "",
+       "custom_reporting_attribution": "",
+       "jam_session_id": null,
+       "on_demand_type": null,
+       "reporting_uri": null,
+       "original_uri": null,
+       "reporting_id": "80d2cf51e370b10c70438e480e74876d",
+       "parent_reporting_id": null,
+       "agentic_product_type": null
+      }
+     },
+     {
+      "state_id": "c98eec7c826f6a933287edf40e77931c",
+      "disallow_seeking": false,
+      "track": 0,
+      "track_uid": "2c6ff27036edd8a0fd72",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "b751099bc4631acde49aa4bcf9039e34",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "997f30e64c0429ef9e1de7d633b288ae",
+      "disallow_seeking": false,
+      "track": 1,
+      "track_uid": "be161571e2e6da00fb27",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "5b2c478e0a213b5c8f49bd2634c8f6cc",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "6dcb31be54c63ef709eec9d72202abfa",
+      "disallow_seeking": true,
+      "track": 2,
+      "track_uid": "0f7a9ce6c2e583e5ad97",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": {
+        "state_index": 4,
+        "paused": false,
+        "active_alias": null
+       },
+       "show_prev": {
+        "state_index": 5,
+        "paused": false,
+        "active_alias": null
+       },
+       "advance": null
+      },
+      "restrictions": {
+       "disallow_resuming_reasons": [
+        "not_paused"
+       ],
+       "disallow_seeking_reasons": [
+        "unknown_reason"
+       ],
+       "disallow_setting_playback_speed_reasons": [
+        "not_supported_by_content_type"
+       ],
+       "disallow_removing_from_next_tracks_reasons": [],
+       "disallow_removing_from_context_tracks_reasons": [],
+       "disallow_updating_context_reasons": [],
+       "disallow_setting_modes": {
+        "context_enhancement": {
+         "values": {
+          "NONE": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "RECOMMENDATION": {
+           "reasons": [
+            "not_supported_by_content_type"
+           ]
+          }
+         }
+        },
+        "media": {
+         "values": {
+          "audio": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "video": {
+           "reasons": [
+            "no_associated_track"
+           ]
+          }
+         }
+        }
+       },
+       "disallow_signals": {
+        "switch-to-video": {
+         "reasons": [
+          "no_associated_track"
+         ]
+        }
+       },
+       "disallow_play_as_next_in_queue_reasons": []
+      },
+      "player_cookie": "f7c31189e6637ec1962246d8a274053f",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO",
+      "end_content_info": {
+       "cur_track_reason_start": "fwdbtn",
+       "prev_track_reason_end": "fwdbtn",
+       "source_start": "harmony",
+       "provider": "context",
+       "referrer": "",
+       "page_instance_id": "",
+       "interaction_id": "",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "shuffle": false,
+       "decision_id": "",
+       "play_context_decision_id": "",
+       "custom_reporting_attribution": "",
+       "jam_session_id": null,
+       "on_demand_type": null,
+       "reporting_uri": null,
+       "original_uri": null,
+       "reporting_id": "6dcb31be54c63ef709eec9d72202abfa",
+       "parent_reporting_id": null,
+       "agentic_product_type": null
+      }
+     },
+     {
+      "state_id": "5a4346f9543fc2ef04595070f565de14",
+      "disallow_seeking": false,
+      "track": 1,
+      "track_uid": "be161571e2e6da00fb27",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "7470b05b00c5756ccb5b00b08bf67460",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "4262fffc70332273fceb991714c22bbf",
+      "disallow_seeking": false,
+      "track": 3,
+      "track_uid": "2f8b03428c6484a7507f",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "022c8be58601c16d78252808a45bdf32",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "abedd35f5a81ea4c7dba97574ee8c879",
+      "disallow_seeking": true,
+      "track": 4,
+      "track_uid": "22fb613b53d23129cb93",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": {
+        "state_index": 7,
+        "paused": false,
+        "active_alias": null
+       },
+       "show_prev": {
+        "state_index": 8,
+        "paused": false,
+        "active_alias": null
+       },
+       "advance": null
+      },
+      "restrictions": {
+       "disallow_resuming_reasons": [
+        "not_paused"
+       ],
+       "disallow_seeking_reasons": [
+        "unknown_reason"
+       ],
+       "disallow_setting_playback_speed_reasons": [
+        "not_supported_by_content_type"
+       ],
+       "disallow_removing_from_next_tracks_reasons": [],
+       "disallow_removing_from_context_tracks_reasons": [],
+       "disallow_updating_context_reasons": [],
+       "disallow_setting_modes": {
+        "context_enhancement": {
+         "values": {
+          "NONE": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "RECOMMENDATION": {
+           "reasons": [
+            "not_supported_by_content_type"
+           ]
+          }
+         }
+        },
+        "media": {
+         "values": {
+          "audio": {
+           "reasons": [
+            "already_set"
+           ]
+          },
+          "video": {
+           "reasons": [
+            "no_associated_track"
+           ]
+          }
+         }
+        }
+       },
+       "disallow_signals": {
+        "switch-to-video": {
+         "reasons": [
+          "no_associated_track"
+         ]
+        }
+       },
+       "disallow_play_as_next_in_queue_reasons": []
+      },
+      "player_cookie": "8ebdfc195a3e973f83e96b9627bd49b5",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO",
+      "end_content_info": {
+       "cur_track_reason_start": "backbtn",
+       "prev_track_reason_end": "backbtn",
+       "source_start": "harmony",
+       "provider": "context",
+       "referrer": "",
+       "page_instance_id": "",
+       "interaction_id": "",
+       "context_uri": "spotify:album:iSCtlsXvLRstWJrMBibvgl",
+       "shuffle": false,
+       "decision_id": "",
+       "play_context_decision_id": "",
+       "custom_reporting_attribution": "",
+       "jam_session_id": null,
+       "on_demand_type": null,
+       "reporting_uri": null,
+       "original_uri": null,
+       "reporting_id": "abedd35f5a81ea4c7dba97574ee8c879",
+       "parent_reporting_id": null,
+       "agentic_product_type": null
+      }
+     },
+     {
+      "state_id": "2da005ff8e5cf85dc493d28d761f89f5",
+      "disallow_seeking": false,
+      "track": 2,
+      "track_uid": "0f7a9ce6c2e583e5ad97",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "4e5eb7c5dab9ced0943fa9e9376ed876",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     },
+     {
+      "state_id": "6cac3c12939d4e0a75b883c2ee945f7d",
+      "disallow_seeking": false,
+      "track": 4,
+      "track_uid": "22fb613b53d23129cb93",
+      "initial_playback_position": null,
+      "segment_start_position": null,
+      "segment_stop_position": null,
+      "duration_override": null,
+      "position_offset": null,
+      "transitions": {
+       "skip_next": null,
+       "skip_prev": null,
+       "show_next": null,
+       "show_prev": null,
+       "advance": null
+      },
+      "player_cookie": "9f67a55ebfb59ca0a9c06fe4646fa4e8",
+      "signals": [],
+      "options": {
+       "shuffling_context": false,
+       "repeating_context": false,
+       "repeating_track": false,
+       "playback_speed": 1.0,
+       "modes": {
+        "context_enhancement": "NONE",
+        "media": "audio",
+        "jam": "off"
+       }
+      },
+      "track_metadata": {},
+      "track_provider": "context",
+      "preferred_media_type": "AUDIO"
+     }
+    ],
+    "attributes": {
+     "options": {
+      "shuffling_context": false,
+      "repeating_context": false,
+      "repeating_track": false,
+      "playback_speed": 1.0,
+      "modes": {
+       "context_enhancement": "NONE",
+       "media": "audio",
+       "jam": "off"
+      }
+     },
+     "playback_session_id": "570b0ad2-d3ca-4534-a7ab-f96f3203cf24"
+    }
+   },
+   "state_ref": {
+    "state_index": 2,
+    "paused": true,
+    "active_alias": null
+   },
+   "seek_to": 2651,
+   "registration_token": "",
+   "context_metadata": {
+    "context_description": "Name 12"
+   }
+  }
+ ],
+ "type": "message",
+ "uri": "hm://track-playback/v1/command"
+}

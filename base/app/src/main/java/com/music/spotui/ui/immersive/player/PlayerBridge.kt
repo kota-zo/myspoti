@@ -10,6 +10,7 @@
  */
 package com.music.spotui.ui.immersive.player
 
+import androidx.lifecycle.repeatOnLifecycle
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -141,11 +142,15 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
     // The length is plain data in the engine, not Compose state: asked again until it changes
     // (a track still loading reports 0), then left alone.
     var duration by remember { mutableLongStateOf(SongPlayer.getDuration()) }
-    LaunchedEffect(songId, np.uri) {
-        while (true) {
-            val d = SongPlayer.getDuration()
-            if (d != duration) duration = d
-            delay(if (d > 0L) 1_500L else 300L)
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    // On screen only (it ran on in the background, every 1.5 s, for good).
+    LaunchedEffect(songId, np.uri, lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                val d = SongPlayer.getDuration()
+                if (d != duration) duration = d
+                delay(if (d > 0L) 1_500L else 300L)
+            }
         }
     }
 
@@ -209,7 +214,7 @@ fun rememberImmersivePlayer(navController: NavController): ImmersivePlayerBridge
                         SmartShuffle.on.value = ctx
                         Toast.makeText(context, context.getString(R.string.smart_shuffle_on), Toast.LENGTH_SHORT).show()
                         smartScope.launch {
-                            if (!SmartShuffle.startFor(ctx, SongPlayer.currentTrackId)) {
+                            if (!SmartShuffle.startFor(ctx)) {
                                 SmartShuffle.on.value = null
                                 Toast.makeText(context, context.getString(R.string.page_load_failed), Toast.LENGTH_SHORT).show()
                             }

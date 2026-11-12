@@ -1,0 +1,338 @@
+{
+ "contents": {
+  "singleColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicPlaylistShelfRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/vidAAAAAAA1-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/vidAAAAAAA1-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song One",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "vidAAAAAAA1",
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Artist A",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCartistA000000000000000",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Album X",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_albumX",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               }
+              ],
+              "fixedColumns": [
+               {
+                "musicResponsiveListItemFixedColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3:45"
+                   }
+                  ]
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "vidAAAAAAA1",
+               "playlistSetVideoId": "set1"
+              },
+              "badges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 }
+                }
+               }
+              ]
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/vidAAAAAAA2-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/vidAAAAAAA2-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song Two",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "vidAAAAAAA2",
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Artist B",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCartistB000000000000000",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {}
+                }
+               }
+              ],
+              "fixedColumns": [
+               {
+                "musicResponsiveListItemFixedColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "1:02:03"
+                   }
+                  ]
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "vidAAAAAAA2",
+               "playlistSetVideoId": "set2"
+              }
+             }
+            },
+            {
+             "continuationItemRenderer": {
+              "continuationEndpoint": {
+               "continuationCommand": {
+                "token": "TOKEN-PAGE-2"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://img.example/vidSUGGEST1-60",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://img.example/vidSUGGEST1-226",
+                   "width": 226,
+                   "height": 226
+                  }
+                 ]
+                }
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Suggested",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "vidSUGGEST1",
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Artist C",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCartistC000000000000000",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {}
+                }
+               }
+              ],
+              "fixedColumns": [
+               {
+                "musicResponsiveListItemFixedColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "2:00"
+                   }
+                  ]
+                 }
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "vidSUGGEST1"
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ },
+ "header": {
+  "musicResponsiveHeaderRenderer": {
+   "title": {
+    "runs": [
+     {
+      "text": "Liked music"
+     }
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">आणखी %d स्टेशन जुळते, पण ते एन्क्रिप्ट न केलेल्या (http) किंवा HLS स्ट्रीममध्ये चालते, जे ॲप अजून वाजवू शकत नाही.</item>
+        <item quantity="other">आणखी %d स्टेशन जुळतात, पण ते एन्क्रिप्ट न केलेल्या (http) किंवा HLS स्ट्रीममध्ये चालतात, जे ॲप अजून वाजवू शकत नाही.</item>
+    </plurals>
+</resources>

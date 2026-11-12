@@ -4,8 +4,9 @@
     <string name="sources_download_title">Zdroje stahování</string>
     <string name="sources_audio_footer">Dotazují se shora dolů u každé skladby: první, který ji má, ji přehraje. Šipkami změníte pořadí.</string>
     <string name="sources_download_footer">Dotazují se shora dolů: první zdroj, který skladbu má, dodá soubor. Šipkami změníte pořadí.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Přehraje se, když žádný zdroj nad ním skladbu nemá</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Přehraje se, když žádný zdroj nad ním skladbu nemá</string>
+    <string name="sources_account_player">Přehrávač vašeho účtu</string>
     <string name="sources_ready">Připraveno</string>
     <string name="sources_details_show">Zobrazit podrobnosti</string>
     <string name="sources_details_hide">Skrýt podrobnosti</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Naposledy: %1$s, %2$s</string>
     <string name="sources_open">Otevřít rozšíření</string>
     <string name="sources_order_hint">Zdroje se dotazují v pořadí nastaveném v Nastavení (Přehrávání, Stahování).</string>
-    <string name="sources_below_spotify">Nedotazuje se: Spotify je nahoře</string>
+    <string name="sources_below_account">Nedotazuje se: Spotify je nahoře</string>
 </resources>

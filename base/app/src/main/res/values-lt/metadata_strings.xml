@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metaduomenys</string>
+    <string name="metadata_footer">Paieškos, albumai ir atlikėjai gaunami iš šių paslaugų, klausiamų iš viršaus į apačią. Ta pati daina, rasta du kartus, rodoma vieną kartą. Išjungtos paslaugos niekada neklausiama.</string>
+    <string name="metadata_spotify_detail">Jūsų paskyra, kol esate prisijungę</string>
+    <string name="metadata_signed_out">Neklausiama: neprisijungusi jokia paskyra</string>
+    <string name="metadata_asked">Klausiama</string>
+    <string name="metadata_off">Išjungta: niekada neklausiama</string>
+    <string name="metadata_reset">Grįžti prie numatytosios tvarkos</string>
+    <string name="metadata_not_on_spotify">Nerasta „Spotify“: šios dainos dar negalima groti</string>
+    <string name="metadata_switch">Klausti %1$s</string>
+</resources>

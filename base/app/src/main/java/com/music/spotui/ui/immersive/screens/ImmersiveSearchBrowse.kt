@@ -38,7 +38,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.api.Features
@@ -118,7 +117,6 @@ internal fun BrowseTileCard(tile: BrowseTile, modifier: Modifier = Modifier) {
                     model = artwork,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    transition = CrossFade,
                     colorFilter = tone.duotone,
                     modifier = Modifier.fillMaxSize(),
                 )

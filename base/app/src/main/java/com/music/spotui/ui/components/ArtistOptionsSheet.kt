@@ -1,5 +1,6 @@
 package com.music.spotui.ui.components
 
+import androidx.compose.material.icons.filled.ContentCopy
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
@@ -71,6 +72,9 @@ fun ArtistOptionsSheet(artistId: String, artistName: String, artistImage: String
             ArtistMenuRow(Icons.Default.Share, stringResource(R.string.share_link), enabled = artistId.isNotBlank()) {
                 SpotifyCode.show(ShareTarget("spotify:artist:$artistId", artistName, coverUri = artistImage))
                 onDismiss()
+            }
+            ArtistMenuRow(Icons.Default.ContentCopy, stringResource(R.string.copy_link), enabled = artistId.isNotBlank()) {
+                SpotifyCode.copyLink(context, "spotify:artist:$artistId"); onDismiss()
             }
             ArtistMenuRow(
                 Icons.Default.Block,

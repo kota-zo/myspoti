@@ -1,5 +1,14 @@
 package app.myspoti.api
 
+private val OLD_PLAYLIST_URI = Regex("^spotify:user:[^:]+:playlist:([A-Za-z0-9]+)$")
+
+/**
+ * [uri] in its current form. A playlist can still come as `spotify:user:<owner>:playlist:<id>`
+ * (older playlists, some of Spotify's own): that was read as a user, and the playlist left out of
+ * the library and the pickers (reported: playlists, Wrapped among them, missing).
+ */
+fun canonicalUri(uri: Uri): Uri = OLD_PLAYLIST_URI.find(uri)?.let { "spotify:playlist:" + it.groupValues[1] } ?: uri
+
 /** What a uri points to. */
 enum class MediaKind {
     TRACK, ALBUM, ARTIST, PLAYLIST, SHOW, EPISODE, AUDIOBOOK, CHAPTER, USER, GENRE,

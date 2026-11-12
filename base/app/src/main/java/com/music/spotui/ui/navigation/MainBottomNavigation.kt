@@ -123,9 +123,10 @@ fun MainBottomNavigation(navController: NavHostController) {
                         enter = slideInVertically(initialOffsetY = { it }),
                         exit = slideOutVertically(targetOffsetY = { it }),
                         content = {
-                            // Large windows: a capped, centred capsule, not a bar across a desktop window.
+                            // Beside the rail (large windows, a phone on its side): a capped, centred
+                            // capsule, not a bar across a desktop window.
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Box(if (com.music.spotui.ui.components.windowSize().large) Modifier.widthIn(max = com.music.spotui.ui.components.WindowSize.MaxMiniPlayerWidth) else Modifier) {
+                                Box(if (com.music.spotui.ui.components.windowSize().navigationRail) Modifier.widthIn(max = com.music.spotui.ui.components.WindowSize.MaxMiniPlayerWidth) else Modifier) {
                                     MiniPlayer()
                                 }
                             }
@@ -136,8 +137,8 @@ fun MainBottomNavigation(navController: NavHostController) {
 
                     Spacer(modifier = Modifier.height(4.dp))
                     val tabs = rememberTabNavigation(navController)
-                    // Large windows: the tabs are in the rail at the side (MainNavigationRail).
-                    if (!com.music.spotui.ui.components.windowSize().large) {
+                    // Large windows and a phone on its side: the tabs are in the rail at the side (MainNavigationRail).
+                    if (!com.music.spotui.ui.components.windowSize().navigationRail) {
                     // Official bar proportions: a 58 dp strip (the gesture inset is added by
                     // navigationBarsPadding above), equal shares edge to edge, so the
                     // tabs spread over the full width instead of clustering in the middle.
@@ -230,8 +231,9 @@ internal fun NavController.tabInStack(currentRoute: String?, tabs: List<String>)
 }
 
 /**
- * Large windows (tablets, foldables, DeX): the three tabs in a rail down the left side instead
- * of a phone bar stretched across the window. Hidden with the bar on the full-screen routes.
+ * Large windows (tablets, foldables, DeX) and a phone on its side: the three tabs in a rail down
+ * the left side instead of a phone bar stretched across the window (or, in landscape, eating a
+ * third of its height). Hidden with the bar on the full-screen routes.
  */
 @Composable
 fun MainNavigationRail(navController: NavHostController) {

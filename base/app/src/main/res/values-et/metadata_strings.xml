@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metaandmed</string>
+    <string name="metadata_footer">Otsingud, albumid ja esitajad tulevad nendest teenustest, mida küsitakse ülevalt alla. Kaks korda leitud sama lugu kuvatakse üks kord. Väljalülitatud teenuselt ei küsita kunagi.</string>
+    <string name="metadata_spotify_detail">Sinu konto, kuni oled sisse logitud</string>
+    <string name="metadata_signed_out">Ei küsita: ükski konto pole sisse logitud</string>
+    <string name="metadata_asked">Küsitakse</string>
+    <string name="metadata_off">Väljas: ei küsita kunagi</string>
+    <string name="metadata_reset">Tagasi vaikejärjestusele</string>
+    <string name="metadata_not_on_spotify">Spotifyst ei leitud: seda lugu ei saa veel esitada</string>
+    <string name="metadata_switch">Küsi teenuselt %1$s</string>
+</resources>

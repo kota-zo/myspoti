@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">थप %d स्टेसन मिल्छ, तर यो इन्क्रिप्ट नगरिएको (http) वा HLS स्ट्रिममा बज्छ, जुन एपले अझै बजाउन सक्दैन।</item>
+        <item quantity="other">थप %d स्टेसनहरू मिल्छन्, तर तिनीहरू इन्क्रिप्ट नगरिएको (http) वा HLS स्ट्रिममा बज्छन्, जुन एपले अझै बजाउन सक्दैन।</item>
+    </plurals>
+</resources>

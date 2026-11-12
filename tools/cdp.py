@@ -82,7 +82,7 @@ def main():
     a = ap.parse_args()
     ps = adb(a.serial, "shell", "ps", "-A", "-o", "PID,NAME")
     unix = adb(a.serial, "shell", "cat", "/proc/net/unix")
-    pid = next((l.split()[0] for l in ps.splitlines()[1:] if l.split()[-1] in ("app.myspoti", "app.myspoti:engine", "app.myspoti.dev", "app.myspoti.stable")
+    pid = next((l.split()[0] for l in ps.splitlines()[1:] if l.split()[-1] in ("app.orpheon.beta", "app.orpheon:engine", "app.orpheon.beta.dev", "app.orpheon")
                 and f"webview_devtools_remote_{l.split()[0]}" in unix), "")
     if not pid:
         raise SystemExit("engine process not running")

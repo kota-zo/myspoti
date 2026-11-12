@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d istasyon daha eşleşiyor, ancak şifresiz (http) ya da HLS ile yayın yapıyor; uygulama bunu henüz çalamıyor.</item>
+        <item quantity="other">%d istasyon daha eşleşiyor, ancak şifresiz (http) ya da HLS ile yayın yapıyorlar; uygulama bunları henüz çalamıyor.</item>
+    </plurals>
+</resources>

@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Спрете превода на текста</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Хмм. И ние не знаем текста този път.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Този текст все още не е синхронизиран по време.</string>
-    <string name="av_switch_to_video" formatted="false">Превключете към видео</string>
-    <string name="av_switch_to_audio" formatted="false">Превключете към аудио</string>
-    <string name="av_content_desc" formatted="false">Изберете между аудио и видео</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Начало</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Търсете</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Вашата библиотека</string>

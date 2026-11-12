@@ -28,8 +28,6 @@ import androidx.navigation.NavGraphBuilder
 import com.music.spotui.ui.theme.AppBackground
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType

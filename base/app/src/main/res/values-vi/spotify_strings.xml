@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Dừng dịch lời bài hát</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Rất tiếc. Chúng tôi vẫn chưa có lời bài hát này.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Những lời bài hát này chưa được đồng bộ hóa.</string>
-    <string name="av_switch_to_video" formatted="false">Chuyển sang phát video</string>
-    <string name="av_switch_to_audio" formatted="false">Chuyển sang phát âm thanh</string>
-    <string name="av_content_desc" formatted="false">Chuyển đổi giữa âm thanh và video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Trang chủ</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Tìm kiếm</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Thư viện</string>

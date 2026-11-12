@@ -31,7 +31,11 @@ object AppUpdater {
         data object Installing : State
         /** Android needs "Install unknown apps" allowed for Myspoti first. */
         data object NeedsPermission : State
-        data class Failed(val message: String) : State
+        /**
+         * [onlyByHand]: Android refused the APK over the installed app (signed with another key,
+         * or another package): retrying cannot help, the release page is the way.
+         */
+        data class Failed(val message: String, val onlyByHand: Boolean = false) : State
     }
 
     private val _state = MutableStateFlow<State>(State.Idle)
@@ -152,6 +156,8 @@ object AppUpdater {
                 // On success this process is replaced by the new version.
                 PackageInstaller.STATUS_SUCCESS -> _state.value = State.Idle
                 PackageInstaller.STATUS_FAILURE_ABORTED -> _state.value = State.Idle
+                PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
+                    _state.value = State.Failed(context.getString(app.myspoti.engine.R.string.sys_update_conflict), onlyByHand = true)
                 else -> _state.value = State.Failed(
                     intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "install status $status",
                 )

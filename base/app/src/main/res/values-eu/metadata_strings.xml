@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadatuak</string>
+    <string name="metadata_footer">Bilaketak, albumak eta artistak zerbitzu hauetatik datoz, goitik behera galdetuta. Bi aldiz aurkitutako abesti bera behin agertzen da. Desaktibatutako zerbitzu bati ez zaio inoiz galdetzen.</string>
+    <string name="metadata_spotify_detail">Zure kontua, saioa hasita duzun bitartean</string>
+    <string name="metadata_signed_out">Ez zaio galdetzen: ez dago saioa hasitako konturik</string>
+    <string name="metadata_asked">Galdetzen zaio</string>
+    <string name="metadata_off">Desaktibatuta: ez zaio inoiz galdetzen</string>
+    <string name="metadata_reset">Itzuli ordena lehenetsira</string>
+    <string name="metadata_not_on_spotify">Ez da aurkitu Spotify-n: abesti hau ezin da oraindik erreproduzitu</string>
+    <string name="metadata_switch">Galdetu %1$s-ri</string>
+</resources>

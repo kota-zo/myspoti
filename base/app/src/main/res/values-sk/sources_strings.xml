@@ -4,8 +4,9 @@
     <string name="sources_download_title">Zdroje sťahovania</string>
     <string name="sources_audio_footer">Pýtajú sa zhora nadol pri každej skladbe: prvý, ktorý ju má, ju prehrá. Šípkami zmeníte poradie.</string>
     <string name="sources_download_footer">Pýtajú sa zhora nadol: prvý zdroj, ktorý skladbu má, poskytne súbor. Šípkami zmeníte poradie.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Prehrá sa, keď žiadny zdroj nad ním skladbu nemá</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Prehrá sa, keď žiadny zdroj nad ním skladbu nemá</string>
+    <string name="sources_account_player">Prehrávač vášho účtu</string>
     <string name="sources_ready">Pripravené</string>
     <string name="sources_details_show">Zobraziť podrobnosti</string>
     <string name="sources_details_hide">Skryť podrobnosti</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Naposledy: %1$s, %2$s</string>
     <string name="sources_open">Otvoriť rozšírenie</string>
     <string name="sources_order_hint">Zdroje sa pýtajú v poradí nastavenom v Nastaveniach (Prehrávanie, Sťahovanie).</string>
-    <string name="sources_below_spotify">Nepýta sa: Spotify je vyššie</string>
+    <string name="sources_below_account">Nepýta sa: Spotify je vyššie</string>
 </resources>

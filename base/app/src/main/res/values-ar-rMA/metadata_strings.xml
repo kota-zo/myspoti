@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">البيانات الوصفية</string>
+    <string name="metadata_footer">تأتي نتائج البحث والألبومات والفنانون من هذه الخدمات، ويُسأل عنها من الأعلى إلى الأسفل. الأغنية نفسها التي توجد مرتين تظهر مرة واحدة. لا تُسأل الخدمة المعطّلة أبدًا.</string>
+    <string name="metadata_spotify_detail">حسابك، ما دمت مسجّل الدخول</string>
+    <string name="metadata_signed_out">لا يُسأل: لا يوجد حساب مسجّل الدخول</string>
+    <string name="metadata_asked">يُسأل</string>
+    <string name="metadata_off">معطّل: لا يُسأل أبدًا</string>
+    <string name="metadata_reset">العودة إلى الترتيب الافتراضي</string>
+    <string name="metadata_not_on_spotify">غير موجودة على Spotify: لا يمكن تشغيل هذه الأغنية بعد</string>
+    <string name="metadata_switch">اسأل %1$s</string>
+</resources>

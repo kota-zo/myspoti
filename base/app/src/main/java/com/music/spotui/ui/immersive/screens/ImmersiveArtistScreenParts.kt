@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.entity.AlbumsModel
@@ -124,7 +123,6 @@ internal fun ArtistBackdrop(
                     model = model,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    transition = CrossFade,
                     modifier = Modifier.matchParentSize(),
                 )
                 if (softenFoot) {

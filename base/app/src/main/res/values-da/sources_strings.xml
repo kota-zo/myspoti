@@ -4,8 +4,9 @@
     <string name="sources_download_title">Downloadkilder</string>
     <string name="sources_audio_footer">Spørges fra top til bund for hver sang: den første, der har den, afspiller den. Brug pilene til at ændre rækkefølgen.</string>
     <string name="sources_download_footer">Spørges fra top til bund: den første kilde, der har sangen, leverer filen. Brug pilene til at ændre rækkefølgen.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Afspilles, når ingen kilde ovenfor har sangen</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Afspilles, når ingen kilde ovenfor har sangen</string>
+    <string name="sources_account_player">Din kontos afspiller</string>
     <string name="sources_ready">Klar</string>
     <string name="sources_details_show">Vis detaljer</string>
     <string name="sources_details_hide">Skjul detaljer</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Sidst: %1$s, %2$s</string>
     <string name="sources_open">Åbn udvidelsen</string>
     <string name="sources_order_hint">Kilder spørges i den rækkefølge, der er angivet under Indstillinger (Afspilning, Downloads).</string>
-    <string name="sources_below_spotify">Spørges ikke: Spotify er ovenfor</string>
+    <string name="sources_below_account">Spørges ikke: Spotify er ovenfor</string>
 </resources>

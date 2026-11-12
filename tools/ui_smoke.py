@@ -6,7 +6,7 @@ usage: tools/ui_smoke.py [--serial S] [--depth 2] [--max 120]
 From each screen it opens every element that can be tapped (read from uiautomator), one by
 one, then comes back. Never taps what could change the account, the library or the settings
 (see DENY: like, follow, add, remove, delete, download, log out, switches...), nor anything
-that leaves the app on purpose (share, open in browser). Debug build app.myspoti.dev.
+that leaves the app on purpose (share, open in browser). Debug build app.orpheon.beta.dev.
 """
 import argparse, os, re, subprocess, sys, time
 

@@ -453,7 +453,9 @@ object MusicVideoController {
             throw t
         } catch (t: Throwable) {
             // Linkage errors name the class a build lacks (a shrunk one, reported); others may carry a URL.
-            Log.w(TAG, "Video resolution failed: ${t.javaClass.simpleName}${if (t is LinkageError) ": ${t.message}" else ""}")
+            // A class that failed to load says why in its cause (its own message is null).
+            val cause = (t as? ExceptionInInitializerError)?.cause?.let { " (${it.javaClass.simpleName}: ${it.message?.take(120)})" } ?: ""
+            Log.w(TAG, "Video resolution failed: ${t.javaClass.simpleName}${if (t is LinkageError) ": ${t.message}" else ""}$cause")
             null
         } finally {
             refFile.delete()
@@ -821,13 +823,12 @@ object MusicVideoController {
     private const val SOUND_KEY = "#sound"
     private val prefs by lazy { app.getSharedPreferences("music_video", Context.MODE_PRIVATE) }
 
-    /** The clip's own sound is heard instead of the song's (kept across songs and restarts). */
-    val clipSound = mutableStateOf(false).also { st -> scope.launch { st.value = prefs.getBoolean("clip_sound", false) } }
+    /** The clip's own sound instead of the song's: off for now; the clip is a picture over the song's sound. */
+    val clipSound = mutableStateOf(false)
 
     fun setClipSound(value: Boolean) {
         com.music.spotui.di.Haptics.click()
-        clipSound.value = value
-        prefs.edit().putBoolean("clip_sound", value).apply()
+        clipSound.value = false
         if (!value) hush(false)
         // The clip is played again with (or without) its soundtrack, at the same place.
         (state.value as? State.Ready)?.let { if (on.value) start(it) }
@@ -848,7 +849,6 @@ object MusicVideoController {
         Logbook.log(if (on) "clip sound: the clip is heard, the song plays on unheard" else "clip sound: the song is heard")
         // Applied in order, the last wish wins (a quick on/off never leaves the song unheard).
         hushWanted = on
-        scope.launch(Dispatchers.IO) { hushLock.withLock { MyspotiRuntime.spotify.player.setHushed(hushWanted) } }
     }
 
     /**
@@ -877,7 +877,7 @@ object MusicVideoController {
                     p.isPlaying && SongPlayer.currentTrackId == currentTrackId && !SongPlayer.adPlaying &&
                     // The extension's own sound plays, not the engine's: nothing to hush.
                     !com.music.spotui.di.LocalPlayer.active.value
-                hush(sounding)
+                hush(sounding && false)
                 p.volume = if (hushed) 1f else 0f
                 // The song's own speed (the local player's setting; Spotify's songs play at 1×): the clip keeps up with it.
                 val rate = if (com.music.spotui.di.LocalPlayer.active.value) com.music.spotui.di.LocalPlayer.rate() else 1f

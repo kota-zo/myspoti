@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Parar de traduzir letra</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Pois é… Não sabemos a letra.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Esta letra ainda não está sincronizada.</string>
-    <string name="av_switch_to_video" formatted="false">Mudar para vídeo</string>
-    <string name="av_switch_to_audio" formatted="false">Mudar para áudio</string>
-    <string name="av_content_desc" formatted="false">Alternar entre áudio e vídeo</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Início</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Procurar</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">A tua Biblioteca</string>

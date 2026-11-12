@@ -4,8 +4,9 @@
     <string name="sources_download_title">แหล่งดาวน์โหลด</string>
     <string name="sources_audio_footer">ถามจากบนลงล่างสำหรับแต่ละเพลง: แหล่งแรกที่มีเพลงนั้นจะเล่น ใช้ลูกศรเพื่อเปลี่ยนลำดับ</string>
     <string name="sources_download_footer">ถามจากบนลงล่าง: แหล่งแรกที่มีเพลงนั้นจะให้ไฟล์ ใช้ลูกศรเพื่อเปลี่ยนลำดับ</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">เล่นเมื่อไม่มีแหล่งที่อยู่เหนือกว่ามีเพลงนั้น</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">เล่นเมื่อไม่มีแหล่งที่อยู่เหนือกว่ามีเพลงนั้น</string>
+    <string name="sources_account_player">เพลเยอร์ของบัญชีคุณ</string>
     <string name="sources_ready">พร้อม</string>
     <string name="sources_details_show">แสดงรายละเอียด</string>
     <string name="sources_details_hide">ซ่อนรายละเอียด</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">ล่าสุด: %1$s, %2$s</string>
     <string name="sources_open">เปิดส่วนขยาย</string>
     <string name="sources_order_hint">แหล่งจะถูกถามตามลำดับที่ตั้งไว้ในการตั้งค่า (การเล่น, การดาวน์โหลด)</string>
-    <string name="sources_below_spotify">ไม่ถูกถาม: Spotify อยู่ด้านบน</string>
+    <string name="sources_below_account">ไม่ถูกถาม: Spotify อยู่ด้านบน</string>
 </resources>

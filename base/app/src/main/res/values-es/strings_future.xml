@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">Reproductor nativo (experimental)</string>
+    <string name="settings_native_audio_detail">Las canciones de la cuenta las reproduce el reproductor propio de la app en lugar de la página web oculta. En pruebas: las listas ordenadas suenan en su orden original y algunos controles pueden tardar.</string>
+    <string name="welcome_rotate_sources">desde las fuentes que elijas.</string>
+    <string name="welcome_rotate_mix">mezclada como un set de DJ.</string>
+    <string name="album_label">Sello: %1$s</string>
+    <string name="settings_automix_options">Opciones</string>
+    <string name="settings_automix_analysis">Análisis</string>
+    <string name="settings_automix_display">Visualización</string>
+    <string name="settings_automix_duration_auto">Automático</string>
+    <string name="settings_automix_duration_none">Sin límite</string>
+    <string name="settings_automix_seconds">%1$d s</string>
+    <string name="settings_local_files_shown">Mostrar Archivos locales</string>
+    <string name="settings_local_files_shown_detail">La fila Archivos locales de tu biblioteca. Desactivado: oculta; no se toca ningún archivo.</string>
+    <string name="pass_section">Otros dispositivos</string>
+    <string name="pass_send">Enviar a otro dispositivo</string>
+    <string name="pass_send_detail">Escanea el código de tu TV, ordenador u otro teléfono: recibe tus ajustes, extensiones y sesión.</string>
+    <string name="pass_receive">Recibir de otro dispositivo</string>
+    <string name="pass_receive_detail">Muestra un código para escanear con tu teléfono.</string>
+    <string name="pass_receive_title">Escanea este código con tu teléfono</string>
+    <string name="pass_receive_hint">Apunta la cámara de tu teléfono hacia él, o en el teléfono: Ajustes › Otros dispositivos › Enviar a otro dispositivo. Ambos deben estar en la misma Wi-Fi.</string>
+    <string name="pass_no_network">Sin Wi-Fi: conecta este dispositivo a la misma Wi-Fi que tu teléfono.</string>
+    <string name="pass_received">Recibido de %1$s. La app se reinicia.</string>
+    <string name="pass_confirm_title">¿Enviar a %1$s?</string>
+    <string name="pass_confirm_text">Tus ajustes, extensiones y sesión de Spotify se copian a este dispositivo, directamente por tu Wi-Fi y cifrados. Envíalos solo a tus propios dispositivos.</string>
+    <string name="pass_send_action">Enviar</string>
+    <string name="pass_sent">Enviado a %1$s</string>
+    <string name="pass_failed">No enviado: %1$s</string>
+    <string name="pass_not_invite">No es un código de esta app.</string>
+    <string name="pass_scan_unavailable">No hay lector de códigos en este teléfono (servicios de Google Play).</string>
+    <string name="pass_sign_in_with_device">Iniciar sesión con tu teléfono</string>
+    <string name="pass_link_warning">Abierto desde un enlace. Envía solo si acabas de escanear este código en la pantalla de tu propio dispositivo.</string>
+    <string name="pass_need_sign_in">Inicia sesión primero en este teléfono y luego vuelve a escanear el código.</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">El significado de las canciones y las anotaciones de sus versos, y las letras de Genius cuando ninguna otra fuente las tiene. Desactivado: no se pide nada a Genius.</string>
+    <string name="welcome_start">Empezar</string>
+    <string name="setup_account_spotify_next">Después inicias sesión en la página oficial de Spotify. Orpheon nunca ve tu contraseña.</string>
+</resources>

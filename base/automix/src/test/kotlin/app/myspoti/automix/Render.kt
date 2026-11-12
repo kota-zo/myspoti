@@ -81,7 +81,8 @@ object Render {
         }
     }
 
-    fun writeWav(f: File, x: FloatArray) {
+    /** Listening preview only: returns the gain used, so it cannot be mistaken for a raw render. */
+    fun writeWav(f: File, x: FloatArray): Float {
         var peak = 0f; for (v in x) peak = maxOf(peak, abs(v))
         val g = if (peak > 0.99f) 0.99f / peak else 1f
         RandomAccessFile(f, "rw").use { r ->
@@ -91,6 +92,21 @@ object Render {
             bb.putInt(16); bb.putShort(1); bb.putShort(2); bb.putInt(SR); bb.putInt(SR * 4); bb.putShort(4); bb.putShort(16)
             bb.put("data".toByteArray()); bb.putInt(x.size * 2)
             for (v in x) bb.putShort((v * g * 32767).toInt().coerceIn(-32768, 32767).toShort())
+            r.write(bb.array())
+        }
+        return g
+    }
+
+    /** IEEE-float WAV: retain decoded overshoots and exact mix levels, with no normalization. */
+    fun writeFloatWav(f: File, x: FloatArray) {
+        RandomAccessFile(f, "rw").use { r ->
+            r.setLength(0)
+            val bb = ByteBuffer.allocate(56 + x.size * 4).order(ByteOrder.LITTLE_ENDIAN)
+            bb.put("RIFF".toByteArray()); bb.putInt(48 + x.size * 4); bb.put("WAVEfmt ".toByteArray())
+            bb.putInt(16); bb.putShort(3); bb.putShort(2); bb.putInt(SR); bb.putInt(SR * 8); bb.putShort(8); bb.putShort(32)
+            bb.put("fact".toByteArray()); bb.putInt(4); bb.putInt(x.size / 2)
+            bb.put("data".toByteArray()); bb.putInt(x.size * 4)
+            for (v in x) bb.putFloat(v)
             r.write(bb.array())
         }
     }

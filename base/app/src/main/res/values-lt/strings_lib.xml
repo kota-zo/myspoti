@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Atitinka dar %d stotis, bet ji transliuoja nešifruotai (http) arba HLS formatu, kurio programa dar negali groti.</item>
+        <item quantity="few">Atitinka dar %d stotys, bet jos transliuoja nešifruotai (http) arba HLS formatu, kurio programa dar negali groti.</item>
+        <item quantity="many">Atitinka dar %d stoties, bet jos transliuoja nešifruotai (http) arba HLS formatu, kurio programa dar negali groti.</item>
+        <item quantity="other">Atitinka dar %d stočių, bet jos transliuoja nešifruotai (http) arba HLS formatu, kurio programa dar negali groti.</item>
+    </plurals>
+</resources>

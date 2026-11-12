@@ -55,7 +55,9 @@ class RadioFavoritesStoreTest {
             .put(JSONObject().put("name", "no uuid").put("url", "https://radio.example.com/n"))
         f.writeText(JSONObject().put("version", 1).put("favorites", saved).toString())
         RadioFavoritesStore.load(f)
-        assertEquals(listOf("y"), ids())
+        // "x" stays out (http); "z" is HLS, which plays: kept, and known as HLS (newest first).
+        assertEquals(listOf("z", "y"), ids())
+        assertTrue(RadioFavoritesStore.list().first().hls)
     }
 
     @Test fun aDamagedFileOrAnotherVersionReadsAsNoFavorite() {

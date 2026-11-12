@@ -24,10 +24,19 @@ import java.nio.ByteOrder
 @androidx.annotation.OptIn(UnstableApi::class)
 object TrackDecoder {
     const val RATE = app.myspoti.automix.Features.RATE
-    /** Longer songs are not analysed (memory: 4 bytes × 2 signals × 22 050 per second). */
+    /** Longer songs are never analysed (memory: 4 bytes × 2 signals × 22 050 per second). */
     const val MAX_SECONDS = 15 * 60
 
-    class Pcm(val mid: FloatArray, val side: FloatArray) {
+    /**
+     * The longest song analysed with this app's heap: both signals within a third of it. Reported:
+     * an OutOfMemoryError on the analysis thread (a 49 MB allocation, 256 MB heap) killed the app;
+     * 15 minutes alone took 159 MB. About 8 minutes with a 256 MB heap, 15 with 512 MB.
+     */
+    internal fun maxSeconds(heapBytes: Long = Runtime.getRuntime().maxMemory()): Int =
+        (heapBytes / 3 / (2L * 4 * RATE)).toInt().coerceIn(60, MAX_SECONDS)
+
+    /** [mid] and [side] hold the song in their first [length] samples (the buffers are not copied to size). */
+    class Pcm(val mid: FloatArray, val side: FloatArray, val length: Int) {
         /** Of the decode, the time spent waiting for the bytes (network, decryption), ms; and their size. */
         var readMs = 0L; var bytes = 0L
         /** Of the decode, the time spent turning the codec's output into these signals, ms; reads elsewhere. */
@@ -46,7 +55,7 @@ object TrackDecoder {
             val format = extractor.getTrackFormat(track)
             val mime = format.getString(MediaFormat.KEY_MIME) ?: throw IOException("no audio codec")
             val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1L
-            if (durationUs > MAX_SECONDS * 1_000_000L) throw IOException("song too long to analyse")
+            if (durationUs > maxSeconds() * 1_000_000L) throw IOException("song too long to analyse")
             return run(extractor, format, mime, durationUs, cancelled).also { it.readMs = source.readNs / 1_000_000; it.bytes = source.readBytes; it.restarts = source.restarts }
         } finally {
             runCatching { extractor.release() }
@@ -140,7 +149,7 @@ object TrackDecoder {
      * against aliasing for onsets and the mel bands up to 11 kHz), linear between them.
      */
     private class Resampler(private var inRate: Int, durationUs: Long) {
-        private var mid = FloatArray(if (durationUs > 0) (durationUs * RATE / 1_000_000L).toInt() + RATE else RATE * 240)
+        private var mid = FloatArray(if (durationUs > 0) (durationUs * RATE / 1_000_000L).toInt() + RATE else minOf(RATE * 240, maxSeconds() * RATE))
         private var side = FloatArray(mid.size)
         private var n = 0
         private var pos = 0.0
@@ -155,8 +164,9 @@ object TrackDecoder {
             while (pos >= 1.0) {
                 pos -= 1.0
                 if (n >= mid.size) {
-                    if (n >= MAX_SECONDS * RATE) throw IOException("song too long to analyse")
-                    mid = mid.copyOf(mid.size * 3 / 2); side = side.copyOf(mid.size)
+                    val most = maxSeconds() * RATE
+                    if (n >= most) throw IOException("song too long to analyse")
+                    mid = mid.copyOf(minOf(mid.size * 3 / 2, most)); side = side.copyOf(mid.size)
                 }
                 mid[n] = (accM / cnt).toFloat(); side[n] = (accS / cnt).toFloat(); n++
                 if (pos < 1.0) { accM = 0.0; accS = 0.0; cnt = 0 }
@@ -165,7 +175,7 @@ object TrackDecoder {
 
         fun result(): Pcm {
             if (n < RATE * 5) throw IOException("decoded audio too short")
-            return Pcm(mid.copyOf(n), side.copyOf(n))
+            return Pcm(mid, side, n)
         }
     }
 

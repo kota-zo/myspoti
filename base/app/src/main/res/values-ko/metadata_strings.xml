@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">메타데이터</string>
+    <string name="metadata_footer">검색, 앨범, 아티스트는 이 서비스들에서 위에서 아래 순서로 가져옵니다. 두 번 찾은 같은 곡은 한 번만 표시됩니다. 꺼진 서비스에는 묻지 않습니다.</string>
+    <string name="metadata_spotify_detail">로그인되어 있는 동안의 내 계정</string>
+    <string name="metadata_signed_out">묻지 않음: 로그인된 계정이 없음</string>
+    <string name="metadata_asked">묻는 중</string>
+    <string name="metadata_off">꺼짐: 묻지 않음</string>
+    <string name="metadata_reset">기본 순서로 되돌리기</string>
+    <string name="metadata_not_on_spotify">Spotify에서 찾을 수 없음: 이 곡은 아직 재생할 수 없습니다</string>
+    <string name="metadata_switch">%1$s에 묻기</string>
+</resources>

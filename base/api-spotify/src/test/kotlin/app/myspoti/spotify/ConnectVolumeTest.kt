@@ -1,15 +1,12 @@
 package app.myspoti.spotify
 
-import app.myspoti.spotify.bridge.AdBlock
+import app.myspoti.spotify.bridge.AdSchedule
 import app.myspoti.spotify.bridge.Bridge
 import app.myspoti.spotify.bridge.BridgeHost
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -46,50 +43,44 @@ class ConnectVolumeTest {
         suspend fun post(json: String) = messages.emit(json)
     }
 
+    private val time = VirtualTime()
     private lateinit var scope: CoroutineScope
     private lateinit var host: FakeHost
     private lateinit var bridge: Bridge
     private lateinit var player: SpotifyPlayer
 
     @BeforeEach fun up() {
-        AdBlock.ahead.value = null
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        AdSchedule.clear()
+        scope = time.scope
         host = FakeHost()
-        bridge = Bridge(host, scope)
+        bridge = Bridge(host, scope, time::now)
         player = SpotifyPlayer(bridge, scope)
-        waitFor("bridge listening") { host.messages.subscriptionCount.value > 0 }
     }
 
     @AfterEach fun down() {
-        AdBlock.ahead.value = null
+        AdSchedule.clear()
         scope.cancel()
     }
 
-    private fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = runBlocking {
-        val end = System.currentTimeMillis() + ms
-        while (!cond()) {
-            check(System.currentTimeMillis() < end) { "timed out: $what" }
-            delay(20)
-        }
-    }
+    private suspend fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = time.waitFor(what, ms, cond)
 
     private suspend fun playing() {
         host.post("""{"type":"ready"}""")
         waitFor("page ready") { bridge.ready.value }
         val item = """{"kind":"track","uri":"spotify:track:A","uid":"uA","name":"A","durationMs":200000}"""
         host.post("""{"type":"state","state":{"track":$item,"contextUri":"spotify:playlist:C","next":null,"isPaused":false,"isBuffering":false,
-            |"positionMs":10000,"timestamp":${System.currentTimeMillis()},"restrictions":{}}}""".trimMargin())
+            |"positionMs":10000,"timestamp":${time.now()},"restrictions":{}}}""".trimMargin())
         waitFor("state") { player.state.value?.item?.name == "A" }
     }
 
-    @Test fun `a speaker at 0 that plays is never set to full volume by the page`() = runBlocking {
+    @Test fun `a speaker at 0 that plays is never set to full volume by the page`() = time.test {
         playing()
         // Past the page back and two volume checks of the watcher.
         delay(14_000)
         assertEquals(emptyList<String>(), host.sets.toList())
     }
 
-    @Test fun `this page silent while it is the active device gets its volume back`() = runBlocking {
+    @Test fun `this page silent while it is the active device gets its volume back`() = time.test {
         host.active = true
         playing()
         waitFor("volume set", ms = 14_000) { host.sets.isNotEmpty() }

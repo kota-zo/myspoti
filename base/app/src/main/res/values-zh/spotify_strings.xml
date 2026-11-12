@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">停止翻译歌词</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">哎呀，我们也不知道这首歌的歌词。</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">这些歌词尚未与播放时间同步。</string>
-    <string name="av_switch_to_video" formatted="false">切换至视频</string>
-    <string name="av_switch_to_audio" formatted="false">切换至音频</string>
-    <string name="av_content_desc" formatted="false">在音频和视频之间切换</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">主页</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">搜索</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">音乐库</string>

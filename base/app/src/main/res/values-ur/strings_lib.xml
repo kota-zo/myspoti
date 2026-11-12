@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">مزید %d اسٹیشن مماثل ہے، لیکن یہ بغیر انکرپشن (http) یا HLS میں نشر ہوتا ہے، جسے ایپ ابھی نہیں چلا سکتی۔</item>
+        <item quantity="other">مزید %d اسٹیشن مماثل ہیں، لیکن یہ بغیر انکرپشن (http) یا HLS میں نشر ہوتے ہیں، جنہیں ایپ ابھی نہیں چلا سکتی۔</item>
+    </plurals>
+</resources>

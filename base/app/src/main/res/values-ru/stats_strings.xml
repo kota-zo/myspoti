@@ -8,7 +8,7 @@
     <string name="stats_artists_ranked">Исполнителей в вашей истории: %1$d</string>
     <string name="stats_empty">У Spotify пока нет топа исполнителей и треков за этот период. Продолжайте слушать и загляните позже.</string>
     <string name="stats_failed">Spotify не прислал вашу статистику.</string>
-    <string name="stats_spotify_note">Рейтинг составлен Spotify по всему, что воспроизводил этот аккаунт на всех устройствах. Spotify не делится числом прослушиваний и минутами: минуты в разделе «На этом телефоне» посчитаны самим Myspoti.</string>
+    <string name="stats_spotify_note">Рейтинг составлен Spotify по всему, что воспроизводил этот аккаунт на всех устройствах. Spotify не делится числом прослушиваний и минутами: минуты в разделе «На этом телефоне» посчитаны самим Orpheon.</string>
     <string name="stats_weekly_minutes">Минут в неделю</string>
     <string name="stats_this_week">На этой неделе: %1$d мин</string>
     <string name="stats_listening_stats">Статистика прослушивания</string>

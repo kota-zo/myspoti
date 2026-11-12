@@ -119,8 +119,9 @@ fun ImmersiveSearchField(
                     .clip(CircleShape)
                     .clickable(role = Role.Button) {
                         onQueryChange("")
-                        // Clearing is an edit, not a dismissal: leave the user ready to type.
-                        focusRequester.requestFocus()
+                        // Clearing is an edit, not a dismissal: leave the user ready to type (if the
+                        // field is still there: a detached requester throws, see SearchClearButton).
+                        runCatching { focusRequester.requestFocus() }
                         keyboardController?.show()
                     },
                 contentAlignment = Alignment.Center,

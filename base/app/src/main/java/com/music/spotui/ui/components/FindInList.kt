@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -103,7 +104,9 @@ fun SearchClearButton(
             .clip(CircleShape)
             .clickable(role = Role.Button) {
                 onClear()
-                focusRequester.requestFocus()
+                // The field can be on its way out (a list that folds it away once empty): its
+                // requester is then detached, and asking it threw, closing the app (reported).
+                runCatching { focusRequester.requestFocus() }
                 keyboard?.show()
             },
     ) {
@@ -118,7 +121,7 @@ fun SearchClearButton(
 
 /** The "Find in…" field at the top of a list of songs. */
 @Composable
-fun FindInListField(query: String, onQuery: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
+fun FindInListField(query: String, onQuery: (String) -> Unit, hint: String, modifier: Modifier = Modifier, onFocused: (Boolean) -> Unit = {}) {
     val focus = remember { FocusRequester() }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -132,7 +135,7 @@ fun FindInListField(query: String, onQuery: (String) -> Unit, hint: String, modi
             textStyle = TextStyle(color = AppText, fontSize = 15.sp),
             cursorBrush = SolidColor(AppText),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            modifier = Modifier.weight(1f).padding(8.dp, 10.dp).focusRequester(focus),
+            modifier = Modifier.weight(1f).padding(8.dp, 10.dp).focusRequester(focus).onFocusChanged { onFocused(it.isFocused) },
             decorationBox = { inner ->
                 Box {
                     if (query.isEmpty()) Text(hint, color = AppMuted, fontSize = 15.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

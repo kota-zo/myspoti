@@ -4,8 +4,9 @@
     <string name="sources_download_title">ഡൗൺലോഡ് ഉറവിടങ്ങൾ</string>
     <string name="sources_audio_footer">ഓരോ പാട്ടിനും മുകളിൽ നിന്ന് താഴേക്ക് ചോദിക്കുന്നു: അത് ഉള്ള ആദ്യത്തേത് പ്ലേ ചെയ്യുന്നു. ക്രമം മാറ്റാൻ അമ്പടയാളങ്ങൾ ഉപയോഗിക്കുക.</string>
     <string name="sources_download_footer">മുകളിൽ നിന്ന് താഴേക്ക് ചോദിക്കുന്നു: പാട്ടുള്ള ആദ്യ ഉറവിടം ഫയൽ നൽകുന്നു. ക്രമം മാറ്റാൻ അമ്പടയാളങ്ങൾ ഉപയോഗിക്കുക.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">മുകളിലുള്ള ഒരു ഉറവിടത്തിലും പാട്ടില്ലെങ്കിൽ പ്ലേ ചെയ്യുന്നു</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">മുകളിലുള്ള ഒരു ഉറവിടത്തിലും പാട്ടില്ലെങ്കിൽ പ്ലേ ചെയ്യുന്നു</string>
+    <string name="sources_account_player">നിങ്ങളുടെ അക്കൗണ്ടിന്റെ പ്ലെയർ</string>
     <string name="sources_ready">തയ്യാർ</string>
     <string name="sources_details_show">വിശദാംശങ്ങൾ കാണിക്കുക</string>
     <string name="sources_details_hide">വിശദാംശങ്ങൾ മറയ്ക്കുക</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">അവസാനം: %1$s, %2$s</string>
     <string name="sources_open">എക്സ്റ്റൻഷൻ തുറക്കുക</string>
     <string name="sources_order_hint">ക്രമീകരണങ്ങളിൽ (പ്ലേബാക്ക്, ഡൗൺലോഡുകൾ) സജ്ജമാക്കിയ ക്രമത്തിലാണ് ഉറവിടങ്ങൾ ചോദിക്കുന്നത്.</string>
-    <string name="sources_below_spotify">ചോദിക്കില്ല: Spotify മുകളിലാണ്</string>
+    <string name="sources_below_account">ചോദിക്കില്ല: Spotify മുകളിലാണ്</string>
 </resources>

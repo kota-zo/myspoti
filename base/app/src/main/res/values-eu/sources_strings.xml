@@ -4,8 +4,9 @@
     <string name="sources_download_title">Deskarga-iturriak</string>
     <string name="sources_audio_footer">Kanta bakoitzeko goitik behera galdetzen dira: hori duen lehenak erreproduzitzen du. Ordena aldatzeko erabili gezia-tekla.</string>
     <string name="sources_download_footer">Goitik behera galdetzen dira: kanta duen lehen iturriak ematen du fitxategia. Ordena aldatzeko erabili gezia-tekla.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Erreproduzitzen da goiko iturrietan kanta ez dagoenean</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Erreproduzitzen da goiko iturrietan kanta ez dagoenean</string>
+    <string name="sources_account_player">Zure kontuaren erreproduzigailua</string>
     <string name="sources_ready">Prest</string>
     <string name="sources_details_show">Erakutsi xehetasunak</string>
     <string name="sources_details_hide">Ezkutatu xehetasunak</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Azkena: %1$s, %2$s</string>
     <string name="sources_open">Ireki luzapena</string>
     <string name="sources_order_hint">Iturriak ezarpenetan (Erreprodukzioa, Deskargak) ezarritako ordenan galdetzen dira.</string>
-    <string name="sources_below_spotify">Ez da galdetzen: Spotify gainean dago</string>
+    <string name="sources_below_account">Ez da galdetzen: Spotify gainean dago</string>
 </resources>

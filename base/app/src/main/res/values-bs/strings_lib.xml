@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Još %d stanica odgovara, ali emituje bez šifriranja (http) ili u HLS-u, što aplikacija još ne može reproducirati.</item>
+        <item quantity="few">Još %d stanice odgovaraju, ali emituju bez šifriranja (http) ili u HLS-u, što aplikacija još ne može reproducirati.</item>
+        <item quantity="other">Još %d stanica odgovara, ali emituju bez šifriranja (http) ili u HLS-u, što aplikacija još ne može reproducirati.</item>
+    </plurals>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Orpheon</string>
+    <string name="wear_no_phone">Open Orpheon on your phone, signed in, with the watch connected.</string>
+    <string name="wear_loading">Loading…</string>
+    <string name="wear_nothing_playing">Nothing playing</string>
+    <string name="wear_library">Your music</string>
+    <string name="wear_retry">Try again</string>
+    <string name="wear_failed">That did not work: %1$s</string>
+    <string name="wear_playing_channel">Playback</string>
+    <string name="wear_extensions_sync">Phone extensions</string>
+    <string name="wear_extensions_count">%1$d on the watch</string>
+    <string name="wear_extensions_synced">%1$d copied to the watch</string>
+    <string name="wear_previous">Previous</string>
+    <string name="wear_play">Play</string>
+    <string name="wear_pause">Pause</string>
+    <string name="wear_next">Next</string>
+</resources>

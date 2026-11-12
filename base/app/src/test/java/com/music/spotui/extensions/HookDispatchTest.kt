@@ -6,23 +6,28 @@ import com.music.spotui.data.entity.LyricWord
 import com.music.spotui.data.entity.Lyrics
 import com.music.spotui.data.entity.LyricsColors
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The order hooks are asked in, and how an extension's lyrics meet the app's own. */
+/**
+ * The order hooks are asked in, and how an extension's lyrics meet the app's own. On virtual time:
+ * the slow candidates' delays and the graces take no real time, and the bounds are exact.
+ */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class HookDispatchTest {
-    @Test fun theFirstInstalledAnswerWinsEvenWhenALaterOneIsQuicker() = runBlocking {
+    @Test fun theFirstInstalledAnswerWinsEvenWhenALaterOneIsQuicker() = runTest {
         val r = HookDispatch.firstInOrder(listOf("a", "b", "c")) { c ->
             when (c) { "a" -> { delay(200); "from a" }; "b" -> "from b"; else -> "from c" }
         }
         assertEquals("a" to "from a", r)
     }
 
-    @Test fun noAnswerOrAFailureGivesTheTurnToTheNext() = runBlocking {
+    @Test fun noAnswerOrAFailureGivesTheTurnToTheNext() = runTest {
         val r = HookDispatch.firstInOrder(listOf("a", "b", "c")) { c ->
             when (c) { "a" -> null; "b" -> throw IllegalStateException("boom"); else -> "from c" }
         }
@@ -31,7 +36,7 @@ class HookDispatchTest {
         assertNull(HookDispatch.firstInOrder(emptyList<String>()) { "x" })
     }
 
-    @Test fun aRoundTheUseRefusesGivesTheTurnToTheOthers() = runBlocking {
+    @Test fun aRoundTheUseRefusesGivesTheTurnToTheOthers() = runTest {
         val rounds = mutableListOf<List<String>>()
         val r = HookDispatch.inRounds(listOf("a", "b", "c"), ask = { c -> when (c) { "a" -> "from a"; "b" -> { delay(200); "from b" }; else -> null } },
             fit = { 1 }, bestFit = 1, graceMs = { 1_000 }) { round ->
@@ -42,15 +47,15 @@ class HookDispatchTest {
         assertEquals(listOf(listOf("a"), listOf("b")), rounds)
     }
 
-    @Test fun theBestFitGoesFirstThenTheOrder() = runBlocking {
+    @Test fun theBestFitGoesFirstThenTheOrder() = runTest {
         val r = HookDispatch.inRounds(listOf("a", "b", "c"), ask = { c -> c }, fit = { if (it == "c") 3 else 1 },
             bestFit = 3, graceMs = { 1_000 }) { round -> round.map { it.first } }
         assertEquals(listOf("c", "a", "b"), r)
     }
 
-    @Test fun aSlowCandidateIsWaitedForOnlyItsGraceThenComesNext() = runBlocking {
+    @Test fun aSlowCandidateIsWaitedForOnlyItsGraceThenComesNext() = runTest {
         val rounds = mutableListOf<List<String>>()
-        val started = System.currentTimeMillis()
+        val started = currentTime
         val r = HookDispatch.inRounds(listOf("slow", "quick"), ask = { c -> if (c == "slow") { delay(1_500); "slow" } else "quick" },
             fit = { 1 }, bestFit = 2, graceMs = { 300 }) { round ->
             rounds += round.map { it.first }
@@ -58,31 +63,31 @@ class HookDispatchTest {
         }
         assertEquals("slow", r)
         assertEquals(listOf(listOf("quick"), listOf("slow")), rounds)
-        assertTrue(System.currentTimeMillis() - started < 3_000)
+        assertTrue(currentTime - started < 3_000)
     }
 
-    @Test fun theBestFitStartsWithoutWaitingTheGraceOnceThoseAboveAnswered() = runBlocking {
-        val started = System.currentTimeMillis()
+    @Test fun theBestFitStartsWithoutWaitingTheGraceOnceThoseAboveAnswered() = runTest {
+        val started = currentTime
         val r = HookDispatch.inRounds(listOf("a", "b", "late"), ask = { c -> if (c == "late") { delay(5_000); c } else c },
             fit = { if (it == "b") 3 else 1 }, bestFit = 3, graceMs = { 4_000 }) { round -> round.first().first }
         assertEquals("b", r)
-        assertTrue(System.currentTimeMillis() - started < 2_000)
+        assertTrue(currentTime - started < 2_000)
     }
 
-    @Test fun noAnswerAtAllIsNullWithoutARound() = runBlocking {
+    @Test fun noAnswerAtAllIsNullWithoutARound() = runTest {
         var used = false
         assertNull(HookDispatch.inRounds(listOf("a", "b"), ask = { null as String? }, fit = { 1 }, bestFit = 1, graceMs = { 100 }) { used = true; "x" })
         assertTrue(!used)
     }
 
-    @Test fun theOthersAreNotWaitedForOnceTheFirstAnswers() = runBlocking {
-        val started = System.currentTimeMillis()
+    @Test fun theOthersAreNotWaitedForOnceTheFirstAnswers() = runTest {
+        val started = currentTime
         val r = HookDispatch.firstInOrder(listOf("a", "b")) { c -> if (c == "a") "quick" else { delay(5_000); "slow" } }
         assertEquals("quick", r?.second)
-        assertTrue(System.currentTimeMillis() - started < 2_000)
+        assertTrue(currentTime - started < 2_000)
     }
 
-    @Test fun theBestRankWinsAndTiesGoToTheFirstInstalled() = runBlocking {
+    @Test fun theBestRankWinsAndTiesGoToTheFirstInstalled() = runTest {
         val rank = { s: String -> s.length }
         assertEquals("b" to "long", HookDispatch.bestInOrder(listOf("a", "b", "c"), rank) { c -> mapOf("a" to "ab", "b" to "long", "c" to "abc")[c] })
         assertEquals("a" to "xy", HookDispatch.bestInOrder(listOf("a", "b"), rank) { c -> if (c == "a") "xy" else "zw" })
@@ -173,30 +178,30 @@ class HookDispatchTest {
         assertEquals("LRCLIB", LyricsMerge.choose(duet, backs.copy(lines = lines("x", "y", "z")))?.provider)
     }
 
-    @Test fun withinTakesTheLowerAnswerWhenTheOneAboveIsSlow() = runBlocking {
-        val t0 = System.currentTimeMillis()
+    @Test fun withinTakesTheLowerAnswerWhenTheOneAboveIsSlow() = runTest {
+        val t0 = currentTime
         val r = HookDispatch.firstInOrderWithin(listOf("slow", "quick"), graceMs = 100) { c ->
             if (c == "slow") { delay(5_000); "a" } else { delay(10); "b" }
         }
         assertEquals("quick" to "b", r)
-        assert(System.currentTimeMillis() - t0 < 2_000)
+        assertTrue(currentTime - t0 < 2_000)
     }
 
-    @Test fun withinKeepsTheOrderWhenTheOneAboveAnswersInTime() = runBlocking {
+    @Test fun withinKeepsTheOrderWhenTheOneAboveAnswersInTime() = runTest {
         val r = HookDispatch.firstInOrderWithin(listOf("first", "second"), graceMs = 1_000) { c ->
             if (c == "first") { delay(80); "a" } else "b"
         }
         assertEquals("first" to "a", r)
     }
 
-    @Test fun withinSkipsAFailureAboveAtOnce() = runBlocking {
+    @Test fun withinSkipsAFailureAboveAtOnce() = runTest {
         val r = HookDispatch.firstInOrderWithin(listOf("none", "fails", "ok"), graceMs = 5_000) { c ->
             when (c) { "none" -> null; "fails" -> error("boom"); else -> "c" }
         }
         assertEquals("ok" to "c", r)
     }
 
-    @Test fun withinGivesNullWhenNobodyAnswers() = runBlocking {
+    @Test fun withinGivesNullWhenNobodyAnswers() = runTest {
         assertNull(HookDispatch.firstInOrderWithin(listOf(1, 2), graceMs = 10) { null })
     }
 }

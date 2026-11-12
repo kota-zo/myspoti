@@ -1,10 +1,10 @@
 package app.myspoti.spotify.bridge
 
-import app.myspoti.spotify.AccountPlan
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,12 +25,23 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class BridgeException(message: String) : Exception(message)
 
-/** Request/response over a [BridgeHost], plus the page's pushed events. */
-class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
+/**
+ * Request/response over a [BridgeHost], plus the page's pushed events. [clock] (epoch ms) is the
+ * one the bridge and its player read: tests give a virtual one, so their waits take no real time.
+ */
+class Bridge(private val host: BridgeHost, scope: CoroutineScope, val clock: () -> Long = System::currentTimeMillis) {
     private val ids = AtomicInteger(0)
 
     /** Diagnostics: receives one line per call, result and page message. */
     @Volatile var logger: ((String) -> Unit)? = null
+    /** Every call and its answer in the log (dev builds); off, only the failures are. */
+    @Volatile var verbose: Boolean = true
+
+    /**
+     * A call is made while no page is ready: the host may load the page then (one loaded only when
+     * used, see MyspotiRuntime). The call itself fails or waits as before.
+     */
+    @Volatile var onCallUnready: (() -> Unit)? = null
     private val pending = ConcurrentHashMap<Int, CompletableDeferred<JsonElement>>()
 
     private val _ready = MutableStateFlow(false)
@@ -42,7 +53,10 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
     val events: SharedFlow<Pair<String, JsonElement>> = _events
 
     init {
-        scope.launch {
+        // Listening before the constructor returns (undispatched): a page message posted right
+        // after (a call's answer, "ready") reached no collector yet and was lost, the call then
+        // waiting out its whole timeout.
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
             // A message the bridge did not write (another script, a future page) must never
             // end this collector: it runs on the main thread, where a throw kills the app.
             host.messages.collect { raw ->
@@ -63,7 +77,7 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
      * or paused changes; a buffering flip of the same song at most every [STATE_EVERY_MS].
      */
     private fun stateWorthLogging(line: String, key: String): Boolean {
-        val now = System.currentTimeMillis()
+        val now = clock()
         if (line == lastStateLine) return false
         val changed = key != lastStateKey
         if (!changed && now - lastStateAt < STATE_EVERY_MS) return false
@@ -141,8 +155,7 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
         // re-announces only when the host is not ready (a page it thought it had lost).
         // The page's generation goes in with it: a call made for a page that went away is refused
         // by the next one (see [call]) instead of running there.
-        // The account's plan as known now (see AccountPlan): on Premium the page's ad managers are left on.
-        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; window.__mspKeepAds = ${AccountPlan.isPremium}; ${BridgeScript.source}")
+        host.evaluate("window.__mspPage = $pagesGone; window.__mspReannounce = ${!_ready.value}; ${BridgeScript.source}")
     }
 
     /**
@@ -164,19 +177,20 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
     /** Between [pageGone] and the new page's "ready". */
     @Volatile private var gone = false
 
-    /** When a call last timed out (0: never). A frozen page times out every call. */
-    @Volatile var lastTimeoutAt = 0L
-        private set
-
     /**
      * True when the page answers a trivial call within [timeoutMs]. `bridge.version` is
      * synchronous in the page: no answer means the page itself is frozen, not the player busy.
      */
     suspend fun ping(timeoutMs: Long = 3_000): Boolean = runCatching { call("bridge.version", timeoutMs = timeoutMs) }.isSuccess
 
-    /** [quiet]: a poll made every few seconds; only its failures are logged. */
-    /** [label]: who sends it, written in its log line (a play's origin). */
+    /**
+     * Calls [method] in the page. [quiet]: a poll made every few seconds, only its failures are
+     * logged (and it does not wake an idle page, [BridgeHost.commandComing]). [label]: who sends
+     * it, written in its log line (a play's origin).
+     */
     suspend fun call(method: String, args: JsonObject = JsonObject(emptyMap()), timeoutMs: Long = 20_000, quiet: Boolean = false, label: String? = null): JsonElement {
+        if (!_ready.value) onCallUnready?.invoke()
+        if (!quiet) host.commandComing()
         // The page is reloading: nothing would answer, the call would only wait for its timeout.
         val page = pagesGone
         if (gone) throw BridgeException("not ready")
@@ -187,8 +201,8 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
             // The page went away between the check above and the waiter's registration: pageGone
             // did not see this call, and nothing of that page will answer it.
             if (gone || pagesGone != page) throw BridgeException("page reloaded")
-            val started = System.currentTimeMillis()
-            if (!quiet) logger?.invoke("call #$id $method${label?.let { " ($it)" }.orEmpty()} ${LogMask.shown(args.toString())}")
+            val started = clock()
+            if (!quiet && verbose) logger?.invoke("call #$id $method${label?.let { " ($it)" }.orEmpty()} ${LogMask.shown(args.toString())}")
             // Run only by the page it was made for (the generation set by inject), which says so.
             val script = "(window.Myspoti && window.__mspPage === $page) ? (window.Myspoti.call($id, ${json.encodeToString(JsonElement.serializer(), kotlinx.serialization.json.JsonPrimitive(method))}, $args).catch(() => {}), true) : false"
             return try {
@@ -211,13 +225,12 @@ class Bridge(private val host: BridgeHost, scope: CoroutineScope) {
                     }
                 } ?: throw BridgeException("timeout after $timeoutMs ms: $method")
                 result.also {
-                    if (quiet) return@also
+                    if (quiet || !verbose) return@also
                     val shown = if (method == "token.get") "(token hidden)" else LogMask.shown(it.toString())
-                    logger?.invoke("call #$id $method ok in ${System.currentTimeMillis() - started} ms: $shown")
+                    logger?.invoke("call #$id $method ok in ${clock() - started} ms: $shown")
                 }
             } catch (e: Exception) {
-                if (e is BridgeException && e.message?.startsWith("timeout") == true) lastTimeoutAt = System.currentTimeMillis()
-                logger?.invoke("call #$id $method${if (quiet) " " + LogMask.shown(args.toString(), 100) else ""} FAILED after ${System.currentTimeMillis() - started} ms: ${LogMask.shown(e.message.orEmpty())}")
+                logger?.invoke("call #$id $method${if (quiet) " " + LogMask.shown(args.toString(), 100) else ""} FAILED after ${clock() - started} ms: ${LogMask.shown(e.message.orEmpty())}")
                 throw e
             }
         } finally {

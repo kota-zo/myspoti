@@ -85,6 +85,11 @@ object Zeroconf {
         return addUserPost(host, port, cpath, fields)
     }
 
+    /** The addUser of a device still starting (NOT-LOADED): no blob and no key, so it loads and answers with its key. */
+    fun wakeRequest(host: String, port: Int, cpath: String?, info: ZeroconfInfo): ByteArray = addUserPost(host, port, cpath, form(
+        "action" to "addUser", "version" to info.version.ifBlank { VERSION }, "tokenType" to info.tokenType, "clientKey" to "", "blob" to "",
+    ))
+
     private fun addUserPost(host: String, port: Int, cpath: String?, form: String): ByteArray {
         val body = form.toByteArray(Charsets.UTF_8)
         val head = "POST ${path(cpath)}?action=addUser HTTP/1.1\r\nHost: $host:$port\r\nContent-Type: application/x-www-form-urlencoded\r\n" +

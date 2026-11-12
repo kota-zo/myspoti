@@ -488,11 +488,14 @@ class SpotifyTrackExtras(private val gql: Gql, private val bridge: Bridge, priva
     }
 }
 
-class SpotifyDevices(private val bridge: Bridge) : Devices {
+class SpotifyDevices(private val bridge: Bridge, private val http: SpotifyHttp? = null) : Devices {
+    /** A device id that is this app too (the native engine's, see [AccountAudio.deviceId]); null: none. */
+    @Volatile var ownDeviceId: () -> String? = { null }
     private val _devices = MutableStateFlow<List<Device>>(emptyList())
     override val devices: StateFlow<List<Device>> = _devices
 
     override suspend fun refresh() {
+        val own = ownDeviceId()
         _devices.value = (bridge.service("ConnectDevicesAPI", "getDevices") as? JsonArray).orEmpty().mapNotNull { d ->
             Device(
                 id = d.str("id") ?: return@mapNotNull null,
@@ -500,7 +503,7 @@ class SpotifyDevices(private val bridge: Bridge) : Devices {
                 type = d.str("type") ?: "unknown",
                 active = d.bool("isActive") ?: false,
                 volume = d.double("volume"),
-                local = d.bool("isLocal") ?: false,
+                local = d.bool("isLocal") ?: false || (own != null && d.str("id") == own),
             )
         }
     }
@@ -514,6 +517,21 @@ class SpotifyDevices(private val bridge: Bridge) : Devices {
     override suspend fun pullHere() {
         bridge.service("ConnectTransferAPI", "pullToLocalDevice", json(mapOf<String, Any>()))
         refresh()
+    }
+
+    /**
+     * The volume of another device, as the Web Player's own slider sets it while that device plays
+     * (connect-state `volume`, 0 to 65535), sent from this app's device. The page's own volume call
+     * changed only the page's player: the computer kept its volume (reported on Ko-fi).
+     */
+    override suspend fun setVolume(deviceId: String, level: Double): Boolean {
+        val http = http ?: return false
+        val from = ownDeviceId() ?: _devices.value.firstOrNull { it.local }?.id
+            ?: runCatching { refresh(); _devices.value.firstOrNull { it.local }?.id }.getOrNull() ?: return false
+        if (from == deviceId) return false
+        val v = (level.coerceIn(0.0, 1.0) * 65535).toInt()
+        val (code, _) = http.send("PUT", "https://spclient.wg.spotify.com/connect-state/v1/connect/volume/from/$from/to/$deviceId", """{"volume":$v}""")
+        return code in 200..299
     }
 }
 

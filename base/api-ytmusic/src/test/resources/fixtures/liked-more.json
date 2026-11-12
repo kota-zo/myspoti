@@ -1,0 +1,201 @@
+{
+ "onResponseReceivedActions": [
+  {
+   "appendContinuationItemsAction": {
+    "continuationItems": [
+     {
+      "musicResponsiveListItemRenderer": {
+       "thumbnail": {
+        "musicThumbnailRenderer": {
+         "thumbnail": {
+          "thumbnails": [
+           {
+            "url": "https://img.example/vidAAAAAAA3-60",
+            "width": 60,
+            "height": 60
+           },
+           {
+            "url": "https://img.example/vidAAAAAAA3-226",
+            "width": 226,
+            "height": 226
+           }
+          ]
+         }
+        }
+       },
+       "flexColumns": [
+        {
+         "musicResponsiveListItemFlexColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "Song Three",
+             "navigationEndpoint": {
+              "watchEndpoint": {
+               "videoId": "vidAAAAAAA3",
+               "watchEndpointMusicSupportedConfigs": {
+                "watchEndpointMusicConfig": {
+                 "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        },
+        {
+         "musicResponsiveListItemFlexColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "Artist A",
+             "navigationEndpoint": {
+              "browseEndpoint": {
+               "browseId": "UCartistA000000000000000",
+               "browseEndpointContextSupportedConfigs": {
+                "browseEndpointContextMusicConfig": {
+                 "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        },
+        {
+         "musicResponsiveListItemFlexColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "Album X",
+             "navigationEndpoint": {
+              "browseEndpoint": {
+               "browseId": "MPREb_albumX",
+               "browseEndpointContextSupportedConfigs": {
+                "browseEndpointContextMusicConfig": {
+                 "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        }
+       ],
+       "fixedColumns": [
+        {
+         "musicResponsiveListItemFixedColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "4:00"
+            }
+           ]
+          }
+         }
+        }
+       ],
+       "playlistItemData": {
+        "videoId": "vidAAAAAAA3",
+        "playlistSetVideoId": "set3"
+       }
+      }
+     },
+     {
+      "musicResponsiveListItemRenderer": {
+       "thumbnail": {
+        "musicThumbnailRenderer": {
+         "thumbnail": {
+          "thumbnails": [
+           {
+            "url": "https://img.example/vidPODCAST1-60",
+            "width": 60,
+            "height": 60
+           },
+           {
+            "url": "https://img.example/vidPODCAST1-226",
+            "width": 226,
+            "height": 226
+           }
+          ]
+         }
+        }
+       },
+       "flexColumns": [
+        {
+         "musicResponsiveListItemFlexColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "An Episode",
+             "navigationEndpoint": {
+              "watchEndpoint": {
+               "videoId": "vidPODCAST1",
+               "watchEndpointMusicSupportedConfigs": {
+                "watchEndpointMusicConfig": {
+                 "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        },
+        {
+         "musicResponsiveListItemFlexColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "Show",
+             "navigationEndpoint": {
+              "browseEndpoint": {
+               "browseId": "UCshow000000000000000000",
+               "browseEndpointContextSupportedConfigs": {
+                "browseEndpointContextMusicConfig": {
+                 "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        },
+        {
+         "musicResponsiveListItemFlexColumnRenderer": {
+          "text": {}
+         }
+        }
+       ],
+       "fixedColumns": [
+        {
+         "musicResponsiveListItemFixedColumnRenderer": {
+          "text": {
+           "runs": [
+            {
+             "text": "30:00"
+            }
+           ]
+          }
+         }
+        }
+       ],
+       "playlistItemData": {
+        "videoId": "vidPODCAST1"
+       }
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

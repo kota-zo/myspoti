@@ -52,7 +52,7 @@ class Refusal402Test {
         assertEquals("200×1; audio in 10 s 0/1", s["page fetch"])
         assertEquals("200×1; headers: content-type,date,server", s["connect PUT"])
         assertEquals("200×1 429×1; over 1 songs; retry-after=60; 402 within 30 s of a licence 403/429: 1 of 2", s["licence"])
-        assertEquals("blocked by the app; ad breaks this session=1, ad states left out=0", s["ads"])
+        assertEquals("played as Spotify sends them (blocked on Spotify Connect devices only); ad breaks this session=1", s["ads"])
         val all = s.values.joinToString(" ")
         assertFalse("secret" in all || "sp=1" in all, all)
     }

@@ -1,16 +1,13 @@
 package app.myspoti.spotify
 
 import app.myspoti.api.Repeat
-import app.myspoti.spotify.bridge.AdBlock
+import app.myspoti.spotify.bridge.AdSchedule
 import app.myspoti.spotify.bridge.Bridge
 import app.myspoti.spotify.bridge.BridgeHost
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -40,23 +37,22 @@ class RepeatOneTest {
         @Volatile var mediaPaused = false
     }
 
+    private val time = VirtualTime()
     private lateinit var scope: CoroutineScope
     private lateinit var host: FakeHost
     private lateinit var bridge: Bridge
     private lateinit var player: SpotifyPlayer
 
     @BeforeEach fun up() {
-        AdBlock.ahead.value = null
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        AdSchedule.clear()
+        scope = time.scope
         host = FakeHost()
-        bridge = Bridge(host, scope)
+        bridge = Bridge(host, scope, time::now)
         player = SpotifyPlayer(bridge, scope)
-        // A message posted before the bridge listens is lost (a slow CI machine): wait for it.
-        waitFor("bridge listening") { host.messages.subscriptionCount.value > 0 }
     }
 
     @AfterEach fun down() {
-        AdBlock.ahead.value = null
+        AdSchedule.clear()
         scope.cancel()
     }
 
@@ -65,17 +61,11 @@ class RepeatOneTest {
 
     private fun state(item: String, next: String? = null, repeat: Int = 2, positionMs: Long = 0, buffering: Boolean = false) =
         """{"type":"state","state":{"track":$item,"contextUri":"spotify:playlist:C","next":${next ?: "null"},"isPaused":false,"isBuffering":$buffering,
-            |"repeat":$repeat,"positionMs":$positionMs,"timestamp":${System.currentTimeMillis()},"restrictions":{}}}""".trimMargin()
+            |"repeat":$repeat,"positionMs":$positionMs,"timestamp":${time.now()},"restrictions":{}}}""".trimMargin()
 
     private val ad = """{"kind":"ad","uri":"spotify:ad:1","name":"ad","durationMs":30000}"""
 
-    private fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = runBlocking {
-        val end = System.currentTimeMillis() + ms
-        while (!cond()) {
-            check(System.currentTimeMillis() < end) { "timed out: $what" }
-            delay(20)
-        }
-    }
+    private suspend fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = time.waitFor(what, ms, cond)
 
     private fun plays() = host.calls.filter { it.first == "player.play" }.map { it.second }
     private fun called(method: String) = host.calls.count { it.first == method }
@@ -86,7 +76,7 @@ class RepeatOneTest {
         player.setRepeat(Repeat.TRACK)
     }
 
-    @Test fun `an ad over under repeat one plays the song before it again, not the one the page went to`() = runBlocking {
+    @Test fun `an ad over under repeat one plays the song before it again, not the one the page went to`() = time.test {
         readyWithRepeatOne()
         host.post(state(track("A"), track("B")))
         waitFor("A") { player.state.value?.item?.uri == "spotify:track:A" }
@@ -97,7 +87,7 @@ class RepeatOneTest {
         assertTrue("\"trackUri\":\"spotify:track:A\"" in plays().single(), "the song before the ad: ${plays()}")
     }
 
-    @Test fun `a skip during the ad under repeat one is the user's, the song before it is not played again`() = runBlocking {
+    @Test fun `a skip during the ad under repeat one is the user's, the song before it is not played again`() = time.test {
         readyWithRepeatOne()
         host.post(state(track("A"), track("B")))
         waitFor("A") { player.state.value?.item?.uri == "spotify:track:A" }
@@ -109,32 +99,21 @@ class RepeatOneTest {
         assertTrue(plays().none { "spotify:track:A" in it }, "the skip stands: ${plays()}")
     }
 
-    @Test fun `the ad-avoiding play under repeat one plays the song again, not the next one`() = runBlocking {
-        readyWithRepeatOne()
-        host.post(state(track("A", ms = 1_500), track("B")))
-        waitFor("A") { player.state.value != null }
-        AdBlock.ahead.value = AdBlock.AdAhead("uA", "spotify:track:A", "spotify:track:B")
-        waitFor("played before the end") { plays().isNotEmpty() }
-        val sent = plays().single()
-        assertTrue("\"trackUri\":\"spotify:track:A\"" in sent && "spotify:track:B" !in sent, "the song itself: $sent")
-        assertTrue(host.calls.none { it.first == "queue.skipTo" }, "no skip to the next song")
-    }
-
-    @Test fun `a song stuck past its end under repeat one is played again`() = runBlocking {
+    @Test fun `a song stuck past its end under repeat one is played again`() = time.test {
         readyWithRepeatOne()
         host.post(state(track("A"), track("B"), positionMs = 202_000))
         waitFor("stall repaired", ms = 10_000) { plays().isNotEmpty() }
         assertTrue("\"trackUri\":\"spotify:track:A\"" in plays().first(), "the song again, not B: ${plays()}")
     }
 
-    @Test fun `a song autoplay brought, stuck past its end with nothing after it, is not played again in the list`() = runBlocking {
+    @Test fun `a song autoplay brought, stuck past its end with nothing after it, is not played again in the list`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A", provider = "autoplay"), repeat = 0, positionMs = 202_000))
         waitFor("stall repaired", ms = 10_000) { called("player.next") > 0 }
         assertTrue(plays().isEmpty(), "the list would start over (#135): ${plays()}")
     }
 
-    @Test fun `another device playing is never given the repeat from here, and its repeat is the choice`() = runBlocking {
+    @Test fun `another device playing is never given the repeat from here, and its repeat is the choice`() = time.test {
         host.mediaActive = false
         host.mediaPaused = true
         host.post("""{"type":"ready"}""")
@@ -151,7 +130,7 @@ class RepeatOneTest {
         assertEquals(Repeat.OFF, player.state.value?.repeat)
     }
 
-    @Test fun `a play here taking the music back from another device is given the repeat chosen`() = runBlocking {
+    @Test fun `a play here taking the music back from another device is given the repeat chosen`() = time.test {
         host.mediaActive = false
         host.mediaPaused = true
         host.post("""{"type":"ready"}""")
@@ -168,7 +147,7 @@ class RepeatOneTest {
         assertEquals(Repeat.TRACK, player.state.value?.repeat)
     }
 
-    @Test fun `a report before the element is read gives another device playing no repeat`() = runBlocking {
+    @Test fun `a report before the element is read gives another device playing no repeat`() = time.test {
         host.mediaActive = false
         host.mediaPaused = true
         player.restoreRepeat(Repeat.TRACK)
@@ -179,7 +158,7 @@ class RepeatOneTest {
         assertEquals(0, called("player.setRepeat"), "nothing sent to the other device: ${host.calls.map { it.first }}")
     }
 
-    @Test fun `a report before the element is read is given the repeat once this page is seen playing`() = runBlocking {
+    @Test fun `a report before the element is read is given the repeat once this page is seen playing`() = time.test {
         player.restoreRepeat(Repeat.TRACK)
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), repeat = 0))
@@ -187,8 +166,10 @@ class RepeatOneTest {
         assertEquals(1, called("player.setRepeat"))
     }
 
-    @Test fun `a transient null at the loop does not discard repeat one`() = runBlocking {
+    @Test fun `a transient null at the loop does not discard repeat one`() = time.test {
         readyWithRepeatOne()
+        // A song plays: the watcher reads the element (with nothing playing it waits for a state).
+        host.post(state(track("A")))
         waitFor("element read", ms = 10_000) { called("media.state") > 0 }
         // The ordinary loop occurs long after the 20 s restore window and the 5 s set hold.
         for (name in listOf("repeatRestoreUntil", "repeatHeldUntil")) {

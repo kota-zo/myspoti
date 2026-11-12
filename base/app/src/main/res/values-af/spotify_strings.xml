@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Hou op om lirieke te vertaal</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmmm. Ons ken nie die lirieke vir hierdie een nie.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Hierdie lirieke is nog nie met die tyd gesinkroniseer nie.</string>
-    <string name="av_switch_to_video" formatted="false">Skakel oor na video</string>
-    <string name="av_switch_to_audio" formatted="false">Skakel oor na klank</string>
-    <string name="av_content_desc" formatted="false">Wissel tussen klank en video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Tuis</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Soek</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Jou biblioteek</string>

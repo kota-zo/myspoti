@@ -9,7 +9,7 @@
     <string name="extensions_installed">Installées</string>
     <string name="extensions_repository_add">Ajouter un dépôt</string>
     <string name="extensions_repository_hint">https://…/index.json</string>
-    <string name="extensions_repository_warning">Myspoti ne vérifie pas un dépôt que vous ajoutez : ce que vous en installez est à vos risques.</string>
+    <string name="extensions_repository_warning">Orpheon ne vérifie pas un dépôt que vous ajoutez : ce que vous en installez est à vos risques.</string>
     <string name="extensions_repository_remove">Retirer</string>
     <string name="extensions_repository_refresh">Actualiser</string>
     <string name="extensions_install">Installer</string>
@@ -64,16 +64,16 @@
     <string name="extensions_browse_store">Parcourir la boutique</string>
     <string name="extensions_other_ways">Autres façons d\'installer</string>
     <string name="extensions_empty_title">Les extensions, c\'est quoi ?</string>
-    <string name="extensions_empty_body">Les extensions ajoutent à Myspoti ce qu\'il ne fait pas lui-même : des paroles d\'autres sources, d\'où vient l\'audio ou le téléchargement d\'un titre, des outils qui utilisent votre compte Spotify. Chacune tourne dans un bac à sable et demande avant d\'atteindre quoi que ce soit. Ajoutez un dépôt pour les parcourir, ou installez un paquet de confiance.</string>
+    <string name="extensions_empty_body">Les extensions ajoutent à Orpheon ce qu\'il ne fait pas lui-même : des paroles d\'autres sources, d\'où vient l\'audio ou le téléchargement d\'un titre, des outils qui utilisent votre compte Spotify. Chacune tourne dans un bac à sable et demande avant d\'atteindre quoi que ce soit. Ajoutez un dépôt pour les parcourir, ou installez un paquet de confiance.</string>
     <string name="extensions_official_badge">Officiel</string>
     <string name="extensions_repo_yours">Ajouté par vous</string>
     <string name="extensions_repo_community">Communauté</string>
     <string name="extensions_repo_official_note">Chaque extension est vérifiée avant d\'être listée.</string>
-    <string name="extensions_repo_yours_note">Non vérifié par Myspoti : installation à vos risques.</string>
+    <string name="extensions_repo_yours_note">Non vérifié par Orpheon : installation à vos risques.</string>
     <string name="extensions_repo_error">Lecture du dépôt impossible : %1$s</string>
     <string name="extensions_repo_empty">Ce dépôt ne liste aucune extension.</string>
-    <string name="extensions_requires">Nécessite Myspoti %1$s ou plus récent</string>
-    <string name="extensions_requires_api">Faite pour un Myspoti plus récent (API d\'extension %1$d)</string>
+    <string name="extensions_requires">Nécessite Orpheon %1$s ou plus récent</string>
+    <string name="extensions_requires_api">Faite pour un Orpheon plus récent (API d\'extension %1$d)</string>
     <string name="extensions_update_badge">Mise à jour</string>
     <string name="extensions_move_up">Monter</string>
     <string name="extensions_move_down">Descendre</string>
@@ -83,7 +83,7 @@
     <string name="extension_not_listed">Cette extension n\'est pas dans vos dépôts (ou ils sont encore en chargement).</string>
     <string name="extension_details">Détails</string>
     <string name="extension_detail_updated">Mise à jour</string>
-    <string name="extension_detail_min_app">Nécessite Myspoti</string>
+    <string name="extension_detail_min_app">Nécessite Orpheon</string>
     <string name="extension_detail_size">Taille</string>
     <string name="extension_detail_id">Id</string>
     <string name="extension_detail_sha">sha256 du paquet</string>
@@ -114,11 +114,11 @@
     <string name="action_network_any">Utiliser n\'importe quel site</string>
     <string name="action_webview_page">Sa propre page web</string>
     <string name="action_storage">Garder ses propres données</string>
-    <string name="action_unknown">Inconnu de ce Myspoti</string>
+    <string name="action_unknown">Inconnu de ce Orpheon</string>
     <string name="action_critical">Critique</string>
     <string name="action_no_why">(aucune raison donnée)</string>
     <string name="actions_title">Ce qu\'elle fait</string>
-    <string name="actions_critical_warning">Les actions critiques peuvent modifier votre compte, remplacer la provenance des titres ou afficher une page web libre. Ne les autorisez que si vous faites confiance à l\'auteur : Myspoti demande toujours avant toute suppression.</string>
+    <string name="actions_critical_warning">Les actions critiques peuvent modifier votre compte, remplacer la provenance des titres ou afficher une page web libre. Ne les autorisez que si vous faites confiance à l\'auteur : Orpheon demande toujours avant toute suppression.</string>
     <!-- Domaines -->
     <string name="area_playback">Lecture</string>
     <string name="area_lyrics">Paroles et infos</string>
@@ -133,7 +133,7 @@
     <string name="area_idle">En attente</string>
     <string name="area_make_active">En faire celle pour %1$s</string>
     <!-- Installation -->
-    <string name="ext_third_party_notice">Extension tierce, non vérifiée par Myspoti, sous la responsabilité de son auteur.</string>
+    <string name="ext_third_party_notice">Extension tierce, non vérifiée par Orpheon, sous la responsabilité de son auteur.</string>
     <string name="ext_risk_accept">Je comprends que cette extension est faite par un tiers et je l\'installe sous ma propre responsabilité</string>
     <string name="ext_clash_exclusive">Remplace %1$s, actuellement fourni par %2$s</string>
     <string name="ext_clash_conflict">Incompatible avec %1$s (installée)</string>
@@ -159,7 +159,7 @@
 
     <!-- GitHub : découverte, notes, signalements -->
     <string name="extensions_github_title">Sur GitHub, GitLab et Codeberg</string>
-    <string name="extensions_github_note">Publiées par la communauté, non vérifiées par Myspoti. Chaque auteur est responsable de son extension.</string>
+    <string name="extensions_github_note">Publiées par la communauté, non vérifiées par Orpheon. Chaque auteur est responsable de son extension.</string>
     <string name="extensions_show_all">Tout afficher (%1$d masquées)</string>
     <string name="extensions_show_less">Masquer les bloquées, signalées, mal notées et abandonnées</string>
     <string name="extension_rating">★ %1$s · %2$d votes</string>
@@ -169,7 +169,7 @@
     <string name="extension_rate_down">La noter mal</string>
     <string name="extension_rated">Merci : votre vote est sur GitHub</string>
     <string name="extension_signin_title">Connexion à GitHub</string>
-    <string name="extension_signin_body">Ouvrez %1$s et tapez ce code. Myspoti ne voit jamais votre mot de passe.</string>
+    <string name="extension_signin_body">Ouvrez %1$s et tapez ce code. Orpheon ne voit jamais votre mot de passe.</string>
     <string name="extension_signin_open">Ouvrir GitHub</string>
     <string name="extension_report">Signaler</string>
     <string name="extension_detail_github">GitHub</string>
@@ -181,8 +181,8 @@
     <string name="extension_check_applied">Mise à jour : elle ne demande rien de nouveau</string>
     <string name="extension_check_needs_ok">Une mise à jour attend votre accord</string>
     <string name="extension_check_declined">Vous avez gardé cette version</string>
-    <string name="extension_check_incompatible">La nouvelle version demande un Myspoti plus récent</string>
-    <string name="extension_check_blocked">La nouvelle version est bloquée par Myspoti</string>
+    <string name="extension_check_incompatible">La nouvelle version demande un Orpheon plus récent</string>
+    <string name="extension_check_blocked">La nouvelle version est bloquée par Orpheon</string>
     <string name="extension_check_failed">Vérification impossible : voir son journal</string>
     <string name="extension_source_gone">Source disparue : son dépôt n\'existe plus. Elle continue de tourner depuis la copie sur votre téléphone.</string>
     <string name="extension_revert">Revenir à %1$s</string>
@@ -209,7 +209,7 @@
     <string name="extension_confirm_always">Toujours autoriser %1$s</string>
     <string name="ext_auth_title">%1$s : connexion</string>
     <string name="ext_auth_close">Fermer</string>
-    <string name="ext_auth_notice">Une page à part : ce que vous saisissez et ses cookies restent dans Myspoti. L\'extension ne reçoit que l\'adresse finale de la page.</string>
+    <string name="ext_auth_notice">Une page à part : ce que vous saisissez et ses cookies restent dans Orpheon. L\'extension ne reçoit que l\'adresse finale de la page.</string>
     <string name="ext_grants_title">Toujours autorisé</string>
     <string name="ext_grants_note">Modifications Spotify que cette extension effectue sans vous demander. Révoquez-en une pour être à nouveau interrogé.</string>
     <string name="ext_grant_revoke">Révoquer</string>

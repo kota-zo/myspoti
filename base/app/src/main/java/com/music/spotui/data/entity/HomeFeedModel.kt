@@ -35,10 +35,29 @@ data class HomeSection(
     val items: List<HomeItem>,
 )
 
+/**
+ * The shelves as the feed shows them: with podcasts off, their shows and episodes leave
+ * (and a shelf left empty goes).
+ */
+fun List<HomeSection>.withoutPodcastShows(): List<HomeSection> =
+    if (com.music.spotui.data.api.Features.PODCASTS) this
+    else map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Show }) }.filter { it.items.isNotEmpty() }
+
 /** The shelves without Spotify's DJ (a playlist card named "DJ"); a shelf left empty goes. */
 fun List<HomeSection>.withoutDj(): List<HomeSection> =
     map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Playlist && (it.id == DJ_PLAYLIST_ID || it.name.trim().equals("DJ", ignoreCase = true)) }) }
         .filter { it.items.isNotEmpty() }
+
+/**
+ * Home's shortcut grid: Spotify's untitled lead section with Liked Songs first, or Liked Songs alone
+ * when the feed leads with a titled section (Liked Songs was then missing from Home, reported). The
+ * podcasts and audiobooks chips keep none of it; nothing while the feed has nothing yet.
+ */
+fun homeShortcuts(grid: List<HomeItem>?, feedEmpty: Boolean, facet: String, likedName: String): List<HomeItem>? = when {
+    grid != null -> grid.withLikedFirst(likedName)
+    feedEmpty || (facet.isNotEmpty() && !facet.startsWith("music")) -> null
+    else -> emptyList<HomeItem>().withLikedFirst(likedName)
+}
 
 /**
  * The home shortcuts with Liked Songs first, named [likedName]: Spotify's own grid does not always

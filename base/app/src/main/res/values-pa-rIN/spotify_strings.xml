@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">ਗਾਣੇ ਦੇ ਬੋਲਾਂ ਦਾ ਅਨੁਵਾਦ ਕਰਨਾ ਬੰਦ ਕਰੋ</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ਓਹੋ। ਸਾਡੇ ਕੋਲ ਇਸ ਗਾਣੇ ਦੇ ਬੋਲ ਨਹੀਂ ਹਨ।</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">ਗਾਣੇ ਦੇ ਬੋਲ ਹਾਲੇ ਤੱਕ ਸਮੇਂ ਦੇ ਨਾਲ ਸਿੰਕ ਨਹੀਂ ਹੋਏ ਹਨ।</string>
-    <string name="av_switch_to_video" formatted="false">ਵੀਡੀਓ \'ਤੇ ਸਵਿੱਚ ਕਰੋ</string>
-    <string name="av_switch_to_audio" formatted="false">ਆਡੀਓ \'ਤੇ ਸਵਿੱਚ ਕਰੋ</string>
-    <string name="av_content_desc" formatted="false">ਆਡੀਓ ਅਤੇ ਵੀਡੀਓ ਵਿਚਕਾਰ ਟੌਗਲ ਕਰੋ</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ਹੋਮ</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">ਖੋਜੋ</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">ਤੁਹਾਡੀ ਲਾਇਬ੍ਰੇਰੀ</string>

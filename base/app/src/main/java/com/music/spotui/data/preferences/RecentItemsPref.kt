@@ -24,6 +24,39 @@ data class RecentItem(
     val durationMs: Int = 0,
 )
 
+/** [this], a search's song the user played, as the recent search to keep. */
+fun com.music.spotui.data.entity.SongsModel.toRecentItem() = RecentItem(
+    type = "song",
+    key = spotifyTrackId.ifBlank { url },
+    name = title,
+    singer = singer,
+    image = coverUri,
+    songId = id,
+    songAlbum = album,
+    songUrl = url,
+    spotifyTrackId = spotifyTrackId,
+    explicit = explicit,
+    durationMs = durationMs,
+)
+
+/**
+ * A recent song as the song to play or queue again; null for any other kind of item. A song kept
+ * with its Spotify id is played by that id, whatever play key was saved with it.
+ */
+fun RecentItem.toSong(): com.music.spotui.data.entity.SongsModel? {
+    if (type != "song") return null
+    val byId = { com.music.spotui.di.SongPlayer.buildSpotifyPlayQuery(spotifyTrackId, name, singer) }
+    val url = when {
+        songUrl.isBlank() -> byId()
+        spotifyTrackId.isNotBlank() && !songUrl.startsWith("spotify:track:") -> byId()
+        else -> songUrl
+    }
+    return com.music.spotui.data.entity.SongsModel(
+        songId, name, songAlbum, singer, image, url, spotifyTrackId,
+        explicit = explicit, durationMs = durationMs,
+    )
+}
+
 private const val PREF = "RecentItems"
 private const val KEY = "items"
 private const val MAX_ITEMS = 20

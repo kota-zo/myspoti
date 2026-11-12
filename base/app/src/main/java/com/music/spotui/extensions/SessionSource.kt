@@ -8,13 +8,13 @@ package com.music.spotui.extensions
  * is asked. An extension turned off, removed or no longer a source leaves it ([valid]).
  */
 object SessionSource {
-    /** [saved] (the user's audio order, [SPOTIFY_SOURCE] among it) with [lead] first; [saved] as it is without one, or with one not in it. */
+    /** [saved] (the user's audio order, [ACCOUNT_SOURCE] among it) with [lead] first; [saved] as it is without one, or with one not in it. */
     fun effective(saved: List<String>, lead: String?): List<String> =
         if (lead == null || lead !in saved) saved else listOf(lead) + saved.filter { it != lead }
 
     /** [lead] while it can still lead: Spotify, or an extension of [saved] that is on; null otherwise. */
     fun valid(lead: String?, saved: List<String>, enabled: (String) -> Boolean): String? =
-        lead?.takeIf { it in saved && (it == SPOTIFY_SOURCE || enabled(it)) }
+        lead?.takeIf { it in saved && (it == ACCOUNT_SOURCE || enabled(it)) }
 
     /**
      * The lead [id] picked in the player gives: [id], or null when it is the source the user's own
@@ -30,9 +30,9 @@ object SessionSource {
      * order asked now: "Back to my order" meanwhile keeps the song where it is).
      */
     fun spotifyDue(dueId: String?, currentId: String?, first: String?): Boolean =
-        dueId != null && dueId.isNotBlank() && dueId == currentId && first == SPOTIFY_SOURCE
+        dueId != null && dueId.isNotBlank() && dueId == currentId && first == ACCOUNT_SOURCE
 
     /** What the quality sheet offers: Spotify and the extensions on, in the [effective] order. */
     fun choices(saved: List<String>, lead: String?, enabled: (String) -> Boolean): List<String> =
-        effective(saved, valid(lead, saved, enabled)).filter { it == SPOTIFY_SOURCE || enabled(it) }
+        effective(saved, valid(lead, saved, enabled)).filter { it == ACCOUNT_SOURCE || enabled(it) }
 }

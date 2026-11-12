@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 package app.myspoti.automix.segue
 
+import app.myspoti.automix.Render
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -35,6 +39,48 @@ class SegueBenchTest {
     @Test fun clippingIsCounted() {
         val r = SegueMetrics.of(stereo(1.0) { 1.5f }, rate / 2, rate / 4, rate, null, null)
         assertEquals(rate * 2, r.clipped)
+    }
+
+    @Test fun sourceContextOvershootsAreNotReportedAsOverlapOvershoots() {
+        val x = stereo(4.0) { tone(it, 0.2f) }
+        x[10] = 1.25f; x[11] = -1.2f
+        val r = SegueMetrics.of(x, rate, rate, rate, null, null)
+        assertEquals(2, r.clipped) // Legacy field means float samples outside nominal range.
+        assertEquals(2, r.contextClipped)
+        assertEquals(0, r.overlapClipped)
+        assertEquals(0.2, r.overlapPeak, 1e-5)
+        x[2 * rate + 10] = 1.125f
+        val overlap = SegueMetrics.of(x, rate, rate, rate, null, null)
+        assertEquals(1, overlap.overlapClipped)
+        assertEquals(2, overlap.contextClipped)
+    }
+
+    @Test fun floatWavRetainsOvershootsWithoutAHiddenNormalizationOrClamp() {
+        val file = Files.createTempFile("automix-float-render-", ".wav").toFile()
+        try {
+            val samples = floatArrayOf(1.25f, -1.125f, 0.125f, -0.25f)
+            Render.writeFloatWav(file, samples)
+            val b = ByteBuffer.wrap(file.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
+            assertEquals(3, b.getShort(20).toInt()) // IEEE float, not PCM16.
+            assertEquals(32, b.getShort(34).toInt())
+            assertEquals(samples.size * 4, b.getInt(52))
+            for (i in samples.indices) assertEquals(samples[i], b.getFloat(56 + 4 * i), 0f)
+        } finally { file.delete() }
+    }
+
+    @Test fun twoDeckProtectionDoesNotNormalizePlainSourceContext() {
+        val length = 1_000_000L
+        val p = SeguePlan(CompactPolicy.ORIGIN,
+            SeguePlan.Side("a", null, 1_000_000, SegueFormat.RATE_NOMINAL),
+            SeguePlan.Side("b", null, 1_000_000, SegueFormat.RATE_NOMINAL),
+            SeguePlan.Span(length, null, UnitKind.BAR, Clock.ELAPSED),
+            SeguePlan.Pulse(PulseState.FREE, null, null), CompactLanes(SegueTuning()).fade())
+        val a = stereo(3.0) { if (it < rate / 2) 1.125f else tone(it, 0.2f) }
+        val b = stereo(3.0) { tone(it, 0.2f) }
+        SegueDeck(p, LaneSide.OUTGOING, rate, 2).process(a, a.size / 2, 0)
+        SegueDeck(p, LaneSide.INCOMING, rate, 2).process(b, b.size / 2, 0)
+        for (i in 0 until rate) assertEquals(1.125f, a[i], 0f)
+        for (i in 5 * rate until b.size) assertEquals(tone(i / 2, 0.2f), b[i], 1e-6f)
     }
 
     @Test fun aClickAtTheEdgeIsMeasured() {
@@ -88,18 +134,18 @@ class SegueBenchTest {
 
     @Test fun aWhatIfChangesOnlyItsParameter() {
         val base = SegueTuning()
-        assertEquals(base.copy(maxRateDeviationPpm = 80_000), SegueCorpus.withValue(base, "maxRateDeviationPpm", 80_000.0))
-        assertEquals(base.copy(driftMaxBeats = 0.2), SegueCorpus.withValue(base, "driftMaxBeats", 0.2))
+        assertEquals(base.copy(holdRampUs = 500_000), SegueCorpus.withValue(base, "holdRampUs", 500_000.0))
+        assertEquals(base.copy(stretchMinBeatShare = 0.9), SegueCorpus.withValue(base, "stretchMinBeatShare", 0.9))
     }
 
     @Test fun variationsChangeOneParameterAtATime() {
         val base = SegueTuning()
         val all = SegueCorpus.variations(base)
-        assertTrue(all.size > 80)
-        val v = all.first { it.first == "maxRateDeviationPpm\t1.2" }.second
-        assertEquals(114_000L, v.maxRateDeviationPpm)
-        assertEquals(base.copy(maxRateDeviationPpm = 114_000), v)
-        assertNotNull(all.first { it.first == "energySigmaDb\t0.8" })
+        assertTrue(all.size > 40)
+        val v = all.first { it.first == "holdRampUs\t1.2" }.second
+        assertEquals(480_000L, v.holdRampUs)
+        assertEquals(base.copy(holdRampUs = 480_000), v)
+        assertNotNull(all.first { it.first == "shelfQ\t0.8" })
         for ((_, t) in all) assertNotEquals(base, t)
     }
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Még %d állomás egyezik, de titkosítatlanul (http) vagy HLS-ben sugároz, amit az app még nem tud lejátszani.</item>
+        <item quantity="other">Még %d állomás egyezik, de titkosítatlanul (http) vagy HLS-ben sugároznak, amit az app még nem tud lejátszani.</item>
+    </plurals>
+</resources>

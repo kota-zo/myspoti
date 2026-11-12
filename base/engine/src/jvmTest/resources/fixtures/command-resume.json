@@ -1,0 +1,10 @@
+{
+ "command": {
+  "logging_params": {
+   "page_instance_ids": [],
+   "interaction_ids": [],
+   "command_id": "71330ffc3a61b7ee108a52521b25915a"
+  },
+  "endpoint": "resume"
+ }
+}

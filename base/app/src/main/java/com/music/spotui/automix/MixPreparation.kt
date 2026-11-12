@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 package com.music.spotui.automix
 
+import app.myspoti.automix.DurationBounds
+
 /** Decisions independent of ExoPlayer, so late analysis and buffering can be tested without audio. */
 internal object MixPreparation {
     const val MIN_LEAD_MS = 850L
@@ -36,4 +38,26 @@ internal object MixPreparation {
 
     /** Audio lost on B must not make the still-playing A fade away. */
     fun preserveOutgoing(incomingReady: Boolean, outgoingPlaying: Boolean): Boolean = !incomingReady && outgoingPlaying
+
+    /**
+     * Remaining source-timeline length for a gentle fade after B recovered from buffering.
+     * Bounds and [originalExitA] stay anchored to the first plan, so repeated recovery cannot
+     * restart the listener's minimum/maximum budget. Null means no positive bounded fade fits.
+     */
+    fun recoveryFadeSeconds(
+        originalExitA: Double,
+        nowA: Double,
+        availableSourceSec: Double,
+        sourceBounds: DurationBounds,
+        preferredSourceSec: Double = 4.0,
+    ): Double? {
+        if (!originalExitA.isFinite() || !nowA.isFinite() || !availableSourceSec.isFinite() ||
+            availableSourceSec <= 0.0 || !preferredSourceSec.isFinite() || preferredSourceSec <= 0.0) return null
+        val elapsed = (nowA - originalExitA).coerceAtLeast(0.0)
+        val lower = (sourceBounds.minSeconds - elapsed).coerceAtLeast(0.0)
+        val upper = minOf(availableSourceSec, sourceBounds.maxSeconds - elapsed)
+        if (!upper.isFinite() || lower > upper || upper <= 0.0) return null
+        val length = preferredSourceSec.coerceIn(lower, upper)
+        return length.takeIf { it.isFinite() && it > 0.0 && elapsed + it >= sourceBounds.minSeconds && elapsed + it <= sourceBounds.maxSeconds }
+    }
 }

@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.preferences.HiddenSongs
@@ -66,7 +65,7 @@ fun HiddenSongsScreen(navController: NavController) {
             items(songs, key = { it.id }) { s ->
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     GlideImage(
-                        transition = CrossFade, model = s.coverUri, contentDescription = "", contentScale = ContentScale.Crop,
+                        model = s.coverUri, contentDescription = "", contentScale = ContentScale.Crop,
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),
                     )
                     Spacer(Modifier.width(12.dp))

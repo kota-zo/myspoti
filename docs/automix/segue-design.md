@@ -70,6 +70,7 @@ the arrival on it from the previous knot: `step` (holds, then jumps), `ramp` (li
 |---|---|---|---|
 | `level` | The song's level ramp | `db` | Silence, which has no value in dB |
 | `shelfBottom`, `bandCore`, `shelfTop` | Sharing the spectrum, against clashing bass | `db` | Neutral |
+| `bassBand` | The band under the isolator's crossover (fourth order, summed back flat): a bass kill or swap that removes the band | `db` | Neutral |
 | `sweepHz` | Filter cutoff sweep | `hz` | Filter open |
 | `sweepPeak` | Accent of that sweep | `ratio` | Neutral |
 | `sendRoom`, `sendEcho` | A sound tail as the song leaves | `ratio` | No send |
@@ -88,6 +89,10 @@ under music) or `SWEEP_OPEN_HZ` (20 kHz `[I]`, the top of hearing).
 The format and the validation carry gestures; the policy does not emit them and the engine refuses
 a plan that has one, because a player's seek would leave a gap and the mix's progress follows the
 outgoing song's position.
+
+`loop` is the exception: the deck goes round a short slice of the outgoing song in its own buffer
+while the player runs on, so nothing seeks. `atUs` is where in the song, `units` the slice's
+microseconds. Only the Orpheon planner emits it.
 
 ### Serialisation
 
@@ -176,65 +181,49 @@ are measured against the nearest beats of the denser one, at the rate the plan w
 
 ## Shapes
 
-How a transition sounds is its lanes, so the engine has nothing to know of a shape (`SegueShape`).
+How a transition sounds is its lanes, so the engine has nothing to know of a shape (`SegueShape`,
+in `SegueCompact.kt`). Each is drawn once per pair from a hash of the two audio keys, so a pair
+always sounds the same and a playlist does not repeat one effect.
 
-| Shape | Class | What is heard |
-|---|---|---|
-| `BASS_SWAP` | locked | The bass changes hands at one point, over level ramps |
-| `THREE_BAND` | locked | Bass, then middle, then top change hands |
-| `CUT_ON_BEAT` | locked | One song, then the other, on a shared downbeat |
-| `FILTER_OPEN` | locked | The incoming song opens from a closed filter up to the bass hand-over |
-| `SWEEP_OUT` | filtered | The outgoing song filtered away while the incoming one rises |
-| `EVEN_FADE` | filtered | Both levels equal-power, the bass handed over |
-| `QUICK_OUT` | filtered | The outgoing song leaves early, for a voice in its way |
-| `LATE_OUT` | filtered | The incoming song is up early, for a voice coming in it |
+| Shape | What is heard |
+|---|---|
+| `THIN_SWAP` | Both at full level; the incoming song opens down from a high-pass to the middle, the outgoing one thins up from it |
+| `DARK_SWAP` | Both at full level; the incoming song opens up from a low-pass to the middle, the outgoing one darkens from it |
+| `OVERLAP_SWAP` | Each song alone at its own end of the window, both over its middle fifth |
+| `HANDOVER` | The incoming song rises to the middle, the outgoing one falls after it |
+| `PLAIN_FADE` | An equal-power fade and nothing else, for songs whose pulses do not meet |
 
-What the music asks for comes first: two voices in a short window meet on a cut, and a cut is refused
-across a loudness jump. Otherwise the shape comes from a hash of the two audio keys and the anchors,
-so a pair always sounds the same and a playlist does not repeat one effect.
-
-A fade's length starts from the longest that stays clear of both songs' voices, instead of always
-the longest allowed.
+Every locked shape hands the bass over at the middle on the bass isolator (`BASS_BAND`, a 4th-order
+crossover): the outgoing band is killed just before the change and the incoming one comes in after
+it. Without the EQ only the two level shapes (`OVERLAP_SWAP`, `HANDOVER`) are written.
 
 ## Policy
 
-Order: generate candidates, reject by guards, score, keep the best if it clears its class's
-threshold, otherwise go to the next level. A crossed guard can never be bought back by good notes.
-Choosing a pair is joint: pairs (exit, entry) are evaluated, at most `candidatesPerSide` per side,
-and the same request always gives the same plan.
+The planner is `SeguePolicy.decide`, which runs the compact policy (`CompactPolicy`, `SegueCompact.kt`).
+It is the only planner: the earlier one, with its levels scored on many terms, has been removed.
 
-| Level | Class | Requires |
-|---|---|---|
-| `LOCKED_LONG` | locked | Reachable tempos, reliable grids, phrases on both sides, the longest length |
-| `LOCKED_SHORT` | locked | The same, shorter |
-| `LOCKED_BEAT` | locked | Any shared downbeat, 4 or 2 bars, and only if the bass is managed |
-| `FILTERED` | filtered | No alignment; filtered exit, limited overlap, progressive entry, without two voices |
-| `HARD` | hard | Clear boundaries, close loudness, on a downbeat; an anti-click fade alone |
-| `SIMPLE_FADE` | fade | A short fade from a safe point |
-| `NORMAL` | none | Plain playback. Not a failure: no effect beats a bad effect |
-
-Each level left behind records its cause in `SegueDecision.attempts`, outside the fingerprint. Within
-a level the longest length that works is kept: a window is shortened only when it has to be.
-
-The score is `Σ weight × reliability × note − Σ penalty × defect`. Notes and defects run from 0 to 1.
-Scores compare only within a class; between classes the fallback order decides.
-
-| Term | Kind | Role | Form |
-|---|---|---|---|
-| Rhythm | Note, strong | Makes the passage forgettable | Falls from `rhythmFullUs` to `phaseMedianMaxUs` |
-| Phrase | Note, strong | Makes the sections coincide | 0.5 per side on a boundary at the start, `phraseNoteInside` at the middle or end |
-| Energy | Note, medium | Avoids holes in the tension | Gaussian on the level gap, `energySigmaDb` |
-| Exit | Note, medium | Leaves at the end of a phrase or on a calm section | Share without voice in the window's second half |
-| Entry | Note, medium | Avoids entering mid-phrase | 1 on the first attack, less on a later section, less with the time skipped |
-| Key | Note, weak | Reduces clashes | Distance on the wheel of fifths |
-| Speed | Defect, medium | Prefers the least alteration | Rises from `rateCostFreePpm` to the guard |
-| Voice | Defect, strong | Goes beyond the guard | Overlap weighted by audibility, over `voiceOverlapMaxUs` |
-| Voice cut | Defect, medium | Leaves no voice unheard | A's voice after the window and B's before the entry, as shares of each song's |
-| Bass | Defect, medium | Limits masking | Common energy over total energy, 20–150 Hz, after levels and shelves |
-| Lost | Defect, weak to medium | Prefers keeping the music | Seconds removed over `contentCutMaxUs` |
-| Sobriety | Defect, weak | Avoids gratuitous effects | Effect lanes over `sobrietyFullEffects` |
-
-`SegueTuning.kt` documents each parameter, with its label and range, and is the only place for them.
+- Locked mixes are tried first. A song whose beat cannot be relied on (no stretch of its own
+  beats, see Stretches) is never locked, whatever its partner.
+- Two songs lock when their stretches' tempos differ by at most `lockMaxTempo` (10 %), with half or
+  double time allowed where the faster tempo is in `pairFoldMinBpm`..`pairFoldMaxBpm`. Only the
+  incoming song changes speed, by the ratio of the two stretches' lengths.
+- A locked window is 2, 4, 8 or 16 bars of the measured bars. It ends shortly before the end of the
+  outgoing music (`exitBestFrom`..`exitBestTo` bars, a step for each bar further away) and starts
+  a couple of bars into the incoming song (`entryBestFrom`..`entryBestTo`). An instrumental
+  ending is preferred to a sung one.
+- Each candidate's cost is a fixed sum of steps: its length past `lengthFreeSec`, a key clash, the
+  tempo gap, its place in each song, sung bars, and the phase error. Costs are quantised to
+  `step`, so near-equal candidates are equal: then the longest window wins, then the earliest exit,
+  then the earliest entry.
+- Level names: `LOCKED_LONG` for 16 bars, `LOCKED_BEAT` for 2 bars, `LOCKED_SHORT` otherwise.
+- Otherwise, a plain fade of `fadeUs` (5 s) centred on the end of the outgoing music (`fadeEnd`,
+  the last bar at least `fadeEndDb` loud, moved by `fadeEndOffsetUs`). The incoming song starts
+  `fadeLeadUs` before its first sound. This is `SIMPLE_FADE`.
+- Nothing falls to plain playback except where the music says so: an album whose songs run on
+  without a gap (`ALBUM_CONTINUITY`), or a fade that does not fit the file (`NORMAL`). Each level
+  left behind records its cause in `SegueDecision.attempts`, outside the fingerprint.
+- Deterministic: the same request gives the same plan. The listener's settings may only tighten its
+  limits (`maxRatePpm`, `maxBars`).
 
 ## Measuring
 
@@ -260,56 +249,128 @@ interval, and relabelling it `[M]`.
 The desktop render stretches with `atempo` and has no player clock, so it does not measure the phone's
 own timing; `automix.status` reports the chain's position and the deck's distance on the phone.
 
-## Parameters that were not in the design's tables
+## Parameters
 
-These had no value or only a word, and were added as proposals to measure. All are `[I]` unless
-marked `[R]`, reused from this repository.
+The compact planner's values are in `CompactTuning` (`SegueTuning.kt`), labelled as the other
+parameters are. Each is `[M]` (measured on the project's corpus, fixed by the bench) or `[I]`
+(proposal) or `[U]`, `[R]` (usual order, reused). The main ones:
 
-| Parameter | Value | Why it is needed |
+| Parameter | Value | Why |
 |---|---|---|
-| Strong, medium, weak, weak to medium | 1.0, 0.5, 0.2, 0.35 | The design names the weights qualitatively |
-| `gridMinBeats`, `gridMinSteadiness`, `gridMaxDriftMs` | 16, 0.6, 30 ms `[R]` | The design leaves the grid's reliability floor to measurement; these are the existing `Grid.reliable` |
-| `thresholdLocked` | 0.5 `[R]` | The earlier blend floor, on a different scale |
-| `thresholdFiltered`, `thresholdHard` | 0.25 | Each class needs a threshold |
-| `contentCutMaxUs` | 60 s | The design caps the cut in seconds without a value |
-| `gaplessMaxSilenceUs` | 300 ms | What counts as a junction without silence |
-| `entryNoteSection`, `entryNoteOther` | 0.6, 0.3 | A later entry must score below the first attack |
-| `sobrietyFullEffects`, `bassSampleSteps`, `curveKnots` | 3, 32, 16 | Normalisation and sampling |
-| `reliabilityPhraseFallback`, `reliabilityVocalStereo`, `reliabilityVocalMono` | 0.3, 0.6, 0.2 | Measures with no confidence of their own |
-| `reliabilityForLong`, `reliabilityForMiddle` | 0.8, 0.6 | The lower the reliability, the shorter the window |
-| `filteredMiddleUs` | 8 s | Between the design's 4 and 12 s |
-| `simpleFadeUs`, `entryZoneUs`, `halfDoubleMaxBars` | 6 s, 40 s, 8 bars `[R]` | Values the player already uses |
-| Lane shapes (`bassKillDb`, `outgoingTopDb`, `incomingBedGain`…) | see `SegueTuning` `[R]` | The curves the player already plays |
-| `sweepClosedHz`, `sweepPeakRatio` | 400 Hz, 1.2 | The design asks for a filtered exit without values |
-| `stretchMinBeatShare`, `stretchMinDownConfidence` | 0.85, 0.5 | What a stretch must have to be relied on |
-| `penaltyVoiceCut`, `phraseNoteInside` | 0.5, 0.25 | The two score terms added with stretches |
-| `voiceBarRisk`, `lockedTinyBars` | 0.6 `[R]`, 2 | A bar counted as sung; the shortest locked length |
-| `overlapMaxSum` | 1.25 | Two masters' peaks add up on a shared beat; 1 never clips but dips by 3 dB. Bench, 120 locked renders: unbounded 63 clipped, 1.25 46, 1.0 7 |
-| `coreOutDb`, `coreInDb`, `topInDb`, `cutBeatShare` | −24, −12, −12 dB, 0.25 | The three-band and cut shapes |
-| `blockFrames`, `shelfLowHz`, `shelfHighHz`, `holdRampUs` | 64, 180 Hz, 2.5 kHz, 400 ms `[R]` | Values the player and the render already use |
-| `shelfQ`, `coreQ` | 0.707 `[U]`, 0.5 | The slope of a shelf, and a bell wide enough to span the middle band |
-| `echoDelayUs`, `echoFeedback`, `sendTailUs` | 375 ms, 0.35, 3 s | The sends need a sound; the policy does not use them yet |
-| `roomCombUs`, `roomAllPassUs`, `roomCombFeedback`, `roomAllPassGain` | Schroeder delays `[U]`, 0.75, 0.7 `[U]` | Same |
+| `lockMaxTempo`, `lockFreeTempo`, `tempoCost` | 10 %, 4.5 %, 0.1 `[M]` / `[I]` | The tempo gap that may lock, the gap that costs nothing, and what it costs |
+| `shortestBars`, `longestBars` | 2, 16 `[M]` | Locked window lengths; each doubles |
+| `exitMinShare`, `entryMaxShare` | 0.67, 0.29 `[M]` | No exit before two thirds of the song, no entry past 29 % of B |
+| `exitBestFrom`, `exitBestTo`, `exitNearBars`, `exitFarBars` | 0.5, 3, 8, 16 bars `[M]` | Where the window ends relative to the music |
+| `entryBestFrom`, `entryBestTo`, `entryLastBar` | 2, 4, 12 bars `[M]` | Where the window starts in B |
+| `lengthFreeSec`, `lengthCurve` | 5 s, 0.0002 `[M]` | Cost of a longer window |
+| `step` | 0.025 `[M]` | Candidates closer than this are equal |
+| `keyCost`, `clashCost` | 0.1 `[M]`, 0.1 `[I]` | A key clash; two voices together in the window |
+| `fadeUs`, `fadeMinUs`, `fadeLeadUs` | 5 s, 2.51 s, 2.5 s `[M]` | The plain fade |
+| `fadeEndDb`, `fadeEndOffsetUs` | −20 dB, 0.75 s `[M]` | Where the outgoing music ends |
+| `introMinBars` | off (1000) `[M]` | Long quiet intros skipped; off until the arrival detection is tuned |
+| `bassKillDb` | −80 dB `[I]` | The band gone, not a shelf turned down |
+| `lowPassHz`, `highPassHz`, `jumpUs` | 150 Hz, 6 kHz `[M]`, 20 ms `[I]` | Filter ends of the shapes; how long a jump takes |
+| `restoreMinBars`, `restoreMaxPerBar`, `restoreFromGap` | 4 bars, 0.5 %, 0.5 % `[I]` | B's gentle return to its own speed after the lock |
 
-## Sends and the rising filter
+The engine's own sound (headroom, shelves, the isolator, sends) is in `SegueTuning`; the planner
+does not write sends, so those values are for the deck only. The sends (`echoDelayUs`,
+`roomCombUs`, `sendTailUs`) are played when a plan asks for them.
 
-Fades and locked mixes can now ring out. `riseHz` is a high-pass on a side, the mirror of `sweepHz`; a null knot leaves it open at 20 Hz. `echoUs` on the plan sets the echo send's delay from the outgoing song's beat, three quarters of a beat brought into 240-620 ms; a plan without it uses the engine's default. Sends leave out everything below 250 Hz so the tail does not sit on the incoming bass.
+## The Orpheon planner
 
-Four shapes use them. `ECHO_OUT` throws the outgoing song into the echo on the downbeat nearest 72 % of a fade. `WASH_OUT` thins it from below into the room. `RISE_OUT` and `ECHO_TAIL` are the same two ideas on a locked mix. A shape with a tail is offered only when the outgoing song runs on past the window for at least `sendTailUs`: its player has to keep feeding the deck for the tail to sound.
+A second planner (`OrpheonPolicy`), behind the Mix Lab's switch for an A/B against the compact one.
+It reads only `SongMap`, which any analyser can fill, and tries four families in turn: beat-locked,
+smooth blend, silence join (the song plays to its end and the next one is butted against it), plain
+fade. Its values are in `OrpheonTuning` and were set on the bench against reference plans
+(`segue <dir> orpheon`), then on renders; none is taken from another product.
 
-## What is skipped
+### Which pairs lock
 
-The level a pair reaches is still judged on `score`, but the candidate within a level is chosen on `pick`: the score less a cost for the music nobody hears, the end of one song and the start of the other. Taking this out of the score keeps a locked mix from losing its level because it skips an intro. Fades pay more for it than locked mixes, which have a reason to skip. The latest exits always stay in the running, including those with a voice that lasts to the end, so the choice between the two is the score's. Fades run 4, 6 or 8 s.
+A pair that should not lock plays to its end: that is a decision, not a failure. Two hip-hop songs
+lock unless one is hardly danceable (`lockMinDanceHiphop`) or the outgoing one is acoustic; any other
+pair locks only when both songs are plainly danceable (`lockMinDanceability`). When no analyser gives
+a song's danceability it is taken to be what its family usually is (`assumeDance` and the like), which
+on the phone means: hip-hop with hip-hop, dance with dance, pop with pop or dance, nothing with a
+family that has no steady beat. An estimate from our own measurements (metre, weight of the low end
+and of the top, voiced share) was fitted on 60 songs and ranked them at 0.62 against the reference
+values, but placed fewer pairs in the right family than the family's usual value does: it was left out.
+
+The tempo gap is read on the bars around the junction, not on the songs' stated tempos, which
+analysers get wrong by a factor of two more often than they misplace a bar line.
+
+### Where a locked window sits
+
+- It ends on the last bar line of the outgoing song's body: the last point within `exitLoudDb` of the
+  main level. A bar later mixes the song's tail, a bar sooner leaves music unplayed; both cost.
+  Windows start on the song's half phrases counted from its first bar (`exitOnPhrase`).
+- Each style says where in its window the incoming song takes the lead (`Arrival`): from the first
+  bar for a blend, a quarter in for a long blend, one bar before the end where the outgoing song
+  leaves on an echo, on the last bar line where it loops out. The planner lands that point on the
+  start of a phrase of the incoming song, four bars or eight short ones (`phraseSec`), half-way
+  through a phrase at a small cost. A blend that leads from its first bar plays the song from its
+  start unless its first phrase is a quiet opening; any other style arrives on the second phrase,
+  so some of the song is heard coming before it takes over.
+- A style written for a family plays between two songs of that family; any other pair gets the
+  general blends. Each style has the length it is written for, and of its bar counts the one nearest
+  to it is used: a short style lasts about 7 s at any tempo.
+- A style is drawn first, by its weight and how well its best place scores, then the best place for
+  it: the draw varies the kind of transition from pair to pair, not the care it is placed with.
+
+### Sound
+
+Frequencies glide in octaves, so a sweep is heard at an even pace. The blend closes the outgoing
+song's low-pass slowly then faster and opens the incoming song from its top downwards, a little
+under at first. The delay out keeps the incoming song thin and low under the outgoing one, opens it
+on a bar line and leaves the outgoing song as an echo of three quarters of a beat over the last bar.
+The loop out goes round the outgoing song's last beat while its low-pass closes, the incoming song
+opening fully on the window's last beat. Inside the window a side with a send keeps a share of the
+headroom (`Headroom.sendPeak`), so its echo is neither crushed by the ceiling nor added on top of it.
+
+### Ideas
+
+`MixIdea` lists what is tried on top of the planner. Each is one bit of `SegueTuning.ideas` and one
+switch of the Mix Lab (`automix.settings <name> on|off`), so it can be heard against the planner
+without it; with none, plans are those of the planner alone. They add lanes and never replace one a
+style wrote.
+
+| Idea | What changes | Why |
+|---|---|---|
+| `bass-handover` | The incoming song's bass band is out until the outgoing song leaves (the isolator); a plain fade swaps the two in its middle | Two bass lines together mask each other and add up |
+| `vocal-clear` | A lead vocal starting over another costs three times as much; where one still does, the outgoing song's core band is turned down under it | Two voices at once are the clash a listener notices first |
+| `echo-tail` | The outgoing song's last beat is sent into an echo where a style would cut it dry | A cut is heard as a cut; a tail hides it |
+| `phrased-fade` | A join or a fade that is not locked moves by half a beat at most so the incoming song's first downbeat falls on the outgoing song's beat | The pulse carries over the join although the tempos differ |
+| `energy-style` | Blends are drawn more often into a quiet opening, short arrivals more often when both sides are loud | A hard arrival on a quiet opening sounds like a mistake |
+| `gentle-tempo` | Neither song changes speed by more than `gentleMaxRate`; pairs further apart are not locked | Large stretches are audible on voices |
+
+The Mix Lab starts with the first four. `energy-style` and `gentle-tempo` move plans away from the
+reference (fewer locked pairs, other lengths), so they are off until listened to.
+
+### Bench
+
+Against the reference plans, before (the planner as first written) and after, on the reference's
+own maps (236 pairs) and on our analyser's maps with catalogue genres (46 pairs):
+
+| | Family agrees | Both ends within one bar | Exit off by | Entry off by | Length off by |
+|---|---|---|---|---|---|
+| Reference maps, before | 80.9 % | 40.3 % | 9.3 s | 4.4 s | 4.1 s |
+| Reference maps, after | 83.5 % | 43.2 % | 6.2 s | 4.8 s | 3.5 s |
+| Our maps, before | 84.8 % | 58.7 % | 7.1 s | 2.3 s | 4.2 s |
+| Our maps, after | 82.6 % | 60.9 % | 5.4 s | 2.9 s | 4.3 s |
+
+The reference draws its style and its place at random among the candidates it keeps, seeded by the
+pair, so no planner can agree with it pair by pair on those: the family, the exit and the rule of
+the entry are what can be matched. Among locked pairs of the same length class the exit is within
+one bar for 45 % of the short ones (20 % before) and 62 % of the medium ones (12 % before). The
+entry of a short style differs by exactly one bar between the two short styles, which the bench
+counts as a miss when the bar is a few milliseconds long. On our maps one pair fewer falls in the
+right family: two pairs of a hip-hop song after a pop or dance one, locked by the reference, that
+the family's usual danceability refuses.
 
 ## Voices from lyrics
 
 The spectral estimate in `barVocalRisk` mostly sees that a bar could hold a voice: on the bench corpus, checked against the songs' timed lyrics, it finds about a third of the sung bars at the threshold the policy uses, and lowering the threshold only approaches "every bar". When a song's timed lyrics are already on the device, `withSung` replaces it for that decision and nothing is fetched for it. On the corpus, with both songs' lyrics known, locked mixes where two voices meet for over 2 s fall from 53 % to under 1 %, windows get shorter by themselves, and the share of pairs reaching a locked level goes from 25 % to 19 %: these are the mixes that could not avoid a clash. The numbers are not an independent test, since the lyrics that judge are also the ones used, and a song without lyrics gets the estimate as before. The journal says which was used.
 
 A song without lyrics gets `VocalRisk.learned` instead of the raw estimate: a small logistic model over the bar measurements, fitted on bars labelled from timed lyrics and checked on songs left out, where it ranks bars at 0.86 against 0.71. Judged on the corpus's lyrics with no lyrics given to the policy, locked mixes where voices meet for over 2 s fall from 53 % to 17 %, and fewer pairs lock. The weights come from the same corpus, mostly rap and pop, so a very different catalogue may do worse; the worst this does is a shorter, plainer transition.
-
-## The last levels
-
-A cut that skips more than `hardLostMaxUs` of music, both songs together, is refused: a short fade costs less. `SIMPLE_FADE` stays at its usual length when it can; over a voice it is `simpleVoiceFadeUs` at the very end, without the voice guard. Nothing falls to plain playback any more on the bench corpus. A fade's candidates include one that ends with the music, not on a bar.
 
 ## Small speed changes
 

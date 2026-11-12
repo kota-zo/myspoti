@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">লিরিক্স অনুবাদ করা বন্ধ করুন</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">হুম। আমরা এই গানটির লিরিক জানি না।</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">এই লিরিকগুলি টাইম-সিঙ্কড হয়নি, এখনও।</string>
-    <string name="av_switch_to_video" formatted="false">ভিডিওতে সুইচ করুন</string>
-    <string name="av_switch_to_audio" formatted="false">অডিওতে সুইচ করুন</string>
-    <string name="av_content_desc" formatted="false">অডিও ও ভিডিওর মধ্যে টগল করুন</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">হোম</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">সার্চ করুন</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">আপনার লাইব্রেরি</string>

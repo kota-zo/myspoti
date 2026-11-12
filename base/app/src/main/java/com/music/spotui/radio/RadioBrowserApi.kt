@@ -34,9 +34,18 @@ data class RadioStation(
     val votes: Int,
     val clickCount: Int,
     val lastCheckOk: Boolean,
+    /** An HLS (.m3u8) stream: the player is told so, as its address does not always end in .m3u8. */
+    val hls: Boolean = false,
 )
 
 data class RadioTag(val name: String, val stationCount: Int)
+
+/**
+ * A search's answer: the stations the app plays, and how many more matched that it cannot (an
+ * unencrypted stream, see [RadioBrowserApi.playable]). Without that count a station listed
+ * on the directory's site looked missing (BUG-40).
+ */
+data class RadioResults(val stations: List<RadioStation>, val unplayable: Int)
 
 /**
  * A thin client for the radio-browser.info directory: a free, community-run index of public
@@ -59,6 +68,7 @@ object RadioBrowserApi {
     )
     private const val CURATED_PREFIX = "curated-"
     private const val USER_AGENT = "Myspoti/1.0 (Live Radio module; +https://github.com/kota-zo/myspoti)"
+    private val UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
     private val json = Json { ignoreUnknownKeys = true }
     private val http by lazy { OkHttpClient.Builder().callTimeout(12, TimeUnit.SECONDS).build() }
@@ -105,17 +115,27 @@ object RadioBrowserApi {
         tag: String = "",
         limit: Int = 40,
         order: String = "votes",
-    ): List<RadioStation> = withContext(Dispatchers.IO) {
+    ): RadioResults = withContext(Dispatchers.IO) {
+        // Not is_https=true: the stations the app cannot play are counted (see RadioResults), so
+        // twice as many are asked for to still fill the list with the ones it can.
         val params = buildString {
-            append("hidebroken=true&is_https=true&limit=$limit&order=${enc(order)}&reverse=true")
+            append("hidebroken=true&limit=${limit * 2}&order=${enc(order)}&reverse=true")
             if (query.isNotBlank()) append("&name=${enc(query)}")
             if (tag.isNotBlank()) append("&tag=${enc(tag)}")
         }
-        stations(getArray("/json/stations/search?$params"))
+        results(getArray("/json/stations/search?$params"), limit)
     }
 
     /** The directory's most-voted stations overall, for a starting screen with nothing searched yet. */
-    suspend fun topStations(limit: Int = 30): List<RadioStation> = search(limit = limit, order = "votes")
+    suspend fun topStations(limit: Int = 30): List<RadioStation> = search(limit = limit, order = "votes").stations
+
+    /** The station [uuid] names (the id the directory's site shows); none if it has no such station. */
+    suspend fun byUuid(uuid: String): RadioResults = withContext(Dispatchers.IO) {
+        results(getArray("/json/stations/byuuid?uuids=${enc(uuid)}"), limit = 1)
+    }
+
+    /** [query], trimmed, when it is a station's uuid, pasted from the directory's site. */
+    fun asStationUuid(query: String): String? = query.trim().takeIf { UUID.matches(it) }
 
     /** Every tag (genre, mood, format…) the directory knows, most used first. */
     suspend fun tags(limit: Int = 60): List<RadioTag> = withContext(Dispatchers.IO) {
@@ -137,24 +157,31 @@ object RadioBrowserApi {
 
     /**
      * Whether this app can play [streamUrl]: https only (the app allows no cleartext traffic,
-     * and a station is no reason to relax that), and no HLS, which the player is built without
-     * (no media3-exoplayer-hls): an .m3u8 address would throw before it even starts.
+     * and a station is no reason to relax that). HLS plays too (media3-exoplayer-hls).
      */
-    internal fun playable(streamUrl: String, hls: Boolean = false): Boolean {
-        if (hls) return false
+    internal fun playable(streamUrl: String): Boolean {
         val uri = runCatching { java.net.URI(streamUrl.trim()) }.getOrNull() ?: return false
-        return uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() &&
-            !uri.path.orEmpty().endsWith(".m3u8", ignoreCase = true)
+        return uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
     }
+
+    /** Whether [streamUrl] is an HLS playlist by its address alone (.m3u8, any case, query left aside). */
+    internal fun looksHls(streamUrl: String): Boolean =
+        runCatching { java.net.URI(streamUrl.trim()).path.orEmpty() }.getOrDefault("").endsWith(".m3u8", ignoreCase = true)
 
     /** The directory's station list, without the ones [playable] turns down. */
     internal fun stations(array: JsonArray): List<RadioStation> = array.mapNotNull(::station)
+
+    /** [array]'s first [limit] playable stations, and how many it holds that the app cannot play. */
+    internal fun results(array: JsonArray, limit: Int): RadioResults {
+        val kept = stations(array)
+        return RadioResults(kept.take(limit), unplayable = array.count { it is JsonObject } - kept.size)
+    }
 
     private fun station(e: JsonElement): RadioStation? {
         val o = e as? JsonObject ?: return null
         // url_resolved follows redirects already; url is the directory's raw entry.
         val streamUrl = o.str("url_resolved")?.takeIf { it.isNotBlank() } ?: o.str("url").orEmpty()
-        if (!playable(streamUrl, hls = o.bool("hls") == true)) return null
+        if (!playable(streamUrl)) return null
         return RadioStation(
             stationUuid = o.str("stationuuid").orEmpty(),
             name = o.str("name").orEmpty().ifBlank { "?" },
@@ -170,6 +197,7 @@ object RadioBrowserApi {
             votes = o.int("votes") ?: 0,
             clickCount = o.int("clickcount") ?: 0,
             lastCheckOk = o.bool("lastcheckok") ?: true,
+            hls = o.bool("hls") == true || looksHls(streamUrl),
         )
     }
 

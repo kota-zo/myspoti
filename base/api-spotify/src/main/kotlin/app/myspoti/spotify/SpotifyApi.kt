@@ -62,7 +62,7 @@ class SpotifyApi(
     override val podcasts = SpotifyPodcasts(gql, bridge, this.http)
     override val users = SpotifyUsers(gql, bridge, this.http)
     override val extras = SpotifyTrackExtras(gql, bridge, this.http)
-    override val devices = SpotifyDevices(bridge)
+    override val devices = SpotifyDevices(bridge, this.http)
     override val jam = SpotifyJam(bridge, this.http)
 
     init { player.inJam = { jam.member }; player.inJamSession = { jam.session.value != null } }

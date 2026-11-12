@@ -88,9 +88,21 @@ object AppVersion {
         return x.pre.size.compareTo(y.pre.size)
     }
 
+    /**
+     * The last version of Myspoti, which this app continues under the name Orpheon from 1.0.0 on. A
+     * minimum from 2.0.0 on names a Myspoti version: Orpheon has everything of [MYSPOTI_LAST], so such
+     * a minimum is met when it is [MYSPOTI_LAST] or older (none newer was ever released).
+     */
+    const val MYSPOTI_LAST = "2.4.0"
+
     /** Whether [app] is [min] or newer; no minimum, or an app version that cannot be read: yes. */
-    fun atLeast(app: String, min: String?): Boolean =
-        min.isNullOrBlank() || parse(app) == null || compare(app, min) >= 0
+    fun atLeast(app: String, min: String?): Boolean {
+        if (min.isNullOrBlank() || parse(app) == null) return true
+        val m = parse(min) ?: return compare(app, min) >= 0
+        val orpheon = parse(app)!!.core[0] < 2
+        if (orpheon && m.core[0] >= 2) return compare(MYSPOTI_LAST, min) >= 0
+        return compare(app, min) >= 0
+    }
 }
 
 /** The one button of a store row. */

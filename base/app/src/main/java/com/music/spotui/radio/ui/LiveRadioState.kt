@@ -27,6 +27,9 @@ internal class LiveRadioState(query: String = "", genre: String = "") {
         private set
     var loading by mutableStateOf(false)
         private set
+    /** How many more stations matched the search that the app cannot play: said under the list. */
+    var unplayable by mutableStateOf(0)
+        private set
     /** The directory did not answer the last ask: said on the screen, even over the curated picks. */
     var error by mutableStateOf(false)
         private set
@@ -52,6 +55,7 @@ internal class LiveRadioState(query: String = "", genre: String = "") {
     suspend fun load() {
         val q = query; val g = genre
         error = false
+        unplayable = 0
         if (q.isBlank() && g.isBlank()) {
             // Curated picks show immediately, so "Popular" is never empty while the directory
             // call is in flight (or if it fails); the live top stations are appended after,
@@ -67,7 +71,12 @@ internal class LiveRadioState(query: String = "", genre: String = "") {
         }
         if (q.isNotBlank()) delay(400)
         loading = true
-        results = ask { RadioBrowserApi.search(query = q, tag = g) }
+        // A station's uuid pasted from the directory's site is looked up as such, a name otherwise.
+        val uuid = RadioBrowserApi.asStationUuid(q)
+        val found = uuid?.let { ask { RadioBrowserApi.byUuid(it) }?.takeIf { r -> r.stations.isNotEmpty() || r.unplayable > 0 } }
+            ?: ask { RadioBrowserApi.search(query = q, tag = g) }
+        results = found?.stations
+        unplayable = found?.unplayable ?: 0
         loading = false
     }
 

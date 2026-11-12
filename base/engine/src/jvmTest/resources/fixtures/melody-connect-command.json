@@ -1,0 +1,25 @@
+{
+ "messages": [
+  {
+   "type": "jssdk_connect_command",
+   "message": {
+    "ms_ack_duration": 384,
+    "ms_request_latency": 212,
+    "command_id": "364cecb30cfee437d9091bb2c15f7638",
+    "command_type": "transfer",
+    "target_device_brand": "spotify",
+    "target_device_model": "web_player",
+    "target_device_client_id": "ed99264fff50b415e57c4774d8aa5aeb",
+    "target_device_id": "89aa74c533c3a3a22f933e98378452373db1453c",
+    "interaction_ids": "",
+    "play_origin": "",
+    "result": "success",
+    "http_response": "",
+    "http_status_code": 200
+   }
+  }
+ ],
+ "sdk_id": "harmony:4.81.1-1f3d48b7f",
+ "platform": "web_player linux undefined;firefox 159.0;desktop",
+ "client_version": "0.0.0"
+}

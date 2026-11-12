@@ -27,8 +27,8 @@ class CliTest {
 
     @Test fun parsesEachCommand() {
         assertEquals(CliCommand.Status, CliParser.parse("status", emptyList()))
-        assertEquals(CliCommand.ExtInstall("/sdcard/Android/data/app.myspoti.dev/files/cli/in/x.zip"),
-            CliParser.parse("ext.install", listOf("/sdcard/Android/data/app.myspoti.dev/files/cli/in/x.zip")))
+        assertEquals(CliCommand.ExtInstall("/sdcard/Android/data/app.orpheon.beta.dev/files/cli/in/x.zip"),
+            CliParser.parse("ext.install", listOf("/sdcard/Android/data/app.orpheon.beta.dev/files/cli/in/x.zip")))
         assertEquals(CliCommand.ExtEnable("my.ext", false), CliParser.parse("ext.disable", listOf("my.ext")))
         assertEquals(CliCommand.ExtSetting("my.ext", "quality", "\"high\""), CliParser.parse("ext.setting", listOf("my.ext", "quality", "high")))
         assertEquals(CliCommand.ExtSetting("my.ext", "on", "true"), CliParser.parse("ext.setting", listOf("my.ext", "on", "true")))
@@ -40,6 +40,16 @@ class CliTest {
         assertEquals(CliCommand.ExtLog("my.ext", 1000), CliParser.parse("ext.log", listOf("my.ext", "99999")))
         assertEquals(CliCommand.Play("spotify:track:4uLU6hMCjMI75M1A2tKUQC", null), CliParser.parse("play", listOf("spotify:track:4uLU6hMCjMI75M1A2tKUQC")))
         assertEquals(CliCommand.Nav("extension/my.ext"), CliParser.parse("nav", listOf("extension/my.ext")))
+        assertEquals(CliCommand.AutoMixSettings(), CliParser.parse("automix.settings", emptyList()))
+        assertEquals(CliCommand.AutoMixSettings("style", "blend"), CliParser.parse("automix.settings", listOf("style", "blend")))
+        assertEquals(CliCommand.AutoMixSettings("mobile-data", "off"), CliParser.parse("automix.settings", listOf("mobile-data", "off")))
+        assertEquals(CliCommand.AutoMixSettings("duration-min", "12"), CliParser.parse("automix.settings", listOf("duration-min", "12")))
+        assertEquals(CliCommand.AutoMixSettings("duration-max", "0"), CliParser.parse("automix.settings", listOf("duration-max", "0")))
+        assertEquals(CliCommand.AutoMixSettings("performance-priority", "on"), CliParser.parse("automix.settings", listOf("performance-priority", "on")))
+        // The Mix Lab's ideas, each by its name, and all of them at once.
+        assertEquals(CliCommand.AutoMixSettings("bass-handover", "off"), CliParser.parse("automix.settings", listOf("bass-handover", "off")))
+        assertEquals(CliCommand.AutoMixSettings("ideas", "on"), CliParser.parse("automix.settings", listOf("ideas", "on")))
+        assertEquals(CliCommand.AutoMixNext, CliParser.parse("automix.next", emptyList()))
     }
 
     @Test fun refusesBadInput() {
@@ -54,6 +64,37 @@ class CliTest {
         assertTrue(fails("play", "https://example.com/x").contains("spotify:"))
         assertTrue(fails("nav", "https://example.com").contains("route"))
         assertTrue(fails("pause", "extra").contains("too many"))
+        assertTrue(fails("automix.settings", "unknown", "on").contains("unknown setting"))
+        assertTrue(fails("automix.settings", "style", "unexpected").contains("must be one of"))
+        assertTrue(fails("automix.settings", "length").contains("use <name> <value>"))
+        assertTrue(fails("automix.settings", "style", "fade", "extra").contains("too many"))
+        assertTrue(fails("automix.settings", "duration-min", "-1").contains("integer from 0 to 90"))
+        assertTrue(fails("automix.settings", "duration-max", "91").contains("integer from 0 to 90"))
+        assertTrue(fails("automix.settings", "duration-min", "auto").contains("integer from 0 to 90"))
+        assertTrue(fails("automix.settings", "performance-priority", "yes").contains("must be one of on, off"))
+        assertTrue(fails("automix.next", "extra").contains("too many"))
+    }
+
+    @Test fun readsOnlyThePublishedAutoMixSettings() {
+        val json = AutoMixSettingsSnapshot(
+            enabled = true, segue = false, sessionDj = true, albumOrder = false, podcasts = false,
+            harmonic = true, eq = true, show = true, mobileData = false, onNext = "full",
+            style = "blend", length = "balanced", tempo = "normal", pulse = "strong",
+            durationMin = 10, durationMax = 45, performancePriority = true,
+            orpheon = true, ideas = mapOf("bass-handover" to true, "gentle-tempo" to false),
+        ).json().jsonObject
+        assertEquals(JsonPrimitive(true), json["enabled"])
+        assertEquals(JsonPrimitive(false), json["mobile-data"])
+        assertEquals(JsonPrimitive("full"), json["on-next"])
+        assertEquals(JsonPrimitive("balanced"), json["length"])
+        assertEquals(JsonPrimitive(10), json["duration-min"])
+        assertEquals(JsonPrimitive(45), json["duration-max"])
+        assertEquals(JsonPrimitive(true), json["performance-priority"])
+        // The Mix Lab's planner and each of its ideas by name, so a listening session can be checked from the CLI.
+        assertEquals(JsonPrimitive(true), json["orpheon"])
+        assertEquals(JsonPrimitive(true), json["bass-handover"])
+        assertEquals(JsonPrimitive(false), json["gentle-tempo"])
+        assertEquals(20, json.size)
     }
 
     @Test fun masksTokensInText() {

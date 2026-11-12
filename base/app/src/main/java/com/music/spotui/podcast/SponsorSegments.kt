@@ -7,21 +7,17 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.security.MessageDigest
-import java.text.Normalizer
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
 /**
  * The pure part of SponsorBlock for podcasts: reading the server's answer, keeping the segments
- * that fit the episode playing, telling whether a YouTube upload is that same episode, and which
- * segment to skip now.
+ * that fit the episode playing, and which segment to skip now.
  *
  * SponsorBlock (https://sponsor.ajay.app, API: https://wiki.sponsor.ajay.app/w/API_Docs) is a
  * crowdsourced list of the sponsor reads and other parts of a video, by video id. Its server also
  * holds Spotify episodes (`service=Spotify`, keyed by the episode's base62 id: what the Spot
- * SponsorBlock browser extension submits, https://github.com/Spot-SponsorBlock/Spot-SponsorBlock-Extension),
- * so an episode is asked by its own id first; a YouTube upload of it is only the fallback.
+ * SponsorBlock browser extension submits, https://github.com/Spot-SponsorBlock/Spot-SponsorBlock-Extension).
  * Both are asked by hash prefix ([hashPrefix]): the server never learns which episode plays.
  */
 internal object SponsorSegments {
@@ -37,14 +33,10 @@ internal object SponsorSegments {
     const val HASH_PREFIX = 4
     /** A segment marked on a copy longer or shorter than this (in ms) is not placed on the one playing. */
     const val DURATION_TOLERANCE_MS = 3_000L
-    /** A YouTube upload is the same episode only when its length is this close (in ms). */
-    const val YOUTUBE_DURATION_TOLERANCE_MS = 2_000L
     /** Shorter segments are not worth a seek. */
     const val MIN_SEGMENT_MS = 1_000L
     /** Segments closer than this are skipped as one. */
     const val MERGE_GAP_MS = 1_000L
-    /** Episode title words a YouTube upload must carry, at least. */
-    const val MIN_TITLE_COVERAGE = 0.8
 
     data class Segment(val startMs: Long, val endMs: Long, val category: String, val uuid: String, val videoDurationMs: Long = 0L)
 
@@ -110,51 +102,6 @@ internal object SponsorSegments {
         }
         return merged
     }
-
-    // --- YouTube fallback: is this upload the episode playing? ---
-
-    private fun fold(s: String): String = Normalizer.normalize(s.replace('’', '\''), Normalizer.Form.NFD)
-        .replace(Regex("""\p{M}+"""), "").lowercase(Locale.ROOT)
-
-    internal fun tokens(s: String): List<String> =
-        fold(s).replace(Regex("""(?<=\p{L})'(?=\p{L})"""), "").split(Regex("""[^\p{L}\p{N}]+""")).filter { it.isNotEmpty() }
-
-    /** The share of the episode title's words found in [candidate] (1.0: all of them). */
-    fun titleCoverage(episodeTitle: String, candidate: String): Double {
-        val want = tokens(episodeTitle).distinct()
-        if (want.isEmpty()) return 0.0
-        val have = tokens(candidate).toSet()
-        return want.count { it in have }.toDouble() / want.size
-    }
-
-    /** The show's name in the upload's title or channel, all its words. */
-    fun showMatches(show: String, name: String, uploader: String): Boolean {
-        val want = tokens(show).distinct()
-        if (want.isEmpty()) return false
-        val have = (tokens(name) + tokens(uploader)).toSet()
-        return want.all { it in have } || tokens(uploader).joinToString("") == want.joinToString("")
-    }
-
-    /**
-     * Whether a YouTube upload ([name] by [uploader], [durationSec] long) is the episode [title]
-     * of [show], [durationMs] long: the same length within 2 s (so the segments need no shift),
-     * most of the title's words, and the show named, or, without it, every word of a title long
-     * enough not to be a coincidence.
-     */
-    fun matches(title: String, show: String, durationMs: Long, name: String, uploader: String, durationSec: Long): Boolean {
-        if (durationMs <= 0 || durationSec <= 0) return false
-        if (abs(durationSec * 1000 - durationMs) > YOUTUBE_DURATION_TOLERANCE_MS) return false
-        val coverage = titleCoverage(title, name)
-        if (coverage < MIN_TITLE_COVERAGE) return false
-        return showMatches(show, name, uploader) || (coverage >= 1.0 && tokens(title).distinct().size >= 4)
-    }
-
-    /** The index of the best upload in [hits] (name, uploader, seconds) that [matches], or -1. */
-    fun best(title: String, show: String, durationMs: Long, hits: List<Triple<String, String, Long>>): Int =
-        hits.indices
-            .filter { matches(title, show, durationMs, hits[it].first, hits[it].second, hits[it].third) }
-            .maxWithOrNull(compareBy<Int> { titleCoverage(title, hits[it].first) }.thenBy { -abs(hits[it].third * 1000 - durationMs) }.thenBy { -it })
-            ?: -1
 }
 
 /**

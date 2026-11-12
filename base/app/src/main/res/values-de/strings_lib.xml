@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d weiterer Sender passt, sendet aber unverschlüsselt (http) oder in HLS, was die App noch nicht abspielen kann.</item>
+        <item quantity="other">%d weitere Sender passen, senden aber unverschlüsselt (http) oder in HLS, was die App noch nicht abspielen kann.</item>
+    </plurals>
+</resources>

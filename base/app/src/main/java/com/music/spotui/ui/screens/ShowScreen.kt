@@ -55,7 +55,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.data.api.Response
@@ -264,7 +263,6 @@ private fun Header(
         }
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             GlideImage(
-                transition = CrossFade,
                 model = cover,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -409,7 +407,6 @@ private fun EpisodeRow(
     Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row {
             GlideImage(
-                transition = CrossFade,
                 model = episode.coverUri,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

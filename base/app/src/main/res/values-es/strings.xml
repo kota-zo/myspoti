@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">Playlists</string>
     <string name="aa_albums">Álbumes</string>
     <string name="aa_artists">Artistas</string>
@@ -14,8 +14,6 @@
     <string name="notif_shuffle_disable_smart">Desactivar la reproducción aleatoria inteligente</string>
     <string name="energy_saver_title">Ahorro de batería</string>
     <string name="energy_saver_summary">Canvas desactivado, vídeos y animaciones más ligeros</string>
-    <string name="video_fullscreen_enter">Entrar en pantalla completa</string>
-    <string name="video_fullscreen_exit">Salir de pantalla completa</string>
     <string name="playback_seek_description">Posición de reproducción</string>
     <string name="account_page_title">Cuenta de Spotify</string>
     <string name="account_page_detail">Plan, privacidad y dispositivos, en spotify.com</string>

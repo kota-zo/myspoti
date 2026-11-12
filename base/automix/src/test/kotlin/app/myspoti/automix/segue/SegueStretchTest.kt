@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 package app.myspoti.automix.segue
 
+import app.myspoti.automix.Grid
 import app.myspoti.automix.TrackAnalysis
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,9 +21,12 @@ class SegueStretchTest {
         duration: Double = 240.0,
         barSeconds: Double = 2.0,
         risk: (Int) -> Float = { 0f },
+        grid: Boolean = true,
     ): TrackAnalysis {
         val n = (duration / barSeconds).toInt()
-        return TrackAnalysis(duration, 0.0, duration, -10.0, 0, 1.0, 120.0, false, null, null, beats, DoubleArray(n) { it * barSeconds },
+        // The compact planner locks only on a song's own grid (its head and tail): the beats as one.
+        val g = if (grid && beats.size > 1) Grid(0.0, beats[1] - beats[0], beats.size, 1.0, 0.0, 1.0) else null
+        return TrackAnalysis(duration, 0.0, duration, -10.0, 0, 1.0, 120.0, g != null, g, g, beats, DoubleArray(n) { it * barSeconds },
             FloatArray(n) { -10f }, FloatArray(n) { -16f }, FloatArray(n) { -20f }, FloatArray(n), FloatArray(n), 0, true,
             Double.NaN, Double.NaN, barVocalRisk = FloatArray(n, risk), audioKey = key, barBassDb = FloatArray(n) { -18f },
             headMetre = 1f, tailMetre = 1f, modelBeats = beats, barDownConfidence = down)
@@ -72,19 +76,11 @@ class SegueStretchTest {
         assertTrue("$median", median < 1_000)
     }
 
-    @Test fun aSongWithoutAWholeGridStillLocksOnAStretch() {
-        val d = SeguePolicy.decide(SegueRequest(song("a"), song("b")))
-        assertTrue(d.why, d.level in lockedLevels())
-        assertEquals(PulseState.LOCKED, d.plan!!.pulse.state)
-    }
-
-    @Test fun onlyAReliableStretchIsUsed() {
-        // Steady only from 180 s to 196 s: whatever is chosen lies there.
-        val beats = DoubleArray(480) { i -> val at = i * 0.5; if (at in 180.0..196.5) at else at + (if (i % 2 == 0) 0.07 else -0.07) }
-        val d = SeguePolicy.decide(SegueRequest(song("a", beats), song("b")))
-        assertTrue(d.why, d.level in lockedLevels())
-        val exit = d.plan!!.outgoing.anchorUs / 1e6
-        assertTrue("$exit", exit in 180.0..196.0)
+    @Test fun aSongWithoutAGridIsFaded() {
+        // The compact planner locks only on a song's own grid: without one it fades (a limit to revisit, not a design choice).
+        val d = SeguePolicy.decide(SegueRequest(song("a", grid = false), song("b")))
+        assertEquals(d.why, SegueLevel.SIMPLE_FADE, d.level)
+        assertTrue(d.why, d.attempts.any { it.cause == SegueCause.NO_GRID })
     }
 
     @Test fun theRateIsTheRatioOfTheStretchesAndOnlyTheIncomingSongMoves() {
@@ -95,40 +91,24 @@ class SegueStretchTest {
         assertEquals(960_000.0, d.plan!!.incoming.ratePpm.toDouble(), 2_000.0)
     }
 
-    @Test fun twoVoicesInAShortWindowMeetOnACut() {
-        val sung = { _: Int -> 1f }
-        // Voices all along: a window where both sing must hand over, never overlap.
-        val a = song("a", risk = sung); val b = song("b", risk = { if (it < 60) 1f else 0f })
-        val d = SeguePolicy.decide(SegueRequest(a, b, tuning = t.copy(voiceOverlapMaxUs = 60_000_000)))
-        if (d.level in lockedLevels() && (d.plan!!.span.musicalUnits ?: 0) <= t.lockedMiddleBars) assertEquals(SegueShape.CUT_ON_BEAT, d.shape)
-    }
-
     @Test fun everyShapeIsAValidPlanAndPlayable() {
-        val compiler = SegueCompiler(t)
         val keys = "a".repeat(64)
-        fun plan(lanes: List<SeguePlan.Lane>, length: Long = 16_000_000) = SeguePlan(SeguePolicy.ORIGIN,
+        val lengthUs = 16_000_000L
+        fun plan(lanes: List<SeguePlan.Lane>) = SeguePlan(CompactPolicy.ORIGIN,
             SeguePlan.Side(keys, keys, 0, SegueFormat.RATE_NOMINAL, SegueFormat.RATE_NOMINAL), SeguePlan.Side(keys, keys, 0, SegueFormat.RATE_NOMINAL, SegueFormat.RATE_NOMINAL),
-            SeguePlan.Span(length, 8, UnitKind.BAR, Clock.ELAPSED), SeguePlan.Pulse(PulseState.LOCKED, 120_000_000, 0), lanes)
-        for (eq in listOf(true, false)) {
-            for (shape in listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN)) {
-                val p = plan(compiler.locked(shape, 0.5, 1.0 / 32, 0.8, 1.0, eq))
-                assertEquals("$shape", emptyList<SegueViolation>(), SegueValidator.structural(p))
-                assertTrue("$shape", SegueDeck.playable(p))
-            }
-            for (shape in listOf(SegueShape.SWEEP_OUT, SegueShape.EVEN_FADE, SegueShape.QUICK_OUT, SegueShape.LATE_OUT)) {
-                val p = plan(compiler.filtered(shape, 0.05, 1.0, 0.8, eq))
-                assertEquals("$shape", emptyList<SegueViolation>(), SegueValidator.structural(p))
-                assertTrue("$shape", SegueDeck.playable(p))
-            }
+            SeguePlan.Span(lengthUs, 8, UnitKind.BAR, Clock.ELAPSED), SeguePlan.Pulse(PulseState.LOCKED, 120_000_000, 0), lanes)
+        for (eq in listOf(true, false)) for (shape in listOf(SegueShape.THIN_SWAP, SegueShape.DARK_SWAP, SegueShape.OVERLAP_SWAP, SegueShape.HANDOVER)) {
+            val p = plan(CompactLanes(t).locked(shape, lengthUs, eq))
+            assertEquals("$shape", emptyList<SegueViolation>(), SegueValidator.structural(p))
+            assertTrue("$shape", SegueDeck.playable(p))
         }
     }
 
     @Test fun eachShapeHandsOverCompletely() {
-        val compiler = SegueCompiler(t)
         fun level(lanes: List<SeguePlan.Lane>, side: LaneSide, x: Double) =
             LaneCurve(lanes.first { it.side == side && it.target == Target.LEVEL }).value(x * SegueFormat.T_MAX)
-        for (shape in listOf(SegueShape.BASS_SWAP, SegueShape.THREE_BAND, SegueShape.CUT_ON_BEAT, SegueShape.FILTER_OPEN)) {
-            val lanes = compiler.locked(shape, 0.5, 1.0 / 32, 1.0, 1.0, true)
+        for (shape in listOf(SegueShape.THIN_SWAP, SegueShape.DARK_SWAP, SegueShape.OVERLAP_SWAP, SegueShape.HANDOVER)) {
+            val lanes = CompactLanes(t).locked(shape, 16_000_000L, true)
             assertTrue("$shape", abs(level(lanes, LaneSide.OUTGOING, 0.0)) < 0.5)
             assertTrue("$shape", level(lanes, LaneSide.OUTGOING, 1.0) < -40)
             assertTrue("$shape", level(lanes, LaneSide.INCOMING, 0.0) < -40)

@@ -6,6 +6,7 @@
  */
 package com.music.spotui.ui.immersive.screens
 
+import com.music.spotui.ui.components.cappedPageWidth
 import com.music.spotui.ui.immersive.shell.immersiveHazeSource
 import com.music.spotui.ui.immersive.shell.immersiveChromeScroll
 import androidx.compose.animation.AnimatedVisibility
@@ -358,7 +359,8 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
         com.music.spotui.data.offline.OfflineDownloader.requests.isNotEmpty()
     val radioOn = com.music.spotui.radio.RadioFeaturePref.on
     val base = (entries as? Response.Success)?.data ?: emptyList()
-    val rootPinned = base.indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + 2 +
+    val localShown = com.music.spotui.data.preferences.LocalFilesPref.shown
+    val rootPinned = base.indexOfFirst { it.spotifyId == Api.HomeCache.LIKED_SONGS_ID } + (if (localShown) 2 else 1) +
         (if (radioOn) 1 else 0) + (if (hasDownloads) 1 else 0)
     val all = base.map {
         if (it.spotifyId == Api.HomeCache.LIKED_SONGS_ID) it.copy(name = likedName, subtitle = "") else it
@@ -383,7 +385,7 @@ private fun libraryEntries(entries: Response<List<LibraryEntry>>): Pair<List<Lib
                 subtitle = localSubtitle, coverUri = "", isPlaylist = true,
             )
         }
-        list.take(at) + local + (if (radioOn) listOf(radio) else emptyList()) +
+        list.take(at) + (if (localShown) listOf(local) else emptyList()) + (if (radioOn) listOf(radio) else emptyList()) +
             (if (hasDownloads) listOf(downloads) else emptyList()) + localLists + list.drop(at)
     }.let { list ->
         LibraryOrder.version
@@ -577,7 +579,9 @@ internal fun LibraryList(
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(top = immersiveTopContentPadding(), bottom = Immersive.BottomChrome),
-            modifier = Modifier.fillMaxSize().immersiveHazeSource().immersiveChromeScroll(),
+            // Rows capped at a readable width, centred, on wide windows (they ran 1800 dp long);
+            // the grid layout keeps the whole width.
+            modifier = Modifier.fillMaxSize().cappedPageWidth().immersiveHazeSource().immersiveChromeScroll(),
         ) {
             item(key = "library:header") { header() }
             if (loading) {

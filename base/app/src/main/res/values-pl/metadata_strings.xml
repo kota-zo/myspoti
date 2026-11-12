@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadane</string>
+    <string name="metadata_footer">Wyszukiwania, albumy i wykonawcy pochodzą z tych serwisów, pytanych od góry do dołu. Ten sam utwór znaleziony dwa razy pojawia się raz. Wyłączony serwis nigdy nie jest pytany.</string>
+    <string name="metadata_spotify_detail">Twoje konto, gdy jesteś zalogowany</string>
+    <string name="metadata_signed_out">Nie pytany: żadne konto nie jest zalogowane</string>
+    <string name="metadata_asked">Pytany</string>
+    <string name="metadata_off">Wyłączony: nigdy nie pytany</string>
+    <string name="metadata_reset">Przywróć domyślną kolejność</string>
+    <string name="metadata_not_on_spotify">Nie znaleziono w Spotify: tego utworu nie można jeszcze odtworzyć</string>
+    <string name="metadata_switch">Pytaj %1$s</string>
+</resources>

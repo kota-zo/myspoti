@@ -35,7 +35,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
@@ -115,7 +113,6 @@ fun ImmersiveMiniPlayer(modifier: Modifier = Modifier) {
                 model = cover.takeIf { it.isNotBlank() },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                transition = CrossFade,
                 loading = placeholder(R.drawable.placeholder),
                 failure = placeholder(R.drawable.placeholder),
                 modifier = Modifier.size(40.dp),

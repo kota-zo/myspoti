@@ -28,10 +28,10 @@ data class SectionPlacement(
 object SectionSettings {
     /** The first source of [line] that is asked: Spotify, or an extension turned on. */
     fun leader(line: List<String>, enabled: (String) -> Boolean): String? =
-        line.firstOrNull { it == SPOTIFY_SOURCE || enabled(it) }
+        line.firstOrNull { it == ACCOUNT_SOURCE || enabled(it) }
 
     fun place(section: SettingSection, line: List<String>, enabled: (String) -> Boolean, manifest: (String) -> Manifest?): SectionPlacement? {
-        val lead = leader(line, enabled)?.takeIf { it != SPOTIFY_SOURCE } ?: return null
+        val lead = leader(line, enabled)?.takeIf { it != ACCOUNT_SOURCE } ?: return null
         val m = manifest(lead) ?: return null
         val shown = m.settingsIn(section).takeIf { it.isNotEmpty() } ?: return null
         val quality = m.qualitySetting(section)
