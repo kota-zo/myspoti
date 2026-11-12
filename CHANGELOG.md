@@ -2,6 +2,10 @@
 
 Each release on GitHub shows its section below. The app shows it too when it offers the update. Every detail: [docs/CHANGELOG-full.md](docs/CHANGELOG-full.md).
 
+## 2.4.2
+
+- 🎉 **Myspoti becomes Orpheon**, the name chosen by the community. This update offers to install it (its beta until Orpheon 1.0.0 is out): Orpheon is a new app, installed next to Myspoti. Keep Myspoti while you sign in again and add your extensions back in Orpheon, then uninstall it. Settings, About offers it too.
+
 ## 2.4.1
 
 - 🎉 **Myspoti becomes Orpheon**, the name chosen by the community. This update offers to install it (its beta until Orpheon 1.0.0 is out): Orpheon is a new app, installed next to Myspoti. Keep Myspoti while you sign in again and add your extensions back in Orpheon, then uninstall it. Settings, About offers it too.
