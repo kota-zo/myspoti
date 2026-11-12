@@ -14,6 +14,9 @@ import java.util.concurrent.TimeUnit
  * (set by the CI build; empty in local builds, which never check).
  * Automatic checks at most once an hour (launch/resume) and every 6 h while open. The release's
  * APK is downloaded and installed in the app ([AppUpdater]).
+ *
+ * The same answer also gives the newest release of Orpheon, the app that replaces Myspoti, for
+ * this build's channel ([orpheon]): a new app, offered once Myspoti itself is up to date.
  */
 object UpdateChecker {
     /** [apkUrl]: the release's signed APK; blank when the release has none (then its page opens). */
@@ -36,7 +39,7 @@ object UpdateChecker {
     }
 
     private sealed interface Fetch {
-        data class Ok(val release: Release?) : Fetch
+        data class Ok(val release: Release?, val orpheon: Release? = null) : Fetch
         data class Err(val rateLimited: Boolean) : Fetch
     }
 
@@ -84,28 +87,95 @@ object UpdateChecker {
             is Fetch.Ok -> e.putLong("checked_at", now).putLong("tried_at", 0L)
                 .putString("version", result.release?.version).putString("url", result.release?.pageUrl)
                 .putString("notes", result.release?.notes).putString("apk", result.release?.apkUrl)
+                .putString("orpheon_version", result.orpheon?.version).putString("orpheon_url", result.orpheon?.pageUrl)
+                .putString("orpheon_notes", result.orpheon?.notes).putString("orpheon_apk", result.orpheon?.apkUrl)
         }
         e.apply()
     }
 
     private fun fetch(repo: String, force: Boolean): Fetch = try {
-        // Stable builds follow "latest", which never includes pre-releases. A beta build
-        // reads the list: the newest beta, compared with [isNewer].
-        val bust = if (force) "${if (isBeta) "&" else "?"}_=${System.currentTimeMillis()}" else ""
-        val url = (if (isBeta) "https://api.github.com/repos/$repo/releases?per_page=10" else "https://api.github.com/repos/$repo/releases/latest") + bust
+        // Both channels read the list (stable builds used to follow "latest"): the repository also
+        // carries Orpheon's releases, and one request answers for Myspoti and Orpheon alike.
+        val bust = if (force) "&_=${System.currentTimeMillis()}" else ""
+        val url = "https://api.github.com/repos/$repo/releases?per_page=30$bust"
         val request = Request.Builder().url(url).header("Accept", "application/vnd.github+json")
             .apply { if (force) { header("Cache-Control", "no-cache, no-store, max-age=0"); header("Pragma", "no-cache") } }.build()
         http.newCall(request).execute().use { r ->
             if (!r.isSuccessful) return@use Fetch.Err(r.code == 429 || (r.code == 403 && r.header("x-ratelimit-remaining") == "0"))
-            val text = r.body.string()
-            val list = if (isBeta) org.json.JSONArray(text).let { a -> (0 until a.length()).map { a.getJSONObject(it) } } else listOf(JSONObject(text))
-            // Betas and releases are two apps (different package names, one cannot update the
-            // other): each one is offered its own channel only.
-            Fetch.Ok(list.filter { !it.optBoolean("draft") && (!isBeta || it.optBoolean("prerelease")) }
-                .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), apkAsset(it)) }
-                .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best })
+            val list = org.json.JSONArray(r.body.string()).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+            Fetch.Ok(newest(list), newestOrpheon(list))
         }
     } catch (e: Exception) { Fetch.Err(false) }
+
+    /**
+     * The newest Myspoti release of this build's channel in [releases] (GitHub's list). Betas and
+     * releases are two apps (different package names, one cannot update the other): each one is
+     * offered its own channel only. Orpheon's releases (1.x, below Myspoti's numbers today) are
+     * never a Myspoti update, whatever their number.
+     */
+    internal fun newest(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis): Release? =
+        releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == beta && !isOrpheon(it) }
+            .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), apkAsset(it, beta, abis)) }
+            .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best }
+
+    /** Orpheon's package names: the betas and the releases are two apps, as Myspoti's. */
+    const val ORPHEON_PACKAGE = "app.orpheon"
+    const val ORPHEON_BETA_PACKAGE = "app.orpheon.beta"
+
+    /** The Orpheon app offered to this build: the beta to a Myspoti beta, the release to a release. */
+    fun orpheonPackage(beta: Boolean = isBeta): String = if (beta) ORPHEON_BETA_PACKAGE else ORPHEON_PACKAGE
+
+    /** "Later" on the Orpheon window: the automatic check offers it again a day later at the soonest. */
+    const val ORPHEON_LATER_MS = 24 * 3_600_000L
+
+    /** A release of Orpheon, not of Myspoti: it carries an Orpheon APK (its tag, 1.x, says nothing). */
+    internal fun isOrpheon(release: JSONObject): Boolean {
+        val assets = release.optJSONArray("assets") ?: return false
+        return (0 until assets.length()).any { i ->
+            assets.getJSONObject(i).optString("name").let { it.startsWith("Orpheon-") && it.endsWith(".apk") }
+        }
+    }
+
+    /**
+     * The newest Orpheon release for this build's channel and this phone in [releases]: a Myspoti
+     * beta takes a pre-release carrying `Orpheon-Beta-<version>-<ARMv8|ARMv7>.apk`, a Myspoti
+     * release a release carrying `Orpheon-<version>-<ABI>.apk`. None of those (no Orpheon release
+     * yet on this channel, or none for this phone's ABIs): nothing is offered.
+     */
+    internal fun newestOrpheon(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis): Release? =
+        releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == beta }
+            .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), orpheonApk(it, beta, abis)) }
+            .filter { it.apkUrl.isNotEmpty() }
+            .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best }
+
+    /** The release's Orpheon APK for this channel and the first of [abis] it carries one for, or "". */
+    internal fun orpheonApk(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis): String {
+        val assets = release.optJSONArray("assets") ?: return ""
+        val named = "${if (beta) "Orpheon-Beta" else "Orpheon"}-${release.optString("tag_name").removePrefix("v")}"
+        val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.optString("name") }
+        return abis.filter { it in RELEASE_ABIS }.map { "$named-${RELEASE_ABIS.getValue(it)}.apk" }
+            .firstNotNullOfOrNull { byName[it] }?.optString("browser_download_url").orEmpty()
+    }
+
+    /**
+     * The Orpheon release to offer, from the last check (no request). The automatic check
+     * ([manual] false) stays quiet while a Myspoti update waits (it comes first, one window at a
+     * time) and for [ORPHEON_LATER_MS] after "Later"; Settings > About ([manual]) always has it.
+     */
+    fun orpheon(context: Context, manual: Boolean = false, now: Long = System.currentTimeMillis()): Release? {
+        val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
+        val version = prefs.getString("orpheon_version", null) ?: return null
+        val offer = Release(version, prefs.getString("orpheon_url", null).orEmpty(), prefs.getString("orpheon_notes", null).orEmpty(),
+            prefs.getString("orpheon_apk", null) ?: return null)
+        if (manual) return offer
+        if (pending(prefs) != null) return null
+        return offer.takeIf { now - prefs.getLong("orpheon_later_at", 0L) >= ORPHEON_LATER_MS }
+    }
+
+    /** "Later" on the Orpheon window. */
+    fun orpheonLater(context: Context, now: Long = System.currentTimeMillis()) {
+        context.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().putLong("orpheon_later_at", now).apply()
+    }
 
     /** The newer release last seen, dismissed or not (no request): what Settings > About shows. */
     fun known(context: Context): Release? =

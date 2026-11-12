@@ -29,6 +29,13 @@
     <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
 
+    <!-- Orpheon, the app that replaces Myspoti: the update window opens it once installed
+         (UpdateChecker.orpheonPackage). -->
+    <queries>
+        <package android:name="app.orpheon.beta" />
+        <package android:name="app.orpheon" />
+    </queries>
+
     <application
         android:name="app.myspoti.MyspotiApplication"
         android:allowBackup="false"

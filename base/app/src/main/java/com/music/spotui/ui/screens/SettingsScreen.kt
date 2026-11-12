@@ -1064,6 +1064,26 @@ private fun AboutRow() {
             }
         }
     }
+    OrpheonRow(check.checking)
+}
+
+/**
+ * Orpheon, the app that replaces Myspoti, once a release of it is known for this channel: the
+ * "Myspoti is becoming Orpheon" card on tap, whether its "Later" was used or not.
+ */
+@Composable
+private fun OrpheonRow(checking: Boolean) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // Read again when the card closes or a manual check ends (it may bring the first Orpheon).
+    val open = com.music.spotui.orpheonRelease.value
+    val known = remember(open, checking) { com.music.spotui.data.api.UpdateChecker.orpheon(ctx, manual = true) } ?: return
+    Column(
+        Modifier.fillMaxWidth().clickable { com.music.spotui.orpheonRelease.value = known }
+            .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
+    ) {
+        Text(stringResource(R.string.orpheon_available, known.version), color = com.music.spotui.ui.theme.AppAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.orpheon_title), color = AppMuted, fontSize = 12.sp)
+    }
 }
 
 /**

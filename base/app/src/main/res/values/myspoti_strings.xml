@@ -323,6 +323,13 @@
     <string name="update_allow">Allow</string>
     <string name="update_failed">The update failed: %1$s</string>
     <string name="update_retry">Try again</string>
+    <string name="orpheon_title">Myspoti is becoming Orpheon</string>
+    <string name="orpheon_keep">Orpheon installs as a new app, next to Myspoti. Keep Myspoti while you sign in again and add your extensions back in Orpheon, then uninstall it.</string>
+    <string name="orpheon_install">Install Orpheon</string>
+    <string name="orpheon_open">Open Orpheon</string>
+    <string name="orpheon_needs_permission">To install Orpheon, allow Myspoti to install apps, then come back here.</string>
+    <string name="orpheon_failed">Orpheon could not be installed: %1$s</string>
+    <string name="orpheon_available">Orpheon %1$s is available</string>
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Check for updates at launch</string>
     <string name="settings_auto_update_detail">Off: no check when the app starts. The manual check below still works.</string>

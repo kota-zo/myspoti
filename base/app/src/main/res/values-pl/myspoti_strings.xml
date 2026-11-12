@@ -294,6 +294,13 @@
     <string name="update_allow">Zezwól</string>
     <string name="update_failed">Aktualizacja nie powiodła się: %1$s</string>
     <string name="update_retry">Spróbuj ponownie</string>
+    <string name="orpheon_title">Myspoti staje się Orpheon</string>
+    <string name="orpheon_keep">Orpheon instaluje się jako nowa aplikacja, obok Myspoti. Zachowaj Myspoti, dopóki nie zalogujesz się ponownie i nie dodasz z powrotem swoich rozszerzeń w Orpheon, a potem je odinstaluj.</string>
+    <string name="orpheon_install">Zainstaluj Orpheon</string>
+    <string name="orpheon_open">Otwórz Orpheon</string>
+    <string name="orpheon_needs_permission">Aby zainstalować Orpheon, zezwól Myspoti na instalowanie aplikacji, a potem wróć tutaj.</string>
+    <string name="orpheon_failed">Nie udało się zainstalować Orpheon: %1$s</string>
+    <string name="orpheon_available">Dostępny jest Orpheon %1$s</string>
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Sprawdzaj aktualizacje przy uruchomieniu</string>
     <string name="settings_auto_update_detail">Wyłączone: bez sprawdzania przy starcie aplikacji. Ręczne sprawdzanie poniżej nadal działa.</string>

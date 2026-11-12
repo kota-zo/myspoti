@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
  * Downloads a release's APK and installs it over this app with Android's package
  * installer: the system asks the user to confirm, nothing opens in a browser.
  * The APK is signed with the same key as the installed app, or Android refuses it.
+ * The same way installs Orpheon, another app (its own package, next to this one).
  */
 object AppUpdater {
     sealed interface State {
@@ -53,15 +54,19 @@ object AppUpdater {
         )
     }
 
-    /** Downloads [release]'s APK, then starts the install. Updates [state] as it goes. */
-    suspend fun update(context: Context, release: UpdateChecker.Release) {
+    /**
+     * Downloads [release]'s APK, then starts the install. Updates [state] as it goes.
+     * [packageName]: the app the APK must be, this one by default (an update); Orpheon's package
+     * installs it as a new app, and Android refuses an APK of any other package.
+     */
+    suspend fun update(context: Context, release: UpdateChecker.Release, packageName: String = context.packageName) {
         val app = context.applicationContext
         if (!canInstall(app)) { _state.value = State.NeedsPermission; return }
         _state.value = State.Downloading(-1f)
-        val apk = File(File(app.cacheDir, "updates"), "myspoti-${release.version}.apk")
+        val apk = File(File(app.cacheDir, "updates"), "$packageName-${release.version}.apk")
         val result = runCatching {
             download(release, apk)
-            install(app, apk)
+            install(app, apk, packageName)
         }
         // The installer session holds its own copy once committed; a failed download left a partial one.
         runCatching { apk.delete() }
@@ -72,6 +77,17 @@ object AppUpdater {
     }
 
     fun reset() { _state.value = State.Idle }
+
+    /** [packageName] is installed (Orpheon's packages are declared in the manifest's queries). */
+    fun isInstalled(context: Context, packageName: String): Boolean = try {
+        context.packageManager.getPackageInfo(packageName, 0); true
+    } catch (e: android.content.pm.PackageManager.NameNotFoundException) { false }
+
+    /** Opens the installed app [packageName]; false when it has nothing to open. */
+    fun open(context: Context, packageName: String): Boolean {
+        val launch = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        return runCatching { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+    }
 
     /** No release of this app comes near it; a bigger answer is not an APK of ours. */
     private const val MAX_APK_BYTES = 200L * 1024 * 1024
@@ -106,11 +122,12 @@ object AppUpdater {
     }
 
     /** Streams the APK into an installer session; [StatusReceiver] gets the outcome. */
-    private suspend fun install(context: Context, apk: File) = withContext(Dispatchers.IO) {
+    private suspend fun install(context: Context, apk: File, packageName: String) = withContext(Dispatchers.IO) {
         _state.value = State.Installing
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(context.packageName)
+            // The session installs this package only: an APK of another one fails.
+            setAppPackageName(packageName)
             setSize(apk.length())
             // User action stays required (the default): without the
             // UPDATE_PACKAGES_WITHOUT_USER_ACTION permission a NOT_REQUIRED flag
@@ -120,7 +137,7 @@ object AppUpdater {
         var committed = false
         try {
             installer.openSession(id).use { session ->
-                session.openWrite("myspoti.apk", 0, apk.length()).use { out ->
+                session.openWrite("base.apk", 0, apk.length()).use { out ->
                     apk.inputStream().use { it.copyTo(out) }
                     session.fsync(out)
                 }
@@ -149,7 +166,8 @@ object AppUpdater {
                         else intent.getParcelableExtra(Intent.EXTRA_INTENT)
                     confirm?.let { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
-                // On success this process is replaced by the new version.
+                // On success this process is replaced by the new version (Orpheon: the window
+                // stays, and offers to open it).
                 PackageInstaller.STATUS_SUCCESS -> _state.value = State.Idle
                 PackageInstaller.STATUS_FAILURE_ABORTED -> _state.value = State.Idle
                 else -> _state.value = State.Failed(

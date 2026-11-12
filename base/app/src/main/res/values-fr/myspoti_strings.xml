@@ -318,6 +318,13 @@
     <string name="update_allow">Autoriser</string>
     <string name="update_failed">La mise à jour a échoué : %1$s</string>
     <string name="update_retry">Réessayer</string>
+    <string name="orpheon_title">Myspoti devient Orpheon</string>
+    <string name="orpheon_keep">Orpheon s\'installe comme une nouvelle app, à côté de Myspoti. Gardez Myspoti le temps de vous reconnecter et de remettre vos extensions dans Orpheon, puis désinstallez-le.</string>
+    <string name="orpheon_install">Installer Orpheon</string>
+    <string name="orpheon_open">Ouvrir Orpheon</string>
+    <string name="orpheon_needs_permission">Pour installer Orpheon, autorisez Myspoti à installer des applications, puis revenez ici.</string>
+    <string name="orpheon_failed">Orpheon n\'a pas pu être installé : %1$s</string>
+    <string name="orpheon_available">Orpheon %1$s est disponible</string>
     <!-- A18 : la vérification automatique peut être coupée, la vérification manuelle reste. -->
     <string name="settings_auto_update_title">Vérifier les mises à jour au lancement</string>
     <string name="settings_auto_update_detail">Désactivé : aucune vérification au démarrage. La vérification manuelle ci-dessous fonctionne toujours.</string>

@@ -294,6 +294,13 @@
     <string name="update_allow">Разрешить</string>
     <string name="update_failed">Не удалось обновить: %1$s</string>
     <string name="update_retry">Повторить</string>
+    <string name="orpheon_title">Myspoti становится Orpheon</string>
+    <string name="orpheon_keep">Orpheon устанавливается как новое приложение, рядом с Myspoti. Оставьте Myspoti, пока снова не войдёте в аккаунт и не добавите свои расширения в Orpheon, затем удалите его.</string>
+    <string name="orpheon_install">Установить Orpheon</string>
+    <string name="orpheon_open">Открыть Orpheon</string>
+    <string name="orpheon_needs_permission">Чтобы установить Orpheon, разрешите Myspoti устанавливать приложения и вернитесь сюда.</string>
+    <string name="orpheon_failed">Не удалось установить Orpheon: %1$s</string>
+    <string name="orpheon_available">Доступен Orpheon %1$s</string>
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">Проверять обновления при запуске</string>
     <string name="settings_auto_update_detail">Выкл.: при запуске приложения проверки нет. Ручная проверка ниже по-прежнему работает.</string>

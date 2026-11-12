@@ -262,6 +262,13 @@
     <string name="update_allow">Erlauben</string>
     <string name="update_failed">Das Update ist fehlgeschlagen: %1$s</string>
     <string name="update_retry">Erneut versuchen</string>
+    <string name="orpheon_title">Myspoti wird zu Orpheon</string>
+    <string name="orpheon_keep">Orpheon wird als neue App neben Myspoti installiert. Behalte Myspoti, bis du dich in Orpheon wieder angemeldet und deine Erweiterungen hinzugefügt hast, und deinstalliere es dann.</string>
+    <string name="orpheon_install">Orpheon installieren</string>
+    <string name="orpheon_open">Orpheon öffnen</string>
+    <string name="orpheon_needs_permission">Erlaube Myspoti, Apps zu installieren, um Orpheon zu installieren, und komm dann hierher zurück.</string>
+    <string name="orpheon_failed">Orpheon konnte nicht installiert werden: %1$s</string>
+    <string name="orpheon_available">Orpheon %1$s ist verfügbar</string>
     <string name="removed_from">Aus %1$s entfernt</string>
     <string name="done">Fertig</string>
     <string name="playlist_edit_details">Details bearbeiten</string>

@@ -262,6 +262,13 @@
     <string name="update_allow">Επίτρεψε</string>
     <string name="update_failed">Η ενημέρωση απέτυχε: %1$s</string>
     <string name="update_retry">Δοκίμασε ξανά</string>
+    <string name="orpheon_title">Το Myspoti γίνεται Orpheon</string>
+    <string name="orpheon_keep">Το Orpheon εγκαθίσταται ως νέα εφαρμογή, δίπλα στο Myspoti. Κράτησε το Myspoti μέχρι να συνδεθείς ξανά και να προσθέσεις ξανά τις επεκτάσεις σου στο Orpheon και μετά απεγκατάστησέ το.</string>
+    <string name="orpheon_install">Εγκατάσταση Orpheon</string>
+    <string name="orpheon_open">Άνοιγμα Orpheon</string>
+    <string name="orpheon_needs_permission">Για να εγκαταστήσεις το Orpheon, επίτρεψε στο Myspoti να εγκαθιστά εφαρμογές και μετά επέστρεψε εδώ.</string>
+    <string name="orpheon_failed">Δεν ήταν δυνατή η εγκατάσταση του Orpheon: %1$s</string>
+    <string name="orpheon_available">Το Orpheon %1$s είναι διαθέσιμο</string>
     <string name="removed_from">Αφαιρέθηκε από το %1$s</string>
     <string name="done">Τέλος</string>
     <string name="playlist_edit_details">Επεξεργασία λεπτομερειών</string>

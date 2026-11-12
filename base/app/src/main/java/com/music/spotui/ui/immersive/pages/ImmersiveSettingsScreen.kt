@@ -1077,6 +1077,8 @@ private fun AppPage(navController: NavController, back: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val check = com.music.spotui.data.api.rememberUpdateCheckState(ctx)
+    // Read again when the card closes or a manual check ends (it may bring the first Orpheon).
+    val orpheon = remember(com.music.spotui.orpheonRelease.value, check.checking) { com.music.spotui.data.api.UpdateChecker.orpheon(ctx, manual = true) }
     ImmersivePage(title = stringResource(R.string.settings_section_app), onBack = back) {
         immersiveGroup("updates") {
             row {
@@ -1101,6 +1103,15 @@ private fun AppPage(navController: NavController, back: () -> Unit) {
                             androidx.compose.material3.Icon(Icons.Rounded.Refresh, stringResource(R.string.settings_update_refresh), tint = Immersive.Accent)
                         }
                     },
+                )
+            }
+            // Orpheon, the app that replaces Myspoti: its card on tap, "Later" or not.
+            if (orpheon != null) row {
+                ImmersiveGroupRow(
+                    stringResource(R.string.orpheon_available, orpheon.version),
+                    detail = stringResource(R.string.orpheon_title),
+                    onClick = { com.music.spotui.orpheonRelease.value = orpheon },
+                    chevron = true,
                 )
             }
         }

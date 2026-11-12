@@ -291,6 +291,13 @@
     <string name="update_allow">允许</string>
     <string name="update_failed">更新失败：%1$s</string>
     <string name="update_retry">重试</string>
+    <string name="orpheon_title">Myspoti 即将成为 Orpheon</string>
+    <string name="orpheon_keep">Orpheon 会作为新应用安装在 Myspoti 旁边。在 Orpheon 中重新登录并重新添加扩展之前，请保留 Myspoti，之后再卸载它。</string>
+    <string name="orpheon_install">安装 Orpheon</string>
+    <string name="orpheon_open">打开 Orpheon</string>
+    <string name="orpheon_needs_permission">要安装 Orpheon，请允许 Myspoti 安装应用，然后回到这里。</string>
+    <string name="orpheon_failed">无法安装 Orpheon：%1$s</string>
+    <string name="orpheon_available">Orpheon %1$s 已可用</string>
     <!-- A18: the automatic update check can be turned off; the manual check stays. -->
     <string name="settings_auto_update_title">启动时检查更新</string>
     <string name="settings_auto_update_detail">关闭：应用启动时不检查。下方的手动检查仍然可用。</string>
