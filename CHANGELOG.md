@@ -2,6 +2,10 @@
 
 Each release on GitHub shows its section below. The app shows it too when it offers the update. Every detail: [docs/CHANGELOG-full.md](docs/CHANGELOG-full.md).
 
+## 2.4.1
+
+- 🎉 **Myspoti becomes Orpheon**, the name chosen by the community. This update offers to install it, as soon as an Orpheon release is out for your channel (beta or stable): Orpheon is a new app, installed next to Myspoti. Keep Myspoti while you sign in again and add your extensions back in Orpheon, then uninstall it. Settings, About offers it too.
+
 ## 2.4.0
 
 - 🎧 **AutoMix**: two decks and a whole-song analysis mix the next song in on the beat, in both players, with a new engine that plans each transition: where the next song comes in, for how long and how the sound changes hands (you can turn it off in Settings). Next can do a real mix too (Settings: Cut, Quick mix or Real mix). Faster analysis, a faster start after leaving the app, a gentler tempo lock, and the speed coming back to normal slowly.

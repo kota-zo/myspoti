@@ -2,6 +2,10 @@
 
 Every change, release by release. The short version is in [CHANGELOG.md](../CHANGELOG.md), which the app and the GitHub releases show.
 
+## 2.4.1
+
+- **Orpheon**: the update check reads the releases' list on both channels (stable builds followed "latest") and keeps the newest Orpheon release of the build's channel, found by its APK (`Orpheon-Beta-<version>-<ABI>.apk` on a pre-release for a beta, `Orpheon-<version>-<ABI>.apk` on a release for a stable); Orpheon's releases are never offered as Myspoti updates. Once no Myspoti update waits, a "Myspoti is becoming Orpheon" card shows its notes and installs it as a new app (`app.orpheon.beta` / `app.orpheon`) with the same installer and permission as the updates, or opens it once installed. Nothing is uninstalled. "Later" puts it off for a day; Settings, About keeps it in both looks.
+
 ## 2.4.0
 
 - **AutoMix**: two decks, a whole-song analysis, and plan-based transitions on by default for the beat blend style, with a switch in Settings (see `docs/automix/`). The largest speed change of a locked mix is 9.5 %. The mixes' EQ is applied, the player's page is kept on a cold start, and the analyses wait for it.

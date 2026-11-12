@@ -35,7 +35,7 @@ android {
     // signed with the first key, as "Myspoti Beta"; releases are "app.myspoti.stable",
     // signed with their own key, as "Myspoti".
     // Local builds (no version given) are on the beta side, like the phone test builds.
-    val version = (findProperty("appVersionName") as String?) ?: "2.4.0"
+    val version = (findProperty("appVersionName") as String?) ?: "2.4.1"
     // "-beta" as in UpdateChecker.isBeta, one predicate for the app id, the label and the log stripping.
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     defaultConfig {
@@ -220,7 +220,7 @@ dependencies {
  */
 tasks.register("collectApks") {
     mustRunAfter("assembleRelease")
-    val version = (findProperty("appVersionName") as String?) ?: "2.4.0"
+    val version = (findProperty("appVersionName") as String?) ?: "2.4.1"
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     val app = when { findProperty("overDev") != null -> "Myspoti-dev"; beta -> "Myspoti-Beta"; else -> "Myspoti" }
     // Copies: the configuration cache cannot keep a reference to the script's own values.
