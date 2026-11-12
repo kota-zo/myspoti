@@ -255,8 +255,20 @@ fun MiniPlayer() {
     // Swipe the track info left/right to change track: [previous, current, next].
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = 1, pageCount = { 3 })
     LaunchedEffect(songId) { if (pager.currentPage != 1) pager.scrollToPage(1) }
+    // Only a swipe changes track, as in the full player: the pager also lands on another page by
+    // itself when it is laid out again at another size, which skipped the song (reported, #257:
+    // the song skipped when the app went to its picture-in-picture window or a pop-up came).
+    var swiped by remember { mutableStateOf(false) }
+    LaunchedEffect(pager) {
+        pager.interactionSource.interactions.collect {
+            if (it is androidx.compose.foundation.interaction.DragInteraction.Start) swiped = true
+        }
+    }
     LaunchedEffect(pager) {
         androidx.compose.runtime.snapshotFlow { pager.settledPage }.collect { page ->
+            if (page == 1) return@collect
+            if (!swiped) { pager.scrollToPage(1); return@collect }
+            swiped = false
             when (page) {
                 2 -> SongPlayer.swipeNext()
                 0 -> SongPlayer.previous()
