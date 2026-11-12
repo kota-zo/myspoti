@@ -855,6 +855,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             "com.android.bluetooth", // car stereos browsing over Bluetooth AVRCP
             "com.google.android.wearable.app", // Wear OS
             "com.android.car.media", // Android Automotive media center
+            "com.waze", // Waze's in-app audio player
         )
 
         /** Third-party apps allowed to browse when Google Play installed them (see mayBrowse). */
