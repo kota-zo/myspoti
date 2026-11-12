@@ -108,7 +108,6 @@ import app.myspoti.api.UserRef
 import app.myspoti.api.best
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.di.SongPlayer
@@ -773,7 +772,7 @@ private fun SharedCard(card: MediaCard, fromMe: Boolean, onLongClick: () -> Unit
     val ink = if (fromMe) l.onAccent else l.text
     Row(verticalAlignment = Alignment.CenterVertically, modifier = with(l) { Modifier.press(onClick, onLongClick) }.padding(8.dp)) {
         card.images.best(160)?.url?.let { url ->
-            GlideImage(transition = CrossFade, model = spotifyImageUrl(url), contentDescription = null, contentScale = ContentScale.Crop,
+            GlideImage(model = spotifyImageUrl(url), contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.size(56.dp).clip(if (card.kind == MediaKind.ARTIST) CircleShape else l.cover))
         }
         Column(Modifier.padding(horizontal = 10.dp).widthIn(max = 200.dp)) {
