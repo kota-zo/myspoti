@@ -33,11 +33,18 @@ object RadioPlayer {
         // A favorite saved before a stream was checked, say: never handed to a player that would fail on it.
         if (!RadioBrowserApi.playable(station.streamUrl)) return
         started = station
-        LocalPlayer.play(
-            listOf(track(station)), 0,
-            context = Graph.app.getString(app.myspoti.engine.R.string.live_radio_title), contextUri = "",
-        )
-        scope.launch { RadioBrowserApi.reportClick(station.stationUuid) }
+        scope.launch {
+            // Its redirects asked over https first: the player refuses one to http (#234).
+            val stream = RadioBrowserApi.secureStream(station.streamUrl)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                // Another station picked meanwhile: that one plays, not this.
+                if (started === station) LocalPlayer.play(
+                    listOf(track(station, stream)), 0,
+                    context = Graph.app.getString(app.myspoti.engine.R.string.live_radio_title), contextUri = "",
+                )
+            }
+            RadioBrowserApi.reportClick(station.stationUuid)
+        }
     }
 
     /** Leaves radio: only actually stops LocalPlayer if it is still on the station (not, say, a song since played). */
@@ -62,8 +69,8 @@ object RadioPlayer {
     /** The synthetic song id LocalPlayer/SongPlayer show [station] under, to match against Graph.currentSongState. */
     fun songIdFor(station: RadioStation): Int = ("local:" + stableId(station)).hashCode() and 0x7fffffff
 
-    private fun track(station: RadioStation) = LocalTrack(
-        id = stableId(station), uri = android.net.Uri.parse(station.streamUrl),
+    private fun track(station: RadioStation, stream: String) = LocalTrack(
+        id = stableId(station), uri = android.net.Uri.parse(stream),
         title = station.name, artist = station.tags.firstOrNull()?.ifBlank { null } ?: station.country,
         album = Graph.app.getString(app.myspoti.engine.R.string.live_radio_title), durationMs = 0L,
         artUri = station.favicon.takeIf { it.isNotBlank() }?.let(android.net.Uri::parse)
