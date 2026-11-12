@@ -31,6 +31,7 @@ import app.myspoti.api.Shelf
 import app.myspoti.api.Show
 import app.myspoti.api.TimeRange
 import app.myspoti.api.TopContent
+import app.myspoti.api.Track
 import app.myspoti.api.TrackExtras
 import app.myspoti.api.UserProfile
 import app.myspoti.api.UserRef
@@ -326,7 +327,7 @@ class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val
     }
 
     @Volatile private var username: String? = null
-    private suspend fun ownUsername(): String = username ?: me().username.also { username = it }
+    internal suspend fun ownUsername(): String = username ?: me().username.also { username = it }
 
     /** Another page load may be another account: the next [ownUsername] asks again. */
     internal fun forgetUsername() { username = null }

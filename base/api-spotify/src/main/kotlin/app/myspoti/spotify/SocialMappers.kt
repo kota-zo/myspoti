@@ -115,3 +115,7 @@ internal fun feedActivity(feed: List<FeedEntry>, entities: Map<String, JsonEleme
             playing = f.playing,
         )
     }
+
+/** A looked-up user's display name, or their id. */
+internal fun userName(entities: Map<String, JsonElement>, userUri: String): String =
+    entities[userUri].str("data.name")?.takeIf { it.isNotBlank() } ?: userUri.substringAfterLast(':')

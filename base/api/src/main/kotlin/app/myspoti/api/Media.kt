@@ -170,6 +170,56 @@ data class FriendActivity(
 
 data class UserRef(val uri: Uri, val name: String, val imageUrl: String?)
 
+/**
+ * A conversation of Spotify's Messages: a direct one ([name] null) or a group. [members] are the
+ * other people in it, never the account itself; [lastMessage] the latest one, for the list.
+ */
+data class Chat(
+    val id: String,
+    val name: String?,
+    val members: List<UserRef>,
+    val unread: Boolean,
+    val lastMessage: ChatMessage?,
+    val group: Boolean = false,
+    /** The account administers this group (rename, remove members). */
+    val admin: Boolean = false,
+    val request: ChatRequest = ChatRequest.NONE,
+)
+
+/** A conversation still waiting for someone's yes: sent to the account, or sent by it. */
+enum class ChatRequest { NONE, INCOMING, OUTGOING }
+
+/**
+ * One message: some text, something shared from Spotify ([shared]), a GIF ([gifUrl]), a photo or
+ * video the app cannot show ([media]), or a line about the conversation itself ([event]).
+ * [fromMe] is true for the account's own messages.
+ */
+data class ChatMessage(
+    val id: String,
+    val author: UserRef,
+    val fromMe: Boolean,
+    val timestampMs: Long,
+    val text: String?,
+    val shared: MediaCard?,
+    val reactions: List<ChatReaction> = emptyList(),
+    val event: ChatEvent? = null,
+    val gifUrl: String? = null,
+    val media: Boolean = false,
+    /** A deleted message: only ever a conversation's [Chat.lastMessage], conversations leave them out. */
+    val deleted: Boolean = false,
+)
+
+/** A GIF from Spotify's GIF search, to send in a conversation. */
+data class Gif(val id: String, val url: String, val width: Int, val height: Int)
+
+/** An emoji someone put on a message; its [id] is what takes it back off. */
+data class ChatReaction(val id: String, val emoji: String, val user: UserRef, val fromMe: Boolean)
+
+/** What happened to the conversation ([ChatMessage.author] did it; [subject] is the person it was done to). */
+data class ChatEvent(val kind: Kind, val subject: UserRef? = null) {
+    enum class Kind { CREATED, ADDED, JOINED, LEFT, RENAMED, NEW_ADMIN, PHOTO, REMOVED, JOINED_BY_LINK, REPORTED }
+}
+
 // --- Podcasts and audiobooks -------------------------------------------------
 
 data class Show(
