@@ -1,5 +1,6 @@
 package com.music.spotui.ui.components
 
+import androidx.compose.material.icons.outlined.ContentCopy
 import com.music.spotui.ui.theme.tone
 import com.music.spotui.ui.theme.AppText
 import com.music.spotui.ui.theme.AppMuted
@@ -70,7 +71,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.SongPlayer
@@ -161,7 +161,6 @@ fun SongOptionsSheet(
                 modifier = Modifier.fillMaxWidth().padding(16.dp, 0.dp, 16.dp, 16.dp),
             ) {
                 GlideImage(
-                    transition = CrossFade,
                     modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),
                     model = song.coverUri,
                     contentScale = ContentScale.Crop,
@@ -198,16 +197,12 @@ fun SongOptionsSheet(
                 }
             }
             if (!nowPlaying) {
-                MenuRow(Icons.AutoMirrored.Filled.PlaylistPlay, stringResource(R.string.context_menu_play_next), enabled = hasId) {
-                    playerViewModel.playNext(song)
-                    com.music.spotui.di.Haptics.confirm()
-                    toast(context.getString(R.string.context_menu_play_next))
+                MenuRow(Icons.AutoMirrored.Filled.PlaylistPlay, stringResource(R.string.context_menu_play_next), enabled = SongQueue.canQueue(song)) {
+                    SongQueue.add(context, song, next = true)
                     onDismiss()
                 }
-                MenuRow(Icons.AutoMirrored.Filled.QueueMusic, stringResource(R.string.context_menu_add_to_queue), enabled = hasId) {
-                    playerViewModel.addToQueue(song)
-                    com.music.spotui.di.Haptics.confirm()
-                    toast(context.getString(R.string.snackbar_added_to_queue))
+                MenuRow(Icons.AutoMirrored.Filled.QueueMusic, stringResource(R.string.context_menu_add_to_queue), enabled = SongQueue.canQueue(song)) {
+                    SongQueue.add(context, song)
                     onDismiss()
                 }
             } else if (onOpenQueue != null) {
@@ -342,6 +337,9 @@ fun SongOptionsSheet(
                 if (isRadio) com.music.spotui.radio.RadioPlayer.share(context)
                 else SpotifyCode.show(ShareTarget("spotify:track:${song.spotifyTrackId}", song.title, song.singer, song.coverUri))
                 onDismiss()
+            }
+            if (hasId && !isRadio) MenuRow(Icons.Outlined.ContentCopy, stringResource(R.string.copy_link)) {
+                SpotifyCode.copyLink(context, "spotify:track:${song.spotifyTrackId}"); onDismiss()
             }
             if (nowPlaying) {
                 val active = SongPlayer.sleepEndsAt.value != null

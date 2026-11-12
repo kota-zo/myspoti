@@ -73,6 +73,9 @@ object AutoBrowser {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ContextPageModel>) = size > MAX_PAGES
         })
     private const val MAX_PAGES = 30
+    /** How long a long list keeps coming in after its first page was shown ([contextPage]). */
+    private const val FULL_LIST_MS = 120_000L
+    private const val LIKED_URI = "spotify:collection:tracks"
     /** [ContextPageModel.type] of a show's episodes listed here. */
     private const val SHOW = "show"
 
@@ -118,9 +121,7 @@ object AutoBrowser {
             parentId == "podcasts" -> podcastsTab(context)
             parentId == "newep" -> Graph.api.getNewEpisodes().take(MAX_ITEMS).map { playable("", it) }
             parentId.startsWith("sh:") -> showEpisodes(parentId.removePrefix("sh:"))
-            parentId == "liked" -> tracksOf(context, firstResult { Graph.api.getLikedPage() })
-            parentId.startsWith("pl:") -> tracksOf(context, firstResult { Graph.api.getPlaylistPage(parentId.removePrefix("pl:")) })
-            parentId.startsWith("al:") -> tracksOf(context, firstResult { Graph.api.getAlbumPage(parentId.removePrefix("al:")) })
+            parentId == "liked" || parentId.startsWith("pl:") || parentId.startsWith("al:") -> tracksOf(context, contextPage(parentId))
             parentId.startsWith("ar:") -> {
                 val (id, name) = parentId.removePrefix("ar:").split("|", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
                 val overview = firstResult { Graph.api.getArtistOverview(name, id) } ?: return emptyList()
@@ -335,8 +336,18 @@ object AutoBrowser {
 
     private fun onMain(block: () -> Unit) { android.os.Handler(android.os.Looper.getMainLooper()).post(block) }
 
-    private fun playTrack(contextUri: String?, key: String) {
+    private fun playTrack(contextUri: String?, key: String, reread: Boolean = true) {
         val page = contextUri?.let { pages[it] }
+        // A list the car showed before this process started (or one listed long ago): read again,
+        // so the song plays on in its list and not alone, then its radio (BUG-15).
+        val node = contextUri?.takeIf { page == null && reread }?.let(::nodeOf)
+        if (node != null) {
+            scope.launch {
+                contextPage(node)?.let { pages[it.uri] = it }
+                onMain { playTrack(contextUri, key, reread = false) }
+            }
+            return
+        }
         val song = page?.tracks?.firstOrNull { it.url == key }
         // A downloaded song plays its file, not the stream (the phone's rule, see LocalPlayPlan):
         // offline or on the data saver the list's downloaded songs, online the whole list when it
@@ -387,7 +398,7 @@ object AutoBrowser {
             val id = Graph.api.radioPlaylistId(seed)
                 ?: fallbackSong.takeIf { it.startsWith("spotify:track:") }?.let { Graph.api.radioPlaylistId(it) }
                 ?: return@launch
-            val page = firstResult { Graph.api.getPlaylistPage(id) }?.takeIf { it.tracks.isNotEmpty() } ?: return@launch
+            val page = contextPage("pl:$id")?.takeIf { it.tracks.isNotEmpty() } ?: return@launch
             pages[page.uri] = page
             play("t|${page.uri}|${page.tracks.first().url}")
         }
@@ -409,6 +420,42 @@ object AutoBrowser {
         var last: T? = null
         withTimeoutOrNull(TIMEOUT_MS) { load().collect { if (it is Response.Success) last = it.data } }
         return last
+    }
+
+    /**
+     * The songs of a list node ("liked", "pl:<id>", "al:<id>"): its first answer, to show at once.
+     * A long playlist comes in steps; the rest keeps coming after, and the list kept for a tap
+     * ([pages]) grows with it, so the song tapped queues the whole list, not its first 100 songs.
+     */
+    private suspend fun contextPage(node: String): ContextPageModel? {
+        val load: suspend () -> kotlinx.coroutines.flow.Flow<Response<ContextPageModel>> = when {
+            node == "liked" -> { { Graph.api.getLikedPage() } }
+            node.startsWith("pl:") -> { { Graph.api.getPlaylistPage(node.removePrefix("pl:")) } }
+            node.startsWith("al:") -> { { Graph.api.getAlbumPage(node.removePrefix("al:")) } }
+            else -> return null
+        }
+        val first = kotlinx.coroutines.CompletableDeferred<ContextPageModel?>()
+        scope.launch {
+            withTimeoutOrNull(FULL_LIST_MS) {
+                load().collect { r ->
+                    when {
+                        r is Response.Success && !first.isCompleted -> first.complete(r.data)
+                        r is Response.Success -> pages[r.data.uri] = r.data
+                        r is Response.Error && !first.isCompleted -> first.complete(null)
+                    }
+                }
+            }
+            first.complete(null)
+        }
+        return withTimeoutOrNull(TIMEOUT_MS) { first.await() }
+    }
+
+    /** The list node of a context uri a song's media id names, to read it again ([contextPage]). */
+    internal fun nodeOf(contextUri: String): String? = when {
+        contextUri == LIKED_URI -> "liked"
+        contextUri.startsWith("spotify:playlist:") -> "pl:" + contextUri.removePrefix("spotify:playlist:")
+        contextUri.startsWith("spotify:album:") -> "al:" + contextUri.removePrefix("spotify:album:")
+        else -> null
     }
 
     private suspend fun <T> firstResult(load: suspend () -> kotlinx.coroutines.flow.Flow<Response<T>>): T? =

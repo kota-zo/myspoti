@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unattended playback pilot on the user's phone (debug build app.myspoti.dev, screen off).
+"""Unattended playback pilot on the user's phone (debug build app.orpheon.beta.dev, screen off).
 
 usage: tools/pilot.py [--out DIR] [--only A1,A2,B,C,D,F] [--long-pause SECS]
 

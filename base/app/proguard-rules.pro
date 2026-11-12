@@ -10,8 +10,6 @@
 # Bundled resources read by name (bridge script, GraphQL operation table).
 -keep class app.myspoti.spotify.bridge.BridgeScript { *; }
 -keep class app.myspoti.spotify.gql.GqlOps { *; }
--keep class org.bouncycastle.** { *; }
--dontwarn org.bouncycastle.**
 -dontwarn javax.annotation.concurrent.GuardedBy
 -keepclassmembers enum * { *; }
 -keepclassmembers class * implements java.io.Serializable { *; }
@@ -52,16 +50,12 @@
 -keep class androidx.work.** {
     <init>(...);
 }
--keep class * extends androidx.glance.appwidget.action.ActionCallback {
-    <init>();
-}
 
 # Native UI (Spotui port) + Spotify data layer
 -keep class com.metrolist.spotify.models.** { *; }
 -keep class com.music.spotui.data.entity.** { *; }
 -keepclassmembers @kotlinx.serialization.Serializable class ** { *; }
 -dontwarn org.slf4j.**
--dontwarn io.ktor.**
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.jsse.**
 -dontwarn org.openjsse.**
@@ -86,6 +80,9 @@
 # (SpotifyDispatcher reads them by reflection), and the sandbox loads prelude.js from its jar.
 -keepclassmembers class app.myspoti.api.** { <fields>; }
 -keep class app.myspoti.extensions.** { *; }
+# The metadata catalog loads its scripts (metadata/*.js) from its jar, by the package of its classes.
+-keep class app.myspoti.catalog.ScriptProvider
+-keep class app.myspoti.catalog.ScriptEngine
 
 # The relay's Cronet (before Android 14): CronetProvider finds the Play services provider by its
 # class name, and zstd's decoder is reached from its native library by JNI.

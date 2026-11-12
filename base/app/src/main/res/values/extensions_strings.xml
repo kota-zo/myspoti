@@ -9,7 +9,7 @@
     <string name="extensions_installed">Installed</string>
     <string name="extensions_repository_add">Add a repository</string>
     <string name="extensions_repository_hint">https://…/index.json</string>
-    <string name="extensions_repository_warning">Myspoti does not review a repository you add: what you install from it is at your own risk.</string>
+    <string name="extensions_repository_warning">Orpheon does not review a repository you add: what you install from it is at your own risk.</string>
     <string name="extensions_repository_remove">Remove</string>
     <string name="extensions_repository_refresh">Refresh</string>
     <string name="extensions_install">Install</string>
@@ -65,16 +65,16 @@
     <string name="extensions_browse_store">Browse the store</string>
     <string name="extensions_other_ways">Other ways to install</string>
     <string name="extensions_empty_title">What are extensions?</string>
-    <string name="extensions_empty_body">Extensions add to Myspoti what it does not do itself: lyrics from other sources, where a song\'s audio or download comes from, tools that use your Spotify account. Each one runs in a sandbox and asks before it reaches anything. Add a repository to browse them, or install a package you trust.</string>
+    <string name="extensions_empty_body">Extensions add to Orpheon what it does not do itself: lyrics from other sources, where a song\'s audio or download comes from, tools that use your Spotify account. Each one runs in a sandbox and asks before it reaches anything. Add a repository to browse them, or install a package you trust.</string>
     <string name="extensions_official_badge">Official</string>
     <string name="extensions_repo_yours">Added by you</string>
     <string name="extensions_repo_community">Community</string>
     <string name="extensions_repo_official_note">Each extension is reviewed before it is listed.</string>
-    <string name="extensions_repo_yours_note">Not reviewed by Myspoti: install at your own risk.</string>
+    <string name="extensions_repo_yours_note">Not reviewed by Orpheon: install at your own risk.</string>
     <string name="extensions_repo_error">Could not read this repository: %1$s</string>
     <string name="extensions_repo_empty">This repository lists no extension.</string>
-    <string name="extensions_requires">Requires Myspoti %1$s or newer</string>
-    <string name="extensions_requires_api">Made for a newer Myspoti (extension API %1$d)</string>
+    <string name="extensions_requires">Requires Orpheon %1$s or newer</string>
+    <string name="extensions_requires_api">Made for a newer Orpheon (extension API %1$d)</string>
     <string name="extensions_update_badge">Update</string>
     <string name="extensions_move_up">Move up</string>
     <string name="extensions_move_down">Move down</string>
@@ -84,7 +84,7 @@
     <string name="extension_not_listed">This extension is not in your repositories (or they are still loading).</string>
     <string name="extension_details">Details</string>
     <string name="extension_detail_updated">Updated</string>
-    <string name="extension_detail_min_app">Needs Myspoti</string>
+    <string name="extension_detail_min_app">Needs Orpheon</string>
     <string name="extension_detail_size">Size</string>
     <string name="extension_detail_id">Id</string>
     <string name="extension_detail_sha">Package sha256</string>
@@ -115,11 +115,11 @@
     <string name="action_network_any">Use any website</string>
     <string name="action_webview_page">Its own web page</string>
     <string name="action_storage">Keep its own data</string>
-    <string name="action_unknown">Unknown to this Myspoti</string>
+    <string name="action_unknown">Unknown to this Orpheon</string>
     <string name="action_critical">Critical</string>
     <string name="action_no_why">(no reason given)</string>
     <string name="actions_title">What it does</string>
-    <string name="actions_critical_warning">Critical actions can change your account, replace where songs come from or show a free web page. Allow them only if you trust the author: Myspoti still asks before anything is removed.</string>
+    <string name="actions_critical_warning">Critical actions can change your account, replace where songs come from or show a free web page. Allow them only if you trust the author: Orpheon still asks before anything is removed.</string>
     <!-- Areas of the Installed tab -->
     <string name="area_playback">Playback</string>
     <string name="area_lyrics">Lyrics &amp; song info</string>
@@ -134,7 +134,7 @@
     <string name="area_idle">Idle</string>
     <string name="area_make_active">Make it the one for %1$s</string>
     <!-- Install prompt -->
-    <string name="ext_third_party_notice">Third-party extension, not reviewed by Myspoti, under its author\'s responsibility.</string>
+    <string name="ext_third_party_notice">Third-party extension, not reviewed by Orpheon, under its author\'s responsibility.</string>
     <string name="ext_risk_accept">I understand this extension is made by a third party and I install it on my own responsibility</string>
     <string name="ext_clash_exclusive">Replaces %1$s, currently provided by %2$s</string>
     <string name="ext_clash_conflict">Incompatible with %1$s (installed)</string>
@@ -160,7 +160,7 @@
 
     <!-- GitHub: discovery, ratings, reports -->
     <string name="extensions_github_title">On GitHub, GitLab and Codeberg</string>
-    <string name="extensions_github_note">Published by the community, not reviewed by Myspoti. Each author is responsible for their extension.</string>
+    <string name="extensions_github_note">Published by the community, not reviewed by Orpheon. Each author is responsible for their extension.</string>
     <string name="extensions_show_all">Show all (%1$d hidden)</string>
     <string name="extensions_show_less">Hide blocked, reported, low-rated and abandoned ones</string>
     <string name="extension_rating">★ %1$s · %2$d votes</string>
@@ -170,7 +170,7 @@
     <string name="extension_rate_down">Rate it bad</string>
     <string name="extension_rated">Thanks: your vote is on GitHub</string>
     <string name="extension_signin_title">Sign in to GitHub</string>
-    <string name="extension_signin_body">Open %1$s and type this code. Myspoti never sees your password.</string>
+    <string name="extension_signin_body">Open %1$s and type this code. Orpheon never sees your password.</string>
     <string name="extension_signin_open">Open GitHub</string>
     <string name="extension_report">Report</string>
     <string name="extension_detail_github">GitHub</string>
@@ -182,8 +182,8 @@
     <string name="extension_check_applied">Updated: it asks nothing new</string>
     <string name="extension_check_needs_ok">An update needs your OK</string>
     <string name="extension_check_declined">You kept this version</string>
-    <string name="extension_check_incompatible">The new version needs a newer Myspoti</string>
-    <string name="extension_check_blocked">The new version is blocked by Myspoti</string>
+    <string name="extension_check_incompatible">The new version needs a newer Orpheon</string>
+    <string name="extension_check_blocked">The new version is blocked by Orpheon</string>
     <string name="extension_check_failed">Could not check: see its log</string>
     <string name="extension_source_gone">Source gone: its repository no longer exists. It keeps running from the copy on your phone.</string>
     <string name="extension_revert">Revert to %1$s</string>
@@ -210,7 +210,7 @@
     <string name="extension_confirm_always">Always allow %1$s</string>
     <string name="ext_auth_title">%1$s: sign in</string>
     <string name="ext_auth_close">Close</string>
-    <string name="ext_auth_notice">A page of its own: what you type and its cookies stay in Myspoti. The extension only gets the address the page ends on.</string>
+    <string name="ext_auth_notice">A page of its own: what you type and its cookies stay in Orpheon. The extension only gets the address the page ends on.</string>
     <string name="ext_grants_title">Always allowed</string>
     <string name="ext_grants_note">Spotify changes this extension makes without asking you. Revoke one to be asked again.</string>
     <string name="ext_grant_revoke">Revoke</string>

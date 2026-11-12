@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -153,9 +154,11 @@ internal fun ImmersiveSwipeToRemove(key: Any, onRemove: () -> Unit, content: @Co
     val offset = remember(key) { Animatable(0f) }
     var armed by remember(key) { mutableStateOf(false) }
     var width by remember { mutableFloatStateOf(0f) }
+    // The offset moves every drag and spring frame; only the strip appearing is a composition change.
+    val revealed by remember(offset) { derivedStateOf { offset.value < 0f } }
 
     Box(modifier = Modifier.fillMaxWidth().onSizeChanged { width = it.width.toFloat() }) {
-        if (offset.value < 0f) {
+        if (revealed) {
             Box(
                 contentAlignment = Alignment.CenterEnd,
                 modifier = Modifier

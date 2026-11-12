@@ -54,7 +54,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.di.SongPlayer
@@ -133,7 +132,6 @@ fun EpisodeScreen(navController: NavController, episodeId: String, fallbackName:
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.accessibility_navigate_back), tint = Color.White)
                     }
                     GlideImage(
-                        transition = CrossFade,
                         model = episode?.coverUri,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -164,7 +162,6 @@ fun EpisodeScreen(navController: NavController, episodeId: String, fallbackName:
                                 .clickable { navController.navigate(showRoute(showId, episode?.singer.orEmpty())) },
                         ) {
                             GlideImage(
-                                transition = CrossFade,
                                 model = episode?.coverUri,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,

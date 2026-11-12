@@ -51,11 +51,15 @@ class Features private constructor(
         private val onsetWindow = hann(N)
         private val chromaWindow = hann(CHROMA_N)
 
-        /** [threads] is the total worker budget, including the chroma task and the calling thread. */
-        fun of(mid: FloatArray, side: FloatArray?, cancelled: () -> Boolean = { false }, threads: Int = 1): Features {
+        /**
+         * [threads] is the total worker budget, including the chroma task and the calling thread.
+         * [length]: the samples of [mid] and [side] that are the song (the decoder's buffers are
+         * longer, and a copy to size took a second song's worth of memory: reported OOM).
+         */
+        fun of(mid: FloatArray, side: FloatArray?, cancelled: () -> Boolean = { false }, threads: Int = 1, length: Int = mid.size): Features {
             if (cancelled()) throw InterruptedException("analysis cancelled")
             val win = onsetWindow
-            val frames = max(1, (mid.size - N) / HOP + 1)
+            val frames = max(1, (length - N) / HOP + 1)
             val binHz = RATE.toDouble() / N
             // Log-spaced bands, 30 Hz to 10 kHz, each at least one bin wide.
             val edges = IntArray(BANDS + 1) { i ->
@@ -77,7 +81,7 @@ class Features private constructor(
             val slices = max(1, budget - 1)
             // Task 0: the chroma; tasks 1..slices: the onset frames, a slice each (from the frame before it, for the flux).
             parallel(slices + 1, budget) { task ->
-              if (task == 0) chromaResult = chromaAndCentre(mid, side, cancelled) else {
+              if (task == 0) chromaResult = chromaAndCentre(mid, side, cancelled, length) else {
               val f0 = frames.toLong() * (task - 1) / slices; val f1 = frames.toLong() * task / slices
               val fft = onsetFft
               val frame = DoubleArray(N); val mag = DoubleArray(N / 2 + 1)
@@ -86,7 +90,7 @@ class Features private constructor(
               for (f in max(0, f0.toInt() - 1) until f1.toInt()) {
                 if (f and 1023 == 0 && cancelled()) throw InterruptedException("analysis cancelled")
                 val start = f * HOP
-                for (i in 0 until N) frame[i] = (mid.getOrElse(start + i) { 0f }) * win[i]
+                for (i in 0 until N) frame[i] = sample(mid, start + i, length) * win[i]
                 fft.magnitudes(frame, mag, re, im)
                 var low = 0.0; var mi = 0.0; var hi = 0.0; var ba = 0.0
                 for (k in 1..N / 2) {
@@ -115,13 +119,16 @@ class Features private constructor(
             }
 
             val (chroma, centre, stereo) = chromaResult!!
-            return Features(onset, bassOnset, lowDb, midDb, highDb, rmsDb, bassDb, chroma, centre, stereo, mid.size.toDouble() / RATE)
+            return Features(onset, bassOnset, lowDb, midDb, highDb, rmsDb, bassDb, chroma, centre, stereo, length.toDouble() / RATE)
         }
 
-        private fun chromaAndCentre(mid: FloatArray, side: FloatArray?, cancelled: () -> Boolean): Triple<Array<FloatArray>, FloatArray, Boolean> {
+        /** [signal]'s sample [i], 0 past its [length]. */
+        private fun sample(signal: FloatArray, i: Int, length: Int): Float = if (i < length) signal[i] else 0f
+
+        private fun chromaAndCentre(mid: FloatArray, side: FloatArray?, cancelled: () -> Boolean, length: Int): Triple<Array<FloatArray>, FloatArray, Boolean> {
             val fft = chromaFft
             val win = chromaWindow
-            val frames = max(1, (mid.size - CHROMA_N) / CHROMA_HOP + 1)
+            val frames = max(1, (length - CHROMA_N) / CHROMA_HOP + 1)
             val binHz = RATE.toDouble() / CHROMA_N
             // Pitch class of each bin from 65 Hz (C2) to 2.1 kHz (C7); weights favour the bins near a semitone centre.
             val first = (65.0 / binHz).toInt(); val last = (2100.0 / binHz).toInt()
@@ -132,12 +139,12 @@ class Features private constructor(
             val frame = DoubleArray(CHROMA_N); val mag = DoubleArray(CHROMA_N / 2 + 1); val smag = DoubleArray(CHROMA_N / 2 + 1)
             val re = DoubleArray(CHROMA_N); val im = DoubleArray(CHROMA_N)
             // A decoder can supply a zero side buffer for a mono file: no second FFT is needed.
-            val sideSignal = side?.takeIf { samples -> samples.any { it != 0f } }
+            val sideSignal = side?.takeIf { samples -> (0 until length).any { samples[it] != 0f } }
             var sideEnergy = 0.0; var midEnergy = 0.0
             for (f in 0 until frames) {
                 if (f and 255 == 0 && cancelled()) throw InterruptedException("analysis cancelled")
                 val start = f * CHROMA_HOP
-                for (i in 0 until CHROMA_N) frame[i] = mid.getOrElse(start + i) { 0f } * win[i]
+                for (i in 0 until CHROMA_N) frame[i] = sample(mid, start + i, length) * win[i]
                 fft.magnitudes(frame, mag, re, im)
                 val c = chroma[f]
                 for (k in first..last) c[pc[k]] += ln(1.0 + 100.0 * mag[k] / (CHROMA_N / 4.0)).toFloat()
@@ -145,7 +152,7 @@ class Features private constructor(
                 for (k in voiceLo..voiceHi) m += mag[k] * mag[k]
                 midEnergy += m
                 if (sideSignal != null) {
-                    for (i in 0 until CHROMA_N) frame[i] = sideSignal.getOrElse(start + i) { 0f } * win[i]
+                    for (i in 0 until CHROMA_N) frame[i] = sample(sideSignal, start + i, length) * win[i]
                     fft.magnitudes(frame, smag, re, im)
                     var s = 0.0
                     for (k in voiceLo..voiceHi) s += smag[k] * smag[k]

@@ -26,7 +26,12 @@ data class SeguePlan(
         val anchorUs: Long,
         val ratePpm: Long,
         val listenerRate: Long = SegueFormat.RATE_NOMINAL,
+        /** The speed changing over the window; [ratePpm] is then its mean, so the window's end stays where it was. */
+        val ramp: Ramp? = null,
     )
+
+    /** A speed moving in a straight line in elapsed time, from [startPpm] to [endPpm] at knot position [endT], then held. */
+    data class Ramp(val startPpm: Long, val endPpm: Long, val endT: Int = SegueFormat.T_MAX)
 
     data class Span(val lengthUs: Long, val musicalUnits: Int?, val unitKind: UnitKind, val clock: Clock)
 
@@ -44,7 +49,46 @@ data class SeguePlan(
     /** A position in [which]'s source time, in elapsed microseconds from the start of the span. */
     fun elapsedUs(which: LaneSide, sourceUs: Long): Long {
         val s = side(which)
+        if (s.ramp != null) return Math.round(SegueTimeMap(s, span.lengthUs).elapsedUs(sourceUs.toDouble()))
         return Math.floorDiv((sourceUs - s.anchorUs) * SegueFormat.RATE_NOMINAL, s.ratePpm)
+    }
+}
+
+/**
+ * One side's time over the window: elapsed microseconds from the window's start against the song's
+ * own position. Outside the window the speed is held at the ramp's end, so a run-up and a tail
+ * continue the line.
+ */
+class SegueTimeMap(side: SeguePlan.Side, lengthUs: Long) {
+    private val anchor = side.anchorUs.toDouble()
+    private val r0 = (side.ramp?.startPpm ?: side.ratePpm).toDouble() / SegueFormat.RATE_NOMINAL
+    private val r1 = (side.ramp?.endPpm ?: side.ratePpm).toDouble() / SegueFormat.RATE_NOMINAL
+    private val rampUs = (side.ramp?.endT ?: 0).toDouble() / SegueFormat.T_MAX * lengthUs
+    private val rampSourceUs = (r0 + r1) / 2 * rampUs
+    private val slope = if (rampUs > 0) (r1 - r0) / rampUs else 0.0
+
+    /** The speed at [elapsedUs]. */
+    fun rate(elapsedUs: Double): Double = when {
+        elapsedUs <= 0 -> r0
+        elapsedUs >= rampUs -> r1
+        else -> r0 + slope * elapsedUs
+    }
+
+    /** The song's position at [elapsedUs]. */
+    fun sourceUs(elapsedUs: Double): Double = anchor + when {
+        elapsedUs <= 0 -> r0 * elapsedUs
+        elapsedUs >= rampUs -> rampSourceUs + r1 * (elapsedUs - rampUs)
+        else -> elapsedUs * (r0 + slope * elapsedUs / 2)
+    }
+
+    /** The elapsed time at the song's position [sourceUs]. */
+    fun elapsedUs(sourceUs: Double): Double {
+        val d = sourceUs - anchor
+        return when {
+            d <= 0 -> d / r0
+            d >= rampSourceUs -> rampUs + (d - rampSourceUs) / r1
+            else -> 2 * d / (r0 + Math.sqrt(r0 * r0 + 2 * slope * d))
+        }
     }
 }
 
@@ -53,7 +97,12 @@ enum class Clock(val wire: String) { ELAPSED("elapsed"), SOURCE("source") }
 enum class PulseState(val wire: String) { LOCKED("locked"), LOOSE("loose"), FREE("free") }
 enum class LaneSide(val wire: String) { OUTGOING("outgoing"), INCOMING("incoming") }
 enum class SegueUnit(val wire: String) { DB("db"), HZ("hz"), RATIO("ratio") }
-enum class GestureKind(val wire: String) { REPEAT("repeat") }
+/**
+ * [REPEAT] extends an ending and is not played. [LOOP] goes round a short slice of the outgoing song,
+ * in the deck, the player running on: `atUs` is where in the song, `units` the slice's microseconds.
+ * A later loop shorter than the first goes round the start of that same slice.
+ */
+enum class GestureKind(val wire: String) { REPEAT("repeat"), LOOP("loop") }
 
 /**
  * What a lane modulates, its only permitted unit, what a null knot means, and the number a null
@@ -64,6 +113,8 @@ enum class Target(val wire: String, val unit: SegueUnit, val nullMeaning: String
     SHELF_BOTTOM("shelfBottom", SegueUnit.DB, "neutral", 0.0),
     BAND_CORE("bandCore", SegueUnit.DB, "neutral", 0.0),
     SHELF_TOP("shelfTop", SegueUnit.DB, "neutral", 0.0),
+    /** The band under the isolator's crossover, split off and summed back in phase: a kill removes it, not just lowers it. */
+    BASS_BAND("bassBand", SegueUnit.DB, "neutral", 0.0),
     SWEEP_HZ("sweepHz", SegueUnit.HZ, "filter open", SegueFormat.SWEEP_OPEN_HZ),
     SWEEP_PEAK("sweepPeak", SegueUnit.RATIO, "neutral", 1.0),
     RISE_HZ("riseHz", SegueUnit.HZ, "filter open", SegueFormat.RISE_OPEN_HZ),

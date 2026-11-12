@@ -1,18 +1,15 @@
 package app.myspoti.spotify
 
 import app.myspoti.api.Repeat
-import app.myspoti.spotify.bridge.AdBlock
+import app.myspoti.spotify.bridge.AdSchedule
 import app.myspoti.spotify.bridge.Bridge
 import app.myspoti.spotify.bridge.BridgeHost
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -41,23 +38,22 @@ class PlaybackFollowUpTest {
         @Volatile var mediaPaused = false
     }
 
+    private val time = VirtualTime()
     private lateinit var scope: CoroutineScope
     private lateinit var host: FakeHost
     private lateinit var player: SpotifyPlayer
     private lateinit var bridge: Bridge
 
     @BeforeEach fun up() {
-        AdBlock.ahead.value = null
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        AdSchedule.clear()
+        scope = time.scope
         host = FakeHost()
-        bridge = Bridge(host, scope)
+        bridge = Bridge(host, scope, time::now)
         player = SpotifyPlayer(bridge, scope)
-        // A message posted before the bridge listens is lost (a slow CI machine): wait for it.
-        waitFor("bridge listening") { host.messages.subscriptionCount.value > 0 }
     }
 
     @AfterEach fun down() {
-        AdBlock.ahead.value = null
+        AdSchedule.clear()
         scope.cancel()
     }
 
@@ -66,21 +62,15 @@ class PlaybackFollowUpTest {
 
     private fun state(item: String, paused: Boolean = false, repeat: Int = 0) =
         """{"type":"state","state":{"track":$item,"contextUri":"spotify:playlist:C","next":${track("N")},"isPaused":$paused,"isBuffering":false,
-            |"repeat":$repeat,"positionMs":0,"timestamp":${System.currentTimeMillis()},"restrictions":{}}}""".trimMargin()
+            |"repeat":$repeat,"positionMs":0,"timestamp":${time.now()},"restrictions":{}}}""".trimMargin()
 
     private val ad = """{"kind":"ad","uri":"spotify:ad:1","name":"ad","durationMs":30000}"""
 
-    private fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = runBlocking {
-        val end = System.currentTimeMillis() + ms
-        while (!cond()) {
-            check(System.currentTimeMillis() < end) { "timed out: $what" }
-            delay(20)
-        }
-    }
+    private suspend fun waitFor(what: String, ms: Long = 4_000, cond: () -> Boolean) = time.waitFor(what, ms, cond)
 
     private fun called(method: String) = host.calls.count { it.first == method }
 
-    @Test fun `a song left paused by the page after an ad break is resumed`() = runBlocking {
+    @Test fun `a song left paused by the page after an ad break is resumed`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A")))
         host.post(state(ad))
@@ -89,7 +79,7 @@ class PlaybackFollowUpTest {
         waitFor("resumed") { called("player.resume") > 0 }
     }
 
-    @Test fun `a pause by the user during the ad break is left alone`() = runBlocking {
+    @Test fun `a pause by the user during the ad break is left alone`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A")))
         host.post(state(ad))
@@ -101,7 +91,7 @@ class PlaybackFollowUpTest {
         assertEquals(before, called("player.resume"), "the user's pause holds")
     }
 
-    @Test fun `the repeat mode the user chose is set again when a play leaves the page on another`() = runBlocking {
+    @Test fun `the repeat mode the user chose is set again when a play leaves the page on another`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), repeat = 1))
         player.setRepeat(Repeat.CONTEXT)
@@ -115,7 +105,7 @@ class PlaybackFollowUpTest {
         assertEquals(sent + 1, called("player.setRepeat"))
     }
 
-    @Test fun `while playback is held, each song the page moves on to by itself is paused once`() = runBlocking {
+    @Test fun `while playback is held, each song the page moves on to by itself is paused once`() = time.test {
         player.playbackHeld = { true }
         host.post("""{"type":"ready"}""")
         host.post(state(track("A")))
@@ -133,12 +123,12 @@ class PlaybackFollowUpTest {
         assertEquals(2, called("player.pause"), "no hold, no pause")
     }
 
-    @Test fun `a reload waits for the new page, not the old page still ready`() = runBlocking {
+    @Test fun `a reload waits for the new page, not the old page still ready`() = time.test {
         host.post("""{"type":"ready"}""")
         waitFor("ready") { bridge.ready.value }
         // The host only asks for the load: the old page stays ready until the new one starts.
         player.reloadHost = { }
-        val reloaded = async(Dispatchers.Default) { player.reloadPage() }
+        val reloaded = async { player.reloadPage() }
         delay(2_500)
         assertFalse(reloaded.isCompleted, "still the old page")
         bridge.pageGone()
@@ -146,7 +136,7 @@ class PlaybackFollowUpTest {
         assertTrue(reloaded.await())
     }
 
-    @Test fun `the repeat mode of an earlier run is set again on the first song`() = runBlocking {
+    @Test fun `the repeat mode of an earlier run is set again on the first song`() = time.test {
         player.restoreRepeat(Repeat.CONTEXT)
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), repeat = 0))
@@ -156,7 +146,7 @@ class PlaybackFollowUpTest {
         assertEquals("{\"mode\":1}", host.calls.last { it.first == "player.setRepeat" }.second)
     }
 
-    @Test fun `two kinds of command refused stop the fallbacks, reload the page once and tell the user`() = runBlocking {
+    @Test fun `two kinds of command refused stop the fallbacks, reload the page once and tell the user`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A")))
         var reloads = 0
@@ -184,7 +174,7 @@ class PlaybackFollowUpTest {
         watch.cancel()
     }
 
-    @Test fun `a webview without widevine is reported`() = runBlocking {
+    @Test fun `a webview without widevine is reported`() = time.test {
         assertFalse(player.drmMissing.value)
         host.post("""{"type":"drm","ok":true}""")
         delay(100)
@@ -196,7 +186,7 @@ class PlaybackFollowUpTest {
 
     // Asked at boot in 2.0.2-beta.1, the probe ran beside the player's own EME set-up and the page
     // never registered its device: it is asked only once a play has gone wrong.
-    @Test fun `widevine is probed after a refusal, not at boot`() = runBlocking {
+    @Test fun `widevine is probed after a refusal, not at boot`() = time.test {
         host.post("""{"type":"ready","version":"t"}""")
         delay(300)
         assertEquals(0, host.calls.count { it.first == "drm.probe" })
@@ -204,7 +194,7 @@ class PlaybackFollowUpTest {
         waitFor("drm probe") { host.calls.any { it.first == "drm.probe" } }
     }
 
-    @Test fun `a refusal told late is dropped while another device plays`() = runBlocking {
+    @Test fun `a refusal told late is dropped while another device plays`() = time.test {
         host.mediaActive = false
         host.mediaPaused = true
         host.post("""{"type":"ready"}""")

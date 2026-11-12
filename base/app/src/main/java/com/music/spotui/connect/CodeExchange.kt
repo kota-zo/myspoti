@@ -27,7 +27,12 @@ object CodeExchange {
     const val CODE_TYPE = "urn:spotify:params:oauth:authorization_code"
     private const val ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
 
-    fun audience(info: ZeroconfInfo): String = info.clientId.ifBlank { SONOS_CLIENT_ID }
+    /**
+     * The client the code is minted for: Sonos's Spotify app for a Sonos whatever id it announces
+     * (as SpotifyPlus does, the setup reported working on an Arc and a Symfonisk), else the device's own.
+     */
+    fun audience(info: ZeroconfInfo): String =
+        if (info.brand.equals("Sonos", ignoreCase = true)) SONOS_CLIENT_ID else info.clientId.ifBlank { SONOS_CLIENT_ID }
 
     /** The exchange of [subjectToken] (a token of [clientId]) for a code [audience] takes. */
     fun exchangeForm(subjectToken: String, audience: String, clientId: String): String = Zeroconf.form(

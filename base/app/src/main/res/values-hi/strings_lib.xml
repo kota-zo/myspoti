@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d और स्टेशन मेल खाता है, लेकिन वह बिना एन्क्रिप्शन (http) या HLS में स्ट्रीम करता है, जिसे ऐप अभी नहीं चला सकता।</item>
+        <item quantity="other">%d और स्टेशन मेल खाते हैं, लेकिन वे बिना एन्क्रिप्शन (http) या HLS में स्ट्रीम करते हैं, जिन्हें ऐप अभी नहीं चला सकता।</item>
+    </plurals>
+</resources>

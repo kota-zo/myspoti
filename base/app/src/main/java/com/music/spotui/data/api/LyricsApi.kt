@@ -76,6 +76,9 @@ object LyricsApi {
      */
     @Volatile var extraSourcesOff: Boolean = false
 
+    /** Genius on in the settings ([com.music.spotui.data.preferences.GeniusPref]): off, it is never asked. */
+    private val geniusOn get() = com.music.spotui.data.preferences.GeniusPref.on
+
     /** Set by the settings: lyrics timed word by word first (karaoke), line by line otherwise. */
     @Volatile var wordSync: Boolean = true
 
@@ -206,17 +209,18 @@ object LyricsApi {
 
     private fun allSetAside(vararg ids: String): String? = ids.map { health.reason(it) }.takeIf { r -> r.all { it != null } }?.first()
 
-    private val WORD_SOURCES = setOf("lyricsplus", "lrcred", "kugou")
+    private val WORD_SOURCES = setOf("amll", "lyricsplus", "lrcred", "netease", "kugou")
 
     /** The providers that can be tried for [track], in the order the resolver prefers them; the extensions giving lyrics come last (`ext:<id>`). */
     fun sources(track: Track): List<Source> = buildList {
         if (track.trackId.isNotBlank()) add(Source("spotify", "Spotify", words = true))
+        if (track.trackId.isNotBlank()) add(Source("amll", "AMLL TTML DB", true, allSetAside("amll")))
         add(Source("lyricsplus", "LyricsPlus", true, allSetAside(*LYRICS_PLUS.toTypedArray())))
         add(Source("lrcred", "lrc.red", true, allSetAside("lrcred")))
         add(Source("kugou", "Kugou", true, allSetAside("kugou")))
         add(Source("lrclib", "LRCLIB", false, allSetAside("lrclib")))
-        add(Source("netease", "NetEase", false, allSetAside("netease")))
-        add(Source("genius", "Genius", false, allSetAside("genius")))
+        add(Source("netease", "NetEase", true, allSetAside("netease")))
+        if (geniusOn) add(Source("genius", "Genius", false, allSetAside("genius")))
         runCatching { com.music.spotui.extensions.Extensions.lyricsSources() }.getOrDefault(emptyList())
             .forEach { (id, name) -> add(Source("ext:$id", name)) }
     }
@@ -225,6 +229,7 @@ object LyricsApi {
     fun sourceOf(lyrics: Lyrics): String? {
         val p = lyrics.provider.orEmpty().lowercase()
         return when {
+            "amll" in p -> "amll"
             "lyricsplus" in p -> "lyricsplus"
             "lrc.red" in p -> "lrcred"
             "kugou" in p -> "kugou"
@@ -254,6 +259,7 @@ object LyricsApi {
                 sourceId == "spotify" -> fromSpotify(track)
                 sourceId.startsWith("ext:") -> com.music.spotui.extensions.Extensions.lyricsFromExtension(
                     sourceId.removePrefix("ext:"), track.trackId, track.title, track.artist, track.album, durationMs, track.coverUrl)
+                sourceId == "amll" -> byHand { fromAmll(track.trackId) }
                 sourceId == "lyricsplus" -> byHand { fromLyricsPlus(asked, title, artist, durationMs) }
                 sourceId == "lrcred" -> byHand { fromLrcRed(asked, title, artist, durationMs) }
                 sourceId == "kugou" -> byHand { fromKugou(title, artist, durationMs) }
@@ -262,7 +268,7 @@ object LyricsApi {
                         ?: lrclibSearch("$LRCLIB/search?track_name=${enc(title)}&artist_name=${enc(artist)}", title, artist, durationSec)
                         ?: lrclibSearch("$LRCLIB/search?track_name=${enc(title)}", title, artist, durationSec)
                 }
-                sourceId == "netease" -> byHand { fromNetEase(title, artist, durationSec) }
+                sourceId == "netease" -> byHand { fromNetEaseWords(title, artist, durationMs) ?: fromNetEase(title, artist, durationSec) }
                 sourceId == "genius" -> byHand { fromGenius(title, artist) }
                 else -> null
             }
@@ -324,7 +330,7 @@ object LyricsApi {
         }
         var result = com.music.spotui.extensions.LyricsMerge.choose(own, answer?.getOrNull())
         // Nothing anywhere: Genius's plain text, unless the user turned the extra sources off.
-        if (result == null && !extraSources && !extraSourcesOff)
+        if (result == null && !extraSources && !extraSourcesOff && geniusOn)
             result = asking("genius", track) { fromGenius(cleanTitle(track.title), track.artist.substringBefore(",").trim()) }
         val pending = answer?.isFailure == true
         cache[track.key] = when {
@@ -526,16 +532,21 @@ object LyricsApi {
         val plus = async { within(WORD_WAIT_MS) { asking("lyricsplus", track) { fromLyricsPlus(asked, title, artist, durationMs) } } }
         val red = async { within(WORD_WAIT_MS) { asking("lrcred", track) { fromLrcRed(asked, title, artist, durationMs) } } }
         val kugou = async { within(WORD_WAIT_MS) { asking("kugou", track) { fromKugou(title, artist, durationMs) } } }
+        // Hand-timed syllable by syllable by its community (CC0), found by the song's Spotify id.
+        val amll = async { within(WORD_WAIT_MS) { asking("amll", track) { fromAmll(track.trackId) } } }
+        val netease = async { within(WORD_WAIT_MS) { asking("netease", track) { fromNetEaseWords(title, artist, durationMs) } } }
         val sp = spotify.await()
         // Shown at once while the word timings or the backing vocals are looked for (reported: lyrics slow to come).
         if (sp != null) showEarly(track, sp)
         if (sp != null && sp.wordSynced && sp.uncapped) {
-            kugou.cancel()
-            return@coroutineScope withBacks(sp, plus, red)
+            kugou.cancel(); netease.cancel()
+            return@coroutineScope withBacks(sp, amll, plus, red)
         }
-        val words = (plus.await() ?: red.await() ?: kugou.await())?.takeIf { it.wordSynced }
+        // Without Spotify's own (no account, or none for the song) every catalogue still answers.
+        val words = (amll.await()?.takeIf { it.wordSynced } ?: plus.await()?.takeIf { it.wordSynced } ?: red.await()?.takeIf { it.wordSynced }
+            ?: netease.await()?.takeIf { it.wordSynced } ?: kugou.await())?.takeIf { it.wordSynced }
         when {
-            words != null -> alignTo(words, sp)?.copy(colors = sp?.colors)?.let { withBacks(it, plus, red) } ?: sp
+            words != null -> alignTo(words, sp)?.copy(colors = sp?.colors)?.let { withBacks(it, amll, plus, red) } ?: sp
             sp != null -> sp
             else -> lineFallbacks(track)
         }
@@ -592,7 +603,7 @@ object LyricsApi {
             val artist = track.artist.substringBefore(",").trim()
             val durationSec = (track.durationMs / 1000).toInt()
             val netease = if (extraSources) async { asking("netease", track) { fromNetEase(title, artist, durationSec) } } else null
-            val genius = if (extraSources) async { asking("genius", track) { fromGenius(title, artist) } } else null
+            val genius = if (extraSources && geniusOn) async { asking("genius", track) { fromGenius(title, artist) } } else null
             val lrclib = asking("lrclib", track) {
                 val exact = async { lrclibGet(title, artist, track.album, durationSec) }
                 val fuzzy = async { lrclibSearch("$LRCLIB/search?track_name=${enc(title)}&artist_name=${enc(artist)}", title, artist, durationSec) }
@@ -652,8 +663,64 @@ object LyricsApi {
         return null
     }
 
+    // ── Word by word: AMLL TTML DB (community-made syllable timings, CC0, on GitHub) ──
+    private const val AMLL = "https://raw.githubusercontent.com/amll-dev/amll-ttml-db/main"
+
+    /** The song's TTML in the AMLL database, by its Spotify id ([folder] "spotify-lyrics") or its NetEase id ("ncm-lyrics"). */
+    private fun fromAmll(id: String, folder: String = "spotify-lyrics"): Lyrics? {
+        if (id.isBlank() || !id.all { it.isLetterOrDigit() }) return null
+        val ttml = httpGet("$AMLL/$folder/$id.ttml", timeoutMs = 5000, provider = "amll") ?: return null
+        return parseTtml(ttml)?.copy(provider = "AMLL TTML DB")
+    }
+
+    // ── Word by word: NetEase Cloud Music (its YRC, else the AMLL file of the same NetEase song) ──
+    private fun fromNetEaseWords(title: String, artist: String, durationMs: Long): Lyrics? {
+        val search = httpGet("https://music.163.com/api/search/get?s=${enc("$title $artist")}&type=1&limit=6", timeoutMs = 6000, provider = "netease")
+            ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
+        val songs = search.optJSONObject("result")?.optJSONArray("songs") ?: return null
+        for (i in 0 until songs.length()) {
+            val song = songs.optJSONObject(i) ?: continue
+            val songArtist = song.optJSONArray("artists")?.optJSONObject(0)?.optString("name").orEmpty()
+            if (!isPlausibleMatch(song.optString("name"), songArtist, (song.optLong("duration") / 1000).toInt(), title, artist, (durationMs / 1000).toInt())) continue
+            val id = song.optLong("id")
+            val o = httpGet("https://music.163.com/api/song/lyric/v1?id=$id&lv=-1&yv=-1&tv=-1&rv=-1", timeoutMs = 6000, provider = "netease")
+                ?.let { runCatching { JSONObject(it) }.getOrNull() }
+            val lines = o?.optJSONObject("yrc")?.optString("lyric")?.let(::parseYrc).orEmpty()
+            if (lines.isNotEmpty()) {
+                val all = LyricsExtras.attach(lines,
+                    parseLrc(o?.optJSONObject("tlyric")?.optString("lyric").orEmpty()),
+                    parseLrc(o?.optJSONObject("romalrc")?.optString("lyric").orEmpty()))
+                return Lyrics(lines = all, synced = true, provider = "NetEase Cloud Music",
+                    translationLanguage = if (all.any { it.translation != null }) "zh" else null)
+            }
+            return fromAmll(id.toString(), "ncm-lyrics")
+        }
+        return null
+    }
+
+    /**
+     * NetEase's word-timed lyrics (YRC): a line per row, `[start,length]` in ms then each word as
+     * `(start,length,0)text`. Rows of credits are JSON objects (`{"t":…}`) and are left out, as are
+     * the "作词 : …" credit lines.
+     */
+    internal fun parseYrc(yrc: String): List<LyricLine> = yrc.lineSequence().mapNotNull { row ->
+        val head = yrcLine.find(row) ?: return@mapNotNull null
+        val words = yrcWord.findAll(row, head.range.last + 1).map { m ->
+            val start = m.groupValues[1].toLong()
+            LyricWord(start, start + m.groupValues[2].toLong(), m.groupValues[3])
+        }.filter { it.text.isNotEmpty() }.toList()
+        val text = words.joinToString("") { it.text }.replace(spaces, " ").trim()
+        if (text.isEmpty() || text.contains(" : ")) null
+        else LyricLine(head.groupValues[1].toLong(), text, words)
+    }.toList()
+
+    private val yrcLine = Regex("""^\[(\d+),(\d+)]""")
+    private val yrcWord = Regex("""\((\d+),(\d+),\d+\)([^(]*)""")
+
     // ── 5. Genius (plain text from the song page) ──
     private fun fromGenius(title: String, artist: String): Lyrics? {
+        // Turned off in the settings (also asked by hand, from an older menu): no request at all.
+        if (!geniusOn) return null
         // Translation and romanization pages take some of the first hits.
         val search = httpGet("https://genius.com/api/search/song?per_page=10&q=${enc("$title $artist")}", timeoutMs = 6000, provider = "genius")
             ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
@@ -774,10 +841,12 @@ object LyricsApi {
     }
 
     // ── Word by word: LyricsPlus (Apple Music's timing, by title / artist / length) ──
+    private const val LYRICS_PLUS_ORDER = "apple,lyricsplus,musixmatch-word,qq,deezer,musixmatch"
     private val LYRICS_PLUS = listOf("https://lyricsplus.binimum.org", "https://lyricsplus.prjktla.my.id")
 
     private fun fromLyricsPlus(asked: String, title: String, artist: String, durationMs: Long): Lyrics? {
-        val q = "title=${enc(asked)}&artist=${enc(artist)}" + if (durationMs > 0) "&duration=${durationMs / 1000}" else ""
+        // Apple Music first (the source wanted most), then the index's own and the others, word-timed before line-timed.
+        val q = "title=${enc(asked)}&artist=${enc(artist)}&source=$LYRICS_PLUS_ORDER" + if (durationMs > 0) "&duration=${durationMs / 1000}" else ""
         for (base in LYRICS_PLUS) {
             val body = httpGet("$base/v2/lyrics/get?$q", timeoutMs = 5000, provider = base) ?: continue
             val o = runCatching { JSONObject(body) }.getOrNull() ?: continue

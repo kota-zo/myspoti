@@ -119,14 +119,15 @@ fun App() {
         com.music.spotui.ui.immersive.shell.LocalImmersiveFrostPage provides if (frostPage) glassPage else null,
         com.music.spotui.ui.immersive.shell.LocalImmersiveChrome provides if (immersive) chrome else null,
     ) {
-    // Large windows (tablets, foldables, DeX): Classic's tabs in a rail at the side, the
-    // Immersive tab bar on the left edge (ImmersiveBottomChrome); phones keep the bottom bars.
-    val large = com.music.spotui.ui.components.windowSize().large
+    // Large windows (tablets, foldables, DeX) and a phone on its side: Classic's tabs in a rail at
+    // the side (at the bottom they took a third of a landscape phone's height); Immersive lays out
+    // its own bar (ImmersiveBottomChrome). Portrait phones keep the bottom bars.
+    val rail = com.music.spotui.ui.components.windowSize().navigationRail
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
       androidx.compose.foundation.layout.Row(Modifier.fillMaxSize()) {
         // Before the Scaffold, in a group of its own: the nav host keeps its place when the
         // window grows or shrinks past the threshold (back stack and pages kept).
-        if (large && !immersive) com.music.spotui.ui.navigation.MainNavigationRail(navController)
+        if (rail && !immersive) com.music.spotui.ui.navigation.MainNavigationRail(navController)
         Scaffold(
             modifier = Modifier.weight(1f),
             bottomBar = {
@@ -329,10 +330,12 @@ private fun UpdatePrompt() {
             res.getString(app.myspoti.engine.R.string.update_downloading, (s.progress.coerceAtLeast(0f) * 100).toInt())
         com.music.spotui.data.api.AppUpdater.State.Installing -> res.getString(app.myspoti.engine.R.string.update_installing)
         com.music.spotui.data.api.AppUpdater.State.NeedsPermission -> res.getString(app.myspoti.engine.R.string.update_needs_permission)
-        is com.music.spotui.data.api.AppUpdater.State.Failed -> res.getString(app.myspoti.engine.R.string.update_failed, s.message)
+        is com.music.spotui.data.api.AppUpdater.State.Failed ->
+            if (s.onlyByHand) s.message else res.getString(app.myspoti.engine.R.string.update_failed, s.message)
         com.music.spotui.data.api.AppUpdater.State.Idle -> null
     }
     val busy = state is com.music.spotui.data.api.AppUpdater.State.Downloading || state == com.music.spotui.data.api.AppUpdater.State.Installing
+    val byHand = (state as? com.music.spotui.data.api.AppUpdater.State.Failed)?.onlyByHand == true
     UpdateDialog(
         version = r.version,
         notes = r.notes,
@@ -340,14 +343,16 @@ private fun UpdatePrompt() {
         progress = (state as? com.music.spotui.data.api.AppUpdater.State.Downloading)?.progress,
         button = res.getString(when (state) {
             com.music.spotui.data.api.AppUpdater.State.NeedsPermission -> app.myspoti.engine.R.string.update_allow
-            is com.music.spotui.data.api.AppUpdater.State.Failed -> app.myspoti.engine.R.string.update_retry
+            is com.music.spotui.data.api.AppUpdater.State.Failed ->
+                if (byHand) app.myspoti.engine.R.string.sys_update_open_page else app.myspoti.engine.R.string.update_retry
             else -> app.myspoti.engine.R.string.version_sunsetting_dialog_cta_update
         }),
         onUpdate = {
             when {
                 busy -> Unit
-                // A release without an APK: its page, as before.
-                r.apkUrl.isBlank() -> {
+                // A release without an APK for this app, or one Android refused over it: its page.
+                r.apkUrl.isBlank() || byHand -> {
+                    updater.reset()
                     release = null
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(r.pageUrl))
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))

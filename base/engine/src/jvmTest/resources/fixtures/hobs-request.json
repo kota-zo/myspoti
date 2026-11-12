@@ -1,0 +1,12 @@
+{
+ "member_type": "CONNECT_STATE",
+ "device": {
+  "device_info": {
+   "capabilities": {
+    "can_be_player": false,
+    "hidden": true,
+    "needs_full_player_state": true
+   }
+  }
+ }
+}

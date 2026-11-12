@@ -111,7 +111,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           # One build, every APK (ABI splits), same versionCode, named by :app:collectApks:
-          # Myspoti-2.4.0-ARMv8.apk, -ARMv7.apk, -universal.apk, -TV.apk (betas: Myspoti-Beta-...).
+          # Orpheon-<version>-ARMv8.apk, -ARMv7.apk, -universal.apk, -TV.apk (betas: Orpheon-Beta-...).
           # The app's update check picks this phone's one (UpdateChecker.apkAsset).
           ./gradlew assembleRelease :app:collectApks \
             -PappVersionName="$VERSION" \

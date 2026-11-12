@@ -5,6 +5,7 @@
  */
 package com.music.spotui.ui.immersive.screens
 
+import com.music.spotui.ui.components.SwipeToQueue
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -81,67 +82,10 @@ internal fun rememberTrackTapper(): TrackTapper {
     return remember(scope, context) { TrackTapper(scope, context) }
 }
 
-/**
- * Swipe a song row sideways to add it to the queue: the row follows the finger over an accent
- * strip, ticks once past the threshold, and adds the song once on release before springing back.
- * The Classic pages' gesture, drawn in the Immersive look's colours.
- */
+/** [SwipeToQueue] drawn in the Immersive look's colours. */
 @Composable
-internal fun ImmersiveSwipeToQueue(song: SongsModel, content: @Composable () -> Unit) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
-    val threshold = with(LocalDensity.current) { 96.dp.toPx() }
-    val maxDrag = threshold * 1.4f
-    val offset = remember { Animatable(0f) }
-    var armed by remember { mutableStateOf(false) }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        if (offset.value != 0f) {
-            Box(
-                contentAlignment = if (offset.value > 0) Alignment.CenterStart else Alignment.CenterEnd,
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(if (armed) Immersive.Accent else Immersive.Accent.copy(alpha = 0.6f)),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.PlaylistAdd,
-                    contentDescription = stringResource(R.string.add_to_queue_action_content_description),
-                    tint = Color.White,
-                    modifier = Modifier.padding(horizontal = 24.dp).size(26.dp),
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offset.value.roundToInt(), 0) }
-                .background(Immersive.Page)
-                .pointerInput(song.id) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (armed && song.spotifyTrackId.isNotBlank()) {
-                                SongPlayer.addToQueue(song.spotifyTrackId)
-                                Toast.makeText(context, context.getString(R.string.snackbar_added_to_queue), Toast.LENGTH_SHORT).show()
-                            }
-                            armed = false
-                            scope.launch { offset.animateTo(0f, spring()) }
-                        },
-                        onDragCancel = {
-                            armed = false
-                            scope.launch { offset.animateTo(0f, spring()) }
-                        },
-                    ) { change, dx ->
-                        change.consume()
-                        val next = (offset.value + dx).coerceIn(-maxDrag, maxDrag)
-                        scope.launch { offset.snapTo(next) }
-                        val nowArmed = abs(next) >= threshold
-                        if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                        armed = nowArmed
-                    }
-                },
-        ) { content() }
-    }
-}
+internal fun ImmersiveSwipeToQueue(song: SongsModel, content: @Composable () -> Unit) =
+    SwipeToQueue(song, strip = Immersive.Accent, iconTint = Color.White, background = Immersive.Page, content = content)
 
 /**
  * "About" under an artist page: a title and a few lines of [text] that open on a tap, with a

@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">లిరిక్స్‌ను అనువదించడం ఆపివేయండి</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">అవును. దీని లిరిక్స్ మాకు తెలియవు.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">ఈ లిరిక్స్ ఇంకా టైమ్‌కి సింక్ కాలేదు.</string>
-    <string name="av_switch_to_video" formatted="false">వీడియోకి మారండి</string>
-    <string name="av_switch_to_audio" formatted="false">ఆడియోకి మారండి</string>
-    <string name="av_content_desc" formatted="false">ఆడియో మరియు వీడియో మధ్య టోగుల్ చేయండి</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">హోమ్</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">శోధించండి</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">మీ లైబ్రెరీ</string>

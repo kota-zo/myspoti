@@ -30,9 +30,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Parar de traduir la lletra</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Vaja, no sabem la lletra d\'aquesta cançó.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Aquesta lletra encara no està sincronitzada.</string>
-    <string name="av_switch_to_video" formatted="false">Canvia a vídeo</string>
-    <string name="av_switch_to_audio" formatted="false">Canvia a àudio</string>
-    <string name="av_content_desc" formatted="false">Canvia entre àudio i vídeo</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Inici</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Cerca</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">La teva biblioteca</string>

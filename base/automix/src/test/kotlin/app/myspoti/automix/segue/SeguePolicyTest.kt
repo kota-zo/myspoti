@@ -6,7 +6,6 @@ import app.myspoti.automix.MixPlan
 import app.myspoti.automix.PhaseStats
 import app.myspoti.automix.TrackAnalysis
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -52,196 +51,7 @@ class SeguePolicyTest {
     private fun decide(a: TrackAnalysis, b: TrackAnalysis, earliest: Long = 0, sameAlbum: Boolean = false, eq: Boolean = true, tuning: SegueTuning = SegueTuning()) =
         SeguePolicy.decide(SegueRequest(a, b, earliest, eq = eq, sameAlbum = sameAlbum, tuning = tuning))
 
-    private fun assertCause(d: SegueDecision, level: SegueLevel, cause: SegueCause) =
-        assertTrue(d.why, d.attempts.any { it.level == level && it.cause == cause })
-
-    // ── Guards: each defect injected alone rejects the candidate, whatever the score ──
-
     private val t = SegueTuning()
-
-    private fun assertRejectsAlone(guard: SegueGuard, m: SegueMeasures, cls: SegueClass = SegueClass.LOCKED) =
-        assertEquals(listOf(guard), SegueGuards.crossed(cls, m, t))
-
-    @Test fun aCleanCandidateCrossesNothing() {
-        for (c in SegueClass.values()) assertEquals(emptyList<SegueGuard>(), SegueGuards.crossed(c, SegueMeasures(), t))
-    }
-    @Test fun rateGuard() = assertRejectsAlone(SegueGuard.RATE, SegueMeasures(rateDeviationPpm = t.maxRateDeviationPpm + 1))
-    @Test fun phaseMedianGuard() = assertRejectsAlone(SegueGuard.PHASE_MEDIAN, SegueMeasures(phaseMedianUs = t.phaseMedianMaxUs + 1))
-    @Test fun phaseP95Guard() = assertRejectsAlone(SegueGuard.PHASE_P95, SegueMeasures(phaseP95Us = t.phaseP95MaxUs + 1))
-    @Test fun unmeasuredPhaseIsNotAcceptedAsAverage() {
-        assertTrue(SegueGuard.PHASE_MEDIAN in SegueGuards.crossed(SegueClass.LOCKED, SegueMeasures(phaseMedianUs = null), t))
-        assertTrue(SegueGuard.PHASE_P95 in SegueGuards.crossed(SegueClass.LOCKED, SegueMeasures(phaseP95Us = null), t))
-    }
-    @Test fun driftGuard() = assertRejectsAlone(SegueGuard.DRIFT, SegueMeasures(driftBeats = t.driftMaxBeats + 0.01))
-    @Test fun gridGuard() = assertRejectsAlone(SegueGuard.GRID_RELIABILITY, SegueMeasures(gridReliable = false))
-    @Test fun voiceGuard() = assertRejectsAlone(SegueGuard.VOICE, SegueMeasures(voiceOverlapUs = t.voiceOverlapMaxUs + 1))
-    @Test fun contentGuardShare() = assertRejectsAlone(SegueGuard.CONTENT_CUT, SegueMeasures(contentCutShare = t.contentCutMaxShare + 0.01))
-    @Test fun contentGuardSeconds() = assertRejectsAlone(SegueGuard.CONTENT_CUT, SegueMeasures(contentCutUs = t.contentCutMaxUs + 1))
-    @Test fun playedGuard() = assertRejectsAlone(SegueGuard.MIN_PLAYED, SegueMeasures(playedUs = t.minPlayedUs - 1))
-    @Test fun loudnessGuard() = assertRejectsAlone(SegueGuard.LOUDNESS_JUMP, SegueMeasures(loudnessJumpDb = t.loudnessJumpMaxDb + 0.1), SegueClass.HARD)
-    @Test fun albumGuard() = assertRejectsAlone(SegueGuard.ALBUM, SegueMeasures(albumContinuity = true))
-
-    @Test fun aHighScoreCannotBuyAGuardBack() {
-        // The best-scoring pair in every other respect, with two voices over the whole window.
-        val perfect = decide(song(), song())
-        assertEquals(SegueLevel.LOCKED_LONG, perfect.level)
-        val voices = decide(song(risk = { 1f }), song(key = "b", risk = { 1f }))
-        assertCause(voices, SegueLevel.LOCKED_LONG, SegueCause.GUARDS)
-        assertTrue(voices.why, voices.why.contains("VOICE"))
-        assertFalse(voices.level.cls == SegueClass.LOCKED)
-    }
-
-    @Test fun guardsAppliedOnlyToTheirClass() {
-        assertEquals(emptyList<SegueGuard>(), SegueGuards.crossed(SegueClass.FILTERED, SegueMeasures(rateDeviationPpm = t.maxRateDeviationPpm + 1, gridReliable = false, phaseMedianUs = null), t))
-        assertEquals(emptyList<SegueGuard>(), SegueGuards.crossed(SegueClass.HARD, SegueMeasures(voiceOverlapUs = t.voiceOverlapMaxUs + 1), t))
-    }
-
-    // ── Score ──
-
-    @Test fun theScoreFollowsItsFormula() {
-        val s = SegueScore(listOf(SegueNote("x", 2.0, 0.5, 0.5), SegueNote("y", 1.0, 1.0, 1.0)), listOf(SegueDefect("z", 0.5, 0.5)))
-        assertEquals(2.0 * 0.5 * 0.5 + 1.0 - 0.25, s.total, 1e-12)
-    }
-
-    @Test fun anUncertainMeasureWeighsLessInsteadOfCountingAsAverage() {
-        val trusted = SegueScore(listOf(SegueNote("x", 1.0, 1.0, 0.9)), emptyList()).total
-        val unknown = SegueScore(listOf(SegueNote("x", 1.0, 0.0, 0.9)), emptyList()).total
-        assertEquals(0.0, unknown, 1e-12)
-        assertTrue(trusted > unknown)
-    }
-
-    @Test fun shapesOfTheTerms() {
-        assertEquals(1.0, SegueScore.fallingFrom(5.0, 10.0, 20.0), 1e-12)
-        assertEquals(0.5, SegueScore.fallingFrom(15.0, 10.0, 20.0), 1e-12)
-        assertEquals(0.0, SegueScore.fallingFrom(25.0, 10.0, 20.0), 1e-12)
-        assertEquals(0.0, SegueScore.risingFrom(5.0, 10.0, 20.0), 1e-12)
-        assertEquals(1.0, SegueScore.gaussian(0.0, 3.0), 1e-12)
-        assertTrue(SegueScore.gaussian(3.0, 3.0) < 0.7)
-    }
-
-    // ── Fallback: each level is reached by a synthetic situation, its cause recorded ──
-
-    @Test fun level1LockedLong() {
-        val d = decide(song("a"), song("b"))
-        assertEquals(SegueLevel.LOCKED_LONG, d.level)
-        val p = d.plan!!
-        assertEquals(t.lockedLongBars, p.span.musicalUnits)
-        assertEquals(32_000_000L, p.span.lengthUs)
-        assertEquals(PulseState.LOCKED, p.pulse.state)
-        assertTrue(d.attempts.isEmpty())
-        assertEquals(120_000_000L, p.pulse.tempoMicroPerMinute)
-    }
-
-    @Test fun level2LockedShortWhenReliabilityShortensTheWindow() {
-        val d = decide(song("a", metre = 0.7f), song("b", metre = 0.7f))
-        assertEquals(SegueLevel.LOCKED_SHORT, d.level)
-        assertEquals(t.lockedMiddleBars, d.plan!!.span.musicalUnits)
-        assertCause(d, SegueLevel.LOCKED_LONG, SegueCause.LENGTH_NOT_ALLOWED)
-    }
-
-    @Test fun level3LockedOnADownbeatWhenNoPhraseBoundaryFits() {
-        // Phrase boundaries fall at 176 s and 192 s; the only beats to rely on lie strictly between them.
-        val d = decide(song("a", duration = 200.0, modelBeats = DoubleArray(26) { 178.0 + it * 0.5 }), song("b"))
-        assertEquals(d.why, SegueLevel.LOCKED_BEAT, d.level)
-        assertCause(d, SegueLevel.LOCKED_LONG, SegueCause.NO_GRID)
-        assertCause(d, SegueLevel.LOCKED_SHORT, SegueCause.NO_GRID)
-        assertEquals(t.lockedShortBars, d.plan!!.span.musicalUnits)
-    }
-
-    @Test fun level3NeedsTheBassManaged() {
-        val d = decide(song("a", duration = 200.0, modelBeats = DoubleArray(26) { 178.0 + it * 0.5 }), song("b"), eq = false)
-        assertCause(d, SegueLevel.LOCKED_BEAT, SegueCause.BASS_NOT_MANAGED)
-    }
-
-    @Test fun level4FilteredWhenTemposAreOutOfReach() {
-        val d = decide(song("a"), song("b", bpm = 100.0))
-        assertEquals(d.why, SegueLevel.FILTERED, d.level)
-        assertCause(d, SegueLevel.LOCKED_LONG, SegueCause.TEMPO_OUT_OF_REACH)
-        val p = d.plan!!
-        assertEquals(PulseState.FREE, p.pulse.state)
-        assertEquals(SegueFormat.RATE_NOMINAL, p.incoming.ratePpm)
-        assertTrue(p.span.lengthUs in t.filteredShortUs..t.filteredLongUs)
-        assertTrue(p.lanes.any { it.target == Target.LEVEL && it.side == LaneSide.OUTGOING })
-    }
-
-    @Test fun level5HardWhenAnyOverlapWouldHaveTwoVoices() {
-        val d = decide(song("a", risk = { 1f }), song("b", risk = { 1f }), tuning = SegueTuning(hardLostMaxUs = 60_000_000))
-        assertEquals(d.why, SegueLevel.HARD, d.level)
-        assertCause(d, SegueLevel.FILTERED, SegueCause.GUARDS)
-        val p = d.plan!!
-        assertEquals(t.microFadeUs, p.span.lengthUs)
-        assertEquals(PulseState.LOOSE, p.pulse.state)
-        assertEquals(2, p.lanes.size)
-    }
-
-    /** 24 s of quiet opening, then the song at its full level: bar 12 at 120 BPM. */
-    private val arrivesAt24: (Int) -> Float = { if (it < 12) -30f else -10f }
-
-    @Test fun aLockedMixEndsWhereTheSongArrives() {
-        // Windows that fit the build-up; the song rises by the rise that earns the full note.
-        val d = decide(song("a"), song("b", barLevel = { if (it < 12) -16f else -10f }), tuning = SegueTuning(reliabilityForLong = 2.0))
-        assertEquals(d.why, SegueClass.LOCKED, d.level.cls)
-        val p = d.plan!!
-        val rate = p.incoming.ratePpm.toDouble() / SegueFormat.RATE_NOMINAL
-        assertEquals(24_000_000.0, p.incoming.anchorUs + p.span.lengthUs * rate, 50_000.0)
-    }
-
-    @Test fun aFadeOfSongsThatCannotBeLockedEndsWhereTheSongArrivesToo() {
-        val d = decide(song("a", bpm = 90.0), song("b", bpm = 120.0, barLevel = arrivesAt24), tuning = SegueTuning(maxRateDeviationPpm = 10_000))
-        assertEquals(d.why, SegueClass.FILTERED, d.level.cls)
-        val p = d.plan!!
-        assertEquals(24_000_000L, p.incoming.anchorUs + p.span.lengthUs)
-    }
-
-    @Test fun aSmallRiseDoesNotCostAFadeTheOpening() {
-        val d = decide(song("a", bpm = 90.0), song("b", bpm = 120.0, barLevel = { if (it < 12) -14f else -10f }), tuning = SegueTuning(maxRateDeviationPpm = 10_000))
-        assertEquals(d.why, SegueClass.FILTERED, d.level.cls)
-        assertEquals(0L, d.plan!!.incoming.anchorUs)
-    }
-
-    @Test fun aCutThatSkipsTooMuchLeavesItToAShortFadeAtTheEnd() {
-        val d = decide(song("a", risk = { 1f }), song("b", risk = { 1f }))
-        assertEquals(d.why, SegueLevel.SIMPLE_FADE, d.level)
-        val p = d.plan!!
-        assertEquals(t.simpleVoiceFadeUs, p.span.lengthUs)
-        assertEquals(240_000_000 - t.simpleVoiceFadeUs, p.outgoing.anchorUs)
-    }
-
-    @Test fun hardNeedsCloseLoudness() {
-        val d = decide(song("a", risk = { 1f }, barDb = -10f), song("b", risk = { 1f }, barDb = -20f))
-        assertCause(d, SegueLevel.HARD, SegueCause.GUARDS)
-        assertTrue(d.why, d.why.contains("LOUDNESS_JUMP"))
-    }
-
-    @Test fun level6SimpleFadeWithoutAnyGridOrBar() {
-        val d = decide(song("a", grid = false, bars = false), song("b", grid = false, bars = false))
-        assertEquals(d.why, SegueLevel.SIMPLE_FADE, d.level)
-        assertCause(d, SegueLevel.LOCKED_LONG, SegueCause.NO_GRID)
-        assertCause(d, SegueLevel.FILTERED, SegueCause.NO_CANDIDATE)
-        assertCause(d, SegueLevel.HARD, SegueCause.NO_GRID)
-        val p = d.plan!!
-        assertEquals(PulseState.FREE, p.pulse.state)
-        assertNull(p.outgoing.gridKey)
-        assertEquals(t.simpleFadeUs, p.span.lengthUs)
-    }
-
-    @Test fun level7NormalPlaybackWithEveryCauseRecorded() {
-        val d = decide(song("a", duration = 45.0), song("b"))
-        assertEquals(SegueLevel.NORMAL, d.level)
-        assertNull(d.plan)
-        assertNull(SeguePolicy.timing(d))
-        assertEquals(SegueLevel.values().toList().dropLast(1), d.attempts.map { it.level })
-        assertTrue(d.why, d.why.contains("MIN_PLAYED"))
-    }
-
-    @Test fun albumContinuityIsLeftToPlayNatively() {
-        val joined = decide(song("a"), song("b"), sameAlbum = true)
-        assertEquals(SegueLevel.NORMAL, joined.level)
-        assertTrue(joined.attempts.all { it.cause == SegueCause.ALBUM_CONTINUITY })
-        // The same album with real silence at the junction is mixed.
-        val gap = decide(song("a", contentEnd = 235.0), song("b"), sameAlbum = true)
-        assertNotEquals(SegueLevel.NORMAL, gap.level)
-    }
 
     // ── Placement ──
 
@@ -254,26 +64,17 @@ class SeguePolicyTest {
     }
 
     @Test fun anInstrumentalEndingIsPreferred() {
-        // A's voice stops at bar 100 (200 s): leaving there beats leaving earlier over the voice.
+        // A's voice stops at bar 100 (200 s): the window leaves after it rather than over it.
         val d = decide(song("a", risk = { if (it < 100) 1f else 0f }), song("b"))
-        assertEquals(SegueLevel.LOCKED_LONG, d.level)
+        assertEquals(SegueClass.LOCKED, d.level.cls)
         assertTrue(d.plan!!.toString(), d.plan!!.outgoing.anchorUs >= 192_000_000)
     }
 
     @Test fun anEntryIsNeverBeforeTheSongsStart() {
         // The bars start at 0 s, 2 s...: the first one once the song has begun is the one to use.
         val d = decide(song("a"), song("b", contentStart = 1.95))
-        assertEquals(d.why, SegueLevel.LOCKED_LONG, d.level)
-        assertEquals(2_000_000L, d.plan!!.incoming.anchorUs)
-        val far = decide(song("a"), song("b", bpm = 100.0, down = 2.35))
-        assertEquals(far.why, SegueLevel.FILTERED, far.level)
-        assertTrue(far.plan!!.incoming.anchorUs >= 0)
-    }
-
-    @Test fun theLongestLengthThatWorksIsKept() {
-        assertEquals(t.filteredLongUs, decide(song("a"), song("b", bpm = 100.0)).plan!!.span.lengthUs)
-        assertEquals(t.filteredShortUs, decide(song("a", steadiness = 0.5), song("b", bpm = 100.0)).plan!!.span.lengthUs)
-        assertEquals(t.lockedMiddleBars, decide(song("a", metre = 0.7f), song("b", metre = 0.7f)).plan!!.span.musicalUnits)
+        assertEquals(d.why, SegueClass.LOCKED, d.level.cls)
+        assertTrue(d.why, d.plan!!.incoming.anchorUs >= 2_000_000L)
     }
 
     @Test fun nothingStartsBeforeTheEarliestExit() {
@@ -281,25 +82,24 @@ class SeguePolicyTest {
         assertTrue(d.plan!!.outgoing.anchorUs >= 200_000_000)
     }
 
-    @Test fun theRateIsAnExactIntegerAndLocksHalfTimeToo() {
+    @Test fun theRateIsAnExactInteger() {
         val p = decide(song("a"), song("b", bpm = 118.0)).plan!!
         assertEquals(Math.round(120.0 / 118.0 * 1e6), p.incoming.ratePpm)
         assertEquals(SegueFormat.RATE_NOMINAL, p.outgoing.ratePpm)
-        assertEquals(SegueLevel.LOCKED_SHORT, decide(song("a"), song("b", bpm = 60.0)).level)
     }
 
     @Test fun listenerSettingsOnlyTighten() {
         val a = song("a"); val b = song("b", bpm = 118.0)
-        assertEquals(SegueLevel.FILTERED, SeguePolicy.decide(SegueRequest(a, b, maxRatePpm = 1_000)).level)
-        assertEquals(SegueLevel.LOCKED_LONG, SeguePolicy.decide(SegueRequest(a, b, maxRatePpm = 200_000)).level)
-        assertEquals(SegueLevel.LOCKED_SHORT, SeguePolicy.decide(SegueRequest(a, b, maxBars = 8)).level)
+        // A speed change beyond the listener's limit is not locked: the plain fade.
+        assertEquals(SegueLevel.SIMPLE_FADE, SeguePolicy.decide(SegueRequest(a, b, maxRatePpm = 1_000)).level)
+        assertEquals(2, SeguePolicy.decide(SegueRequest(a, b, maxBars = 2)).plan!!.span.musicalUnits)
     }
 
     @Test fun theListenerRateIsCarriedWithoutChangingTheAlignment() {
         val p = SeguePolicy.decide(SegueRequest(song("a"), song("b", bpm = 118.0), listenerRate = 1_250_000)).plan!!
         assertEquals(1_250_000L, p.outgoing.listenerRate)
         assertEquals(1_250_000L, p.incoming.listenerRate)
-        assertEquals(32_000_000L, p.span.lengthUs)
+        assertEquals(Math.round(120.0 / 118.0 * 1e6), p.incoming.ratePpm)
     }
 
     @Test fun withoutTheEqOnlyLevelsAreWritten() {
@@ -307,26 +107,43 @@ class SeguePolicyTest {
         assertTrue(p.lanes.all { it.target == Target.LEVEL })
     }
 
+    @Test fun theFadeHasNoGridAndItsFixedLength() {
+        val d = decide(song("a", grid = false, bars = false), song("b", grid = false, bars = false))
+        assertEquals(d.why, SegueLevel.SIMPLE_FADE, d.level)
+        val p = d.plan!!
+        assertEquals(PulseState.FREE, p.pulse.state)
+        assertNull(p.outgoing.gridKey)
+        // Near the end of the file the fade is cut to its floor.
+        assertEquals(t.compact.fadeMinUs, p.span.lengthUs)
+    }
+
+    @Test fun albumContinuityIsLeftToPlayNatively() {
+        val joined = decide(song("a"), song("b"), sameAlbum = true)
+        assertEquals(SegueLevel.NORMAL, joined.level)
+        assertTrue(joined.attempts.all { it.cause == SegueCause.ALBUM_CONTINUITY })
+        // The same album with real silence at the junction is mixed.
+        val gap = decide(song("a", contentEnd = 235.0), song("b"), sameAlbum = true)
+        assertNotEquals(SegueLevel.NORMAL, gap.level)
+    }
+
     // ── Lanes ──
 
-    @Test fun lanesBoundPowerEndCleanAndHandTheBassOver() {
-        for (d in listOf(decide(song("a"), song("b")), decide(song("a"), song("b", bpm = 100.0)), decide(song("a", grid = false, bars = false), song("b", grid = false, bars = false)))) {
-            val p = d.plan!!
-            val la = LaneCurve(p.lanes.first { it.side == LaneSide.OUTGOING && it.target == Target.LEVEL })
-            val lb = LaneCurve(p.lanes.first { it.side == LaneSide.INCOMING && it.target == Target.LEVEL })
-            assertEquals(0.0, la.value(0.0), 1e-3); assertTrue(lb.isNull(0.0))
-            assertTrue(la.isNull(SegueFormat.T_MAX.toDouble())); assertEquals(0.0, lb.value(SegueFormat.T_MAX.toDouble()), 1e-3)
-            for (i in 0..16) {
-                val u = i * SegueFormat.T_MAX / 16.0
-                val power = Math.pow(10.0, la.value(u) / 10) + Math.pow(10.0, lb.value(u) / 10)
-                assertTrue("${d.level} at $i: $power", power <= 1.0 + 1e-3)
-            }
+    @Test fun fadeLanesBoundThePowerAndLockedMixesHandTheBassOver() {
+        val fade = decide(song("a", grid = false, bars = false), song("b", grid = false, bars = false)).plan!!
+        val la = LaneCurve(fade.lanes.first { it.side == LaneSide.OUTGOING && it.target == Target.LEVEL })
+        val lb = LaneCurve(fade.lanes.first { it.side == LaneSide.INCOMING && it.target == Target.LEVEL })
+        assertEquals(0.0, la.value(0.0), 1e-3); assertTrue(lb.isNull(0.0))
+        assertTrue(la.isNull(SegueFormat.T_MAX.toDouble())); assertEquals(0.0, lb.value(SegueFormat.T_MAX.toDouble()), 1e-3)
+        for (i in 0..16) {
+            val u = i * SegueFormat.T_MAX / 16.0
+            val power = Math.pow(10.0, la.value(u) / 10) + Math.pow(10.0, lb.value(u) / 10)
+            assertTrue("at $i: $power", power <= 1.0 + 1e-3)
         }
         val p = decide(song("a"), song("b")).plan!!
-        val ba = LaneCurve(p.lanes.first { it.side == LaneSide.OUTGOING && it.target == Target.SHELF_BOTTOM })
-        val bb = LaneCurve(p.lanes.first { it.side == LaneSide.INCOMING && it.target == Target.SHELF_BOTTOM })
-        assertEquals(0.0, ba.value(0.0), 1e-9); assertEquals(t.bassKillDb, bb.value(0.0), 1e-9)
-        assertEquals(t.bassKillDb, ba.value(SegueFormat.T_MAX.toDouble()), 1e-9); assertEquals(0.0, bb.value(SegueFormat.T_MAX.toDouble()), 1e-9)
+        val ba = LaneCurve(p.lanes.first { it.side == LaneSide.OUTGOING && it.target == Target.BASS_BAND })
+        val bb = LaneCurve(p.lanes.first { it.side == LaneSide.INCOMING && it.target == Target.BASS_BAND })
+        assertEquals(0.0, ba.value(0.0), 1e-9); assertEquals(t.compact.bassKillDb, bb.value(0.0), 1e-9)
+        assertEquals(t.compact.bassKillDb, ba.value(SegueFormat.T_MAX.toDouble()), 1e-9); assertEquals(0.0, bb.value(SegueFormat.T_MAX.toDouble()), 1e-9)
     }
 
     @Test fun aLouderIncomingSongComesBackToItsOwnLevelInsideTheWindow() {
@@ -342,13 +159,10 @@ class SeguePolicyTest {
         assertEquals(MixPlan.Style.BLEND, m.style)
         assertEquals(p.outgoing.anchorUs / 1e6, m.exitA, 1e-9)
         assertEquals(p.incoming.anchorUs / 1e6, m.entryB, 1e-9)
-        assertEquals(32.0, m.length, 1e-9)
-        assertEquals(120.0 / 118.0, m.speedB, 1e-6)
-        assertTrue(m.restoreSec > 0)
+        assertEquals(p.span.lengthUs / 1e6, m.length, 1e-9)
         assertEquals(p, m.segue)
-        assertEquals(MixPlan.Style.CUT, SeguePolicy.timing(decide(song("a", risk = { 1f }), song("b", risk = { 1f }), tuning = SegueTuning(hardLostMaxUs = 60_000_000)))!!.style)
-        val filtered = SeguePolicy.timing(decide(song("a"), song("b", bpm = 100.0)))!!
-        assertEquals(MixPlan.Style.FADE, filtered.style); assertTrue(filtered.filtered)
+        val fade = SeguePolicy.timing(decide(song("a", grid = false, bars = false), song("b", grid = false, bars = false)))!!
+        assertEquals(MixPlan.Style.FADE, fade.style)
     }
 
     // ── Determinism and invalidation ──

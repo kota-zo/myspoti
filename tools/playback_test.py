@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Playback scenarios on a phone (debug build app.myspoti.dev, signed in).
+"""Playback scenarios on a phone (debug build app.orpheon.beta.dev, signed in).
 
 usage: tools/playback_test.py [--serial S] [--only name,name] [--skip name,name] [--playlist URI]
 
@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cdp  # noqa: E402
 
 ADB = cdp.ADB
-PKG = "app.myspoti.dev"
-OTHERS = ["app.myspoti", "com.spotify.music"]
+PKG = "app.orpheon.beta.dev"
+OTHERS = ["app.orpheon.beta", "app.myspoti", "com.spotify.music"]
 PLAYLIST = "spotify:playlist:5G7gcsU1CbvqYJYFawDRZa"
 BAD = [
     (re.compile(r"timeout after \d+ ms"), "call timeout"),
@@ -461,20 +461,20 @@ def s_mute(r, ctx):
     # silence watchdog ("no silence until a restart") within a tick, so a separate probe could
     # read the restored level and fail a mute that worked (seen once in 6 runs).
     p = evaluate("""(async () => {
-      const n = await window.Myspoti.call(-1, 'media.mute', {on: true});
+      const n = await window.Myspoti.call(-1, 'media.quiet', {on: true});
       return {n, media: await window.Myspoti.call(-1, 'media.state', {})};
     })()""")
     n = p.get("n")
     if not isinstance(p.get("media"), dict) or p["media"]["volume"] > 0.01:
-        raise Fail(f"media.mute on: element not silenced ({n} set, {p.get('media')})")
+        raise Fail(f"media.quiet on: element not silenced ({n} set, {p.get('media')})")
     # Silenced, a song that restarts must still play (Chromium pauses muted hidden media).
     seek_to(r, 0)
     time.sleep(2.5)
     q = probe()
     if q.get("paused") or (isinstance(q.get("media"), dict) and q["media"]["paused"]):
-        bridge("media.mute", {"on": False})
+        bridge("media.quiet", {"on": False})
         raise Fail("silenced song paused after a restart")
-    bridge("media.mute", {"on": False})
+    bridge("media.quiet", {"on": False})
     r.healthy(cur, "unmute")
 
 

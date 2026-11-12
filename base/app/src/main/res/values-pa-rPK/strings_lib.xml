@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d ہور سٹیشن ملدا اے، پر ایہہ بنا انکرپشن (http) یا HLS وچ چلدا اے، جنہوں ایپ ہلے نئیں چلا سکدی۔</item>
+        <item quantity="other">%d ہور سٹیشن ملدے نیں، پر ایہہ بنا انکرپشن (http) یا HLS وچ چلدے نیں، جنہاں نوں ایپ ہلے نئیں چلا سکدی۔</item>
+    </plurals>
+</resources>

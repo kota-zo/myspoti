@@ -4,8 +4,9 @@
     <string name="sources_download_title">Извори за преземање</string>
     <string name="sources_audio_footer">За секоја песна се прашуваат одозгора надолу: првиот што ја има ја пушта. Со стрелките го менувате редоследот.</string>
     <string name="sources_download_footer">Се прашуваат одозгора надолу: првиот извор што ја има песната ја дава датотеката. Со стрелките го менувате редоследот.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Пушта кога ниту еден извор над него нема песна</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Пушта кога ниту еден извор над него нема песна</string>
+    <string name="sources_account_player">Плеерот на вашата сметка</string>
     <string name="sources_ready">Подготвено</string>
     <string name="sources_details_show">Прикажи детали</string>
     <string name="sources_details_hide">Скриј детали</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Последно: %1$s, %2$s</string>
     <string name="sources_open">Отвори го проширувањето</string>
     <string name="sources_order_hint">Изворите се прашуваат по редоследот поставен во Поставки (Репродукција, Преземања).</string>
-    <string name="sources_below_spotify">Не се прашува: Spotify е погоре</string>
+    <string name="sources_below_account">Не се прашува: Spotify е погоре</string>
 </resources>

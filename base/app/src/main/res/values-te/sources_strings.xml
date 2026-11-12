@@ -4,8 +4,9 @@
     <string name="sources_download_title">డౌన్‌లోడ్ మూలాలు</string>
     <string name="sources_audio_footer">ప్రతి పాటకు పై నుంచి కిందకు అడుగుతారు: అది ఉన్న మొదటిది ప్లే చేస్తుంది. క్రమం మార్చడానికి బాణాలు ఉపయోగించండి.</string>
     <string name="sources_download_footer">పై నుంచి కిందకు అడుగుతారు: పాట ఉన్న మొదటి మూలం ఫైల్ ఇస్తుంది. క్రమం మార్చడానికి బాణాలు ఉపయోగించండి.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">పైన ఉన్న ఏ మూలంలోనూ పాట లేనప్పుడు ప్లే అవుతుంది</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">పైన ఉన్న ఏ మూలంలోనూ పాట లేనప్పుడు ప్లే అవుతుంది</string>
+    <string name="sources_account_player">మీ ఖాతా ప్లేయర్</string>
     <string name="sources_ready">సిద్ధం</string>
     <string name="sources_details_show">వివరాలు చూపు</string>
     <string name="sources_details_hide">వివరాలు దాచు</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">చివరిది: %1$s, %2$s</string>
     <string name="sources_open">ఎక్స్‌టెన్షన్ తెరువు</string>
     <string name="sources_order_hint">సెట్టింగ్‌లలో (ప్లేబ్యాక్, డౌన్‌లోడ్‌లు) సెట్ చేసిన క్రమంలో మూలాలు అడగబడతాయి.</string>
-    <string name="sources_below_spotify">అడగబడదు: Spotify పైన ఉంది</string>
+    <string name="sources_below_account">అడగబడదు: Spotify పైన ఉంది</string>
 </resources>

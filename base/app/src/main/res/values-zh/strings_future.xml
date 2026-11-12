@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">原生播放器（实验性）</string>
+    <string name="settings_native_audio_detail">账号的歌曲由应用自带的播放器播放，而不是隐藏的网页。试用中：已排序的列表按原始顺序播放，部分控件可能有延迟。</string>
+    <string name="welcome_rotate_sources">来自你选择的来源。</string>
+    <string name="welcome_rotate_mix">像 DJ 现场一样衔接。</string>
+    <string name="album_label">厂牌：%1$s</string>
+    <string name="settings_automix_options">选项</string>
+    <string name="settings_automix_analysis">分析</string>
+    <string name="settings_automix_display">显示</string>
+    <string name="settings_automix_duration_auto">自动</string>
+    <string name="settings_automix_duration_none">不限</string>
+    <string name="settings_automix_seconds">%1$d 秒</string>
+    <string name="settings_local_files_shown">显示本地文件</string>
+    <string name="settings_local_files_shown_detail">媒体库中的“本地文件”一行。关闭：隐藏，不会改动任何文件。</string>
+    <string name="pass_section">其他设备</string>
+    <string name="pass_send">发送到其他设备</string>
+    <string name="pass_send_detail">扫描电视、电脑或其他手机上显示的二维码：它会收到你的设置、扩展和登录。</string>
+    <string name="pass_receive">从其他设备接收</string>
+    <string name="pass_receive_detail">显示一个二维码供手机扫描。</string>
+    <string name="pass_receive_title">用手机扫描此二维码</string>
+    <string name="pass_receive_hint">用手机相机对准它，或在手机上：设置 › 其他设备 › 发送到其他设备。两台设备需连接同一 Wi-Fi。</string>
+    <string name="pass_no_network">没有 Wi-Fi：请将此设备连接到与手机相同的 Wi-Fi。</string>
+    <string name="pass_received">已从 %1$s 接收。应用将重新启动。</string>
+    <string name="pass_confirm_title">发送到 %1$s？</string>
+    <string name="pass_confirm_text">你的设置、扩展和 Spotify 登录将通过 Wi-Fi 直接加密复制到此设备。只发送给你自己的设备。</string>
+    <string name="pass_send_action">发送</string>
+    <string name="pass_sent">已发送到 %1$s</string>
+    <string name="pass_failed">未发送：%1$s</string>
+    <string name="pass_not_invite">这不是本应用的二维码。</string>
+    <string name="pass_scan_unavailable">此手机没有扫码器（Google Play 服务）。</string>
+    <string name="pass_sign_in_with_device">用手机登录</string>
+    <string name="pass_link_warning">通过链接打开。只有在你刚刚扫描了自己设备屏幕上的这个代码时才发送。</string>
+    <string name="pass_need_sign_in">请先在这台手机上登录，然后重新扫描代码。</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">歌曲的含义和歌词注释，以及在其他来源都没有歌词时使用 Genius 的歌词。关闭后：不会向 Genius 发出任何请求。</string>
+    <string name="welcome_start">开始</string>
+    <string name="setup_account_spotify_next">接下来你将在 Spotify 自己的页面登录。Orpheon 永远看不到你的密码。</string>
+</resources>

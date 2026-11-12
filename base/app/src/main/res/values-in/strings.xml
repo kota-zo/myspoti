@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">Playlist</string>
     <string name="aa_albums">Album</string>
     <string name="aa_artists">Artis</string>
@@ -15,8 +15,6 @@
     <string name="player_source_downloaded">Diunduh</string>
     <string name="energy_saver_title">Penghemat baterai</string>
     <string name="energy_saver_summary">Canvas mati, video dan animasi lebih ringan</string>
-    <string name="video_fullscreen_enter">Layar penuh</string>
-    <string name="video_fullscreen_exit">Keluar dari layar penuh</string>
     <string name="playback_seek_description">Posisi pemutaran</string>
     <string name="account_page_title">Akun Spotify</string>
     <string name="account_page_detail">Paket, privasi, dan perangkat, di spotify.com</string>

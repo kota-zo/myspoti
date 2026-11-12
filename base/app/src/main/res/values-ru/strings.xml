@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">Плейлисты</string>
     <string name="aa_albums">Альбомы</string>
     <string name="aa_artists">Исполнители</string>
@@ -16,8 +16,6 @@
 
     <string name="energy_saver_title">Экономия заряда</string>
     <string name="energy_saver_summary">Canvas выключен, видео и анимации легче</string>
-    <string name="video_fullscreen_enter">На весь экран</string>
-    <string name="video_fullscreen_exit">Выйти из полноэкранного режима</string>
     <string name="playback_seek_description">Позиция воспроизведения</string>
     <string name="account_page_title">Аккаунт Spotify</string>
     <string name="account_page_detail">Подписка, конфиденциальность и устройства, на spotify.com</string>

@@ -25,6 +25,11 @@ def key(tag):
     return (int(m.group(1)), int(m.group(2)), int(m.group(3)), 1 if n is None else 0, int(n or 0))
 
 
+# Orpheon started over at 1.0.0 in the repository where Myspoti's tags (up to 2.4.x) stay: an Orpheon
+# 1.x tag is compared with Orpheon's own only. After 1.x Orpheon goes on at 3.0.0, above them.
+MYSPOTI_MAJOR = 2
+
+
 def check(tag, others):
     mine = key(tag)
     if mine is None:
@@ -34,6 +39,8 @@ def check(tag, others):
         k = key(other)
         if k is None or other == tag:
             continue  # older tags in another format are not compared
+        if mine[0] < MYSPOTI_MAJOR <= k[0] and k[0] == MYSPOTI_MAJOR:
+            continue  # one of Myspoti's tags, not this line's
         if (not stable or k[3] == 1) and k >= mine:
             return (f'"{tag}" must be newer than the existing "{other}": a beta follows the last stable '
                     f'(2.2.0 -> 2.2.1-beta.1 or 2.3.0-beta.1, then beta.2...), a stable follows its betas.')

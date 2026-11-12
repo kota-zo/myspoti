@@ -20,4 +20,12 @@ class HomeShortcutsTest {
         val grid = listOf(playlist("p1"), playlist(Api.HomeCache.LIKED_SONGS_ID), playlist("p2"))
         assertEquals(grid, grid.withLikedFirst("Liked Songs"))
     }
+
+    @Test fun aFeedLedByATitledSectionStillShowsLikedSongs() {
+        val alone = homeShortcuts(null, feedEmpty = false, facet = "", likedName = "Liked Songs")
+        assertEquals(listOf(Api.HomeCache.LIKED_SONGS_ID), alone?.map { (it as HomeItem.Playlist).id })
+        assertEquals(1, homeShortcuts(null, feedEmpty = false, facet = "music-chip", likedName = "L")?.size)
+        assertEquals(null, homeShortcuts(null, feedEmpty = false, facet = "podcasts-chip", likedName = "L"))
+        assertEquals(null, homeShortcuts(null, feedEmpty = true, facet = "", likedName = "L"))
+    }
 }

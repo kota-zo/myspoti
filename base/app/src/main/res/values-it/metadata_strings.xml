@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadati</string>
+    <string name="metadata_footer">Ricerche, album e artisti arrivano da questi servizi, interrogati dall\'alto in basso. Lo stesso brano trovato due volte appare una sola volta. Un servizio disattivato non viene mai interrogato.</string>
+    <string name="metadata_spotify_detail">Il tuo account, finché hai effettuato l\'accesso</string>
+    <string name="metadata_signed_out">Non interrogato: nessun account connesso</string>
+    <string name="metadata_asked">Interrogato</string>
+    <string name="metadata_off">Disattivato: mai interrogato</string>
+    <string name="metadata_reset">Torna all\'ordine predefinito</string>
+    <string name="metadata_not_on_spotify">Non trovato su Spotify: questo brano non può ancora essere riprodotto</string>
+    <string name="metadata_spotify_no_answer">Spotify non ha risposto: tocca di nuovo il brano</string>
+    <string name="metadata_switch">Interroga %1$s</string>
+</resources>

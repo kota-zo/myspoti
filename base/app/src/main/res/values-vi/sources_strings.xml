@@ -4,8 +4,9 @@
     <string name="sources_download_title">Nguồn tải xuống</string>
     <string name="sources_audio_footer">Được hỏi từ trên xuống cho mỗi bài: nguồn đầu tiên có bài đó sẽ phát. Dùng mũi tên để đổi thứ tự.</string>
     <string name="sources_download_footer">Được hỏi từ trên xuống: nguồn đầu tiên có bài hát sẽ cung cấp tệp. Dùng mũi tên để đổi thứ tự.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Phát khi không có nguồn nào ở trên có bài hát</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Phát khi không có nguồn nào ở trên có bài hát</string>
+    <string name="sources_account_player">Trình phát của tài khoản bạn</string>
     <string name="sources_ready">Sẵn sàng</string>
     <string name="sources_details_show">Hiện chi tiết</string>
     <string name="sources_details_hide">Ẩn chi tiết</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Gần nhất: %1$s, %2$s</string>
     <string name="sources_open">Mở tiện ích mở rộng</string>
     <string name="sources_order_hint">Các nguồn được hỏi theo thứ tự đặt trong Cài đặt (Phát, Tải xuống).</string>
-    <string name="sources_below_spotify">Không được hỏi: Spotify ở phía trên</string>
+    <string name="sources_below_account">Không được hỏi: Spotify ở phía trên</string>
 </resources>

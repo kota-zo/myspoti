@@ -44,7 +44,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.ui.components.spotifyImageUrl
@@ -258,7 +257,6 @@ fun ImmersiveLargeAlbumCard(
                 model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                transition = CrossFade,
                 modifier = Modifier.fillMaxSize(),
             )
         }

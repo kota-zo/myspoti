@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="zero">Atbilst vēl %d staciju, bet tās raida bez šifrēšanas (http) vai HLS formātā, ko lietotne vēl nevar atskaņot.</item>
+        <item quantity="one">Atbilst vēl %d stacija, bet tā raida bez šifrēšanas (http) vai HLS formātā, ko lietotne vēl nevar atskaņot.</item>
+        <item quantity="other">Atbilst vēl %d stacijas, bet tās raida bez šifrēšanas (http) vai HLS formātā, ko lietotne vēl nevar atskaņot.</item>
+    </plurals>
+</resources>

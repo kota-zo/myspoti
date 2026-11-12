@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Myspoti's own texts (English default, French, Italian). -->
+<!-- Orpheon's own texts (English default, French, Italian). -->
 <resources>
     <string name="welcome_lead">Twoja muzyka,</string>
     <string name="welcome_rotate_ads">bez reklam.</string>
@@ -7,7 +7,7 @@
     <string name="welcome_rotate_clips">z oficjalnymi teledyskami.</string>
     <string name="welcome_rotate_offline">offline, dzięki rozszerzeniom.</string>
     <string name="welcome_login">Zaloguj się przez Spotify</string>
-    <string name="welcome_privacy">Logujesz się na stronie samego Spotify. Myspoti nigdy nie widzi Twojego hasła.</string>
+    <string name="welcome_privacy">Logujesz się na stronie samego Spotify. Orpheon nigdy nie widzi Twojego hasła.</string>
     <string name="remove_from_liked">Usuń z polubionych utworów</string>
     <string name="repeat_on">Powtarzanie: włączone</string>
     <string name="repeat_one">Powtarzaj jeden utwór</string>
@@ -61,7 +61,7 @@
     <string name="background_playback_title">Odtwarzanie w tle</string>
     <string name="background_playback_on">Optymalizacja baterii jest wyłączona: muzyka i Spotify Connect grają dalej przy wyłączonym ekranie.</string>
     <string name="background_playback_off">Wyłącz optymalizację baterii, aby Android nie wstrzymywał aplikacji w tle.</string>
-    <string name="background_playback_samsung">Samsung nadal może uśpić Myspoti przy wyłączonym ekranie. Dodaj aplikację do „Aplikacje nigdy nieuśpione”: Ustawienia &gt; Bateria &gt; Limity użycia w tle.</string>
+    <string name="background_playback_samsung">Samsung nadal może uśpić Orpheon przy wyłączonym ekranie. Dodaj aplikację do „Aplikacje nigdy nieuśpione”: Ustawienia &gt; Bateria &gt; Limity użycia w tle.</string>
     <string name="background_playback_open">Otwórz ustawienia aplikacji</string>
     <plurals name="local_files_count">
         <item quantity="one">%d utwór</item>
@@ -72,7 +72,7 @@
     <string name="local_files_none_subtitle">Nie znaleźliśmy na tym urządzeniu żadnych odtwarzalnych plików audio. Gdy się pojawią, zobaczysz je tutaj.</string>
     <string name="downloads_empty_title">Pobieraj, by słuchać offline</string>
     <string name="downloads_empty_subtitle">Kliknij Pobierz w menu utworu albo przycisk pobierania albumu lub playlisty.</string>
-    <string name="downloads_source">Bezstratny FLAC, sprawdzony z oryginalnym nagraniem. Zapisany tylko w Myspoti.</string>
+    <string name="downloads_source">Bezstratny FLAC, sprawdzony z oryginalnym nagraniem. Zapisany tylko w Orpheon.</string>
     <string name="downloads_size">%1$s na tym telefonie</string>
     <string name="download_unavailable">Nie znaleziono pasującego nagrania</string>
     <string name="download_retry">Spróbuj ponownie</string>
@@ -85,8 +85,8 @@
     <string name="playlist_not_found">Nie znaleziono playlisty</string>
     <string name="browse_new_releases">Nowe wydania</string>
     <string name="language_auto">Automatyczny</string>
-    <string name="language_auto_detail">Język Twojego telefonu, jeśli Myspoti go ma (angielski, chiński, francuski, grecki, hiszpański, niemiecki, polski, portugalski, rosyjski, włoski), w przeciwnym razie angielski</string>
-    <string name="language_partial_note">Pozostałe języki: przetłumaczone są tylko etykiety samego Spotify, teksty Myspoti pozostają po angielsku.</string>
+    <string name="language_auto_detail">Język Twojego telefonu, jeśli Orpheon go ma (angielski, chiński, francuski, grecki, hiszpański, niemiecki, polski, portugalski, rosyjski, włoski), w przeciwnym razie angielski</string>
+    <string name="language_partial_note">Pozostałe języki: przetłumaczone są tylko etykiety samego Spotify, teksty Orpheon pozostają po angielsku.</string>
     <string name="restart_player_title">Uruchom odtwarzacz ponownie</string>
     <string name="restart_player_detail">Gdy muzyka przestaje reagować: wczytuje odtwarzacz Spotify od nowa</string>
     <string name="ad_playing">Reklama</string>
@@ -105,22 +105,22 @@
     <string name="playlist_change_refused">Spotify odrzuciło zmianę w tej playliście</string>
     <string name="download_kept_by_list">Nadal pobrane: trzyma je pobrana playlista</string>
     <string name="download_kept_by_named">Nadal pobrane: «%1$s» jest pobrane i zawiera ten utwór</string>
-    <string name="support_title">Wesprzyj Myspoti</string>
-    <string name="support_body">Myspoti jest darmowe, bez reklam i powstaje w moim wolnym czasie. Jeśli Ci się podoba, niewielka darowizna pomoże je rozwijać.</string>
+    <string name="support_title">Wesprzyj Orpheon</string>
+    <string name="support_body">Orpheon jest darmowe, bez reklam i powstaje w moim wolnym czasie. Jeśli Ci się podoba, niewielka darowizna pomoże je rozwijać.</string>
     <string name="support_scan">Zeskanuj telefonem</string>
     <string name="support_action">Wesprzyj na Ko-fi</string>
     <string name="support_decline">Nie, dziękuję</string>
     <string name="support_row_detail">Niewielka darowizna na Ko-fi lub GitHub Sponsors pomaga rozwijać aplikację</string>
     <string name="supporter_perks_title">Bonusy dla wspierających</string>
     <string name="supporter_perks_detail">Kolor akcentu, ikona aplikacji i odznaka, w ramach podziękowania</string>
-    <string name="supporter_perks_locked">Odblokowywane przez wsparcie Myspoti. Na słowo honoru: nic nie jest sprawdzane.</string>
-    <string name="supporter_i_supported">Wsparłem(-am) Myspoti</string>
+    <string name="supporter_perks_locked">Odblokowywane przez wsparcie Orpheon. Na słowo honoru: nic nie jest sprawdzane.</string>
+    <string name="supporter_i_supported">Wsparłem(-am) Orpheon</string>
     <string name="supporter_how">Jak wsparłeś(-aś)?</string>
     <string name="supporter_once">Darowizna</string>
     <string name="supporter_monthly">Co miesiąc</string>
     <string name="supporter_badge">Wspierający</string>
     <string name="supporter_thanks_title">Dziękujemy za wsparcie!</string>
-    <string name="supporter_thanks_body">Jeśli Myspoti nadal Ci służy, kolejna niewielka darowizna pomoże je rozwijać.</string>
+    <string name="supporter_thanks_body">Jeśli Orpheon nadal Ci służy, kolejna niewielka darowizna pomoże je rozwijać.</string>
     <string name="support_again">Wesprzyj ponownie</string>
     <string name="supporter_accent">Kolor akcentu</string>
     <string name="supporter_icon">Ikona aplikacji</string>
@@ -143,7 +143,7 @@
     <string name="song_radio_name">Radio: %1$s</string>
     <string name="local_files_find_hint">Szukaj w plikach lokalnych</string>
     <string name="data_saver_title">Oszczędzanie danych</string>
-    <string name="data_saver_summary">Przy danych komórkowych Myspoti nie zużywa danych: grają tylko pobrane utwory i pliki lokalne</string>
+    <string name="data_saver_summary">Przy danych komórkowych Orpheon nie zużywa danych: grają tylko pobrane utwory i pliki lokalne</string>
     <string name="data_saver_blocked">Oszczędzanie danych: przy danych komórkowych grają tylko pobrane utwory i pliki lokalne</string>
     <string name="new_releases_followed">Od obserwowanych wykonawców</string>
     <string name="new_releases_latest">Najnowsze wydania</string>
@@ -186,7 +186,7 @@
     <string name="recap_top_tracks">Najczęściej słuchane utwory</string>
     <string name="recap_top_artists">Najczęściej słuchani wykonawcy</string>
     <string name="recap_top_albums">Najczęściej słuchane albumy</string>
-    <string name="recap_private_note">Liczy wszystko, co odtworzono w Myspoti (Spotify, pobrane, pliki lokalne). Zostaje na tym telefonie i nigdy nie jest wysyłane do Spotify.</string>
+    <string name="recap_private_note">Liczy wszystko, co odtworzono w Orpheon (Spotify, pobrane, pliki lokalne). Zostaje na tym telefonie i nigdy nie jest wysyłane do Spotify.</string>
     <string name="recap_detail">Twoje słuchanie, wraz z pobranymi i plikami lokalnymi</string>
     <string name="track_credits">Autorzy</string>
     <string name="exclude_taste">Wyklucz z profilu muzycznego</string>
@@ -214,7 +214,7 @@
     <string name="track_sort_artist">Wykonawca</string>
     <string name="track_sort_album">Album</string>
     <string name="track_sort_duration">Czas trwania</string>
-    <string name="setup_title">Konfiguracja Myspoti</string>
+    <string name="setup_title">Konfiguracja Orpheon</string>
     <string name="setup_subtitle">Zezwól na to, co chcesz; możesz to zmienić później w ustawieniach telefonu.</string>
     <string name="setup_notifications_title">Powiadomienia</string>
     <string name="setup_notifications_detail">Sterowanie na ekranie blokady i w panelu powiadomień</string>
@@ -226,7 +226,7 @@
     <string name="setup_battery_detail">Muzyka gra dalej przy wyłączonym ekranie</string>
     <string name="setup_enable">Zezwól</string>
     <string name="setup_continue">Dalej</string>
-    <string name="setup_intro_title">Jak działa Myspoti</string>
+    <string name="setup_intro_title">Jak działa Orpheon</string>
     <string name="setup_intro_subtitle">Trzy rzeczy na początek.</string>
     <string name="setup_intro_spotify_title">Spotify bez reklam</string>
     <string name="setup_intro_spotify_detail">Twoje konto, playlisty i polubienia, odtwarzane przez własny odtwarzacz internetowy Spotify. Darmowe konta też działają.</string>
@@ -235,7 +235,7 @@
     <string name="setup_intro_ext_title">Rozszerzenia, jeśli chcesz</string>
     <string name="setup_intro_ext_detail">Dodatki od społeczności: inne źródła dźwięku, pobieranie i więcej. Zaraz o nich opowiemy.</string>
     <string name="setup_ext_title">Rozszerzenia</string>
-    <string name="setup_ext_subtitle">Myspoti działa od razu: odtwarza Spotify. Rozszerzenia to opcjonalne dodatki od społeczności, które potrafią więcej.</string>
+    <string name="setup_ext_subtitle">Orpheon działa od razu: odtwarza Spotify. Rozszerzenia to opcjonalne dodatki od społeczności, które potrafią więcej.</string>
     <string name="setup_ext_audio_title">Inne źródła dźwięku</string>
     <string name="setup_ext_audio_detail">Rozszerzenie może odtwarzać Twoje utwory z innego źródła, w jakości, jaką oferuje.</string>
     <string name="setup_ext_download_title">Pobieranie</string>
@@ -243,7 +243,7 @@
     <string name="setup_ext_more_detail">Sekcje strony głównej, strony i narzędzia dodane przez ich autorów.</string>
     <string name="setup_ext_safe_title">Ty decydujesz</string>
     <string name="setup_ext_safe_detail">Przed instalacją pokazuje, co może robić. O wszystko inne pyta ponownie, a usunąć je możesz w każdej chwili.</string>
-    <string name="setup_ext_where">Znajdziesz je w Ustawienia, Rozszerzenia, z GitHub, GitLab i Codeberg. Piszą je ich autorzy, nie Myspoti.</string>
+    <string name="setup_ext_where">Znajdziesz je w Ustawienia, Rozszerzenia, z GitHub, GitLab i Codeberg. Piszą je ich autorzy, nie Orpheon.</string>
     <string name="setup_ext_browse">Zobacz rozszerzenia</string>
     <string name="local_folders_button">Foldery</string>
     <string name="local_folders_title">Foldery</string>
@@ -276,7 +276,7 @@
     <string name="quality_download_hires">FLAC Hi-Res</string>
     <string name="quality_download_hires_detail">24 bity, gdy są dostępne, pliki około trzy razy większe</string>
     <string name="setup_quality_title">Jakość dźwięku</string>
-    <string name="setup_quality_subtitle">Wybierz, jak Myspoti odtwarza i zapisuje Twoją muzykę. Możesz to zmienić później w Ustawieniach.</string>
+    <string name="setup_quality_subtitle">Wybierz, jak Orpheon odtwarza i zapisuje Twoją muzykę. Możesz to zmienić później w Ustawieniach.</string>
     <string name="downloads_off_toast">Pobieranie jest wyłączone. Włącz je w Ustawieniach.</string>
     <string name="quality_streaming_high_detail">160 kbit/s</string>
     <string name="quality_download_small">Najmniejsza</string>
@@ -290,7 +290,7 @@
     <string name="quality_now_unknown">Jeszcze nieznana: włącz utwór</string>
     <string name="update_downloading">Pobieranie… %1$d%%</string>
     <string name="update_installing">Instalowanie…</string>
-    <string name="update_needs_permission">Aby zaktualizować, zezwól Myspoti na instalowanie aplikacji, a potem wróć tutaj.</string>
+    <string name="update_needs_permission">Aby zaktualizować, zezwól Orpheon na instalowanie aplikacji, a potem wróć tutaj.</string>
     <string name="update_allow">Zezwól</string>
     <string name="update_failed">Aktualizacja nie powiodła się: %1$s</string>
     <string name="update_retry">Spróbuj ponownie</string>
@@ -374,9 +374,9 @@
     <string name="share_as_image">Udostępnij jako obraz</string>
     <string name="settings_autoplay_title">Autoodtwarzanie</string>
     <string name="settings_autoplay_detail">Gdy Twoja muzyka się skończy, odtwarzaj dalej podobne utwory</string>
-    <string name="myspoti_shuffle_title">Losowanie Myspoti</string>
+    <string name="myspoti_shuffle_title">Losowanie Orpheon</string>
     <string name="myspoti_shuffle_detail">Gdy odtwarzanie losowe jest włączone, playlista, album lub polubione utwory odtwarzają każdy utwór raz, w losowej kolejności, zanim zaczną od nowa. Wyłączone: odtwarzanie losowe Spotify. Darmowe konto może zachować odtwarzanie losowe Spotify na niektórych listach.</string>
-    <string name="myspoti_shuffle_imposed">Spotify zachowuje na tej liście własne odtwarzanie losowe dla Twojego konta: losowanie Myspoti jest dla niej wyłączone.</string>
+    <string name="myspoti_shuffle_imposed">Spotify zachowuje na tej liście własne odtwarzanie losowe dla Twojego konta: losowanie Orpheon jest dla niej wyłączone.</string>
     <string name="settings_crossfade_title">Płynne przejścia (utwory cichną, ale się nie nakładają)</string>
     <string name="settings_crossfade_detail">Utwór cichnie przez ostatnie sekundy, a następny narasta. Nigdy nie grają naraz: jeden odtwarzacz, jeden strumień audio.</string>
     <string name="settings_crossfade_off">Wyłączone</string>
@@ -449,7 +449,7 @@
     <string name="playlist_invite_join">Dołącz</string>
     <string name="playlist_invite_joined">Jesteś teraz współtwórcą</string>
     <string name="settings_keep_playing_title">Graj dalej po zamknięciu aplikacji</string>
-    <string name="settings_keep_playing_detail">Gdy wyłączone, zamknięcie Myspoti z listy ostatnich aplikacji zatrzymuje muzykę</string>
+    <string name="settings_keep_playing_detail">Gdy wyłączone, zamknięcie Orpheon z listy ostatnich aplikacji zatrzymuje muzykę</string>
     <string name="recommended_songs_from_name">Na podstawie nazwy tej playlisty</string>
     <string name="recommended_songs_from_songs">Na podstawie zawartości tej playlisty</string>
     <string name="recommended_songs_refresh">Odśwież</string>
@@ -549,7 +549,7 @@
     <string name="song_unavailable">Utwór %1$s jest niedostępny.</string>
     <string name="songs_skipped_by_spotify">Spotify wciąż pomijał utwory, których nie mógł odtworzyć, więc odtwarzanie wstrzymano. Dotknij odtwarzania, aby spróbować ponownie, lub sprawdź konto i połączenie.</string>
     <string name="licences_refused_by_spotify">Spotify na razie odmawia odtwarzania utworów na tym koncie (licencja audio odrzucona), więc odtwarzanie wstrzymano. Poczekaj chwilę i dotknij odtwarzania, aby spróbować ponownie, oraz sprawdź, czy konto działa w oficjalnej aplikacji Spotify.</string>
-    <string name="licences_refused_old_widevine">Spotify odrzuca licencje audio tego telefonu: jego DRM (Widevine %1$s) jest starszy niż to, co akceptuje odtwarzacz internetowy Spotify, niezależnie od konta, więc odtwarzanie zostało wstrzymane. Utworów Spotify nie da się odtwarzać z Myspoti na tym telefonie; rozszerzenie źródła dźwięku może je odtwarzać.</string>
+    <string name="licences_refused_old_widevine">Spotify odrzuca licencje audio tego telefonu: jego DRM (Widevine %1$s) jest starszy niż to, co akceptuje odtwarzacz internetowy Spotify, niezależnie od konta, więc odtwarzanie zostało wstrzymane. Utworów Spotify nie da się odtwarzać z Orpheon na tym telefonie; rozszerzenie źródła dźwięku może je odtwarzać.</string>
     <string name="playlist_member_listener">Słuchacz</string>
     <string name="playlist_member_remove_collab">Usuń z grona współtwórców</string>
     <string name="playlist_member_make_collab">Zrób współtwórcą</string>
@@ -602,10 +602,8 @@
     <string name="settings_look_title">Wygląd</string>
     <string name="settings_headset_skip_title">Przyciski słuchawek: 15 s w podcastach</string>
     <string name="settings_headset_skip_detail">Gdy wyłączone, przechodzą do następnego lub poprzedniego odcinka</string>
-    <string name="settings_connect_mirror_title">Liczenie odtworzeń z rozszerzeń w Spotify</string>
-    <string name="settings_download_sync_title">Synchronizuj pobrane utwory ze Spotify</string>
-    <string name="settings_download_sync_detail">Gdy jesteś online, pobrany utwór gra też bez dźwięku na Spotify: odsłuchanie jest liczone, a Twoje urządzenia go widzą i mogą nim sterować. Wyłączone: pobrane utwory grają tylko z telefonu.</string>
-    <string name="settings_connect_mirror_detail">Odtwarza utwór Spotify bez dźwięku w tle, aby był liczony, a Twoje urządzenia mogły nim sterować. Zużywa nieco więcej danych i baterii: wyłącz, jeśli tego nie potrzebujesz.</string>
+    <string name="settings_connect_mirror_title">Licz odtworzenia rozszerzeń na Twoim koncie muzycznym</string>
+    <string name="settings_connect_mirror_detail">Odtwarza utwór bez dźwięku w tle na wybranym koncie muzycznym, aby liczył się w Twojej historii (w Spotify Twoje urządzenia mogą też nim sterować). Zużywa trochę więcej danych i baterii: wyłącz, jeśli nie potrzebujesz.</string>
     <string name="explicit_badge">E</string>
     <string name="spotify_plan">Spotify %1$s</string>
     <string name="aa_downloaded_lists">Pobrane playlisty i albumy</string>
@@ -622,7 +620,7 @@
     <string name="cast_lost">Utracono %1$s: z powrotem na tym telefonie</string>
     <string name="cast_spotify_detail">Google Cast · odtwarza Spotify na urządzeniu</string>
     <string name="cast_spotify_failed">Nie udało się uruchomić Spotify na %1$s</string>
-    <string name="downloads_need_source_detail">Utwory pobierają rozszerzenia. Żadne nie jest jeszcze zainstalowane: otwórz sklep z rozszerzeniami i zainstaluj Mornye, aby pobierać.</string>
+    <string name="downloads_need_source_detail">Utwory pobierają rozszerzenia. Żadne nie jest jeszcze zainstalowane: otwórz sklep z rozszerzeniami i zainstaluj rozszerzenie społeczności, aby pobierać.</string>
     <string name="downloads_need_source_title">Pobieranie wymaga rozszerzenia</string>
     <string name="episode_new">Nowy</string>
     <string name="player_source_spotify">Spotify · %1$s</string>
@@ -639,7 +637,7 @@
         <item quantity="other">%d utworu zagra jako następne</item>
     </plurals>
     <string name="queue_list_none">Żadnego z tych utworów nie można dodać do kolejki</string>
-    <string name="setup_ext_download_mornye_detail">Pobieranie i inne źródła dźwięku pochodzą z rozszerzeń. Zainstaluj Mornye na następnej stronie, aby pobierać utwory i słuchać offline. Utwory pozostają zaszyfrowane w Myspoti.</string>
+    <string name="setup_ext_download_detail">Pobieranie i inne źródła dźwięku pochodzą z rozszerzeń. Zainstaluj rozszerzenie społeczności na następnej stronie, aby pobierać utwory i słuchać offline. Utwory pozostają zaszyfrowane w Orpheon.</string>
     <string name="setup_ext_home">Przejdź do głównej</string>
     <string name="show_filter_all">Domyślna kolejność</string>
     <string name="show_filter_all_played">Wszystkie odcinki zostały odsłuchane.</string>
@@ -697,7 +695,7 @@
     <string name="settings_player_volume_title">Pasek głośności w odtwarzaczu</string>
     <string name="settings_player_volume_detail">Suwak głośności pod przyciskami. Wyłączony: głośność nadal ustawiają przyciski telefonu.</string>
     <string name="settings_lyrics_keep_awake_title">Nie wygaszaj ekranu przy tekście</string>
-    <string name="settings_lyrics_keep_awake_detail">Gdy tekst jest otwarty, ekran nie wyłącza się sam.</string>
+    <string name="settings_lyrics_keep_awake_detail">Gdy tekst jest otwarty, ekran nie wyłącza się sam przez 10 minut od ostatniego dotknięcia lub dopóki telefon się ładuje.</string>
     <string name="settings_section_podcasts">Podcasty</string>
     <string name="sponsorblock_detail">Pomija lokowania sponsorów i inne fragmenty odcinków podcastów oznaczone przez społeczność SponsorBlock. Pyta sponsor.ajay.app o odtwarzany odcinek (i YouTube, by w razie potrzeby znaleźć jego wersję); nic o Tobie ani Twoim koncie nie jest wysyłane.</string>
     <string name="sponsorblock_skip_header">Fragmenty do pominięcia</string>
@@ -715,8 +713,8 @@
     <string name="spatial_detail">Przetwarzanie mid/side: to, co po bokach, staje się wyraźniejsze, to, co w środku, zostaje na miejscu. Tylko utwory z rozszerzeń, pobrane i pliki lokalne: własne strumienie Spotify nie są przetwarzane. Utwory mono, a po wyłączeniu wszystko, przechodzą nietknięte.</string>
     <string name="spatial_width">Szerokość</string>
     <string name="playlist_reorder_hint">Przeciągnij utwór za uchwyt, aby go przenieść</string>
-    <string name="lan_sonos_consent">Aby zalogować %1$s, Spotify raz prosi o zgodę, z której korzysta jego aplikacja na komputer. Zezwól na nią lub zamknij tę stronę. Myspoti odczytuje tylko adres, na którym kończy się strona.</string>
-    <string name="lan_sonos_refused">%1$s wymaga logowania Spotify, którego Myspoti nie mógł uzyskać. Otwórz go raz w aplikacji Spotify i spróbuj ponownie.</string>
+    <string name="lan_sonos_consent">Aby zalogować %1$s, Spotify raz prosi o zgodę, z której korzysta jego aplikacja na komputer. Zezwól na nią lub zamknij tę stronę. Orpheon odczytuje tylko adres, na którym kończy się strona.</string>
+    <string name="lan_sonos_refused">%1$s wymaga logowania Spotify, którego Orpheon nie mógł uzyskać. Otwórz go raz w aplikacji Spotify i spróbuj ponownie.</string>
     <string name="lan_sonos_group">%1$s jest zgrupowany z innymi głośnikami: wybierz główny głośnik grupy albo rozgrupuj go w aplikacji Sonos.</string>
     <string name="voice_search">Szukaj głosowo</string>
     <string name="voice_search_unavailable">Wyszukiwanie głosowe wymaga aplikacji Google</string>
@@ -735,7 +733,7 @@
     <string name="settings_automix_album_order">Albumy w całości</string>
     <string name="settings_automix_album_order_detail">Bez miksu między utworami, które następują po sobie na albumie: łączą się jak na płycie.</string>
     <string name="settings_automix_show">Pokazuj miks w odtwarzaczu</string>
-    <string name="settings_automix_show_detail">Fragment miksu jest pokolorowany na pasku odtwarzania, a okładka świeci i pulsuje w rytm, gdy trwa.</string>
+    <string name="settings_automix_show_detail">Nadchodzący utwór jest podpisany na okładce, gdy oba się nakładają, a okładka pulsuje w rytm podczas miksu.</string>
     <string name="settings_automix_title">AutoMix</string>
     <string name="settings_automix_detail">Przejścia w stylu DJ między utworami z rozszerzeń, pobrań i plików lokalnych: każdy utwór jest analizowany raz (bity, takty, frazy, tonacja), a następny wchodzi w rytm, z dopasowanym tempem i zamianą basu. Utwory, których nie da się zgrać, dostają cięcie w rytm albo wyciszenie. Strumienie są analizowane w sieciach bez limitu albo przez dane mobilne, jeśli pozwolisz na to poniżej.</string>
     <string name="settings_automix_length">Długość miksu</string>
@@ -774,7 +772,7 @@
     <string name="settings_dynamic_color_title">Dynamiczne kolory (Material You)</string>
     <string name="settings_dynamic_color_detail">Kolor akcentu wyglądu Klasycznego pochodzi z tapety. Wygląd Immersyjny zachowuje kolory odtwarzanej okładki.</string>
     <string name="settings_system_font_title">Czcionka systemowa</string>
-    <string name="settings_system_font_detail">Wyświetla tekst aplikacji czcionką telefonu zamiast czcionki Myspoti</string>
+    <string name="settings_system_font_detail">Wyświetla tekst aplikacji czcionką telefonu zamiast czcionki Orpheon</string>
     <string name="settings_download_lyrics_title">Pobieraj teksty z utworami</string>
     <string name="settings_download_lyrics_detail">Pobrany utwór zachowuje swój tekst, widoczny bez połączenia</string>
     <string name="settings_section_storage">Pamięć</string>
@@ -790,7 +788,7 @@
     <string name="settings_automix_cache_detail">%1$s na tym telefonie. Po wyczyszczeniu utwory są analizowane ponownie podczas odtwarzania.</string>
     <string name="settings_automix_cache_clear">Wyczyść</string>
     <string name="settings_automix_intro_title">Jak działa AutoMix</string>
-    <string name="settings_automix_intro_text">AutoMix miksuje utwory, które Myspoti odtwarza samo: z rozszerzeń, pobranych i z plików na tym telefonie. Utwory Spotify grają w odtwarzaczu internetowym Spotify, do którego dźwięku aplikacja nie ma dostępu: zmieniają się tylko z przejściem.\n\nKażdy utwór jest analizowany raz (bity, takty, tonacja). Strumienie są analizowane przez Wi-Fi albo przez dane mobilne, jeśli na to pozwolisz; utwór nieprzeanalizowany na czas zmienia się z przejściem.</string>
+    <string name="settings_automix_intro_text">AutoMix miksuje utwory, które Orpheon odtwarza samo: z rozszerzeń, pobranych i z plików na tym telefonie. Utwory Spotify grają w odtwarzaczu internetowym Spotify, do którego dźwięku aplikacja nie ma dostępu: zmieniają się tylko z przejściem.\n\nKażdy utwór jest analizowany raz (bity, takty, tonacja). Strumienie są analizowane przez Wi-Fi albo przez dane mobilne, jeśli na to pozwolisz; utwór nieprzeanalizowany na czas zmienia się z przejściem.</string>
     <string name="settings_automix_intro_ok">Rozumiem</string>
     <string name="automix_reason_spotify">Teraz bez miksu: utwory Spotify grają w odtwarzaczu internetowym Spotify i zmieniają się tylko z przejściem.</string>
     <string name="automix_reason_cast">Teraz bez miksu: na urządzeniu Cast utwory zmieniają się bez miksu.</string>
@@ -802,7 +800,7 @@
     <string name="notify_releases_channel">Nowości</string>
     <string name="notify_release_title">Nowość od %1$s</string>
     <string name="settings_release_notify">Powiadomienia o nowościach</string>
-    <string name="settings_release_notify_detail">Powiadomienie, gdy obserwowany artysta coś wyda; sprawdzane co kilka godzin, gdy Myspoti działa</string>
+    <string name="settings_release_notify_detail">Powiadomienie, gdy obserwowany artysta coś wyda; sprawdzane co kilka godzin, gdy Orpheon działa</string>
     <string name="quality_streaming_very_high">Bardzo wysoka</string>
     <string name="quality_streaming_very_high_detail">256 kbit/s, tylko konta Premium</string>
     <string name="login_help_button">Pomoc</string>
@@ -816,4 +814,15 @@
     <string name="settings_sources_none">Żadne rozszerzenie nie odtwarza ani nie pobiera jeszcze muzyki: Spotify odtwarza wszystko. Dodaj je w Rozszerzeniach.</string>
     <string name="ext_settings_header">Ustawienia rozszerzeń</string>
     <string name="queue_autoplay_heading">Autoodtwarzanie</string>
+    <string name="settings_account_provider_title">Konto muzyczne</string>
+    <string name="settings_account_provider_detail">Serwis, w którym liczone są odtworzenia rozszerzeń i z którego czytana jest Twoja biblioteka. Jeden naraz.</string>
+    <string name="settings_account_provider_none">Brak</string>
+    <string name="settings_ytm_account_title">Konto YouTube Music</string>
+    <string name="settings_ytm_signed_in">Zalogowano</string>
+    <string name="settings_ytm_signed_out">Nie zalogowano: dotknij, aby się zalogować</string>
+    <string name="settings_ytm_sign_out">Wyloguj się z YouTube Music</string>
+    <string name="settings_ytm_sign_in_title">Zaloguj się do YouTube Music</string>
+    <string name="settings_ytm_sync_note">Odtworzenia liczy sam odtwarzacz webowy YouTube Music, bez dźwięku. Aplikacje YouTube Music nie mogą nim sterować.</string>
+    <string name="settings_sign_in_close">Zamknij</string>
+    <string name="connect_after_ad">Przejdzie na %1$s po zakończeniu reklamy</string>
 </resources>

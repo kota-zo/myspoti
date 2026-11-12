@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
@@ -139,13 +139,17 @@ fun LiveRadioScreen(navController: NavController) {
                         CircularProgressIndicator(color = AppAccent)
                     }
                 }
-                results?.isEmpty() == true && !state.error -> item {
+                results?.isEmpty() == true && !state.error && state.unplayable == 0 -> item {
                     Text(stringResource(R.string.live_radio_no_results), color = AppMuted, fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center)
                 }
                 else -> itemsIndexed(results.orEmpty(), key = { _, s -> s.stationUuid }) { _, s ->
                     StationRow(s)
                 }
+            }
+            if (state.unplayable > 0) item {
+                Text(pluralStringResource(R.plurals.lib_radio_unplayable, state.unplayable, state.unplayable), color = AppMuted,
+                    fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 16.dp))
             }
         }
         Box(
@@ -181,7 +185,6 @@ private fun StationRow(station: RadioStation) {
     ) {
         Box(Modifier.size(48.dp)) {
             GlideImage(
-                transition = CrossFade,
                 model = station.favicon, contentDescription = null, contentScale = ContentScale.Crop,
                 loading = placeholder(R.drawable.live_radio_cover), failure = placeholder(R.drawable.live_radio_cover),
                 modifier = Modifier.matchParentSize().clip(RoundedCornerShape(4.dp)),

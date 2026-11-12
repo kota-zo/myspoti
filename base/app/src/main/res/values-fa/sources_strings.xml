@@ -4,8 +4,9 @@
     <string name="sources_download_title">منابع دانلود</string>
     <string name="sources_audio_footer">برای هر آهنگ از بالا به پایین پرسیده می‌شود: اولین منبعی که آن را داشته باشد پخش می‌کند. با فلش‌ها ترتیب را تغییر دهید.</string>
     <string name="sources_download_footer">از بالا به پایین پرسیده می‌شود: اولین منبعی که آهنگ را داشته باشد فایل را می‌دهد. با فلش‌ها ترتیب را تغییر دهید.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">وقتی هیچ منبعی بالاتر از آن آهنگ را نداشته باشد پخش می‌شود</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">وقتی هیچ منبعی بالاتر از آن آهنگ را نداشته باشد پخش می‌شود</string>
+    <string name="sources_account_player">پخش‌کنندهٔ حساب شما</string>
     <string name="sources_ready">آماده</string>
     <string name="sources_details_show">نمایش جزئیات</string>
     <string name="sources_details_hide">پنهان کردن جزئیات</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">آخرین: %1$s، %2$s</string>
     <string name="sources_open">باز کردن افزونه</string>
     <string name="sources_order_hint">منابع به ترتیبی که در تنظیمات (پخش، دانلودها) تعیین شده پرسیده می‌شوند.</string>
-    <string name="sources_below_spotify">پرسیده نمی‌شود: Spotify بالاتر است</string>
+    <string name="sources_below_account">پرسیده نمی‌شود: Spotify بالاتر است</string>
 </resources>

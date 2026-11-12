@@ -5,6 +5,7 @@
  */
 package com.music.spotui.ui.immersive.screens
 
+import com.music.spotui.ui.components.cappedPageWidth
 import com.music.spotui.ui.immersive.shell.immersiveHazeSource
 import com.music.spotui.ui.immersive.shell.immersiveChromeScroll
 import android.content.Context
@@ -75,7 +76,6 @@ import com.music.spotui.data.preferences.removeRecentItem
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.immersive.sheets.ImmersiveSongOptionsSheet
-import com.music.spotui.ui.components.SwipeToQueue
 import com.music.spotui.ui.components.launchVoiceSearch
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.components.ImmersiveButton
@@ -104,6 +104,8 @@ import com.music.spotui.ui.screens.SearchFilter
 import com.music.spotui.ui.viewmodel.SearchViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.music.spotui.data.preferences.toRecentItem
+import com.music.spotui.data.preferences.toSong
 
 /**
  * Search in the Immersive look: the page's large title over a sticky search field and filter
@@ -176,13 +178,16 @@ fun ImmersiveSearchScreen(navController: NavController) {
         vm.updateSongState(song.coverUri, song.title, song.singer, true, song.id, 0, song.album)
     }
 
-    // Large windows: more browse tiles per row (two on phones).
-    val browseCols = com.music.spotui.ui.components.windowSize().columns(2, 220.dp)
-    Box(Modifier.fillMaxSize().background(Immersive.Page)) {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(Immersive.Page)) {
+        // Wide windows: more browse tiles per row (two on phones), counted in the list's capped width.
+        val browseCols = com.music.spotui.ui.components.WindowSize.columnsIn(
+            minOf(maxWidth, com.music.spotui.ui.components.WindowSize.MaxPageWidth), 2, 220.dp)
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(top = immersiveTopContentPadding(), bottom = Immersive.BottomChrome),
-            modifier = Modifier.fillMaxSize().immersiveHazeSource().immersiveChromeScroll(),
+            // The field and the results capped at a readable width, centred, on wide windows
+            // (they ran 1800 dp long).
+            modifier = Modifier.fillMaxSize().cappedPageWidth().immersiveHazeSource().immersiveChromeScroll(),
         ) {
             immersiveLargeTitle(title)
             stickyHeader(key = "search:field") {
@@ -295,40 +300,10 @@ fun ImmersiveSearchScreen(navController: NavController) {
 private fun loadRecents(context: Context): List<RecentItem> =
     getRecentItems(context).filter { Features.PODCASTS || it.type != "show" }
 
-/** Maps a tapped search-result song to a persisted recent item. */
-private fun SongsModel.toRecentItem() = RecentItem(
-    type = "song",
-    key = spotifyTrackId.ifBlank { url },
-    name = title,
-    singer = singer,
-    image = coverUri,
-    songId = id,
-    songAlbum = album,
-    songUrl = url,
-    spotifyTrackId = spotifyTrackId,
-    explicit = explicit,
-    durationMs = durationMs,
-)
-
 /** Replays a recent song or opens its album, artist, show or playlist, as the Classic screen does. */
 private fun openRecent(item: RecentItem, navController: NavController, vm: SearchViewModel, context: Context) {
     when (item.type) {
-        "song" -> {
-            val songUrl = item.songUrl.ifBlank {
-                SongPlayer.buildSpotifyPlayQuery(item.spotifyTrackId, item.name, item.singer)
-            }.let { savedUrl ->
-                if (item.spotifyTrackId.isNotBlank() && !savedUrl.startsWith("spotify:track:")) {
-                    SongPlayer.buildSpotifyPlayQuery(item.spotifyTrackId, item.name, item.singer)
-                } else {
-                    savedUrl
-                }
-            }
-            val song = SongsModel(
-                item.songId, item.name, item.songAlbum, item.singer,
-                item.image, songUrl, item.spotifyTrackId,
-                explicit = item.explicit,
-                durationMs = item.durationMs,
-            )
+        "song" -> item.toSong()?.let { song ->
             vm.startRadioFromSong(song)
             SongPlayer.playSong(song.url, context, songs = listOf(song), alone = true)
             vm.updateSongState(song.coverUri, song.title, song.singer, true, song.id, 0, song.album)
@@ -377,7 +352,7 @@ private fun LazyListScope.recentSearches(
             "playlist" -> stringResource(R.string.assisted_curation_search_playlist) + (if (item.singer.isNotBlank()) " • ${item.singer}" else "")
             else -> ""
         }
-        ImmersiveListRow(
+        val row: @Composable () -> Unit = { ImmersiveListRow(
             title = item.name,
             subtitle = subtitle,
             imageUrl = item.image,
@@ -395,7 +370,10 @@ private fun LazyListScope.recentSearches(
                         .padding(6.dp),
                 )
             },
-        )
+        ) }
+        // A recent song slides into the queue like a result does.
+        val song = item.toSong()
+        if (song != null) ImmersiveSwipeToQueue(song, row) else row()
     }
 }
 
@@ -625,7 +603,7 @@ private fun SongResultRow(
     onMore: () -> Unit,
 ) {
     val current = song.id == currentSongId
-    SwipeToQueue(song) {
+    ImmersiveSwipeToQueue(song) {
         ImmersiveSongRow(
             song = song,
             playing = current && playing,

@@ -48,5 +48,17 @@ class LibraryOrderTest {
         // Spotify's order (the latest followed first) for the other sorts.
         assertEquals(artists, LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.RECENTS))
         assertEquals(artists, LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.CUSTOM))
+        // Spotify's order alone, the dates unknown.
+        assertEquals(artists, LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.RECENTLY_ADDED))
+    }
+
+    @Test
+    fun followedArtistsFollowTheSortByDate() {
+        val artists = listOf(
+            ArtistsModel("Old", "", "o", "2020-01-01T00:00:00Z"),
+            ArtistsModel("Undated", "", "u"),
+            ArtistsModel("New", "", "n", "2026-11-01T00:00:00Z"),
+        )
+        assertEquals(listOf("New", "Old", "Undated"), LibraryOrder.arrangeArtists(artists, LibraryOrder.Sort.RECENTLY_ADDED).map { it.name })
     }
 }

@@ -65,22 +65,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
 import com.music.spotui.data.api.Response
-import com.music.spotui.data.api.Api
 import com.music.spotui.data.entity.HomeFeedModel
 import com.music.spotui.data.entity.HomeItem
-import com.music.spotui.data.entity.withLikedFirst
+import com.music.spotui.data.entity.homeShortcuts
 import com.music.spotui.data.entity.withoutDj
+import com.music.spotui.data.entity.withoutPodcastShows
 import com.music.spotui.data.entity.HomeSection
 import com.music.spotui.ui.components.Loader
+import com.music.spotui.ui.components.onHomeItemClick
+import com.music.spotui.ui.components.prefetchHomeItem
+import com.music.spotui.ui.components.prefetchHomeShortcuts
 import com.music.spotui.ui.navigation.Routes
-import com.music.spotui.ui.navigation.albumRoute
-import com.music.spotui.ui.navigation.artistRoute
-import com.music.spotui.ui.navigation.playlistRoute
 import com.music.spotui.ui.theme.AppBackground
 import com.music.spotui.ui.theme.GridBackground
 import com.music.spotui.ui.viewmodel.HomeViewModel
@@ -136,32 +135,6 @@ fun HomeScreen(navController: NavController){
     }
 }
 
-/** Albums and playlists start loading under the finger (see pressHint). */
-private fun prefetchHomeItem(item: HomeItem) {
-    when (item) {
-        is HomeItem.Album -> if (item.id.isNotBlank()) ContextViewModel.prefetch("album", item.id)
-        is HomeItem.Playlist ->
-            if (item.id == Api.HomeCache.LIKED_SONGS_ID) ContextViewModel.prefetch("liked", "")
-            else if (item.id.isNotBlank()) ContextViewModel.prefetch("playlist", item.id)
-        else -> {}
-    }
-}
-
-private fun onHomeItemClick(navController: NavController, item: HomeItem) {
-    when (item) {
-        is HomeItem.Album -> navController.navigate(albumRoute(item.name, item.artists.ifBlank { item.subtitle }, item.id))
-        is HomeItem.Artist -> navController.navigate(artistRoute(item.name, item.id))
-        is HomeItem.Show ->
-            if (item.isEpisode) com.music.spotui.di.SongPlayer.playSong("episode:${item.id}")
-            else navController.navigate(com.music.spotui.ui.navigation.showRoute(item.id, item.name))
-        // Load the real playlist content by its Spotify id (daily mixes, etc).
-        is HomeItem.Playlist ->
-            if (item.id == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
-            else if (item.id.isNotBlank()) navController.navigate(playlistRoute(item.id, item.name))
-            else navController.navigate(albumRoute(item.name))
-    }
-}
-
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -175,8 +148,7 @@ fun HomeFeedContent(navController: NavController, feed: HomeFeedModel, facet: St
     // Kept between recompositions: a new list for every one of them would restart the rows below.
     val hideDj = com.music.spotui.data.preferences.HideDjPref.hidden
     val sections = remember(feed, hideDj) {
-        val all = if (com.music.spotui.data.api.Features.PODCASTS) feed.sections
-        else feed.sections.map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Show }) }.filter { it.items.isNotEmpty() }
+        val all = feed.sections.withoutPodcastShows()
         if (hideDj) all.withoutDj() else all
     }
     val gridSection = remember(sections) { sections.firstOrNull()?.takeIf { it.title.isBlank() } }
@@ -184,18 +156,9 @@ fun HomeFeedContent(navController: NavController, feed: HomeFeedModel, facet: St
     val carouselKeys = remember(carousels) { uniqueKeys(carousels.map { it.title }) }
     // Liked Songs leads the shortcuts when Spotify's grid does not carry it.
     val likedName = stringResource(R.string.collection_liked_songs_title)
-    val shortcuts = remember(gridSection, likedName) { gridSection?.items?.withLikedFirst(likedName) }
+    val shortcuts = remember(gridSection, sections, facet, likedName) { homeShortcuts(gridSection?.items, sections.isEmpty(), facet, likedName) }
     // The shortcuts at the top load in the background, ready before a tap.
-    androidx.compose.runtime.LaunchedEffect(shortcuts?.map { it.name }) {
-        val top = shortcuts.orEmpty().mapNotNull { item ->
-            when (item) {
-                is HomeItem.Album -> item.id.takeIf { it.isNotBlank() }?.let { "album" to it }
-                is HomeItem.Playlist -> if (item.id == Api.HomeCache.LIKED_SONGS_ID) "liked" to "" else item.id.takeIf { it.isNotBlank() }?.let { "playlist" to it }
-                else -> null
-            }
-        }
-        if (top.isNotEmpty()) ContextViewModel.prefetchSoon(top)
-    }
+    androidx.compose.runtime.LaunchedEffect(shortcuts) { prefetchHomeShortcuts(shortcuts) }
 
     // Re-tapping the Home tab while on Home scrolls this list back to its top (official
     // behaviour): an animation over the existing items, so nothing is fetched again.
@@ -281,7 +244,6 @@ private fun HomeHeaderRow(navController: NavController, facet: String, onFacet: 
         ) {
             if (avatarUrl != null) {
                 GlideImage(
-                    transition = CrossFade,
                     model = avatarUrl,
                     contentScale = ContentScale.Crop,
                     contentDescription = stringResource(R.string.recently_played_user_profile),
@@ -403,7 +365,6 @@ private fun HomeShortcutGrid(navController: NavController, items: List<HomeItem>
                             ,
                     ) {
                         GlideImage(
-                            transition = CrossFade,
                             modifier = Modifier.size(48.dp),
                             contentScale = ContentScale.Crop,
                             model = item.imageUrl,
@@ -418,6 +379,8 @@ private fun HomeShortcutGrid(navController: NavController, items: List<HomeItem>
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            // Two balanced lines ("Daily / Mix 2") rather than a lone "2" under the rest.
+                            style = androidx.compose.ui.text.TextStyle(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading),
                             modifier = Modifier.padding(8.dp, 4.dp),
                         )
                     }
@@ -476,7 +439,6 @@ private fun HomeFeedCard(item: HomeItem, onClick: () -> Unit) {
     ) {
         Box {
             GlideImage(
-                transition = CrossFade,
                 modifier = Modifier
                     .size(150.dp)
                     .clip(if (isArtist) CircleShape else RoundedCornerShape(8.dp)),

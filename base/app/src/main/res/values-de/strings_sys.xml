@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">Release-Seite öffnen</string>
+    <string name="sys_update_conflict">Android lehnt diese Version über der installierten App ab: Sie wurde mit einem anderen Schlüssel signiert. Lade sie von der Release-Seite herunter und deinstalliere diese App zuerst, falls Android danach fragt.</string>
+</resources>

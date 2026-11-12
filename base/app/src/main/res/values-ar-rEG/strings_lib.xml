@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="zero">لا توجد محطات أخرى مطابقة.</item>
+        <item quantity="one">توجد محطة أخرى مطابقة، لكنها تبث دون تشفير (http) أو بصيغة HLS، ولا يستطيع التطبيق تشغيلها بعد.</item>
+        <item quantity="two">توجد محطتان أخريان مطابقتان، لكنهما تبثان دون تشفير (http) أو بصيغة HLS، ولا يستطيع التطبيق تشغيلهما بعد.</item>
+        <item quantity="few">توجد %d محطات أخرى مطابقة، لكنها تبث دون تشفير (http) أو بصيغة HLS، ولا يستطيع التطبيق تشغيلها بعد.</item>
+        <item quantity="many">توجد %d محطة أخرى مطابقة، لكنها تبث دون تشفير (http) أو بصيغة HLS، ولا يستطيع التطبيق تشغيلها بعد.</item>
+        <item quantity="other">توجد %d محطة أخرى مطابقة، لكنها تبث دون تشفير (http) أو بصيغة HLS، ولا يستطيع التطبيق تشغيلها بعد.</item>
+    </plurals>
+</resources>

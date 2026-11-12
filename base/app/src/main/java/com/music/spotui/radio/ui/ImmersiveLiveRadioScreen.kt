@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -74,10 +75,13 @@ fun ImmersiveLiveRadioScreen(navController: NavController) {
         val results = state.results
         when {
             state.loading && results == null -> immersiveSongListSkeleton(keyPrefix = "radio:skeleton")
-            results?.isEmpty() == true && !state.error -> item(key = "radio:empty") {
+            results?.isEmpty() == true && !state.error && state.unplayable == 0 -> item(key = "radio:empty") {
                 ImmersiveMessageState(stringResource(R.string.live_radio_no_results))
             }
             else -> items(results.orEmpty(), key = { it.stationUuid }) { StationRow(it) }
+        }
+        if (state.unplayable > 0) item(key = "radio:unplayable") {
+            ImmersiveMessageState(pluralStringResource(R.plurals.lib_radio_unplayable, state.unplayable, state.unplayable))
         }
     }
 }

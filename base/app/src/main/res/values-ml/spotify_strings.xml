@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">വരികൾ വിവർത്തനം ചെയ്യുന്നത് നിർത്തുക</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ക്ഷമിക്കണം. ഞങ്ങൾക്ക് ഇതിന്റെ വരികൾ അറിയില്ല.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">ഈ വരികൾക്ക് ഇതുവരെയും സമയം സമന്വയിപ്പിച്ചിട്ടില്ല.</string>
-    <string name="av_switch_to_video" formatted="false">വീഡിയോയിലേക്ക് മാറുക</string>
-    <string name="av_switch_to_audio" formatted="false">ഓഡിയോയിലേക്ക് മാറുക</string>
-    <string name="av_content_desc" formatted="false">ഓഡിയോയ്ക്കും വീഡിയോയ്ക്കുമിടയിൽ ടോഗിൾ ചെയ്യുക</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ഹോം</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">തിരയുക</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">നിങ്ങളുടെ ലൈബ്രറി</string>

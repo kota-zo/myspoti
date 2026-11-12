@@ -132,4 +132,15 @@ class CanvasRequestsTest {
         assertEquals("", confirmedTrackIdForDisplay("spotify:track:", songId("A")))
         assertEquals("", confirmedTrackIdForDisplay("spotify:track:A", songId("B")))
     }
+
+    @Test fun aDownloadPlayedLocallyIsShownUnderItsSpotifyId() {
+        val uri = "local:-42"
+        val shownId = uri.hashCode() and 0x7fffffff
+        val known = { id: Long -> if (id == -42L) "T" else null }
+        org.junit.Assert.assertEquals("T", confirmedTrackIdForDisplay(uri, shownId, known))
+        // Another song shown already (an optimistic one): nothing yet.
+        org.junit.Assert.assertEquals("", confirmedTrackIdForDisplay(uri, shownId + 1, known))
+        // A file of the device: no Spotify id.
+        org.junit.Assert.assertEquals("", confirmedTrackIdForDisplay("local:7", "local:7".hashCode() and 0x7fffffff, known))
+    }
 }

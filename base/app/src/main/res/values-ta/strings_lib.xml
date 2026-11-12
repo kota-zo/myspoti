@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">மேலும் %d நிலையம் பொருந்துகிறது, ஆனால் அது குறியாக்கப்படாத (http) அல்லது HLS ஸ்ட்ரீமில் ஒலிபரப்புகிறது, அதை ஆப்ஸ் இன்னும் இயக்க முடியாது.</item>
+        <item quantity="other">மேலும் %d நிலையங்கள் பொருந்துகின்றன, ஆனால் அவை குறியாக்கப்படாத (http) அல்லது HLS ஸ்ட்ரீமில் ஒலிபரப்புகின்றன, அவற்றை ஆப்ஸ் இன்னும் இயக்க முடியாது.</item>
+    </plurals>
+</resources>

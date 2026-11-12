@@ -172,3 +172,13 @@ fun rememberArtistCredit(trackId: String, line: String, color: androidx.compose.
         }
     }
 }
+
+/**
+ * Whether the artist [line] is too long for its row (set by the text's own layout): it then
+ * scrolls, as one tap target. Asked again for each line, and for each width the row is given.
+ */
+@Composable
+fun rememberArtistLineScrolls(line: String): androidx.compose.runtime.MutableState<Boolean> {
+    val width = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    return remember(line, width) { androidx.compose.runtime.mutableStateOf(false) }
+}

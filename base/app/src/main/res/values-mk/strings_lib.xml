@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Се совпаѓа уште %d станица, но емитува без шифрирање (http) или во HLS, што апликацијата сè уште не може да го пушти.</item>
+        <item quantity="other">Се совпаѓаат уште %d станици, но емитуваат без шифрирање (http) или во HLS, што апликацијата сè уште не може да го пушти.</item>
+    </plurals>
+</resources>

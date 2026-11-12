@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">ମେଟାଡାଟା</string>
+    <string name="metadata_footer">ସନ୍ଧାନ, ଆଲବମ୍ ଓ କଳାକାର ଏହି ସେବାଗୁଡ଼ିକରୁ ଆସନ୍ତି, ଯାହାଙ୍କୁ ଉପରୁ ତଳକୁ ପଚରାଯାଏ। ଦୁଇଥର ମିଳିଥିବା ସେହି ଗୀତ ଥରେ ଦେଖାଯାଏ। ବନ୍ଦ ସେବାକୁ କେବେ ପଚରାଯାଏ ନାହିଁ।</string>
+    <string name="metadata_spotify_detail">ଆପଣଙ୍କ ଆକାଉଣ୍ଟ, ଯେତେବେଳ ଯାଏ ଆପଣ ସାଇନ୍ ଇନ୍ ଅଛନ୍ତି</string>
+    <string name="metadata_signed_out">ପଚରାଯାଏ ନାହିଁ: କୌଣସି ଆକାଉଣ୍ଟ ସାଇନ୍ ଇନ୍ ନାହିଁ</string>
+    <string name="metadata_asked">ପଚରାଯାଏ</string>
+    <string name="metadata_off">ବନ୍ଦ: କେବେ ପଚରାଯାଏ ନାହିଁ</string>
+    <string name="metadata_reset">ଡିଫଲ୍ଟ କ୍ରମକୁ ଫେରନ୍ତୁ</string>
+    <string name="metadata_not_on_spotify">Spotify ରେ ମିଳିଲା ନାହିଁ: ଏହି ଗୀତ ଏପର୍ଯ୍ୟନ୍ତ ବଜାଯାଇପାରିବ ନାହିଁ</string>
+    <string name="metadata_switch">%1$s କୁ ପଚାରନ୍ତୁ</string>
+</resources>

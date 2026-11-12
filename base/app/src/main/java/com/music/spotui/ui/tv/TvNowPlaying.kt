@@ -10,8 +10,16 @@
  * lyrics; the artist opens its page; no motion cover, sleep timer, live radio, screensaver or
  * full-screen lyrics.
  */
+// Parts adapted from Android's Jetcaster sample (https://github.com/android/compose-samples), Copyright 2024 The Android Open Source Project, Apache License 2.0.
+// Parts adapted from Android's JetStream sample (https://github.com/android/tv-samples), Copyright 2023 Google LLC, Apache License 2.0.
 package com.music.spotui.ui.tv
 
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -169,6 +177,11 @@ internal fun TvPlayerScreen(
         MeshGradientBackground(palette, Modifier.fillMaxSize(), trackKey = state.title)
         // Darker towards the right, where the lyrics are read, and at the bottom.
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x33000000), 0.45f to Color(0x55000000), 1f to Color(0xAA000000))))
+        // Jetcaster's player scrim: black rising from the bottom left, multiplied into the colours.
+        Box(Modifier.fillMaxSize().drawWithCache {
+            val scrim = Brush.radialGradient(listOf(Color.Black, Color.Transparent), center = Offset(0f, size.height), radius = size.width * 1.5f)
+            onDrawBehind { drawRect(scrim, blendMode = BlendMode.Multiply) }
+        })
 
         if (state.title.isBlank()) {
             Text(stringResource(R.string.immersive_shell_now_playing), color = Color(0xFF888888), fontSize = 20.sp, modifier = Modifier.align(Alignment.Center))
@@ -190,7 +203,7 @@ internal fun TvPlayerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Crossfade(state.coverUrl, animationSpec = tween(800), label = "cover") { url ->
-                    TvCover(url, Modifier.size(260.dp), RoundedCornerShape(18.dp))
+                    TvCover(url, Modifier.size(260.dp).shadow(32.dp, RoundedCornerShape(18.dp)), RoundedCornerShape(18.dp), seed = state.title)
                 }
                 Spacer(Modifier.height(18.dp))
                 TvMarquee(state.title, 26.sp, FontWeight.Bold, Color.White)
@@ -264,8 +277,9 @@ private fun TvTransport(state: ImmersivePlayerState, actions: ImmersivePlayerAct
 }
 
 /**
- * The seek bar and its times. Focused, ← and → move a cursor by 10 s and OK seeks there; the
- * playhead is read every frame here only, not by the whole screen.
+ * The seek bar and its times, as Jetcaster TV's Seekbar: a line and a knob, the knob ringed when
+ * the bar has the focus. Focused, ← and → move the knob by 10 s and OK seeks there; the playhead is
+ * read every frame here only, not by the whole screen.
  */
 @Composable
 private fun TvSeekBar(state: ImmersivePlayerState, actions: ImmersivePlayerActions, modifier: Modifier) {
@@ -273,6 +287,7 @@ private fun TvSeekBar(state: ImmersivePlayerState, actions: ImmersivePlayerActio
     LaunchedEffect(state.positionMs) { while (isActive) withFrameMillis { positionMs = state.positionMs() } }
     val duration = state.durationMs.coerceAtLeast(1L)
     var focused by remember { mutableStateOf(false) }
+    val f by animateFloatAsState(if (focused) 1f else 0f, tween(150), label = "seekFocus")
     // The cursor starts at the playhead each time the bar takes the focus.
     var scrubMs by remember(state.title) { mutableLongStateOf(positionMs) }
     val progress = (positionMs.toFloat() / duration).coerceIn(0f, 1f)
@@ -280,7 +295,7 @@ private fun TvSeekBar(state: ImmersivePlayerState, actions: ImmersivePlayerActio
     val shadow = Shadow(Color.Black.copy(alpha = 0.8f), blurRadius = 8f)
     Column(modifier.fillMaxWidth()) {
         Box(
-            Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            Modifier.fillMaxWidth().height(22.dp)
                 .onFocusChanged { if (it.isFocused && !focused) scrubMs = positionMs; focused = it.isFocused }
                 .onKeyEvent { e ->
                     if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -291,14 +306,20 @@ private fun TvSeekBar(state: ImmersivePlayerState, actions: ImmersivePlayerActio
                     }
                 }
                 .focusable()
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.seekTo(scrubMs); positionMs = scrubMs },
-        ) {
-            Box(Modifier.fillMaxWidth().height(if (focused) 8.dp else 4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x44FFFFFF))) {
-                Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(Color.White))
-                if (focused) Box(Modifier.fillMaxWidth(scrub).fillMaxHeight().background(TvAccent.copy(alpha = 0.6f)))
-            }
-        }
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.seekTo(scrubMs); positionMs = scrubMs }
+                .drawBehind {
+                    val y = size.height / 2
+                    val stroke = (4f + 2f * f).dp.toPx()
+                    val knob = (5f + 2f * f).dp.toPx()
+                    drawLine(Color(0x44FFFFFF), Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
+                    drawLine(Color.White, Offset(0f, y), Offset(size.width * progress, y), stroke, StrokeCap.Round)
+                    if (f > 0f) drawLine(TvAccent.copy(alpha = 0.6f * f), Offset(0f, y), Offset(size.width * scrub, y), stroke, StrokeCap.Round)
+                    val at = Offset(size.width * (if (focused) scrub else progress), y)
+                    if (f > 0f) drawCircle(Color.White.copy(alpha = 0.6f * f), knob * 1.6f, at)
+                    drawCircle(Color.White, knob, at)
+                },
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 2.dp), Arrangement.SpaceBetween) {
             Text(formatMs(if (focused) scrubMs else positionMs), style = TextStyle(fontSize = 13.sp, color = if (focused) Color.White else Color(0xFFAAAAAA), shadow = shadow))
             Text(formatMs(state.durationMs), style = TextStyle(fontSize = 13.sp, color = Color(0xFFAAAAAA), shadow = shadow))
         }

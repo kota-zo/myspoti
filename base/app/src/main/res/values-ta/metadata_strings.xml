@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">மெட்டாடேட்டா</string>
+    <string name="metadata_footer">தேடல்கள், ஆல்பங்கள், கலைஞர்கள் இந்தச் சேவைகளிலிருந்து வருகின்றன; மேலிருந்து கீழாகக் கேட்கப்படும். இருமுறை கிடைத்த ஒரே பாடல் ஒருமுறை காட்டப்படும். முடக்கப்பட்ட சேவையிடம் ஒருபோதும் கேட்கப்படாது.</string>
+    <string name="metadata_spotify_detail">நீங்கள் உள்நுழைந்திருக்கும் வரை உங்கள் கணக்கு</string>
+    <string name="metadata_signed_out">கேட்கப்படாது: எந்தக் கணக்கும் உள்நுழையவில்லை</string>
+    <string name="metadata_asked">கேட்கப்படும்</string>
+    <string name="metadata_off">முடக்கம்: ஒருபோதும் கேட்கப்படாது</string>
+    <string name="metadata_reset">இயல்பு வரிசைக்குத் திரும்பு</string>
+    <string name="metadata_not_on_spotify">Spotify-இல் கிடைக்கவில்லை: இந்தப் பாடலை இன்னும் இயக்க முடியாது</string>
+    <string name="metadata_switch">%1$s-இடம் கேள்</string>
+</resources>

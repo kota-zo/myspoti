@@ -2,7 +2,7 @@
 <!-- "Stats for nerds": what the player knows of the sound, live while the sheet is open (EN). -->
 <resources>
     <string name="nerd_title">Stats for nerds</string>
-    <string name="nerd_section_exo">Myspoti player (ExoPlayer)</string>
+    <string name="nerd_section_exo">Orpheon player (ExoPlayer)</string>
     <string name="nerd_section_spotify">Spotify (Web Player)</string>
     <string name="nerd_source">Source</string>
     <string name="nerd_source_extension">Extension: %1$s</string>

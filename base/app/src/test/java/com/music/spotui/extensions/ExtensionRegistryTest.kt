@@ -256,12 +256,12 @@ class ExtensionRegistryTest {
         // A source not listed (it became one with an update) is asked last.
         assertEquals(listOf("qobuz", "deezer", "tidal", "new"), r.bySourceOrder("audio.source", "audio", ids + "new") { it })
         // Spotify is last until moved; moved first, it stays first and a new source goes after it.
-        val line = ids + SPOTIFY_SOURCE
+        val line = ids + ACCOUNT_SOURCE
         r = Registry()
         assertEquals(line, r.bySourceOrder("audio.source", "audio", line) { it })
-        r = r.move("audio.source", line, SPOTIFY_SOURCE, -3)
-        assertEquals(listOf(SPOTIFY_SOURCE) + ids, r.bySourceOrder("audio.source", "audio", line) { it })
-        assertEquals(listOf(SPOTIFY_SOURCE) + ids + "new", r.bySourceOrder("audio.source", "audio", ids + "new" + SPOTIFY_SOURCE) { it })
+        r = r.move("audio.source", line, ACCOUNT_SOURCE, -3)
+        assertEquals(listOf(ACCOUNT_SOURCE) + ids, r.bySourceOrder("audio.source", "audio", line) { it })
+        assertEquals(listOf(ACCOUNT_SOURCE) + ids + "new", r.bySourceOrder("audio.source", "audio", ids + "new" + ACCOUNT_SOURCE) { it })
     }
 
     @Test fun aFreshInstallIsAskedFirstWhereverItActs() {
@@ -270,17 +270,17 @@ class ExtensionRegistryTest {
         // No order set yet: the new one first, the others behind it in installation order.
         var r = Registry().firstOnInstall("new", m("new", "lyrics.provide", "audio.source", "network"))
         assertEquals(listOf("new") + ids, r.byPriority("lyrics", ids + "new") { it })
-        assertEquals(listOf("new") + ids + SPOTIFY_SOURCE, r.bySourceOrder("audio.source", "audio", ids + "new" + SPOTIFY_SOURCE) { it })
+        assertEquals(listOf("new") + ids + ACCOUNT_SOURCE, r.bySourceOrder("audio.source", "audio", ids + "new" + ACCOUNT_SOURCE) { it })
         // What it does not give keeps its order: downloads, home.
         assertEquals(ids, r.bySourceOrder("download.source", "audio", ids) { it })
         assertNull(r.priority["download.source"])
         assertNull(r.priority["home"])
         // The user's order: the new one above it all, Spotify moved first and the one active before included.
         r = Registry(active = mapOf("download.source" to "deezer"))
-            .move("audio.source", ids + SPOTIFY_SOURCE, SPOTIFY_SOURCE, -3)
+            .move("audio.source", ids + ACCOUNT_SOURCE, ACCOUNT_SOURCE, -3)
             .move("lyrics", ids, "deezer", -2)
             .firstOnInstall("dl", m("dl", "audio.source", "download.source", "lyrics.provide"))
-        assertEquals(listOf("dl", SPOTIFY_SOURCE) + ids, r.bySourceOrder("audio.source", "audio", ids + "dl" + SPOTIFY_SOURCE) { it })
+        assertEquals(listOf("dl", ACCOUNT_SOURCE) + ids, r.bySourceOrder("audio.source", "audio", ids + "dl" + ACCOUNT_SOURCE) { it })
         assertEquals(listOf("dl", "deezer", "tidal", "qobuz"), r.bySourceOrder("download.source", "audio", ids + "dl") { it })
         assertEquals(listOf("dl", "deezer", "tidal", "qobuz"), r.byPriority("lyrics", ids + "dl") { it })
         // Moved down by the user, it stays there: only a fresh install puts it first, never twice listed.

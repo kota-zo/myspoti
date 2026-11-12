@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metatiedot</string>
+    <string name="metadata_footer">Haut, albumit ja artistit tulevat näistä palveluista, kysyttyinä ylhäältä alas. Kahdesti löytynyt sama kappale näkyy kerran. Pois päältä olevalta palvelulta ei koskaan kysytä.</string>
+    <string name="metadata_spotify_detail">Tilisi, kun olet kirjautuneena</string>
+    <string name="metadata_signed_out">Ei kysytä: mikään tili ei ole kirjautuneena</string>
+    <string name="metadata_asked">Kysytään</string>
+    <string name="metadata_off">Pois: ei koskaan kysytä</string>
+    <string name="metadata_reset">Palauta oletusjärjestys</string>
+    <string name="metadata_not_on_spotify">Ei löytynyt Spotifysta: kappaletta ei voi vielä toistaa</string>
+    <string name="metadata_switch">Kysy palvelulta %1$s</string>
+</resources>

@@ -9,7 +9,7 @@
     <string name="extensions_installed">已安装</string>
     <string name="extensions_repository_add">添加仓库</string>
     <string name="extensions_repository_hint">https://…/index.json</string>
-    <string name="extensions_repository_warning">Myspoti 不会审核你添加的仓库：从中安装的内容风险自负。</string>
+    <string name="extensions_repository_warning">Orpheon 不会审核你添加的仓库：从中安装的内容风险自负。</string>
     <string name="extensions_repository_remove">移除</string>
     <string name="extensions_repository_refresh">刷新</string>
     <string name="extensions_install">安装</string>
@@ -64,16 +64,16 @@
     <string name="extensions_browse_store">浏览商店</string>
     <string name="extensions_other_ways">其他安装方式</string>
     <string name="extensions_empty_title">什么是扩展？</string>
-    <string name="extensions_empty_body">扩展为 Myspoti 增添其自身不具备的功能：来自其他来源的歌词、歌曲音频或下载的来源、使用你 Spotify 账号的工具。每个扩展都在沙盒中运行，访问任何内容之前都会先征求你的同意。添加仓库即可浏览扩展，也可以安装你信任的安装包。</string>
+    <string name="extensions_empty_body">扩展为 Orpheon 增添其自身不具备的功能：来自其他来源的歌词、歌曲音频或下载的来源、使用你 Spotify 账号的工具。每个扩展都在沙盒中运行，访问任何内容之前都会先征求你的同意。添加仓库即可浏览扩展，也可以安装你信任的安装包。</string>
     <string name="extensions_official_badge">官方</string>
     <string name="extensions_repo_yours">由你添加</string>
     <string name="extensions_repo_community">社区</string>
     <string name="extensions_repo_official_note">每个扩展在上架前都经过审核。</string>
-    <string name="extensions_repo_yours_note">未经 Myspoti 审核：安装风险自负。</string>
+    <string name="extensions_repo_yours_note">未经 Orpheon 审核：安装风险自负。</string>
     <string name="extensions_repo_error">无法读取此仓库：%1$s</string>
     <string name="extensions_repo_empty">此仓库没有列出任何扩展。</string>
-    <string name="extensions_requires">需要 Myspoti %1$s 或更高版本</string>
-    <string name="extensions_requires_api">为更新版本的 Myspoti 制作（扩展 API %1$d）</string>
+    <string name="extensions_requires">需要 Orpheon %1$s 或更高版本</string>
+    <string name="extensions_requires_api">为更新版本的 Orpheon 制作（扩展 API %1$d）</string>
     <string name="extensions_update_badge">更新</string>
     <string name="extensions_move_up">上移</string>
     <string name="extensions_move_down">下移</string>
@@ -83,7 +83,7 @@
     <string name="extension_not_listed">你的仓库中没有此扩展（或仓库仍在加载）。</string>
     <string name="extension_details">详情</string>
     <string name="extension_detail_updated">更新于</string>
-    <string name="extension_detail_min_app">需要 Myspoti</string>
+    <string name="extension_detail_min_app">需要 Orpheon</string>
     <string name="extension_detail_size">大小</string>
     <string name="extension_detail_id">ID</string>
     <string name="extension_detail_sha">安装包 sha256</string>
@@ -114,11 +114,11 @@
     <string name="action_network_any">使用任何网站</string>
     <string name="action_webview_page">自有网页</string>
     <string name="action_storage">保存自己的数据</string>
-    <string name="action_unknown">此版 Myspoti 不认识</string>
+    <string name="action_unknown">此版 Orpheon 不认识</string>
     <string name="action_critical">关键</string>
     <string name="action_no_why">（未说明理由）</string>
     <string name="actions_title">功能</string>
-    <string name="actions_critical_warning">关键操作可能修改你的账号、替换歌曲来源或显示任意网页。仅在信任作者时才允许：删除任何内容之前，Myspoti 仍会先询问你。</string>
+    <string name="actions_critical_warning">关键操作可能修改你的账号、替换歌曲来源或显示任意网页。仅在信任作者时才允许：删除任何内容之前，Orpheon 仍会先询问你。</string>
     <!-- Areas of the Installed tab -->
     <string name="area_playback">播放</string>
     <string name="area_lyrics">歌词与歌曲信息</string>
@@ -133,7 +133,7 @@
     <string name="area_idle">空闲</string>
     <string name="area_make_active">设为「%1$s」的首选</string>
     <!-- Install prompt -->
-    <string name="ext_third_party_notice">第三方扩展，未经 Myspoti 审核，由其作者负责。</string>
+    <string name="ext_third_party_notice">第三方扩展，未经 Orpheon 审核，由其作者负责。</string>
     <string name="ext_risk_accept">我了解此扩展由第三方制作，并自行承担安装责任</string>
     <string name="ext_clash_exclusive">替换 %1$s（目前由 %2$s 提供）</string>
     <string name="ext_clash_conflict">与 %1$s（已安装）不兼容</string>
@@ -165,7 +165,7 @@
     <string name="extension_rate_down">差评</string>
     <string name="extension_rated">谢谢：你的投票已记录在 GitHub</string>
     <string name="extension_signin_title">登录 GitHub</string>
-    <string name="extension_signin_body">打开 %1$s 并输入此验证码。Myspoti 不会看到你的密码。</string>
+    <string name="extension_signin_body">打开 %1$s 并输入此验证码。Orpheon 不会看到你的密码。</string>
     <string name="extension_signin_open">打开 GitHub</string>
     <string name="extension_report">举报</string>
     <string name="extension_detail_github">GitHub</string>
@@ -177,8 +177,8 @@
     <string name="extension_check_applied">已更新：没有新增请求</string>
     <string name="extension_check_needs_ok">有更新需要你确认</string>
     <string name="extension_check_declined">你保留了此版本</string>
-    <string name="extension_check_incompatible">新版本需要更新的 Myspoti</string>
-    <string name="extension_check_blocked">新版本已被 Myspoti 屏蔽</string>
+    <string name="extension_check_incompatible">新版本需要更新的 Orpheon</string>
+    <string name="extension_check_blocked">新版本已被 Orpheon 屏蔽</string>
     <string name="extension_check_failed">无法检查：请查看其日志</string>
     <string name="extension_source_gone">来源已失效：其仓库已不存在。它仍使用你手机上的副本运行。</string>
     <string name="extension_revert">还原到 %1$s</string>
@@ -205,7 +205,7 @@
     <string name="extension_confirm_always">始终允许 %1$s</string>
     <string name="ext_auth_title">%1$s：登录</string>
     <string name="ext_auth_close">关闭</string>
-    <string name="ext_auth_notice">独立的网页：您输入的内容及其 Cookie 保留在 Myspoti 中。扩展程序只获取网页最终停留的地址。</string>
+    <string name="ext_auth_notice">独立的网页：您输入的内容及其 Cookie 保留在 Orpheon 中。扩展程序只获取网页最终停留的地址。</string>
     <string name="ext_grants_title">始终允许</string>
     <string name="ext_grants_note">此扩展无需询问即可对 Spotify 进行的更改。撤销某项后将重新询问。</string>
     <string name="ext_grant_revoke">撤销</string>

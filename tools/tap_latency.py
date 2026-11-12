@@ -16,7 +16,7 @@ import argparse, json, os, statistics, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import playback_test as t
 
-PKG = "app.myspoti.dev"
+PKG = "app.orpheon.beta.dev"
 
 # First sound of a new song: the page's media element starts advancing once the
 # content changed or the element reset to the start.

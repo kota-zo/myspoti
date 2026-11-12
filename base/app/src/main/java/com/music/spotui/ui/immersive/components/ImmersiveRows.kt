@@ -54,8 +54,13 @@ private val RowCover = 52.dp
 /** A numbered row's track-number column, the number centred in it: room for three digits. */
 private val TrackNumberWidth = 24.dp
 
-/** How far a row's [ImmersiveMoreButton] reaches past the content edge into the gutter. */
-private val RowMoreOutset = 14.dp
+/**
+ * How far a row's [ImmersiveMoreButton] reaches past the content edge into the gutter. Its touch
+ * square is 48 dp (a 36 dp circle hung 14 dp was under Material's minimum): its 20 dp glyph ends
+ * 14 dp short of the square's edge, so hanging 20 dp keeps the dots 6 dp inside the content edge,
+ * where they were.
+ */
+private val RowMoreOutset = 20.dp
 
 /** Where a divider under a track row starts: clear of the cover. */
 val ImmersiveRowDividerInset = Immersive.Gutter + RowCover + 14.dp
@@ -280,7 +285,7 @@ fun ImmersiveMoreButton(
     Box(
         modifier = modifier
             .hangIntoGutter(RowMoreOutset)
-            .size(36.dp)
+            .size(com.music.spotui.ui.components.MinTouch)
             .clip(CircleShape)
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -310,5 +315,7 @@ internal fun formatDuration(ms: Int): String {
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    // Built by hand: this runs once per visible row, and String.format parses its pattern each time.
+    val seconds = s.toString().padStart(2, '0')
+    return if (h > 0) "$h:${m.toString().padStart(2, '0')}:$seconds" else "$m:$seconds"
 }

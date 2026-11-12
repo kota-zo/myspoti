@@ -40,7 +40,7 @@ import app.myspoti.extensions.Action
 import app.myspoti.extensions.Area
 import com.music.spotui.extensions.Extensions
 import com.music.spotui.extensions.InstalledExtension
-import com.music.spotui.extensions.SPOTIFY_SOURCE
+import com.music.spotui.extensions.ACCOUNT_SOURCE
 import com.music.spotui.ui.theme.AppAccent
 import com.music.spotui.ui.theme.AppMuted
 import com.music.spotui.ui.theme.AppText
@@ -59,23 +59,23 @@ internal class SourceLook(
 /**
  * The order the source [action] (audio or downloads) asks in, for Settings: one row per
  * extension with only what matters (its place, name and whether it answers) and arrows to
- * reorder; its version, author, reason and last use open under it on demand. [spotifyLast]: the
- * audio order, where Spotify has a row of its own that moves too (the sources under it are not
+ * reorder; its version, author, reason and last use open under it on demand. [withAccount]: the
+ * audio order, where the account's player has a row of its own that moves too (the sources under it are not
  * asked).
  */
 @Composable
-internal fun SourceOrderList(action: Action, spotifyLast: Boolean, look: SourceLook, onOpen: (String) -> Unit, rowPadding: Modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+internal fun SourceOrderList(action: Action, withAccount: Boolean, look: SourceLook, onOpen: (String) -> Unit, rowPadding: Modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
     val registry by Extensions.registry.collectAsState()
     val errors by Extensions.errors.collectAsState()
     val statuses by Extensions.statuses.collectAsState()
     val activity by Extensions.activity.state.collectAsState()
     // The order the user set: a source picked in the player for this session is only said above it.
-    val line = remember(registry, action) { Extensions.savedSourceLine(action).filter { spotifyLast || it != SPOTIFY_SOURCE } }
+    val line = remember(registry, action) { Extensions.savedSourceLine(action).filter { withAccount || it != ACCOUNT_SOURCE } }
     val lead by Extensions.sessionSource.collectAsState()
-    val spotifyAt = line.indexOf(SPOTIFY_SOURCE)
+    val accountAt = line.indexOf(ACCOUNT_SOURCE)
     Column(Modifier.fillMaxWidth()) {
         lead?.takeIf { action == Action.AUDIO_SOURCE }?.let { id ->
-            val name = if (id == SPOTIFY_SOURCE) stringResource(R.string.sources_spotify) else registry.find(id)?.name ?: id
+            val name = if (id == ACCOUNT_SOURCE) stringResource(R.string.sources_account) else registry.find(id)?.name ?: id
             Column(Modifier.fillMaxWidth().then(rowPadding)) {
                 Text(stringResource(R.string.source_pick_active, name), style = look.line.copy(color = look.accent))
                 TextButton(onClick = { Extensions.setSessionSource(null) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
@@ -86,16 +86,16 @@ internal fun SourceOrderList(action: Action, spotifyLast: Boolean, look: SourceL
         line.forEachIndexed { i, id ->
             val arrows: @Composable () -> Unit = { MoveArrows(action, id, i, line.size, look) }
             val e = registry.find(id)
-            if (id == SPOTIFY_SOURCE) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(rowPadding)) {
+            if (id == ACCOUNT_SOURCE) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(rowPadding)) {
                 Rank(i + 1, look)
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.sources_spotify), style = look.name, maxLines = 1)
-                    Text(stringResource(R.string.sources_spotify_detail), style = look.line, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.sources_account), style = look.name, maxLines = 1)
+                    Text(stringResource(R.string.sources_account_player) + " · " + stringResource(R.string.sources_account_detail), style = look.line, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 arrows()
             } else if (e != null) {
                 SourceRow(e, i, action, errors[e.id], statuses[e.id], activity.lastOrNull { it.extensionId == e.id && it.area == Area.AUDIO },
-                    below = spotifyAt in 0 until i, look, rowPadding, arrows) { onOpen(e.id) }
+                    below = accountAt in 0 until i, look, rowPadding, arrows) { onOpen(e.id) }
             }
         }
         if (line.isEmpty()) Text(stringResource(R.string.downloads_source_row_off), style = look.line, modifier = rowPadding)
@@ -135,7 +135,7 @@ private fun SourceRow(
                 when {
                     problem != null -> Text(problem.first, style = look.line.copy(color = problem.second), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     !e.enabled -> Text(stringResource(R.string.extension_off), style = look.line, maxLines = 1)
-                    below -> Text(stringResource(R.string.sources_below_spotify), style = look.line, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    below -> Text(stringResource(R.string.sources_below_account), style = look.line, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     else -> Text(stringResource(R.string.sources_ready), style = look.line.copy(color = look.accent), maxLines = 1)
                 }
             }
@@ -170,8 +170,8 @@ private fun SourceRow(
 internal fun sourceLineSummary(action: Action): String? {
     val registry by Extensions.registry.collectAsState()
     val line = remember(registry, action) { Extensions.sourceLine(action) }
-    if (line.none { it != SPOTIFY_SOURCE }) return null
-    val spotify = stringResource(R.string.sources_spotify)
-    val names = line.take(3).map { if (it == SPOTIFY_SOURCE) spotify else registry.find(it)?.name ?: it }
+    if (line.none { it != ACCOUNT_SOURCE }) return null
+    val account = stringResource(R.string.sources_account)
+    val names = line.take(3).map { if (it == ACCOUNT_SOURCE) account else registry.find(it)?.name ?: it }
     return names.joinToString(" › ") + if (line.size > 3) " …" else ""
 }

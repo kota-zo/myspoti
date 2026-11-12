@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">Çalma listeleri</string>
     <string name="aa_albums">Albümler</string>
     <string name="aa_artists">Sanatçılar</string>
@@ -17,8 +17,6 @@
     <string name="player_source_downloaded">İndirildi</string>
     <string name="energy_saver_title">Pil tasarrufu</string>
     <string name="energy_saver_summary">Canvas kapalı, daha hafif videolar ve animasyonlar</string>
-    <string name="video_fullscreen_enter">Tam ekran</string>
-    <string name="video_fullscreen_exit">Tam ekrandan çık</string>
     <string name="playback_seek_description">Oynatma konumu</string>
     <string name="account_page_title">Spotify hesabı</string>
     <string name="account_page_detail">Plan, gizlilik ve cihazlar, spotify.com üzerinden</string>

@@ -7,26 +7,25 @@ import androidx.compose.runtime.setValue
 import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import com.music.spotui.data.preferences.SponsorBlockPref
-import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
-import com.music.spotui.video.YouTubeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 /**
  * SponsorBlock for podcasts: while an episode plays, the parts the SponsorBlock community marked
  * (sponsor reads, and the other categories chosen in the settings) are skipped, each once, with
  * an Undo ([justSkipped], shown by [SponsorSkipUndo]).
  *
- * The episode is asked by its Spotify id first (the server keeps Spotify episodes too); when it
- * has nothing, a YouTube upload of the same episode (same length within 2 s, the same title and
- * show) is asked by its video id. Both by hash prefix: only 4 hex characters of the id's SHA-256
- * leave the phone, with no account, key or user id. Results are kept for the session.
+ * The episode is asked by its Spotify id (the server keeps Spotify episodes too), by hash prefix:
+ * only 4 hex characters of the id's SHA-256 leave the phone, with no account, key or user id.
+ * Results are kept for the session. (No YouTube fallback: it needed a YouTube search.)
  */
 object SponsorSkip {
     private const val TAG = "SponsorSkip"
@@ -57,7 +56,13 @@ object SponsorSkip {
 
     fun init() {
         MyspotiRuntime.scope.launch(Dispatchers.Main) {
-            while (true) delay(runCatching { tick() }.getOrElse { Log.w(TAG, "check failed: ${it.message}"); IDLE_MS })
+            while (true) {
+                // Off, or no episode playing: nothing to look at until that changes (it looked
+                // every 3 s for the life of the process, SponsorBlock on or off).
+                androidx.compose.runtime.snapshotFlow { SponsorBlockPref.on && SongPlayer.nowPlaying.value.uri.startsWith("spotify:episode:") }
+                    .first { it }
+                delay(runCatching { tick() }.getOrElse { Log.w(TAG, "check failed: ${it.message}"); IDLE_MS })
+            }
         }
     }
 
@@ -69,7 +74,7 @@ object SponsorSkip {
         val duration = SongPlayer.getDuration()
         val segments = synchronized(cache) { cache[uri] }
         if (segments == null) {
-            startLookup(uri, duration)
+            startLookup(uri)
             return IDLE_MS
         }
         val categories = SponsorBlockPref.categories()
@@ -106,21 +111,16 @@ object SponsorSkip {
         SongPlayer.seekTo(skipped.from)
     }
 
-    private fun startLookup(uri: String, durationMs: Long) {
+    private fun startLookup(uri: String) {
         if (lookup?.isActive == true && lookupUri == uri) return
         if (uri == lookupUri && System.currentTimeMillis() - failedAt < RETRY_MS) return
         if (com.music.spotui.data.DataSaver.active) return
-        // The length decides the YouTube match: wait for it.
-        if (durationMs <= 0) return
-        val state = Graph.currentSongState
-        val title = state.title.value
-        val show = state.album.value.ifBlank { state.singer.value }
         lookup?.cancel()
         lookupUri = uri
         failedAt = 0L
         lookup = MyspotiRuntime.scope.launch(Dispatchers.IO) {
             val id = uri.substringAfterLast(':')
-            val found = runCatching { segmentsFor(id, title, show, durationMs) }
+            val found = runCatching { segmentsFor(id) }
                 .onFailure { Log.w(TAG, "lookup failed: ${it.message}") }
                 .getOrNull()
             withContext(Dispatchers.Main) {
@@ -130,23 +130,19 @@ object SponsorSkip {
         }
     }
 
-    /** The episode's segments: Spotify's own id first, then a matching YouTube upload. Null: not asked (no network). */
-    private suspend fun segmentsFor(episodeId: String, title: String, show: String, durationMs: Long): List<SponsorSegments.Segment>? {
+    /** The episode's segments by its Spotify id. Null: not asked (no network). */
+    private fun segmentsFor(episodeId: String): List<SponsorSegments.Segment>? {
         val spotify = fetch(episodeId, "Spotify") ?: return null
-        if (spotify.isNotEmpty()) {
-            Logbook.log("sponsorblock: ${spotify.size} segment(s) for the episode")
-            return spotify
-        }
-        if (title.isBlank()) return emptyList()
-        val hits = runCatching { runInterruptible { YouTubeSource.searchVideos("$show $title") } }.getOrElse {
-            Log.w(TAG, "YouTube search failed: ${it.message}"); return emptyList()
-        }
-        val best = SponsorSegments.best(title, show, durationMs, hits.map { Triple(it.name, it.uploader, it.durationSec) })
-        if (best < 0) return emptyList()
-        val videoId = YouTubeSource.videoId(hits[best].url) ?: return emptyList()
-        val youtube = fetch(videoId, "YouTube") ?: return null
-        Logbook.log("sponsorblock: no Spotify segments, YouTube upload of the same length: ${youtube.size} segment(s)")
-        return youtube
+        if (spotify.isNotEmpty()) Logbook.log("sponsorblock: ${spotify.size} segment(s) for the episode")
+        return spotify
+    }
+
+    private val http: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(com.music.spotui.data.DataSaver.interceptor)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
     }
 
     /** One hash-prefix request; the entry of [id] in it (empty: none), or null when it failed. */
@@ -159,7 +155,7 @@ object SponsorSkip {
             .addQueryParameter("actionTypes", "[\"skip\"]")
             .build()
         val request = Request.Builder().url(url).header("X-CLIENT-NAME", "Myspoti").build()
-        return YouTubeSource.http.newCall(request).execute().use { r ->
+        return http.newCall(request).execute().use { r ->
             when {
                 // No segment for any id of that prefix.
                 r.code == 404 -> emptyList()

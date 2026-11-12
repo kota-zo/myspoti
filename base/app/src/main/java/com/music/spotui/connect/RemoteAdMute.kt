@@ -3,6 +3,8 @@ package com.music.spotui.connect
 import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import app.myspoti.spotify.AccountPlan
+import app.myspoti.spotify.bridge.AdBlock
+import androidx.compose.runtime.snapshotFlow
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
 import kotlinx.coroutines.CoroutineScope
@@ -12,10 +14,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
+ * The app's side of the ad blocker for Spotify Connect devices ([AdBlock]: the blocker acts only
+ * while the music is sent from the app to another device of the account, see [AdBlock.activeFor];
+ * this keeps [AdBlock.active] to the device that plays and mutes that device's ads).
+ *
  * Ads on a device the music was sent to (#153). Moved there with Spotify Connect (a Cast
  * speaker woken by [com.music.spotui.cast.CastSpotify], a Denon/HEOS receiver, any Connect
  * device), the songs are played by Spotify on that device itself: its ads too, which no host
@@ -51,8 +58,8 @@ object RemoteAdMute {
             ad: Boolean, elsewhere: Boolean, activeId: String?, chosenId: String?, level: Double?,
             jamMember: Boolean, setAside: Set<String>,
         ): Boolean =
-            ad && elsewhere && activeId != null && activeId == chosenId && !activeId.startsWith("social-connect") &&
-                !jamMember && level != null && level > 0.0 && activeId !in setAside
+            ad && AdBlock.activeFor(elsewhere, activeId, chosenId, jamMember, premium = false) &&
+                level != null && level > 0.0 && activeId !in setAside
 
         /**
          * The level a device is reported at (0..1), else the one the player's volume bar shows
@@ -99,6 +106,16 @@ object RemoteAdMute {
             // The engine may start after the player is attached.
             while (!MyspotiRuntime.isStarted) delay(1_000)
             val player = MyspotiRuntime.spotify.player
+            // The blocker follows the device that plays (the page's Connect status, the device the
+            // app knows as playing, the one picked here, a Jam joined), whatever the ads do.
+            launch {
+                combine(player.playsElsewhere, snapshotFlow { SongPlayer.activeDevice.value?.id }, MyspotiRuntime.api.jam.session) { elsewhere, activeId, jam ->
+                    AdBlock.activeFor(elsewhere, activeId, SongPlayer.chosenRemoteId, jamMember = jam?.isHost == false)
+                }.distinctUntilChanged().collect { on ->
+                    AdBlock.setActive(on)
+                    log(if (on) "on (the music plays on a Spotify Connect device sent from the app)" else "off")
+                }
+            }
             combine(player.adPlaying, player.playsElsewhere) { ad, elsewhere -> ad to elsewhere }
                 .collectLatest { (ad, elsewhere) -> runCatching { onChange(ad, elsewhere) } }
         }
@@ -187,5 +204,5 @@ object RemoteAdMute {
 
     private fun forget() = runCatching { prefs.edit().clear().apply() }
 
-    private fun log(line: String) = Logbook.log("connect: ad mute: $line")
+    private fun log(line: String) = Logbook.log("connect: ad blocker: $line")
 }

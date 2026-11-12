@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -67,7 +66,6 @@ class SpotifyWritesTest {
     private fun runBridge(reply: (JsonObject) -> JsonElement, block: suspend (RecordingHost, Bridge) -> Unit) = runBlocking {
         val host = RecordingHost(reply)
         val bridge = Bridge(host, scope)
-        host.messages.subscriptionCount.first { it > 0 }
         block(host, bridge)
     }
 

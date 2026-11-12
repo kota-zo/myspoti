@@ -17,9 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,12 +40,20 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Spotify's gesture: swipe a song row sideways to add it to the queue. The row
- * follows the finger over a green strip, ticks once with a vibration when it
- * passes the threshold, adds the song ONCE on release, then springs back.
+ * Spotify's gesture: swipe a song row sideways to add it to the queue. The row follows the
+ * finger over a [strip], ticks once with a vibration when it passes the threshold, adds the song
+ * ONCE on release ([SongQueue], a song of another provider found on Spotify first), then springs
+ * back. The Classic colours by default; the Immersive look passes its own (ImmersiveSwipeToQueue).
  */
 @Composable
-fun SwipeToQueue(song: SongsModel, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun SwipeToQueue(
+    song: SongsModel,
+    modifier: Modifier = Modifier,
+    strip: Color = com.music.spotui.ui.theme.AppAccent,
+    iconTint: Color = Color.Black,
+    background: Color = com.music.spotui.ui.theme.AppBackground,
+    content: @Composable () -> Unit,
+) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -51,19 +61,26 @@ fun SwipeToQueue(song: SongsModel, modifier: Modifier = Modifier, content: @Comp
     val maxDrag = threshold * 1.4f
     val offset = remember { Animatable(0f) }
     var armed by remember { mutableStateOf(false) }
+    // Read at the release, not when the gesture started: a row reused for another song.
+    val current by rememberUpdatedState(song)
+    val queueable = SongQueue.canQueue(song)
+    // The offset moves every drag and spring frame: read it through derived state so only the
+    // strip's two visual thresholds, not the whole row, recompose.
+    val revealed by remember(offset) { derivedStateOf { offset.value != 0f } }
+    val fromStart by remember(offset) { derivedStateOf { offset.value > 0f } }
 
     Box(modifier = modifier.fillMaxWidth()) {
-        if (offset.value != 0f) {
+        if (revealed) {
             Box(
-                contentAlignment = if (offset.value > 0) Alignment.CenterStart else Alignment.CenterEnd,
+                contentAlignment = if (fromStart) Alignment.CenterStart else Alignment.CenterEnd,
                 modifier = Modifier
                     .matchParentSize()
-                    .background(if (armed) com.music.spotui.ui.theme.AppAccent else com.music.spotui.ui.theme.AppAccent.copy(alpha = 0.6f)),
+                    .background(if (armed) strip else strip.copy(alpha = 0.6f)),
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.PlaylistAdd,
                     contentDescription = stringResource(R.string.add_to_queue_action_content_description),
-                    tint = Color.Black,
+                    tint = iconTint,
                     modifier = Modifier.padding(horizontal = 24.dp).size(26.dp),
                 )
             }
@@ -71,14 +88,12 @@ fun SwipeToQueue(song: SongsModel, modifier: Modifier = Modifier, content: @Comp
         Box(
             modifier = Modifier
                 .offset { IntOffset(offset.value.roundToInt(), 0) }
-                .background(com.music.spotui.ui.theme.AppBackground)
-                .pointerInput(song.id) {
+                .background(background)
+                // A row that cannot be queued (a local file of the computer, say) does not slide.
+                .then(if (!queueable) Modifier else Modifier.pointerInput(song.id) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (armed && song.spotifyTrackId.isNotBlank()) {
-                                com.music.spotui.di.SongPlayer.addToQueue(song.spotifyTrackId)
-                                android.widget.Toast.makeText(context, context.getString(R.string.snackbar_added_to_queue), android.widget.Toast.LENGTH_SHORT).show()
-                            }
+                            if (armed) SongQueue.add(context, current)
                             armed = false
                             scope.launch { offset.animateTo(0f, spring()) }
                         },
@@ -94,7 +109,7 @@ fun SwipeToQueue(song: SongsModel, modifier: Modifier = Modifier, content: @Comp
                         if (nowArmed && !armed) haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                         armed = nowArmed
                     }
-                },
+                }),
         ) { content() }
     }
 }

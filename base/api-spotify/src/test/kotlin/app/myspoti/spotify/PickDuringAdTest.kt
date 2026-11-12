@@ -1,15 +1,12 @@
 package app.myspoti.spotify
 
-import app.myspoti.spotify.bridge.AdBlock
+import app.myspoti.spotify.bridge.AdSchedule
 import app.myspoti.spotify.bridge.Bridge
 import app.myspoti.spotify.bridge.BridgeHost
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -34,21 +31,20 @@ class PickDuringAdTest {
         suspend fun post(json: String) = messages.emit(json)
     }
 
+    private val time = VirtualTime()
     private lateinit var scope: CoroutineScope
     private lateinit var host: FakeHost
     private lateinit var player: SpotifyPlayer
 
     @BeforeEach fun up() {
-        AdBlock.ahead.value = null
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        AdSchedule.clear()
+        scope = time.scope
         host = FakeHost()
-        player = SpotifyPlayer(Bridge(host, scope), scope)
-        // A message posted before the bridge listens is lost (a slow CI machine): wait for it.
-        waitFor("bridge listening") { host.messages.subscriptionCount.value > 0 }
+        player = SpotifyPlayer(Bridge(host, scope, time::now), scope)
     }
 
     @AfterEach fun down() {
-        AdBlock.ahead.value = null
+        AdSchedule.clear()
         scope.cancel()
     }
 
@@ -57,21 +53,15 @@ class PickDuringAdTest {
 
     private fun state(item: String, next: String? = null, ctx: String = "spotify:playlist:C") =
         """{"type":"state","state":{"track":$item,"contextUri":"$ctx","next":${next ?: "null"},"isPaused":false,"isBuffering":false,
-            |"positionMs":0,"timestamp":${System.currentTimeMillis()},"restrictions":{}}}""".trimMargin()
+            |"positionMs":0,"timestamp":${time.now()},"restrictions":{}}}""".trimMargin()
 
     private val ad = """{"kind":"ad","uri":"spotify:ad:1","name":"ad","durationMs":30000}"""
 
-    private fun waitFor(what: String, ms: Long = 3_000, cond: () -> Boolean) = runBlocking {
-        val end = System.currentTimeMillis() + ms
-        while (!cond()) {
-            check(System.currentTimeMillis() < end) { "timed out: $what" }
-            delay(20)
-        }
-    }
+    private suspend fun waitFor(what: String, ms: Long = 3_000, cond: () -> Boolean) = time.waitFor(what, ms, cond)
 
     private fun plays() = host.calls.filter { it.first == "player.play" }.map { it.second }
 
-    @Test fun `a pick during an ad is held and played in its order once the ad is over`() = runBlocking {
+    @Test fun `a pick during an ad is held and played in its order once the ad is over`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), track("B")))
         host.post(state(ad))
@@ -85,7 +75,7 @@ class PickDuringAdTest {
         assertTrue("spotify:track:P" in sent && "spotify:track:Q" in sent, "pick and its order sent: $sent")
     }
 
-    @Test fun `a pick on a song the page already plays after the ad is not played twice`() = runBlocking {
+    @Test fun `a pick on a song the page already plays after the ad is not played twice`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), track("B")))
         host.post(state(ad))
@@ -96,7 +86,7 @@ class PickDuringAdTest {
         assertTrue(plays().isEmpty(), "P plays by itself: ${plays()}")
     }
 
-    @Test fun `a pick outside an ad is sent at once`() = runBlocking {
+    @Test fun `a pick outside an ad is sent at once`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), track("B")))
         waitFor("state") { player.state.value != null }
@@ -105,21 +95,7 @@ class PickDuringAdTest {
         assertEquals(1, plays().size)
     }
 
-    @Test fun `a pick while the ad-avoiding play is waiting for the song's end is not overridden`() = runBlocking {
-        host.post("""{"type":"ready"}""")
-        host.post(state(track("A", ms = 1_500), track("B")))
-        waitFor("state") { player.state.value != null }
-        AdBlock.ahead.value = AdBlock.AdAhead("uA", "spotify:track:A", "spotify:track:B")
-        delay(150)
-        player.play("spotify:playlist:C", trackUri = "spotify:track:P")
-        // The page has not reported P yet when A's last second comes.
-        delay(1_800)
-        assertEquals(1, plays().size, "only the pick is played: ${host.calls.map { it.first }}")
-        assertTrue("spotify:track:P" in plays().single())
-        assertTrue(host.calls.none { it.first == "queue.skipTo" }, "no skip to the old queue's next song")
-    }
-
-    @Test fun `the fallback after a refused pick keeps the order it was picked in`() = runBlocking {
+    @Test fun `the fallback after a refused pick keeps the order it was picked in`() = time.test {
         host.post("""{"type":"ready"}""")
         host.post(state(track("A"), track("B")))
         waitFor("state") { player.state.value != null }

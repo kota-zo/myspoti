@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="nerd_title">Στατιστικά για σπασίκλες</string>
-    <string name="nerd_section_exo">Player Myspoti (ExoPlayer)</string>
+    <string name="nerd_section_exo">Player Orpheon (ExoPlayer)</string>
     <string name="nerd_section_spotify">Spotify (web player)</string>
     <string name="nerd_source">Πηγή</string>
     <string name="nerd_source_extension">Επέκταση: %1$s</string>

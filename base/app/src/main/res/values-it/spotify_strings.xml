@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Interrompi la traduzione del testo</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Uhm. Non conosciamo il testo di questo brano.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Questo testo non è ancora sincronizzato.</string>
-    <string name="av_switch_to_video" formatted="false">Passa a video</string>
-    <string name="av_switch_to_audio" formatted="false">Passa ad audio</string>
-    <string name="av_content_desc" formatted="false">Alterna tra audio e video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Home</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Cerca</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">La tua libreria</string>

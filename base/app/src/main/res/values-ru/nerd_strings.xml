@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="nerd_title">Статистика для гиков</string>
-    <string name="nerd_section_exo">Плеер Myspoti (ExoPlayer)</string>
+    <string name="nerd_section_exo">Плеер Orpheon (ExoPlayer)</string>
     <string name="nerd_section_spotify">Spotify (веб-плеер)</string>
     <string name="nerd_source">Источник</string>
     <string name="nerd_source_extension">Расширение: %1$s</string>

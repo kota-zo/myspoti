@@ -203,16 +203,26 @@ fun ImmersiveLyricsPanel(modifier: Modifier = Modifier, contentPadding: PaddingV
             )
         }
         is LyricsViewModel.State.Loaded -> {
-            // A new track, or new lyrics for it, starts the list over: its scroll position and
-            // handover state belong to the lines they were made for.
-            key(trackKey, System.identityHashCode(current.lyrics)) {
+            // A new track starts the list over: its scroll position and handover state belong to
+            // the lines they were made for.
+            key(trackKey) {
                 Box(modifier) {
-                    // The translation the song options sheet turned on, line for line with the source's.
-                    LyricsList(
-                        current.lyrics, trackKey, Modifier.fillMaxSize(), contentPadding, vm,
-                        translations = current.translations.takeIf { current.showTranslation },
-                        romanizing = LyricsRomanizationPref.on && current.lyrics.hasRomanization,
-                    )
+                    // Other lyrics for the same song (the line-timed ones shown first, then the
+                    // word-timed ones): each has its own list, opened on the line being sung, and the
+                    // new one fades in over the old. Reported: the lines jumped when the words came,
+                    // the new list starting at its top for a frame before it found its line.
+                    androidx.compose.animation.Crossfade(
+                        targetState = current.lyrics, animationSpec = tween(LYRICS_SWAP_MS), label = "lyricsSwap",
+                        modifier = Modifier.fillMaxSize(),
+                    ) { shown ->
+                        val live = shown === current.lyrics
+                        // The translation the song options sheet turned on, line for line with the source's.
+                        LyricsList(
+                            shown, trackKey, Modifier.fillMaxSize(), contentPadding, vm,
+                            translations = current.translations.takeIf { live && current.showTranslation },
+                            romanizing = LyricsRomanizationPref.on && shown.hasRomanization,
+                        )
+                    }
                     // The romanization, when the lyrics have one, then the Classic screen's translation,
                     // with its language setting and its service: the lyrics are only sent when it is
                     // tapped. Not offered for a song already in that language.
@@ -377,6 +387,9 @@ private val GAP_ROW_HEIGHT = 40.dp
 private val GAP_ROW_SPACING = 16.dp
 
 /** What a line reads at while the list is being scrolled by hand. */
+/** How long other lyrics for the same song take to fade in over the ones shown. */
+private const val LYRICS_SWAP_MS = 350
+
 private const val BROWSING_ALPHA = 0.8f
 
 /** A line under a finger dips, the way a button does. */
@@ -446,7 +459,8 @@ private fun LyricsList(
     val rows = remember(lyrics, isSynced) { panelLines(lyrics, isSynced) }
     val duet = remember(lyrics) { lyrics.hasDuet }
     val playing = Graph.currentSongState.playingState.value
-    val head = rememberLyricsPlayhead(trackKey, playing && isSynced)
+    val wordSynced = remember(lyrics) { lyrics.lines.any { !it.words.isNullOrEmpty() } }
+    val head = rememberLyricsPlayhead(trackKey, playing && isSynced, if (wordSynced) LYRICS_WORD_FPS else LYRICS_LINE_FPS)
     val clock = head.clock
 
     // Genius's notes on the lines, read in the background when the song started (App.kt) and kept
@@ -456,7 +470,7 @@ private fun LyricsList(
     val genTitle = Graph.currentSongState.title.value
     val genArtist = Graph.currentSongState.singer.value
     val genLang = com.music.spotui.ui.components.readerLanguage()
-    val meaning = com.music.spotui.data.api.GeniusMeaning.current.value?.takeIf { it.first == trackId }?.second
+    val meaning = com.music.spotui.data.api.GeniusMeaning.currentFor(trackId)
     LaunchedEffect(trackId, genTitle, genArtist) {
         if (meaning == null) com.music.spotui.data.api.GeniusMeaning.prefetch(trackId, genTitle, genArtist, genLang)
     }
@@ -494,7 +508,9 @@ private fun LyricsList(
     // are one gesture.
     val focusLine = if (leadLine >= 0) leadLine else activeRow
 
-    val listState = rememberLazyListState()
+    // Opened on the line being sung: a list placed there a frame after it was first drawn showed
+    // its top in between.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = focusLine.coerceIn(0, (rows.size - 1).coerceAtLeast(0)))
     // LayoutInfo changes on every scroll frame. Observe only height here so the entire lyrics
     // list is not recomposed for every scrolling pixel.
     val viewportHeight by remember(listState) {
@@ -546,7 +562,7 @@ private fun LyricsList(
             animationSpec = tween(run.spanMs.toInt(), easing = LinearEasing),
         ) { value, _ -> since.floatValue = value }
     }
-    var placed by remember { mutableStateOf(false) }
+    var placed by remember { mutableStateOf(isSynced && focusLine >= 0) }
     // A newer line replaces an unfinished automatic scroll. Only a user's browsing gesture
     // should suspend following, not our own animation.
     LaunchedEffect(focusLine, browsing, selecting) {
@@ -590,8 +606,10 @@ private fun LyricsList(
             top = contentPadding.calculateTopPadding() + 40.dp - GLOW_ROOM,
             end = (Immersive.Gutter + contentPadding.calculateEndPadding(layoutDirection) - GLOW_ROOM)
                 .coerceAtLeast(0.dp),
+            // Room for the last lines to rise a little, not to the top: with 80 % of the window
+            // under them, the list scrolled on into a blank page at the end of a song (#120).
             bottom = contentPadding.calculateBottomPadding() +
-                if (isSynced) with(density) { viewportHeight.toDp() } * 0.8f else 40.dp,
+                if (isSynced) with(density) { viewportHeight.toDp() } * LAST_LINE_ROOM else 40.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
@@ -1288,3 +1306,6 @@ private fun LyricsSkeleton(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** The part of the window left under the last line of synced lyrics (see the list's padding). */
+private const val LAST_LINE_ROOM = 0.35f

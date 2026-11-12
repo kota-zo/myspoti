@@ -4,8 +4,9 @@
     <string name="sources_download_title">Sources de téléchargement</string>
     <string name="sources_audio_footer">Demandées de haut en bas pour chaque titre : la première qui l\'a le joue. Les flèches changent l\'ordre.</string>
     <string name="sources_download_footer">Demandées de haut en bas : la première qui a le titre fournit le fichier. Les flèches changent l\'ordre.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Joue quand aucune source au-dessus n\'a le titre</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Joue quand aucune source au-dessus n\'a le titre</string>
+    <string name="sources_account_player">Le lecteur de votre compte</string>
     <string name="sources_ready">Prête</string>
     <string name="sources_details_show">Afficher les détails</string>
     <string name="sources_details_hide">Masquer les détails</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Dernière : %1$s, %2$s</string>
     <string name="sources_open">Ouvrir l\'extension</string>
     <string name="sources_order_hint">Les sources sont demandées dans l\'ordre réglé dans les Paramètres (Lecture, Téléchargements).</string>
-    <string name="sources_below_spotify">Pas demandée : Spotify est au-dessus</string>
+    <string name="sources_below_account">Pas demandée : Spotify est au-dessus</string>
 </resources>

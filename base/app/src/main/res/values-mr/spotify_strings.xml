@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">गाण्याच्या बोलांचे भाषांतर करणे थांबवा</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">होय. आम्‍हाला या एकाच्‍या गाण्‍याचे बोल माहीत नाहीत.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">या गाण्याच्या बोलांना अद्याप टाइम सिंक केलेले नाही.</string>
-    <string name="av_switch_to_video" formatted="false">व्हिडिओवर स्विच करा</string>
-    <string name="av_switch_to_audio" formatted="false">ऑडिओवर स्विच करा</string>
-    <string name="av_content_desc" formatted="false">ऑडिओ आणि व्हिडिओ दरम्यान टॉगल करा</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">होम</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">शोधा</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">तुमची लायब्ररी</string>

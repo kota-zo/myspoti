@@ -72,7 +72,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import app.myspoti.engine.R
@@ -165,7 +164,10 @@ private fun ArtistOverviewContent(
     // Follow + liked tracks straight from the user's Spotify library.
     var following by remember(overview.id) { mutableStateOf(false) }
     var saved by remember(overview.id) { mutableStateOf<Set<String>>(emptySet()) }
+    // An artist of another provider (its id a whole uri): Spotify cannot follow it; its page reads, its songs play.
+    val onSpotify = !overview.id.contains(':')
     LaunchedEffect(overview.id) {
+        if (!onSpotify) return@LaunchedEffect
         val uris = tracks.map { "spotify:track:${it.song.spotifyTrackId}" } + "spotify:artist:${overview.id}"
         val res = SongPlayer.libraryContains(uris)
         saved = res
@@ -208,12 +210,16 @@ private fun ArtistOverviewContent(
     ) {
         // ── Header: big artist image with scrim + name ──
         item {
+            // 340 dp, but never more than 45 % of the window's height where the window is not a
+            // portrait phone: on a phone on its side it was the whole screen.
+            val window = com.music.spotui.ui.components.windowSize()
+            val headerHeight = if (window.width == com.music.spotui.ui.components.WidthClass.COMPACT) 340.dp
+                else 340.dp.coerceAtMost((window.heightDp * 0.45f).dp)
             Box(modifier = Modifier
                 .fillMaxWidth()
-                .height(340.dp)
+                .height(headerHeight)
             ) {
                 GlideImage(
-                    transition = CrossFade,
                     modifier = Modifier.fillMaxSize(),
                     model = overview.headerImage.ifBlank { overview.avatarImage },
                     contentScale = ContentScale.Crop,
@@ -287,7 +293,7 @@ private fun ArtistOverviewContent(
         }
 
         // ── "Your #3 artist of the past 4 weeks", from the account's Spotify top artists ──
-        item { ArtistTopBadge(overview.id) }
+        if (onSpotify) item { ArtistTopBadge(overview.id) }
 
         // ── Action row: Follow + shuffle + play ──
         item {
@@ -301,7 +307,6 @@ private fun ArtistOverviewContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     overview.popularReleases.firstOrNull()?.let { latest ->
                         GlideImage(
-                            transition = CrossFade,
                             model = latest.coverUri,
                             contentDescription = latest.name,
                             contentScale = ContentScale.Crop,
@@ -312,7 +317,7 @@ private fun ArtistOverviewContent(
                         )
                         Spacer(Modifier.width(16.dp))
                     }
-                    Box(modifier = Modifier.pressable(0.96f) {
+                    if (onSpotify) Box(modifier = Modifier.pressable(0.96f) {
                             val on = !(SongPlayer.library["spotify:artist:${overview.id}"] ?: following)
                             following = on
                             com.music.spotui.di.Haptics.toggle(on)
@@ -330,10 +335,10 @@ private fun ArtistOverviewContent(
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    Spacer(Modifier.width(16.dp))
+                    if (onSpotify) Spacer(Modifier.width(16.dp))
                     // B27: this ⋮ had neither `clickable` nor `onClick` — the artist menu is
                     // opened with the same pressable feedback as the row's other buttons.
-                    Icon(
+                    if (onSpotify) Icon(
                         Icons.Default.MoreVert,
                         contentDescription = stringResource(R.string.content_description_context_menu),
                         tint = AppText.copy(alpha = 0.7f),
@@ -482,7 +487,6 @@ private fun ArtistOverviewContent(
                     Column {
                         if (overview.avatarImage.isNotBlank()) {
                             GlideImage(
-                                transition = CrossFade,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(200.dp),
@@ -613,7 +617,6 @@ private fun PopularTrackRow(
             modifier = Modifier.width(24.dp),
         )
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .padding(8.dp, 0.dp, 12.dp, 0.dp)
                 .size(48.dp)
@@ -683,7 +686,6 @@ private fun ReleaseCard(album: AlbumsModel, onClick: () -> Unit) {
             ,
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .size(132.dp)
                 .clip(RoundedCornerShape(6.dp)),
@@ -715,7 +717,6 @@ private fun ReleaseRow(album: AlbumsModel, onClick: () -> Unit) {
             ,
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .size(88.dp)
                 .clip(RoundedCornerShape(4.dp)),
@@ -917,7 +918,6 @@ private fun RelatedArtistCard(artist: ArtistsModel, onClick: () -> Unit) {
             ,
     ) {
         GlideImage(
-            transition = CrossFade,
             modifier = Modifier
                 .size(122.dp)
                 .clip(CircleShape),

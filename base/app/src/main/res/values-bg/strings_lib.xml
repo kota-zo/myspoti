@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Още %d станция съвпада, но излъчва без криптиране (http) или в HLS, което приложението още не може да възпроизвежда.</item>
+        <item quantity="other">Още %d станции съвпадат, но излъчват без криптиране (http) или в HLS, което приложението още не може да възпроизвежда.</item>
+    </plurals>
+</resources>

@@ -52,6 +52,11 @@ data class NowPlayingInfo(
     val shuffle: Boolean = false,
     /** A podcast episode: the notification offers 15 s skips, the headset next / previous skip 15 s. */
     val episode: Boolean = false,
+    /**
+     * The audio comes over the network while it plays (the account's page, an extension's stream,
+     * a radio); false for a file of the phone or a download. The Wi-Fi lock is for the first only.
+     */
+    val streamed: Boolean = true,
 ) {
     /**
      * Audio goes on, or is about to: a song plays or loads, or an ad break runs. An ad is shown
@@ -63,13 +68,33 @@ data class NowPlayingInfo(
     val makesSound: Boolean get() = playing || buffering || id == AD_ID
 
     /** Everything but the position: a moving position alone is not a new state. */
-    fun sameAs(other: NowPlayingInfo) = id == other.id && title == other.title && artist == other.artist &&
-        album == other.album && coverUrl == other.coverUrl && durationMs == other.durationMs &&
-        playing == other.playing && buffering == other.buffering && liked == other.liked && shuffle == other.shuffle && episode == other.episode
+    fun sameAs(other: NowPlayingInfo) = sameMetadata(other) && playing == other.playing && buffering == other.buffering &&
+        liked == other.liked && shuffle == other.shuffle && episode == other.episode && streamed == other.streamed
+
+    /** The session's metadata is the same (what it carries with its artwork, sent again only when it changes). */
+    fun sameMetadata(other: NowPlayingInfo) = id == other.id && title == other.title && artist == other.artist &&
+        album == other.album && coverUrl == other.coverUrl && durationMs == other.durationMs
+
+    /** The notification shows the same (its text, its cover, its play / pause and 15 s buttons): not posted again. */
+    fun sameNotification(other: NowPlayingInfo) = title == other.title && artist == other.artist && album == other.album &&
+        coverUrl == other.coverUrl && playing == other.playing && episode == other.episode
+
+    /**
+     * Where the system's extrapolation of [before] (published [elapsedMs] ago) puts the position
+     * now is more than [toleranceMs] away from this state's: a seek, a stall caught up, a song
+     * shorter than said. Only then is a state that moved only its position published again.
+     */
+    fun positionJumpedFrom(before: NowPlayingInfo, elapsedMs: Long, toleranceMs: Long = POSITION_JUMP_MS): Boolean {
+        val running = before.playing && !before.buffering
+        val expected = before.positionMs + if (running) elapsedMs else 0L
+        return kotlin.math.abs(positionMs - expected) > toleranceMs
+    }
 
     companion object {
         /** The [id] the app gives an ad break (the screens then say "Advertisement"). */
         const val AD_ID = "spotify:ad"
+        /** See [positionJumpedFrom]. */
+        const val POSITION_JUMP_MS = 2_000L
     }
 }
 
@@ -142,6 +167,9 @@ class PlaybackService : MediaBrowserServiceCompat() {
         }
         sessionToken = session.sessionToken
         createChannel()
+        // The session is new: what it was given is what [update] compares with from now on.
+        published = current
+        publishedAt = android.os.SystemClock.elapsedRealtime()
         current?.let { apply(it) }
         applyQueue()
     }
@@ -158,7 +186,8 @@ class PlaybackService : MediaBrowserServiceCompat() {
         // The paused notification was swiped away: leave the foreground with it.
         if (info?.playing != true && isStop(intent)) {
             handler.removeCallbacks(leaveForeground)
-            holdLocks(false)
+            inPauseGrace = false
+            releaseLocks()
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             foreground = false
         }
@@ -172,7 +201,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
     override fun onDestroy() {
         instance = null
-        holdLocks(false)
+        releaseLocks()
         session.release()
         scope.cancel()
         super.onDestroy()
@@ -185,17 +214,22 @@ class PlaybackService : MediaBrowserServiceCompat() {
      * notification goes with the service.
      */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // An ad or a song loading counts as playing: closing the app then stopped the service under it.
-        if (current?.makesSound == true && !playingRemote && !keepsPlayingOnClose(this)) {
-            controls?.pause()
-            handler.postDelayed({
-                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-                foreground = false
-                stopSelf()
-            }, CLOSE_STOP_MS)
+        if (playingRemote || keepsPlayingOnClose(this)) {
+            if (current?.makesSound != true) stopSelf()
             return
         }
-        if (current?.makesSound != true) stopSelf()
+        // An ad or a song loading counts as playing: closing the app then stopped the service under it.
+        val sounding = current?.makesSound == true
+        // Paused even when it is silent right now (reported: the music went on after the close,
+        // the setting off): between two songs, or held by a call or another app's sound, the
+        // player started again on its own once the service had gone.
+        if (current != null) controls?.pause()
+        if (!sounding) { stopSelf(); return }
+        handler.postDelayed({
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            foreground = false
+            stopSelf()
+        }, CLOSE_STOP_MS)
     }
 
     /** A Spotify Connect device plays (the session's volume is that device's). */
@@ -304,10 +338,26 @@ class PlaybackService : MediaBrowserServiceCompat() {
                 putBitmap(MediaMetadataCompat.METADATA_KEY_ART, art)
             }
             .build())
-        runCatching { session.setMetadata(metadata(true)) }.onFailure {
-            android.util.Log.w("Myspoti", "session art rejected, metadata without it: $it")
-            session.setMetadata(metadata(false))
+        // The metadata (and its 640 px artwork, copied to the system at each call) only when it
+        // changed or its cover came: a play / pause or a liked song is the playback state's alone.
+        val art = cover
+        if (metadataOf?.sameMetadata(info) != true || metadataArt !== art) {
+            metadataOf = info
+            metadataArt = art
+            runCatching { session.setMetadata(metadata(true)) }.onFailure {
+                android.util.Log.w("Myspoti", "session art rejected, metadata without it: $it")
+                session.setMetadata(metadata(false))
+            }
         }
+        applyPlaybackState(info)
+    }
+
+    /** The state the session's metadata was last set from, and its artwork then (see [apply]). */
+    private var metadataOf: NowPlayingInfo? = null
+    private var metadataArt: Bitmap? = null
+
+    /** The play / pause / buffering state, the position and the buttons; also all a moved position needs ([update]). */
+    private fun applyPlaybackState(info: NowPlayingInfo) {
         val state = when {
             info.buffering && info.playing -> PlaybackStateCompat.STATE_BUFFERING
             info.playing -> PlaybackStateCompat.STATE_PLAYING
@@ -421,8 +471,9 @@ class PlaybackService : MediaBrowserServiceCompat() {
      * (see [show]).
      */
     private val leaveForeground = Runnable {
+        inPauseGrace = false
         if (current?.makesSound == true) return@Runnable
-        holdLocks(false)
+        releaseLocks()
         if (foreground) {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
             foreground = false
@@ -431,39 +482,87 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
     private var cpuLock: android.os.PowerManager.WakeLock? = null
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+    private val locks = PlaybackLocks()
+    /** The pause between two songs keeps the foreground and the CPU lock ([show]): [leaveForeground] is pending. */
+    private var inPauseGrace = false
+    /**
+     * The pause was asked (the user, the sleep timer, a call): no next song is loading, so the
+     * minute in the foreground keeps no lock (they were held that minute after every pause).
+     */
+    @Volatile private var pausedOnPurpose = false
+    private val locksRecheck = Runnable { updateLocks(current) }
+
+    /** Takes or drops the locks [PlaybackLocks] says the state [info] needs now. */
+    private fun updateLocks(info: NowPlayingInfo?) {
+        if (info?.makesSound == true) pausedOnPurpose = false
+        val sounding = info?.makesSound == true || (inPauseGrace && foreground && !pausedOnPurpose)
+        val held = locks.decide(info, sounding, playingRemote, android.os.SystemClock.elapsedRealtime())
+        handler.removeCallbacks(locksRecheck)
+        holdCpu(held.cpu)
+        holdWifi(held.wifi)
+        held.recheckInMs?.let { handler.postDelayed(locksRecheck, it) }
+    }
+
+    /** Drops both locks (a real pause, the notification swiped away, the service going). */
+    private fun releaseLocks() {
+        handler.removeCallbacks(locksRecheck)
+        locks.decide(null, sounding = false, remote = false, now = android.os.SystemClock.elapsedRealtime())
+        holdCpu(false)
+        holdWifi(false)
+    }
+
+    private val debuggable by lazy { applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 }
 
     /**
-     * Keeps the CPU and the Wi-Fi radio awake while a song plays: with the screen off the page's
-     * timers and the audio downloads stalled in doze-like power saving. The timeout is only a
-     * safety net against a lock leaked by a missed pause; every state refresh renews it.
+     * Keeps the CPU awake while this phone plays: with the screen off the page's timers and the
+     * players' loads stalled in doze-like power saving. The timeout is only a safety net against
+     * a lock leaked by a missed pause; every state refresh renews it.
      */
     @android.annotation.SuppressLint("WakelockTimeout")
-    private fun holdLocks(on: Boolean) {
+    private fun holdCpu(on: Boolean) {
         runCatching {
             if (on) {
                 val cpu = cpuLock ?: getSystemService(android.os.PowerManager::class.java)
                     .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Myspoti:playback")
                     .apply { setReferenceCounted(false) }.also { cpuLock = it }
                 cpu.acquire(LOCK_TIMEOUT_MS)
-                ScreenWatch.start(this)
+                // Log only: dev builds.
+                if (debuggable) ScreenWatch.start(this)
+            } else {
+                if (debuggable) ScreenWatch.stop(this)
+                cpuLock?.takeIf { it.isHeld }?.release()
+            }
+        }
+    }
+
+    /** Keeps the Wi-Fi out of power save while a network stream loads (see [PlaybackLocks]). */
+    private fun holdWifi(on: Boolean) {
+        runCatching {
+            if (on) {
                 val wifi = wifiLock ?: applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
                     .createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Myspoti:playback")
                     .apply { setReferenceCounted(false) }.also { wifiLock = it }
                 if (!wifi.isHeld) wifi.acquire()
             } else {
-                ScreenWatch.stop(this)
-                cpuLock?.takeIf { it.isHeld }?.release()
                 wifiLock?.takeIf { it.isHeld }?.release()
             }
         }
     }
 
     private fun show(info: NowPlayingInfo) {
-        val notification = build(info)
+        // A cover recycled behind our back since [apply] (the reported crash: "Can't copy a
+        // recycled bitmap" building the notification) is dropped and fetched again.
+        if (cover?.isRecycled == true) { cover = null; lastCoverUrl = null; loadCover(info.coverUrl?.let(Covers::large)) }
+        // Posted again only when what it shows changed (or its cover came): every post rebuilt the
+        // system's media player (shade, lock screen, Now Bar) and copied the artwork once more.
+        val renotify = notified?.sameNotification(info) != true || notifiedCover !== cover || !foreground
+        val notification = if (renotify) build(info) else null
+        if (notification != null) { notified = info; notifiedCover = cover }
         if (info.makesSound) {
-            holdLocks(true)
+            inPauseGrace = false
             handler.removeCallbacks(leaveForeground)
-            startForegroundSafely(notification)
+            updateLocks(info)
+            if (notification != null) startForegroundSafely(notification)
         } else {
             // The player is briefly "paused" while it loads the next song. Leaving the
             // foreground then let Android freeze the app with the screen off, and playback
@@ -472,15 +571,23 @@ class PlaybackService : MediaBrowserServiceCompat() {
             // CPU lock dropped right then left a phone with the screen off free to sleep before
             // the next song had loaded.
             if (foreground) {
-                runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
-                handler.removeCallbacks(leaveForeground)
-                handler.postDelayed(leaveForeground, PAUSE_GRACE_MS)
+                if (notification != null) runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
+                if (!inPauseGrace) {
+                    inPauseGrace = true
+                    handler.removeCallbacks(leaveForeground)
+                    handler.postDelayed(leaveForeground, PAUSE_GRACE_MS)
+                }
+                updateLocks(info)
             } else {
-                holdLocks(false)
-                runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
+                releaseLocks()
+                if (notification != null) runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification) }
             }
         }
     }
+
+    /** What the notification last showed, and its cover then (see [show]). */
+    private var notified: NowPlayingInfo? = null
+    private var notifiedCover: Bitmap? = null
 
     /** [always]: call startForeground() even when already in the foreground (a new foreground start). */
     private fun startForegroundSafely(notification: Notification, always: Boolean = false) {
@@ -503,7 +610,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
             .setContentTitle(info?.title ?: "")
             .setContentText(info?.artist ?: "")
             .setSubText(info?.album)
-            .setLargeIcon(cover)
+            .setLargeIcon(cover?.takeIf { !it.isRecycled })
             .setContentIntent(launchIntent())
             .setDeleteIntent(MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_STOP))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -539,7 +646,10 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
     /** Playback on a Connect device: the volume keys drive that device instead of the phone. */
     private fun setRemote(remote: Boolean, volume: Int) {
+        val changed = remote != playingRemote
         playingRemote = remote
+        // A remote holds no lock; the phone taking playback back takes them again.
+        if (changed) updateLocks(current)
         if (!remote) {
             session.setPlaybackToLocal(android.media.AudioManager.STREAM_MUSIC)
             return
@@ -558,7 +668,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
     override fun onGetRoot(clientPackageName: String, clientUid: Int, rootHints: Bundle?): BrowserRoot? {
         // The service is exported (Android Auto requires it), but the library —
         // playlists, Liked Songs, search — is only for Auto, Assistant, Bluetooth,
-        // Wear, System UI, other system apps and the app itself. Any other app
+        // Wear, System UI, Waze from Google Play, other system apps and the app itself. Any other app
         // gets an empty root: it can still connect and use the session's
         // play/pause controls, but browsing and search return nothing.
         val packages = runCatching { packageManager.getPackagesForUid(clientUid)?.toList() }.getOrNull().orEmpty()
@@ -625,12 +735,23 @@ class PlaybackService : MediaBrowserServiceCompat() {
             .build(), MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
     }
 
-    /** The app itself, the listed browsers, and system apps may browse the library. */
+    /**
+     * The app itself, the listed browsers, and system apps may browse the library. A listed
+     * third-party app ([STORE_BROWSERS]) must come from Google Play: its package name alone is
+     * free for any sideloaded app to take when the real one is not installed.
+     */
     private fun mayBrowse(clientPackageName: String): Boolean {
         if (clientPackageName == packageName || clientPackageName in ALLOWED_BROWSERS) return true
+        if (clientPackageName in STORE_BROWSERS) return installedFromPlay(clientPackageName)
         val flags = runCatching { packageManager.getApplicationInfo(clientPackageName, 0).flags }.getOrDefault(0)
         return (flags and ApplicationInfo.FLAG_SYSTEM) != 0
     }
+
+    private fun installedFromPlay(pkg: String): Boolean = runCatching {
+        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) packageManager.getInstallSourceInfo(pkg).installingPackageName
+            else @Suppress("DEPRECATION") packageManager.getInstallerPackageName(pkg)
+        installer == PLAY_STORE
+    }.getOrDefault(false)
 
     /** Whether the client behind the current onLoadChildren/onSearch call may browse. */
     private fun callerMayBrowse(): Boolean {
@@ -695,6 +816,15 @@ class PlaybackService : MediaBrowserServiceCompat() {
         @Volatile private var queueTitle: String? = null
         @Volatile private var activeQueueId = MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
 
+        /** A pause was asked on purpose (not the gap between two songs): the locks go at once ([pausedOnPurpose]). */
+        fun pausedOnPurpose() {
+            val svc = instance ?: return
+            svc.handler.post {
+                svc.pausedOnPurpose = true
+                if (current?.makesSound != true) svc.updateLocks(current)
+            }
+        }
+
         /** True while the service runs (its notification is up): the app may be in the background. */
         val isRunning: Boolean get() = instance != null
 
@@ -711,8 +841,9 @@ class PlaybackService : MediaBrowserServiceCompat() {
         internal fun statusPosition(): Long = current?.positionMs ?: 0L
 
         private const val PAUSE_GRACE_MS = 60_000L
-        /** A state that did not change is republished at most that often (see [update]). */
-        private const val POSITION_REPUSH_MS = 10_000L
+        /** The state last published to the session (see [update]), and when (elapsed realtime). */
+        @Volatile private var published: NowPlayingInfo? = null
+        @Volatile private var publishedAt = 0L
 
         /** Packages allowed to browse the library (see onGetRoot). */
         private val ALLOWED_BROWSERS = setOf(
@@ -726,13 +857,29 @@ class PlaybackService : MediaBrowserServiceCompat() {
             "com.android.car.media", // Android Automotive media center
         )
 
+        /** Third-party apps allowed to browse when Google Play installed them (see mayBrowse). */
+        private val STORE_BROWSERS = setOf(
+            "com.waze", // Waze's audio player: its "Show list" lists the playlists (#177)
+        )
+        private const val PLAY_STORE = "com.android.vending"
+
         /** Set once by the app. */
         @Volatile var controls: PlaybackControls? = null
         @Volatile var library: MediaLibrary? = null
 
+        /**
+         * Starts the service ahead of a play that is about to make sound: Android gives the audio
+         * only to an app in the foreground, and a player that asks for it before the service is
+         * up is refused and pauses itself (seen with the engine played from the background).
+         */
+        fun ensureStarted(context: Context) {
+            if (instance != null) return
+            runCatching { androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java)) }
+                .onFailure { Logbook.logEvery("service-start", 10_000, "service not started for playback: ${it.javaClass.simpleName} ${it.message?.take(80)}") }
+        }
+
         /** Pushes the now-playing state; starts the service when playback starts. */
         fun update(context: Context, info: NowPlayingInfo) {
-            val before = current
             current = info
             val svc = instance
             if (svc == null) {
@@ -745,10 +892,19 @@ class PlaybackService : MediaBrowserServiceCompat() {
             }
             // The player reports several times per second (position, buffering): only a real
             // change reaches the session and the notification, the system extrapolates the
-            // position in between (the known state is republished every POSITION_REPUSH_MS).
-            if (before != null && before.sameAs(info) &&
-                kotlin.math.abs(info.positionMs - before.positionMs) < POSITION_REPUSH_MS
-            ) return
+            // position in between. A position alone is sent again only when it left that
+            // extrapolation (a seek, a stall caught up), and then as the playback state only:
+            // it was the whole state, artwork and notification included, every 10 s.
+            val now = android.os.SystemClock.elapsedRealtime()
+            val shown = published
+            if (shown != null && shown.sameAs(info)) {
+                if (!info.positionJumpedFrom(shown, now - publishedAt)) return
+                published = info; publishedAt = now
+                svc.applyPlaybackState(info)
+                svc.updateLocks(info)
+                return
+            }
+            published = info; publishedAt = now
             svc.apply(info)
             svc.show(info)
             // Sound with no foreground service (bound by the car only, promotion refused): start it.
@@ -772,6 +928,7 @@ class PlaybackService : MediaBrowserServiceCompat() {
         /** Signed out: the notification and the media session go, nothing of the account stays. */
         fun end() {
             current = null
+            published = null
             queue = emptyList(); queueTitle = null; activeQueueId = MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong()
             instance?.let { svc ->
                 svc.applyQueue()
@@ -785,5 +942,14 @@ class PlaybackService : MediaBrowserServiceCompat() {
 
         /** [remote] when a Connect device plays; [volume] 0..100. */
         fun setPlaybackDevice(remote: Boolean, volume: Int) { instance?.setRemote(remote, volume) }
+
+        /**
+         * The app fetches audio over the network that no state shows (the next song loaded ahead):
+         * the Wi-Fi lock covers it as it covers a song's start (see [PlaybackLocks]). Any thread.
+         */
+        fun noteNetworkLoad() {
+            val svc = instance ?: return
+            svc.handler.post { svc.locks.noteLoad(android.os.SystemClock.elapsedRealtime()); svc.updateLocks(current) }
+        }
     }
 }

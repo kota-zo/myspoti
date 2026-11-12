@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Подходит ещё %d станция, но она вещает без шифрования (http) или в HLS, что приложение пока не воспроизводит.</item>
+        <item quantity="few">Подходят ещё %d станции, но они вещают без шифрования (http) или в HLS, что приложение пока не воспроизводит.</item>
+        <item quantity="many">Подходят ещё %d станций, но они вещают без шифрования (http) или в HLS, что приложение пока не воспроизводит.</item>
+        <item quantity="other">Подходят ещё %d станции, но они вещают без шифрования (http) или в HLS, что приложение пока не воспроизводит.</item>
+    </plurals>
+</resources>

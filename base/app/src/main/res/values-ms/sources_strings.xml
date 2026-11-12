@@ -4,8 +4,9 @@
     <string name="sources_download_title">Sumber muat turun</string>
     <string name="sources_audio_footer">Ditanya dari atas ke bawah untuk setiap lagu: yang pertama memilikinya akan memainkannya. Gunakan anak panah untuk menukar susunan.</string>
     <string name="sources_download_footer">Ditanya dari atas ke bawah: sumber pertama yang mempunyai lagu itu memberikan fail. Gunakan anak panah untuk menukar susunan.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Dimainkan apabila tiada sumber di atasnya mempunyai lagu itu</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Dimainkan apabila tiada sumber di atasnya mempunyai lagu itu</string>
+    <string name="sources_account_player">Pemain akaun anda</string>
     <string name="sources_ready">Sedia</string>
     <string name="sources_details_show">Tunjuk butiran</string>
     <string name="sources_details_hide">Sembunyikan butiran</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Terakhir: %1$s, %2$s</string>
     <string name="sources_open">Buka sambungan</string>
     <string name="sources_order_hint">Sumber ditanya mengikut susunan yang ditetapkan dalam Tetapan (Main Balik, Muat Turun).</string>
-    <string name="sources_below_spotify">Tidak ditanya: Spotify berada di atas</string>
+    <string name="sources_below_account">Tidak ditanya: Spotify berada di atas</string>
 </resources>

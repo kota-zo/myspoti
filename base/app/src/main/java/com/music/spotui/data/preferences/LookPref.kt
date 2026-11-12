@@ -35,12 +35,28 @@ object LookPref {
 
     /** The look step of the onboarding was seen (new installs and updates alike). */
     fun isChosen(c: Context): Boolean = prefs(c).getBoolean(KEY_CHOSEN, false)
-    fun setChosen(c: Context) = prefs(c).edit().putBoolean(KEY_CHOSEN, true).putBoolean(KEY_OFFERED, true).apply()
+    fun setChosen(c: Context) {
+        prefs(c).edit().putBoolean(KEY_CHOSEN, true).putBoolean(KEY_OFFERED, true).apply()
+        offered = true
+    }
 
-    /** The new-look popup was shown to an existing user (or the onboarding look step covered it). */
+    /**
+     * The new-look popup was shown to an existing user (or the onboarding look step covered it), as
+     * Compose state. The activity kept its own copy, read once at its start: the look step of the
+     * onboarding saved "offered" but the copy stayed false, and the popup came up as soon as the
+     * onboarding ended, asking the look a second time.
+     */
+    var offered by mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY_OFFERED, false))
+        private set
     fun isOffered(c: Context): Boolean = prefs(c).getBoolean(KEY_OFFERED, false)
-    fun setOffered(c: Context) = prefs(c).edit().putBoolean(KEY_OFFERED, true).apply()
-    fun clearOffered(c: Context) = prefs(c).edit().remove(KEY_OFFERED).apply()
+    fun setOffered(c: Context) {
+        prefs(c).edit().putBoolean(KEY_OFFERED, true).apply()
+        offered = true
+    }
+    fun clearOffered(c: Context) {
+        prefs(c).edit().remove(KEY_OFFERED).apply()
+        offered = false
+    }
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 }

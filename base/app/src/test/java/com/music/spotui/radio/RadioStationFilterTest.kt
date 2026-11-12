@@ -8,19 +8,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RadioStationFilterTest {
-    @Test fun onlyHttpsStreamsThatAreNotHlsPlay() {
+    @Test fun onlyHttpsStreamsPlayHlsOrNot() {
         assertTrue(RadioBrowserApi.playable("https://icecast.example.com/live.mp3"))
         assertTrue(RadioBrowserApi.playable("HTTPS://icecast.example.com:8443/stream"))
         assertFalse(RadioBrowserApi.playable("http://icecast.example.com/live.mp3"))
-        assertFalse(RadioBrowserApi.playable("https://cdn.example.com/live/index.m3u8"))
-        assertFalse(RadioBrowserApi.playable("https://cdn.example.com/live/master.M3U8?token=1"))
-        assertFalse(RadioBrowserApi.playable("https://cdn.example.com/live", hls = true))
+        assertTrue(RadioBrowserApi.playable("https://cdn.example.com/live/index.m3u8"))
+        assertTrue(RadioBrowserApi.playable("https://cdn.example.com/live/master.M3U8?token=1"))
+        assertFalse(RadioBrowserApi.playable("http://cdn.example.com/live/index.m3u8"))
+        assertTrue(RadioBrowserApi.looksHls("https://cdn.example.com/live/master.M3U8?token=1"))
+        assertFalse(RadioBrowserApi.looksHls("https://cdn.example.com/live.mp3?f=.m3u8"))
         assertFalse(RadioBrowserApi.playable("rtsp://cdn.example.com/live"))
         assertFalse(RadioBrowserApi.playable("https:///no-host"))
         assertFalse(RadioBrowserApi.playable(""))
     }
 
-    @Test fun theDirectoryListKeepsOnlyPlayableStations() {
+    @Test fun theDirectoryListKeepsOnlyHttpsStations() {
         val list = Json.parseToJsonElement(
             """
             [
@@ -34,11 +36,28 @@ class RadioStationFilterTest {
             """,
         ).jsonArray
         val kept = RadioBrowserApi.stations(list)
-        assertEquals(listOf("a", "c"), kept.map { it.stationUuid })
+        // "b" stays out (http); the HLS ones, "d" by the directory's flag and "e" by its address, play.
+        assertEquals(listOf("a", "c", "d", "e"), kept.map { it.stationUuid })
+        assertEquals(listOf(false, false, true, true), kept.map { it.hls })
         assertEquals("https://a.example.com/live", kept[0].streamUrl)
+        // The ones left out are counted, so a search says they exist instead of finding nothing.
+        val firstOne = RadioBrowserApi.results(list, limit = 1)
+        assertEquals(listOf("a"), firstOne.stations.map { it.stationUuid })
+        assertEquals(1, firstOne.unplayable)
     }
 
     @Test fun theCuratedStationsAllPlay() {
         assertTrue(RadioBrowserApi.curatedPopular.all { RadioBrowserApi.playable(it.streamUrl) })
+    }
+
+    @Test fun onlyAUuidIsTakenForAStationId() {
+        val id = "cf383460-c764-477e-a17b-33d1bff7a9aa"
+        assertEquals(id, RadioBrowserApi.asStationUuid(id))
+        assertEquals(id, RadioBrowserApi.asStationUuid("  $id  "))
+        assertEquals(id.uppercase(), RadioBrowserApi.asStationUuid(id.uppercase()))
+        assertEquals(null, RadioBrowserApi.asStationUuid("RDS"))
+        assertEquals(null, RadioBrowserApi.asStationUuid("rds grandi successi"))
+        assertEquals(null, RadioBrowserApi.asStationUuid(id.dropLast(1)))
+        assertEquals(null, RadioBrowserApi.asStationUuid(""))
     }
 }

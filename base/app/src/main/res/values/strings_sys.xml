@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">Open the release page</string>
+    <string name="sys_update_conflict">Android refused this version over the installed app: it was signed with another key. Download it from the release page, and uninstall this app first if Android asks.</string>
+</resources>

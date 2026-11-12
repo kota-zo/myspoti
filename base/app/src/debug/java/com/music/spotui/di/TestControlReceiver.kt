@@ -10,7 +10,7 @@ import kotlinx.serialization.json.jsonObject
 /**
  * Debug builds only: the playback test (tools/playback_test.py) sends the app's own
  * commands, as a tap would, with
- * `adb shell am broadcast -a app.myspoti.TEST -p app.myspoti.dev --es cmd <cmd> ...`.
+ * `adb shell am broadcast -a app.myspoti.TEST -p app.orpheon.beta.dev --es cmd <cmd> ...`.
  * cmd: play (--es track <uri> --es context <uri>), resume, pause, next, previous, seek (--el ms <n>).
  * cmd: download (--es id <spotify id> --es title T --es artist A --ei ms <duration>), playdownloaded (--es id).
  * cmd: screenon (--ez on false to release) holds the screen on for a long run: One UI does not
@@ -24,11 +24,20 @@ import kotlinx.serialization.json.jsonObject
  * guessing one from a bundle.
  * cmd: extlist logs the installed extensions; extuninstall (--es id <extension id>) removes one
  * through the app's own uninstall path, as its page's Uninstall button does.
+ * cmd: native-play (--es arg <spotify uri>, --ez l3 true), native-pause, native-resume, native-seek
+ * (--es arg <ms>), native-next (--es arg [uri]), native-prev, native-transfer, native-stop,
+ * native-status, native-log (--es arg [lines]): the native engine headless, see NativeAudio.
  */
 class TestControlReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val cmd = intent.getStringExtra("cmd").orEmpty()
         Log.i("MspPlayer", "test command $cmd")
+        // The native engine (debug only): the reply goes back as the broadcast's result data.
+        if (cmd.startsWith("native-")) {
+            resultCode = 1
+            resultData = NativeAudio.command(context, cmd, intent)
+            return
+        }
         when (cmd) {
             "gql" -> {
                 val op = intent.getStringExtra("op").orEmpty()

@@ -153,6 +153,13 @@ class Api constructor(
     private suspend fun ready(): Boolean =
         withTimeoutOrNull(30_000) { api.ready.first { it } } != null
 
+    /**
+     * For reads that go straight to Spotify over HTTP (search): ready as soon as a token is in hand,
+     * the one kept from the last launch included, without waiting for the page to load.
+     */
+    private suspend fun readyToRead(): Boolean =
+        api.ready.value || runCatching { app.myspoti.host.android.MyspotiRuntime.spotify.http.hasToken() }.getOrDefault(false) || ready()
+
     private suspend fun diskHome(): HomeFeedModel? =
         withContext(Dispatchers.IO) { ScreenCache.home.read() }?.also { HomeCache.home = it }
 
@@ -192,6 +199,20 @@ class Api constructor(
             addedAt = t.addedAt.orEmpty(),
             playable = false,
             rowUid = t.uid.orEmpty(),
+        )
+        // A song of another provider (a search's, an album's of that provider): no Spotify id, so the actions that
+        // need one are off; it plays once found on Spotify (SongPlayer.playSong).
+        if (com.music.spotui.data.catalog.CatalogRuntime.isCatalogUri(t.uri)) return SongsModel(
+            id = stableId("catalog:${t.uri}"),
+            title = t.name.take(128),
+            album = t.album?.name.orEmpty(),
+            singer = singer,
+            coverUri = cover(t.album?.images.orEmpty()),
+            url = com.music.spotui.data.catalog.CatalogRuntime.PLAY_PREFIX + t.uri,
+            explicit = t.explicit,
+            durationMs = t.durationMs.toInt(),
+            albumId = t.album?.uri.orEmpty(),
+            artistIds = t.artists.map { it.uri },
         )
         return SongsModel(
             id = stableId("track:$id"),
@@ -239,8 +260,11 @@ class Api constructor(
         )
     }
 
+    /** The id the UI keys an item by: Spotify's bare id, or the whole uri of an item of another provider. */
+    private fun idOf(uri: String) = if (uri.startsWith("spotify:")) uri.substringAfterLast(':') else uri
+
     private fun albumOf(a: Album) = AlbumsModel(
-        spotifyId = a.uri.substringAfterLast(':'),
+        spotifyId = idOf(a.uri),
         id = stableId("album:${a.uri}"),
         artists = a.artists.joinToString(", ") { it.name },
         coverUri = cover(a.images),
@@ -249,7 +273,7 @@ class Api constructor(
         type = a.type,
     )
 
-    private fun artistOf(a: Artist) = ArtistsModel(name = a.name, coverUri = cover(a.images), id = a.uri.substringAfterLast(':'))
+    private fun artistOf(a: Artist) = ArtistsModel(name = a.name, coverUri = cover(a.images), id = idOf(a.uri))
 
     private fun playlistEntry(p: Playlist) = LibraryEntry(
         spotifyId = p.uri.substringAfterLast(':'),
@@ -303,7 +327,7 @@ class Api constructor(
         var offset = 0
         while (true) {
             val page = runCatching { api.library.items(filter = LibraryFilter.ARTISTS, offset = offset, limit = 50) }.getOrNull() ?: break
-            page.items.filter { it.kind == MediaKind.ARTIST }.forEach { out += ArtistsModel(it.name, cover(it.images), it.uri.substringAfterLast(':')) }
+            page.items.filter { it.kind == MediaKind.ARTIST }.forEach { out += ArtistsModel(it.name, cover(it.images), it.uri.substringAfterLast(':'), it.addedAt.orEmpty()) }
             offset = page.nextOffset ?: break
         }
         return out
@@ -423,7 +447,7 @@ class Api constructor(
     suspend fun searchEverything(query: String): Flow<Response<SearchResults>> = flow {
         emit(Response.Loading())
         if (query.isBlank()) { emit(Response.Success(SearchResults())); return@flow }
-        if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
+        if (!readyToRead()) { emit(Response.Error(notSignedIn())); return@flow }
         val music = runCatching { api.search.all(query, limit = 20) }.getOrElse {
             Log.e("Api", "searchEverything failed", it); emit(Response.Error(it.message ?: "error")); return@flow
         }
@@ -661,8 +685,13 @@ class Api constructor(
         emit(Response.Loading())
         if (artistName.isBlank() && knownArtistId.isBlank()) { emit(Response.Success(ArtistOverviewModel(name = artistName))); return@flow }
         if (!ready()) { emit(Response.Error(notSignedIn())); return@flow }
-        val uri = if (knownArtistId.isNotBlank()) "spotify:artist:$knownArtistId"
-        else runCatching { findArtist(artistName) }.getOrNull()?.uri
+        val uri = when {
+            // An artist of another provider: its Spotify page when Spotify has the same name, else its own.
+            knownArtistId.contains(':') ->
+                runCatching { com.music.spotui.data.catalog.CatalogRuntime.spotifyArtistFor(knownArtistId) }.getOrNull()?.let { "spotify:artist:$it" } ?: knownArtistId
+            knownArtistId.isNotBlank() -> "spotify:artist:$knownArtistId"
+            else -> runCatching { findArtist(artistName) }.getOrNull()?.uri
+        }
         if (uri == null) { emit(Response.Error(context.getString(R.string.artist_not_found))); return@flow }
         // Shown again within a few minutes (back, the releases page, another tap): from memory,
         // without asking Spotify for the page and the whole discography once more.
@@ -688,7 +717,7 @@ class Api constructor(
         val top = page.topTracks.map { t -> songOf(t.track).let { if (it.coverUri.isBlank()) it.copy(coverUri = avatar) else it } to t.playcount }
         SongPlayer.registerContext(top.map { it.first.url }, uri)
         val model = ArtistOverviewModel(
-            id = uri.substringAfterLast(':'),
+            id = idOf(uri),
             name = page.artist.name.ifBlank { artistName },
             verified = page.artist.verified,
             monthlyListeners = page.artist.monthlyListeners,
@@ -696,8 +725,8 @@ class Api constructor(
             headerImage = big(page.headerImages).ifBlank { avatar },
             avatarImage = avatar,
             topTracks = top.map { (song, plays) -> ArtistTrackUi(song, plays) },
-            // Newest first (the sort is stable: same-day releases keep Spotify's order).
-            popularReleases = page.popularReleases.sortedByDescending { it.releaseDate.orEmpty().take(10) }.map(::albumOf),
+            // Newest first, by year at this point (a popular release may carry its year alone).
+            popularReleases = app.myspoti.api.Releases.newestFirst(page.popularReleases, emptyList()).map(::albumOf),
             appearsOn = page.appearsOn.map(::albumOf),
             relatedArtists = page.related.map(::artistOf),
         )
@@ -717,10 +746,10 @@ class Api constructor(
             }
             out
         }.getOrNull().orEmpty()
-        val known = page.popularReleases.map { it.uri }.toSet()
-        if (all.any { it.uri !in known }) {
-            val merged = (page.popularReleases + all).distinctBy { it.uri }.sortedByDescending { it.releaseDate.orEmpty().take(10) }
-            val full = model.copy(popularReleases = merged.map(::albumOf))
+        // Shown again when the discography adds releases or puts them in their real order (its dates are full ones).
+        val merged = app.myspoti.api.Releases.newestFirst(page.popularReleases, all).map(::albumOf)
+        if (merged != model.popularReleases) {
+            val full = model.copy(popularReleases = merged)
             ArtistCache.map[uri] = System.currentTimeMillis() to full
             emit(Response.Success(full))
         }
@@ -773,7 +802,7 @@ class Api constructor(
     suspend fun resolveAlbumId(albumName: String, artist: String = ""): String? {
         if (albumName.isBlank() || !ready()) return null
         val hits = runCatching { api.search.albums(if (artist.isBlank()) albumName else "$albumName $artist", limit = 10).items }.getOrNull().orEmpty()
-        return pickAlbum(hits, albumName, artist)?.uri?.substringAfterLast(':')
+        return pickAlbum(hits, albumName, artist)?.uri?.let(::idOf)
     }
 
     /**
@@ -888,10 +917,27 @@ class Api constructor(
      * songs from Spotify, and the artist's avatar a moment after in a second emit. Without
      * [stored] the copy on storage is left out (a sync that must see the album as it is now).
      */
-    suspend fun getAlbumPage(albumId: String, stored: Boolean = true): Flow<Response<ContextPageModel>> = flow {
+    /** The release date in full, then the label when no copyright line names it, then the copyright lines. */
+    private fun albumFooter(album: Album): List<String> {
+        val date = album.releaseDate?.takeIf { it.length >= 10 }?.let { iso ->
+            runCatching {
+                java.time.LocalDate.parse(iso.take(10)).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG))
+            }.getOrNull()
+        }
+        val label = album.label?.trim()?.takeIf { l -> l.isNotEmpty() && album.copyrights.none { it.contains(l, ignoreCase = true) } }
+        return listOfNotNull(date, label?.let { context.getString(R.string.album_label, it) }) + album.copyrights
+    }
+
+    suspend fun getAlbumPage(asked: String, stored: Boolean = true): Flow<Response<ContextPageModel>> = flow {
         emit(Response.Loading())
-        val uri = "spotify:album:$albumId"
-        val saved = if (stored) withContext(Dispatchers.IO) { ScreenCache.albumPage(albumId).read() } else null
+        // An album of another provider (a whole uri): its Spotify copy when Spotify has it, else its own page,
+        // read from that provider and not kept on storage.
+        val other = asked.contains(':')
+        if (other && !ready()) { emit(Response.Error(notSignedIn())); return@flow }
+        val albumId = if (other) runCatching { com.music.spotui.data.catalog.CatalogRuntime.spotifyAlbumFor(asked) }.getOrNull() ?: asked else asked
+        val onSpotify = !albumId.contains(':')
+        val uri = if (onSpotify) "spotify:album:$albumId" else albumId
+        val saved = if (stored && onSpotify) withContext(Dispatchers.IO) { ScreenCache.albumPage(albumId).read() } else null
         if (saved != null) {
             SongPlayer.registerContext(saved.tracks.map { it.url }, uri)
             emit(Response.Success(saved))
@@ -932,15 +978,18 @@ class Api constructor(
             metaLine = listOf(type, dateLabel(album.releaseDate)).filter { it.isNotBlank() }.joinToString(" • "),
             explicit = songs.any { it.explicit },
             tracks = songs,
+            footer = albumFooter(album),
         )
         // Written before the first emit: a collector that only wants the first page stops the flow there.
-        ScreenCache.albumPage(albumId).write(page)
-        ScreenCache.pruneAlbumPages(ALBUM_PAGES_KEPT)
+        if (onSpotify) {
+            ScreenCache.albumPage(albumId).write(page)
+            ScreenCache.pruneAlbumPages(ALBUM_PAGES_KEPT)
+        }
         emit(Response.Success(page))
         val avatar = firstArtist?.let { runCatching { api.catalog.artist(it.uri) }.getOrNull() }?.images?.let(::cover).orEmpty()
         if (avatar.isNotBlank() && avatar != page.ownerAvatar) {
             val withAvatar = page.copy(ownerAvatar = avatar)
-            ScreenCache.albumPage(albumId).write(withAvatar)
+            if (onSpotify) ScreenCache.albumPage(albumId).write(withAvatar)
             emit(Response.Success(withAvatar))
         }
     }

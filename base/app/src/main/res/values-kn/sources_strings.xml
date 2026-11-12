@@ -4,8 +4,9 @@
     <string name="sources_download_title">ಡೌನ್‌ಲೋಡ್ ಮೂಲಗಳು</string>
     <string name="sources_audio_footer">ಪ್ರತಿ ಹಾಡಿಗೆ ಮೇಲಿನಿಂದ ಕೆಳಗೆ ಕೇಳಲಾಗುತ್ತದೆ: ಅದನ್ನು ಹೊಂದಿರುವ ಮೊದಲನೆಯದು ಅದನ್ನು ಪ್ಲೇ ಮಾಡುತ್ತದೆ. ಕ್ರಮವನ್ನು ಬದಲಿಸಲು ಬಾಣಗಳನ್ನು ಬಳಸಿ.</string>
     <string name="sources_download_footer">ಮೇಲಿನಿಂದ ಕೆಳಗೆ ಕೇಳಲಾಗುತ್ತದೆ: ಹಾಡು ಇರುವ ಮೊದಲ ಮೂಲ ಫೈಲ್ ನೀಡುತ್ತದೆ. ಕ್ರಮವನ್ನು ಬದಲಿಸಲು ಬಾಣಗಳನ್ನು ಬಳಸಿ.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">ಮೇಲಿನ ಯಾವುದೇ ಮೂಲದಲ್ಲಿ ಹಾಡು ಇಲ್ಲದಿದ್ದಾಗ ಪ್ಲೇ ಆಗುತ್ತದೆ</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">ಮೇಲಿನ ಯಾವುದೇ ಮೂಲದಲ್ಲಿ ಹಾಡು ಇಲ್ಲದಿದ್ದಾಗ ಪ್ಲೇ ಆಗುತ್ತದೆ</string>
+    <string name="sources_account_player">ನಿಮ್ಮ ಖಾತೆಯ ಪ್ಲೇಯರ್</string>
     <string name="sources_ready">ಸಿದ್ಧ</string>
     <string name="sources_details_show">ವಿವರಗಳನ್ನು ತೋರಿಸಿ</string>
     <string name="sources_details_hide">ವಿವರಗಳನ್ನು ಮರೆಮಾಡಿ</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">ಕೊನೆಯದು: %1$s, %2$s</string>
     <string name="sources_open">ವಿಸ್ತರಣೆಯನ್ನು ತೆರೆ</string>
     <string name="sources_order_hint">ಮೂಲಗಳನ್ನು ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ (ಪ್ಲೇಬ್ಯಾಕ್, ಡೌನ್‌ಲೋಡ್‌ಗಳು) ಹೊಂದಿಸಲಾದ ಕ್ರಮದಲ್ಲಿ ಕೇಳಲಾಗುತ್ತದೆ.</string>
-    <string name="sources_below_spotify">ಕೇಳಲಾಗುವುದಿಲ್ಲ: Spotify ಮೇಲಿದೆ</string>
+    <string name="sources_below_account">ಕೇಳಲಾಗುವುದಿಲ್ಲ: Spotify ಮೇಲಿದೆ</string>
 </resources>

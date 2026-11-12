@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">หยุดการแปลเนื้อเพลง</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">อืมม เราไม่รู้เนื้อเพลงของเพลงนี้</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">เนื้อเพลงเหล่านี้ยังไม่ได้ซิงค์เวลา</string>
-    <string name="av_switch_to_video" formatted="false">สลับเป็นวิดีโอ</string>
-    <string name="av_switch_to_audio" formatted="false">สลับเป็นเสียง</string>
-    <string name="av_content_desc" formatted="false">สลับระหว่างเสียงกับวิดีโอ</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">หน้าหลัก</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">ค้นหา</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">คอลเลกชันของคุณ</string>

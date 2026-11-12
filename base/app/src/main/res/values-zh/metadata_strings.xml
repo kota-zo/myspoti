@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">元数据</string>
+    <string name="metadata_footer">搜索、专辑和艺人来自这些服务，按从上到下的顺序询问。找到两次的同一首歌只显示一次。已关闭的服务永远不会被询问。</string>
+    <string name="metadata_spotify_detail">你的账号（登录期间）</string>
+    <string name="metadata_signed_out">不询问：没有已登录的账号</string>
+    <string name="metadata_asked">询问中</string>
+    <string name="metadata_off">已关闭：从不询问</string>
+    <string name="metadata_reset">恢复默认顺序</string>
+    <string name="metadata_not_on_spotify">在 Spotify 上找不到：这首歌暂时无法播放</string>
+    <string name="metadata_switch">询问 %1$s</string>
+</resources>

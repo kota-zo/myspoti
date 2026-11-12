@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Метаданные</string>
+    <string name="metadata_footer">Поиск, альбомы и исполнители берутся из этих сервисов, которые опрашиваются сверху вниз. Одна и та же песня, найденная дважды, показывается один раз. Выключенный сервис никогда не опрашивается.</string>
+    <string name="metadata_spotify_detail">Ваш аккаунт, пока вы вошли в него</string>
+    <string name="metadata_signed_out">Не опрашивается: нет аккаунта, в который выполнен вход</string>
+    <string name="metadata_asked">Опрашивается</string>
+    <string name="metadata_off">Выключено: никогда не опрашивается</string>
+    <string name="metadata_reset">Вернуть порядок по умолчанию</string>
+    <string name="metadata_not_on_spotify">Не найдено в Spotify: эту песню пока нельзя воспроизвести</string>
+    <string name="metadata_switch">Опрашивать %1$s</string>
+</resources>

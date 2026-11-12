@@ -1,5 +1,6 @@
 package com.music.spotui.ui.components
 
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -29,14 +30,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -49,8 +49,8 @@ import com.music.spotui.di.LocalPlayer
 import com.music.spotui.ui.look.rememberReduceMotion
 
 /**
- * The mix AutoMix has planned for the song playing, or is playing: the players colour its stretch
- * of the seek bar from the moment it is planned and pulse with the music around it. Null with no
+ * The mix AutoMix has planned for the song playing, or is playing: the players move with the music
+ * while it is heard ([rememberMixPulse]). Null with no
  * mix ahead (AutoMix off, a Spotify song, the last song).
  */
 @Composable
@@ -58,20 +58,8 @@ fun rememberMixCue(): LocalPlayer.MixCue? =
     LocalPlayer.mixCue.value?.takeIf { LocalPlayer.active.value && com.music.spotui.automix.AutoMix.on && com.music.spotui.automix.AutoMix.showInPlayer }
 
 /**
- * Where the mix sits on the bar of the song shown, as fractions of its length: the song going out
- * until half way through the mix (the words then switch, see [SongBlend]), the one coming in after.
- */
-fun LocalPlayer.MixCue.zoneOn(durationMs: Long, incomingShown: Boolean): ClosedFloatingPointRange<Float>? {
-    if (durationMs <= 0) return null
-    val (from, to) = if (mixing && incomingShown) entryMs to resumeMs else exitMs to endMs
-    val a = (from.toFloat() / durationMs).coerceIn(0f, 1f)
-    val b = (to.toFloat() / durationMs).coerceIn(0f, 1f)
-    return if (b - a < 0.002f) null else a..b
-}
-
-/**
- * How the player moves with an AutoMix mix: it draws in (the content compresses a little) from the
- * 8 s before the mix to its end, the cover beating on the music's beats meanwhile; when the mix is
+ * How the player moves with an AutoMix mix: it draws in (the content compresses a little) while
+ * the mix is heard, the cover beating on the music's beats meanwhile; when the mix is
  * over it lets go: the content springs back past its size and settles, and a soft wave leaves the
  * cover and crosses the screen. Read every frame while a mix is near or the release plays, else
  * still (no frames). Nothing moves with reduce motion or the animation off.
@@ -93,7 +81,7 @@ class MixPulse internal constructor() {
     fun squeeze(): Float {
         val now = clock.longValue
         if (releaseAt == 0L) return squeeze
-        val t = (now - releaseAt) / 1e9f
+        val t = ((now - releaseAt) / 1e9f).coerceAtLeast(0f)
         // A damped spring from where it was: past its size once, settled within a second.
         return releaseFrom * kotlin.math.exp(-t / 0.22f) * kotlin.math.cos(t * 2f * Math.PI.toFloat() / 0.62f)
     }
@@ -102,22 +90,40 @@ class MixPulse internal constructor() {
     fun wave(): Float? {
         val now = clock.longValue
         if (releaseAt == 0L) return null
-        return ((now - releaseAt) / WAVE_NS.toFloat()).takeIf { it < 1f }
+        return ((now - releaseAt) / WAVE_NS.toFloat()).coerceAtLeast(0f).takeIf { it < 1f }
     }
 
     internal val releasing: Boolean get() = releaseAt != 0L && clock.longValue - releaseAt < RELEASE_NS
 
-    internal fun step(now: Long, beat: Float, target: Float?) {
-        this.beat = beat
+    /**
+     * Something still moves and needs frames after a mix: the release, a draw-in easing back or a
+     * beat fading out (a mix held still by a pause asks for none). The loop slept a second as soon as the mix was over, the release just started: it stood
+     * still, then went on from halfway (the spring jumped, the wave came from mid-screen).
+     */
+    internal val moving: Boolean get() = releasing || (!held && (squeeze != 0f || beat > 0f))
+
+    internal fun step(at: Long, beat: Float, target: Float?) {
+        // One clock: the loop's checks read System.nanoTime(), the frames the frame's time, a little
+        // earlier; a release started on one and read on the other began before its start.
+        val now = maxOf(at, clock.longValue)
+        // The same ease whatever the screen's rate (a share per frame was twice as quick at 120 Hz).
+        val dt = if (clock.longValue == 0L) 0f else ((now - clock.longValue) / 1e9f).coerceIn(0f, 0.1f)
+        val ease = { tau: Float -> 1f - kotlin.math.exp(-dt / tau) }
         if (target != null) {
+            this.beat = beat
             // Eased towards the mix's own progress, never jumping on a skip or a seek.
-            squeeze += (target - squeeze) * 0.12f
+            squeeze += (target - squeeze) * ease(0.13f)
             held = true; releaseAt = 0L
-        } else if (held) {
-            // The mix is over (or was left): let go from where it is.
-            held = false
-            if (squeeze > 0.15f) { releaseAt = now; releaseFrom = squeeze }
-            squeeze = 0f
+        } else {
+            // After the mix the cover's beat fades out (it fell back to its size at once).
+            this.beat = if (beat >= this.beat) beat else (this.beat + (beat - this.beat) * ease(0.12f)).let { if (it < 0.002f) 0f else it }
+            if (held) {
+                // The mix is over (or was left): let go from where it is.
+                held = false
+                if (squeeze > 0.15f) { releaseAt = now; releaseFrom = squeeze; squeeze = 0f }
+            }
+            // A slight draw-in (a short mix) eases back instead of snapping to its size.
+            if (squeeze != 0f) squeeze = (squeeze * (1f - ease(0.13f))).let { if (kotlin.math.abs(it) < 0.002f) 0f else it }
         }
         if (releaseAt != 0L && now - releaseAt >= RELEASE_NS) releaseAt = 0L
         clock.longValue = now
@@ -134,30 +140,34 @@ fun rememberMixPulse(cue: LocalPlayer.MixCue?): MixPulse? {
     val on = !reduceMotion && com.music.spotui.automix.AutoMix.on && com.music.spotui.automix.AutoMix.showInPlayer &&
         com.music.spotui.automix.AutoMix.pulseLevel > 0
     val pulse = remember(on) { if (on) MixPulse() else null }
-    LaunchedEffect(pulse) {
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    // On screen only: the loop's checks went on with the app in the background.
+    LaunchedEffect(pulse, lifecycle) {
         val p = pulse ?: return@LaunchedEffect
-        while (true) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) { while (true) {
             val c = LocalPlayer.mixCue.value
-            val near = c != null && (c.mixing || LocalPlayer.position() >= c.exitMs - 9_000)
-            // Nothing near and nothing letting go: a check a second, no frames.
-            if (!near && !p.releasing) { p.step(System.nanoTime(), 0f, null); kotlinx.coroutines.delay(if (c == null) 400 else 1_000); continue }
-            if (!LocalPlayer.isPlaying() && !p.releasing) { kotlinx.coroutines.delay(250); continue }
+            // Only while the mix is heard: the content drawing in for the 8 s before it moved the
+            // player with nothing to hear yet, and a seek or a skip out of that stretch then played
+            // the release (the spring back and the wave) for a mix that never happened.
+            val mixing = c != null && c.mixing
+            // No mix heard and nothing moving: a check a second, no frames. The step that sees the mix
+            // over starts the release, which runs on frames from there.
+            if (!mixing && !p.moving) {
+                p.step(System.nanoTime(), 0f, null)
+                if (p.moving) continue
+                kotlinx.coroutines.delay(if (c == null) 400 else 1_000); continue
+            }
+            if (!LocalPlayer.isPlaying() && !p.moving) { kotlinx.coroutines.delay(250); continue }
             val k = if (com.music.spotui.automix.AutoMix.pulseLevel == 1) 0.55f else 1f
             withFrameNanos { now ->
-                val cue = LocalPlayer.mixCue.value
-                // Drawn in a quarter over the 8 s before the mix, the rest along it. A quick mix (a cut,
-                // a skip) moves as far as its length allows: the whole draw-in and the spring back
-                // squeezed into a second or two read as a jolt. A skip has no run-up: from nothing.
-                val target = cue?.let {
-                    val depth = ((it.endMs - it.exitMs) / 8_000f).coerceIn(0.3f, 1f)
-                    val from = if (it.skip) 0f else 0.25f
-                    depth * if (it.mixing) from + (1 - from) * smooth(LocalPlayer.fadeProgress())
-                    else if (it.skip) 0f
-                    else 0.25f * smooth(((LocalPlayer.position() - (it.exitMs - 8_000)) / 8_000f).coerceIn(0f, 1f))
+                // Drawn in along the mix. A quick one (a cut, a skip) moves as far as its length
+                // allows: the whole draw-in and the spring back squeezed into a second or two read as a jolt.
+                val target = LocalPlayer.mixCue.value?.takeIf { it.mixing }?.let {
+                    ((it.endMs - it.exitMs) / 8_000f).coerceIn(0.3f, 1f) * smooth(LocalPlayer.fadeProgress())
                 }
-                p.step(now, LocalPlayer.mixPulse() * k, target?.times(k))
+                p.step(now, if (target != null) LocalPlayer.mixPulse() * k else 0f, target?.times(k))
             }
-        }
+        } }
     }
     return pulse
 }
@@ -210,20 +220,6 @@ fun Modifier.mixBeat(pulse: MixPulse?, amount: Float = 0.035f): Modifier =
         val s = 1f + amount * pulse.level()
         scaleX = s; scaleY = s
     }
-
-/**
- * Draws the mix's stretch on a seek bar's track (the canvas holding the bar, [y] its middle): the
- * part still ahead in [color] at half strength, the part played in full. Still: the bar does not
- * beat with the music (the cover and the player's animation do).
- */
-fun DrawScope.drawMixZone(zone: ClosedFloatingPointRange<Float>, played: Float, y: Float, thickness: Float, color: Color) {
-    val x0 = size.width * zone.start; val x1 = size.width * zone.endInclusive
-    val h = thickness
-    val radius = CornerRadius(h / 2)
-    drawRoundRect(color.copy(alpha = 0.45f), Offset(x0, y - h / 2), Size(x1 - x0, h), radius)
-    val px = (size.width * played).coerceIn(x0, x1)
-    if (px > x0) drawRoundRect(color, Offset(x0, y - h / 2), Size(px - x0, h), radius)
-}
 
 /**
  * The local player's speed when it is not 1× ("1.5×"), under the seek bar: a speed left at 2× in

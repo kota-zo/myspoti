@@ -51,6 +51,25 @@ object SpotifySync {
     }
 
     /**
+     * Likes many songs at once (a whole playlist or album, read beforehand), [LIKE_CHUNK] a request.
+     * Their hearts show at once; Liked Songs reads its list again. [onDone] gets whether Spotify
+     * took all of it.
+     */
+    fun likeUris(uris: List<String>, onDone: (Boolean) -> Unit = {}) {
+        if (uris.isEmpty()) { onDone(false); return }
+        scope.launch {
+            var sent = 0
+            val ok = runCatching {
+                for (chunk in uris.chunked(LIKE_CHUNK)) { api.library.add(chunk); sent += chunk.size }
+            }.onFailure { Log.w(TAG, "like ${uris.size} songs failed after $sent: ${it.message}") }.isSuccess
+            uris.take(sent).forEach { com.music.spotui.di.SongPlayer.library[it] = true }
+            if (sent > 0) com.music.spotui.di.SongPlayer.likedChanges.value++
+            onDone(ok)
+        }
+    }
+    private const val LIKE_CHUNK = 50
+
+    /**
      * Takes one row out of a playlist, named by its row id (not by its song: the same song twice
      * in a playlist is two rows, and removing "the song" took both). Without a row id (an old
      * cache) the first row of that song goes, never all of them.

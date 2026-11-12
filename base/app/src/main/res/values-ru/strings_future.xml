@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">Встроенный плеер (эксперимент)</string>
+    <string name="settings_native_audio_detail">Треки аккаунта воспроизводит собственный плеер приложения вместо скрытой веб-страницы. На стадии проверки: отсортированные списки играют в исходном порядке, некоторые кнопки могут реагировать с задержкой.</string>
+    <string name="welcome_rotate_sources">из источников, которые вы выбираете.</string>
+    <string name="welcome_rotate_mix">сведённая, как диджейский сет.</string>
+    <string name="album_label">Лейбл: %1$s</string>
+    <string name="settings_automix_options">Параметры</string>
+    <string name="settings_automix_analysis">Анализ</string>
+    <string name="settings_automix_display">Отображение</string>
+    <string name="settings_automix_duration_auto">Автоматически</string>
+    <string name="settings_automix_duration_none">Без ограничения</string>
+    <string name="settings_automix_seconds">%1$d с</string>
+    <string name="settings_local_files_shown">Показывать «Локальные файлы»</string>
+    <string name="settings_local_files_shown_detail">Строка «Локальные файлы» в медиатеке. Выкл.: скрыта, файлы не затрагиваются.</string>
+    <string name="pass_section">Другие устройства</string>
+    <string name="pass_send">Отправить на другое устройство</string>
+    <string name="pass_send_detail">Отсканируйте код на ТВ, компьютере или другом телефоне: он получит настройки, расширения и вход.</string>
+    <string name="pass_receive">Получить с другого устройства</string>
+    <string name="pass_receive_detail">Показывает код для сканирования телефоном.</string>
+    <string name="pass_receive_title">Отсканируйте этот код телефоном</string>
+    <string name="pass_receive_hint">Наведите на него камеру телефона или на телефоне: Настройки › Другие устройства › Отправить на другое устройство. Оба в одной сети Wi-Fi.</string>
+    <string name="pass_no_network">Нет Wi-Fi: подключите устройство к той же сети, что и телефон.</string>
+    <string name="pass_received">Получено с %1$s. Приложение перезапускается.</string>
+    <string name="pass_confirm_title">Отправить на %1$s?</string>
+    <string name="pass_confirm_text">Настройки, расширения и вход в Spotify копируются на это устройство напрямую по Wi-Fi и в зашифрованном виде. Отправляйте только на свои устройства.</string>
+    <string name="pass_send_action">Отправить</string>
+    <string name="pass_sent">Отправлено на %1$s</string>
+    <string name="pass_failed">Не отправлено: %1$s</string>
+    <string name="pass_not_invite">Это не код этого приложения.</string>
+    <string name="pass_scan_unavailable">На телефоне нет сканера кодов (сервисы Google Play).</string>
+    <string name="pass_sign_in_with_device">Войти с помощью телефона</string>
+    <string name="pass_link_warning">Открыто по ссылке. Отправляйте, только если вы сами только что отсканировали этот код с экрана своего устройства.</string>
+    <string name="pass_need_sign_in">Сначала войдите в аккаунт на этом телефоне, затем снова отсканируйте код.</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">Смысл песен и аннотации к строкам, а также тексты Genius, когда их нет в других источниках. Выключено: к Genius не отправляется ни одного запроса.</string>
+    <string name="welcome_start">Начать</string>
+    <string name="setup_account_spotify_next">Затем вы войдёте на странице самого Spotify. Orpheon никогда не видит ваш пароль.</string>
+</resources>

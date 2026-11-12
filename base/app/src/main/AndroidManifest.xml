@@ -37,7 +37,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:banner="@drawable/tv_banner"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Myspoti"
+        android:theme="@style/Theme.Orpheon"
         android:usesCleartextTraffic="false">
         <!-- Samsung DeX: the app keeps running (and playing) when the window moves to or from DeX. -->
         <meta-data android:name="com.samsung.android.keepalive.density" android:value="true" />
@@ -96,7 +96,7 @@
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|density"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Myspoti">
+            android:theme="@style/Theme.Orpheon">
             <!-- Desktop windows (Samsung DeX, freeform): opens in a landscape window, resizable. -->
             <layout
                 android:defaultWidth="1100dp"
@@ -110,6 +110,27 @@
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- The pass QR code of a TV, a computer or another phone (PassInvite, PassLinks): the phone's
+                 camera (Samsung's, Google Lens) opens it here, on the confirmation; nothing is sent
+                 without the user's yes. The app's own scheme, not an https App Link: the project has no
+                 web domain of its own to host an assetlinks.json. The stable, beta and dev builds all
+                 take it: with more than one installed, Android asks which one opens it. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="orpheon"
+                    android:host="pass" />
+            </intent-filter>
+            <!-- The pass codes of before (orpheon-pass:1?…, the desktop app's until it shows the link
+                 above): opened the same way where a scanner offers it. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="orpheon-pass" />
             </intent-filter>
             <!-- No autoVerify: these are Spotify's domains, verification can never
                  pass for this app. spotify.link / spoti.fi short links (how the official
@@ -210,7 +231,14 @@
             android:name="com.music.spotui.ui.screens.AccountBrowser"
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-            android:theme="@style/Theme.Myspoti" />
+            android:theme="@style/Theme.Orpheon" />
+        <!-- Spotify's consent page for a Connect device (a Sonos), over the device picker. -->
+        <activity
+            android:name="com.music.spotui.connect.DesktopConsentActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Orpheon" />
         <!-- Per-app language on Android 12 and older (AppCompat stores the choice). -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
@@ -243,6 +271,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_now_playing_info" />
         </receiver>
+        <!-- The watch's app (same id and signature) asks for the account's session, playlists, songs and extensions. -->
+        <service android:name="com.music.spotui.wear.WearLinkService" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.REQUEST_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/orpheon" />
+            </intent-filter>
+            <!-- The extensions, too large for a message, go to the watch through a channel. -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/orpheon" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">ข้อมูลเมตา</string>
+    <string name="metadata_footer">ผลการค้นหา อัลบั้ม และศิลปินมาจากบริการเหล่านี้ โดยถามจากบนลงล่าง เพลงเดียวกันที่พบสองครั้งจะแสดงครั้งเดียว บริการที่ปิดไว้จะไม่ถูกถามเลย</string>
+    <string name="metadata_spotify_detail">บัญชีของคุณ ขณะที่ลงชื่อเข้าใช้อยู่</string>
+    <string name="metadata_signed_out">ไม่ถูกถาม: ไม่มีบัญชีที่ลงชื่อเข้าใช้</string>
+    <string name="metadata_asked">ถูกถาม</string>
+    <string name="metadata_off">ปิด: ไม่ถูกถามเลย</string>
+    <string name="metadata_reset">กลับไปใช้ลำดับเริ่มต้น</string>
+    <string name="metadata_not_on_spotify">ไม่พบใน Spotify: ยังเล่นเพลงนี้ไม่ได้</string>
+    <string name="metadata_switch">ถาม %1$s</string>
+</resources>

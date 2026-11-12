@@ -29,12 +29,16 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The UI's player facade over [MyspotiApi.player].
+ * The UI's player facade over two players. [LocalPlayer] (the AutoMix engine) plays the
+ * extensions' streams, the phone's files and the downloads, and is the one heard for them. The
+ * account's player ([MyspotiApi.player], Spotify's Web Player) is heard only when the user picks
+ * it as the audio source ([com.music.spotui.extensions.ACCOUNT_SOURCE]), for what only it has
+ * (episodes), or on another device through Spotify Connect; else it runs unheard as the listen
+ * sync's mirror, when that is on (AccountSync).
  *
- * Screens call playSong / play / pause / seekTo / getCurrentPosition… as before; every
- * command goes to the Web Player through the API, and the state comes back from its
- * flows. Spotify owns the queue, so next/previous/shuffle/repeat are Spotify's.
- * Local Files play in [LocalPlayer]; the controls route there while it is active.
+ * Screens call playSong / play / pause / seekTo / getCurrentPosition…; the controls go to the
+ * player heard. The account's player keeps its own queue, so next/previous/shuffle/repeat are its
+ * own while it plays.
  */
 object SongPlayer {
     private const val SPOTIFY_TRACK_PREFIX = "spotify:track:"
@@ -43,8 +47,13 @@ object SongPlayer {
     private const val ROUTE_HOLD_MS = 40_000L
     /** The end-of-track timer pauses this close to the end (before the next item starts). */
     private const val END_OF_TRACK_MARGIN_MS = 600L
-    /** How often the state is read again while another device plays. */
+    /** How often the state is read again while another device plays and the app is on screen. */
     private const val REMOTE_REFRESH_MS = 3_000L
+    /**
+     * The same with the app in the background or the screen off: the notification's clock runs on
+     * by itself and Spotify's own messages bring a change; the song's end is read at once (overdue).
+     */
+    private const val REMOTE_BACKGROUND_REFRESH_MS = 30_000L
     /** How often the state is read again while this phone plays (the page pushes its changes). */
     private const val LOCAL_REFRESH_MS = 15_000L
     /** Nothing to read (this phone is idle): the refresh loop sleeps this long, or until a state or a Connect device wakes it. */
@@ -255,12 +264,13 @@ object SongPlayer {
         restoreLastTrack(state)
         restoreRepeat(state)
         scope.launch { api.player.state.collect { s -> if (acceptsSessionUpdates()) applyState(s) } }
-        ConnectMirror.attach()
+        AccountSync.attach()
+        NativeAudio.attach()
         // Another device plays (the phone as a remote): the state is read again every few seconds
         // so the notification, the mini player and the slider keep up. Reported: the notification
         // stopped refreshing in the background — this loop waited for _activeDevice, which only a
         // pull-back sets, so an app started in the background never ran it.
-        // This phone plays: the page pushes every change itself (it is never throttled, see
+        // This phone plays: the page pushes every change itself (it is not throttled while it plays, see
         // AwakeWebView), so reading the whole state and queue every 3 s only kept both processes
         // awake, screen off. It is read every LOCAL_REFRESH_MS as a safety net, and at once when
         // the song should have ended without the page saying what came next.
@@ -278,12 +288,21 @@ object SongPlayer {
                 kotlinx.coroutines.delay(REMOTE_REFRESH_MS)
                 val remote = _activeDevice.value != null
                 if (!remote && !PlaybackService.isRunning) continue
+                // No page up (a music account other than Spotify loads it only when used): a read
+                // here would load it for nothing.
+                if (!MyspotiRuntime.spotify.ready.value) continue
                 val now = SystemClock.elapsedRealtime()
                 val overdue = playing && !isBuffering && durationMs > 0 &&
                     positionMs + (now - positionAt) > durationMs + SONG_END_GRACE_MS
-                if (!remote && !overdue && now - lastRead < LOCAL_REFRESH_MS) continue
+                val every = when {
+                    !remote -> LOCAL_REFRESH_MS
+                    AppForeground.inForeground -> REMOTE_REFRESH_MS
+                    else -> REMOTE_BACKGROUND_REFRESH_MS
+                }
+                if (!overdue && now - lastRead < every) continue
                 lastRead = now
-                runCatching { MyspotiRuntime.spotify.player.refresh() }
+                // The queue only with a new song: it is tens of KB of JSON, and it moves with the song.
+                runCatching { MyspotiRuntime.spotify.player.refreshState() }
             }
         }
         scope.launch { api.player.queue.collect { q -> if (acceptsSessionUpdates()) applyQueue(q) } }
@@ -460,6 +479,7 @@ object SongPlayer {
         // Spotify's own queue too: the page's replaces it once it reports.
         val rest = com.music.spotui.data.preferences.LastSession.decodeQueue(p.getString("queue", null))
         if (rest.isNotEmpty()) {
+            restoredQueuePending = true
             _queue.value = EngineQueue(
                 current = rest.first(),
                 nextUp = rest.drop(1).map { QueueItem(it, SPOTIFY_TRACK_PREFIX + it.spotifyTrackId, "", "") },
@@ -497,8 +517,10 @@ object SongPlayer {
      */
     private val savePosition = object : Runnable {
         override fun run() {
-            main.postDelayed(this, POSITION_SAVE_MS)
-            if (!(playing || LocalPlayer.isPlaying())) return
+            // Nothing plays: a look now and then for a song that started, not a wake every ten seconds.
+            val on = playing || LocalPlayer.isPlaying()
+            main.postDelayed(this, if (on) POSITION_SAVE_MS else POSITION_IDLE_MS)
+            if (!on) return
             val p = lastTrackPrefs()
             val uri = p.getString("uri", "").orEmpty()
             val now = if (LocalPlayer.active.value) localSpotifyUri(LocalPlayer.current()) else _nowPlaying.value.uri
@@ -531,7 +553,7 @@ object SongPlayer {
         currentTrackId = ""; currentContextUri = ""
         contextRegistry.clear(); contextRows.clear(); contextNames.clear(); library.clear()
         synchronized(wantedSaved) { wantedSaved.clear() }
-        _queue.value = EngineQueue(); apiQueue = null; _nowPlaying.value = NowPlaying()
+        _queue.value = EngineQueue(); apiQueue = null; restoredQueuePending = false; _nowPlaying.value = NowPlaying()
         lastTrackPrefs().edit().clear().apply(); savedLast = ""; resumeWhenReady = false
         savedSource = com.music.spotui.data.preferences.LastSession.SOURCE_SPOTIFY; savedAtMs = 0L; restoredLocal = false
         _activeDevice.value = null; _sleepEndsAt.value = null; sleepFade?.cancel(); main.removeCallbacks(sleepFadeRunnable); sleepTrackId = null; spotifyFallbackId = null
@@ -592,6 +614,16 @@ object SongPlayer {
         pushNotification(null, boundState?.likeState?.value ?: false)
     }
 
+    /**
+     * What plays comes over the network as it plays (the service's Wi-Fi lock is for that): the
+     * account's page, an extension's stream, a radio; not a file of the phone nor a download.
+     */
+    private fun streamedNow(): Boolean {
+        if (!LocalPlayer.active.value) return true
+        val scheme = LocalPlayer.current()?.uri?.scheme ?: return false
+        return scheme == com.music.spotui.extensions.ExtensionAudio.SCHEME || scheme == "http" || scheme == "https"
+    }
+
     /** Wakes the refresh loop of [attachEngine] when it sleeps: a state was pushed, or a Connect device took over. */
     private val refreshWake = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
 
@@ -620,6 +652,7 @@ object SongPlayer {
             // extension's song, or their shuffle button could only ever turn it on (reported).
             shuffle = isShuffleOn(),
             episode = !ad && isEpisode,
+            streamed = streamedNow(),
         ))
         com.music.spotui.widget.NowPlayingWidget.show(Graph.app,
             title = title,
@@ -675,8 +708,12 @@ object SongPlayer {
         if (s == null) return
         stateSeen = true
         if (LocalPlayer.active.value && engineWhileLocal(s)) return
+        // The watch's song, played unheard by the listen sync: the page's states are the sync's (on
+        // the native engine, the sync reads the engine's own: the page's are left).
+        if (AccountSync.watchActive && AccountSync.holdsSpotify) { if (AccountSync.holdsSpotifyPage) AccountSync.listen.onProviderState(s); return }
         // Spotify's server still shows the song played before the local-player session saved at exit.
         if (com.music.spotui.data.preferences.LastSession.engineStateIsStale(savedSource, savedAtMs, s.timestampMs, s.isPaused)) return
+        if (s.item != null && !s.isPaused) restoredQueuePending = false
         if (resumeWhenReady) {
             resumeWhenReady = false
             // The Web Player restored the last session paused: play what was tapped.
@@ -704,6 +741,7 @@ object SongPlayer {
         SpeakerKeepAlive.set(playing && _activeDevice.value == null)
         val lengthBefore = durationMs
         durationMs = item?.durationMs ?: 0L
+        // The engine's own position when it is what plays: the account's player lays it over the page's (EngineStates).
         val reported = s.positionAt(System.currentTimeMillis())
         // A seek on its way: the page's old position does not take the clock back (see [seekTo]).
         if (seekHeld(uri) && seekLanded(s)) seekUntil = 0L
@@ -750,11 +788,11 @@ object SongPlayer {
             next = s.next?.let(::songOf),
         )
         // Started or moved on without Myspoti asking (another device, a transfer back here): the
-        // Connect mirror sends it back through the extensions. After this state's own follow-ups.
+        // listen sync sends it back through the extensions. After this state's own follow-ups.
         val moved = trackChanged || (!wasPlaying && playing)
-        if (moved || ConnectMirror.waitsBack) {
+        if (moved || AccountSync.listen.waitsBack) {
             val intended = engineIntended()
-            main.post { if (!LocalPlayer.active.value && !routing) ConnectMirror.onEngine(s, moved, intended) }
+            main.post { if (!LocalPlayer.active.value && !routing) AccountSync.listen.onProviderPlayback(s, moved, intended) }
         }
         // A resume Spotify took because another device played (see resumeThroughExtensions): the
         // song now plays on this phone, so the extensions play it, from where it is.
@@ -895,15 +933,15 @@ object SongPlayer {
     /** The app is on screen again, or a player opens: the song shown is asked for if its state is old (see [SAVED_FRESH_MS]). */
     fun refreshLikedIfStale() = refreshCurrentLiked()
 
-    /** Back from the local player: the page is heard again if a mirror (an extension's, or the Connect mirror) had muted it. */
+    /** Back from the local player: the page is heard again if a mirror (an extension's, or the listen sync) had muted it. */
     fun unmuteMirror() {
         com.music.spotui.extensions.Extensions.mirrorReset("the local player stopped")
-        // The Connect mirror unmutes the page itself, after pausing the song it mirrored.
-        if (!ConnectMirror.stop("the local player stopped")) unmuteMirrorNow()
+        // The listen sync unmutes the page itself, after pausing the song it played there.
+        if (!AccountSync.listen.stop("the local player stopped")) unmuteMirrorNow()
     }
 
-    /** The page heard again, unless the Connect mirror holds it (an extension's mirror ending must not unmute it then). */
-    fun unmuteMirrorNow() { if (api.player.localMute && !ConnectMirror.running) command { api.player.setLocalMute(false) } }
+    /** The page heard again, unless the listen sync holds it (an extension's mirror ending must not unmute it then). */
+    fun unmuteMirrorNow() { if (api.player.localMute && !AccountSync.holdsSpotifyPage) command { api.player.setLocalMute(false) } }
 
     /** The local player's state for the mirror guard: playing, track uri, duration. */
     fun localSnapshot3(): Triple<Boolean, String?, Long> =
@@ -913,8 +951,16 @@ object SongPlayer {
     /** Back from the local player: the Spotify queue again. */
     fun restoreEngineQueue() = main.post { _queue.value = EngineQueue(); applyQueue(apiQueue) }
 
+    /**
+     * The queue saved at the last exit is on screen and nothing has played since: an empty queue
+     * from Spotify (its session ended while the app was away, after a while) does not wipe it
+     * (#240: "when the app is opened after a while the entire queue is reset").
+     */
+    @Volatile private var restoredQueuePending = false
+
     private fun applyQueue(q: app.myspoti.api.Queue?) {
         apiQueue = q
+        if (restoredQueuePending && q != null && q.current == null && q.queued.isEmpty() && q.nextUp.isEmpty()) return
         // While a downloaded or local file plays, the queue shown is the local player's.
         if (q == null || LocalPlayer.active.value) return
         // A move is under way: its steps are not shown, the order dropped stays (see [queueMove]).
@@ -1064,8 +1110,8 @@ object SongPlayer {
                         return@withLock
                     }
                     if (gen != transportGen.get()) return@withLock
-                    // A Connect mirror just ended: the page is heard again before this command reaches it.
-                    ConnectMirror.awaitEnded()
+                    // A listen sync just ended: the page is heard again before this command reaches it.
+                    AccountSync.listen.awaitEnded()
                     val checkLater = pullBack && checkAfter && _activeDevice.value == null
                     if (pullBack && !checkLater && api.ready.value) takeBackPlayback()
                     // Both may wait (a mirror's end, a device check): the session may have ended meanwhile.
@@ -1190,12 +1236,11 @@ object SongPlayer {
     /**
      * Play [song] (a play key "spotify:track:<id>|<text>" or "episode:<id>"). [contextUri] is
      * the list it was picked from; when null, the last list that registered this track is used.
-     */
-    /**
      * [order]: the context's track uris in the order to play them (a sorted playlist).
      * [songs]: what the caller knows of the song (and of its list, in play order), for the
      * audio-source extensions: asked first when one is on ([askExtensions]), they play it in the
-     * local player with the rest as the queue; a miss plays on Spotify as before. Without
+     * local player with the rest as the queue; a miss plays on Spotify as before (with Spotify as
+     * the music account only, see [accountPlays]). Without
      * [songs], the song is looked up on Spotify (a link, Recents, an extension's block).
      * [alone]: no list at all, not even the one that registered the track (a search hit), so
      * Spotify goes on with its own autoplay of related songs instead of, say, Liked Songs.
@@ -1212,6 +1257,8 @@ object SongPlayer {
             }
             return
         }
+        // A song of another provider (the catalog's): played as its Spotify recording once found, alone.
+        if (song.startsWith(com.music.spotui.data.catalog.CatalogRuntime.PLAY_PREFIX)) { playCatalogSong(song, context, askExtensions); return }
         val routedId = if (song.startsWith("episode:")) null else spotifyTrackIdForPlayback(song)
         if (askExtensions && com.music.spotui.extensions.AudioRoute.asks(routedId, com.music.spotui.extensions.Extensions.hasAudioSource())) {
             val ctx = if (alone) "" else (contextUri ?: contextRegistry[song]).orEmpty()
@@ -1221,6 +1268,7 @@ object SongPlayer {
             }
             return
         }
+        if (routedId != null && refusedWithoutAccountPlayer(songs?.firstOrNull { it.spotifyTrackId == routedId }?.title, routedId)) return
         if (askExtensions && routedId != null) com.music.spotui.extensions.Extensions.audioSkipped()?.let {
             app.myspoti.host.android.Logbook.log("audio: $it, Spotify plays $routedId")
         }
@@ -1263,12 +1311,39 @@ object SongPlayer {
     val routing: Boolean get() = routingState.value != null && SystemClock.elapsedRealtime() < routingUntil
 
     /**
+     * Spotify's Web Player is the account's player only with Spotify as the music account
+     * ([com.music.spotui.data.preferences.AccountProviderPref]). With YouTube Music, or none, a song
+     * plays from the extensions or not at all: it never falls back to Spotify, a session that is not
+     * the chosen account (YouTube Music's own page is only the listen sync's unheard mirror, there
+     * is no audible YouTube Music player in the app). Episodes stay Spotify's own content.
+     */
+    val accountPlays: Boolean
+        get() = com.music.spotui.data.preferences.AccountProviderPref.id == app.myspoti.api.account.AccountProviders.SPOTIFY
+
+    /**
+     * The song [trackId] ([title] when known) would now go to Spotify for want of an extension: with
+     * a music account other than Spotify ([accountPlays]) it is not played, the loading ends and the
+     * user is told no source had it. True when refused (the caller stops there).
+     */
+    private fun refusedWithoutAccountPlayer(title: String?, trackId: String): Boolean {
+        if (accountPlays) return false
+        app.myspoti.host.android.Logbook.log("audio: no extension plays ${title ?: trackId}; the music account " +
+            "(${com.music.spotui.data.preferences.AccountProviderPref.id}) has no player in the app: not sent to Spotify")
+        routeAsk.incrementAndGet(); routingState.value = null
+        playing = false; bufferingState.value = false
+        main.post { android.widget.Toast.makeText(Graph.app, app.myspoti.engine.R.string.why_source_none_chosen, android.widget.Toast.LENGTH_SHORT).show() }
+        pushNotification(null, boundState?.likeState?.value ?: false)
+        return true
+    }
+
+    /**
      * Plays the song [trackId] through the audio-source extensions ([play]: ExtensionAudio, told
      * whether its answer is still the latest ask and how to show the song once it knows it).
      * What played pauses and the song shows at once, loading, under its own Spotify uri: its
      * lyrics, Canvas, artists and colours load while the extensions answer. The latest pick wins:
      * an older answer plays nothing. [contextName]: the list it is played from, shown meanwhile.
-     * [fallback] (on the main thread): they had nothing, Spotify plays.
+     * [fallback] (on the main thread): they had nothing, Spotify plays (only with Spotify as the
+     * music account: else the song is not played, see [accountPlays]).
      */
     fun playThroughExtensions(
         trackId: String, song: SongsModel?, contextName: String, fallback: () -> Unit,
@@ -1290,6 +1365,7 @@ object SongPlayer {
                 .onFailure { app.myspoti.host.android.Logbook.log("audio: asking the extensions for $trackId failed: $it") }
                 .getOrDefault(false)
             if (!played) main.post {
+                if (isLatest() && refusedWithoutAccountPlayer(song?.title, trackId)) return@post
                 if (isLatest()) {
                     app.myspoti.host.android.Logbook.log("audio: no extension had ${song?.title ?: trackId}, Spotify plays")
                     // Not when its answer is still awaited: the song goes back to the extension then.
@@ -1310,7 +1386,7 @@ object SongPlayer {
 
     private fun playLocalOnSpotify(t: com.music.spotui.data.local.LocalTrack, positionMs: Long, why: String): Boolean {
         val id = streamedTrackId(t)
-        if (id.isBlank() || com.music.spotui.data.DataSaver.active) return false
+        if (id.isBlank() || com.music.spotui.data.DataSaver.active || !accountPlays) return false
         app.myspoti.host.android.Logbook.log("local: ${t.title} $why, Spotify plays it")
         spotifyPlayed.add(id)
         spotifyFallbackId = id
@@ -1397,7 +1473,7 @@ object SongPlayer {
     }
 
     /**
-     * The audio source [id] (an extension, or [com.music.spotui.extensions.SPOTIFY_SOURCE]) picked
+     * The audio source [id] (an extension, or [com.music.spotui.extensions.ACCOUNT_SOURCE]) picked
      * in the quality sheet: first of the order for this session (Extensions.setSessionSource, never
      * saved) and the song playing plays from it, from where it is. An extension is asked for the
      * song alone first, nothing stopping meanwhile: without it ([SourceSwitch.MISSING]) the song
@@ -1414,7 +1490,7 @@ object SongPlayer {
         val streamed = t?.let(::streamedTrackId).orEmpty()
         val trackId = if (local) streamed else trackIdOf(_nowPlaying.value.uri)
         val elsewhere = _activeDevice.value != null || routing || com.music.spotui.data.DataSaver.active || com.music.spotui.cast.CastPlayback.active
-        if (id == com.music.spotui.extensions.SPOTIFY_SOURCE) {
+        if (id == com.music.spotui.extensions.ACCOUNT_SOURCE) {
             ext.setSessionSource(id)
             done(when {
                 !local -> SourceSwitch.PLAYING
@@ -1514,6 +1590,8 @@ object SongPlayer {
     }
 
     private const val POSITION_SAVE_MS = 10_000L
+    /** How often the position save looks for a song playing while none does. */
+    private const val POSITION_IDLE_MS = 30_000L
 
     /** How long a song sent to Spotify for want of the extensions may take to start there. */
     private const val FALLBACK_START_MS = 10_000L
@@ -1674,7 +1752,7 @@ object SongPlayer {
      */
     fun followRemotePlay(item: app.myspoti.api.NowPlaying, contextUri: String?, positionMs: Long) {
         if (!item.uri.startsWith(SPOTIFY_TRACK_PREFIX)) {
-            ConnectMirror.stop("${item.uri} picked on another device", pausePage = false)
+            AccountSync.listen.stop("${item.uri} picked on another device", pauseRemote = false)
             LocalPlayer.stop()
             return
         }
@@ -1730,6 +1808,7 @@ object SongPlayer {
         plainOrderDue?.let { if (restorePlainOrder(it)) return }
         // Myspoti's shuffle turned on or off while paused: the song goes on in the list's new order.
         if (AppShuffle.resume()) { Haptics.click(); return }
+        if (!isEpisode && refusedWithoutAccountPlayer(null, trackIdOf(_nowPlaying.value.uri))) return
         Haptics.click(); intendPlaying(); playing = true; positionAt = SystemClock.elapsedRealtime()
         // Loading until the page plays: the clock ran from the tap before, over silence when the
         // resume came late or never (reported on a slow network).
@@ -1774,6 +1853,7 @@ object SongPlayer {
         app.myspoti.host.android.Logbook.log("pause asked by $by")
         userActed()
         Haptics.click(); cancelBurst(); pauseSilently()
+        app.myspoti.host.android.PlaybackService.pausedOnPurpose()
     }
 
     /** [send] false: the engine has paused already (the sleep timer's fade). */
@@ -1833,6 +1913,7 @@ object SongPlayer {
         if (pendingSkips == 0) _queue.value.let { it.queued + it.nextUp }.firstOrNull()?.song?.let { t ->
             if (backToExtensions(t, trackIdOf(_nowPlaying.value.uri), upcomingSongs(t)) { intendPlaying(); transport(pullBack = false) { api.player.next() } }) return
         }
+        if (!isEpisode && refusedWithoutAccountPlayer(null, trackIdOf(_nowPlaying.value.uri))) return
         intendPlaying()
         tapSeq++
         // The first tap skips at once. Taps that follow it within SKIP_BURST_MS, or within
@@ -2087,6 +2168,7 @@ object SongPlayer {
             }
             return
         }
+        if (refusedWithoutAccountPlayer(songs.first().title, songs.first().spotifyTrackId)) return
         routeAsk.incrementAndGet(); routingState.value = null
         LocalPlayer.stop()
         val ctx = contextRegistry[songs.first().url]
@@ -2676,9 +2758,24 @@ object SongPlayer {
         }
     }
 
-    /** Move playback to [device] (Spotify Connect transfer). */
+    /** A transfer asked during an ad waits for its end (the page refuses commands meanwhile). */
+    private val transferAfterAd by lazy {
+        app.myspoti.spotify.TransferAfterAd(scope, MyspotiRuntime.spotify.player.adPlaying, log = { app.myspoti.host.android.Logbook.log("connect: $it") })
+    }
+
+    /**
+     * Move playback to [device] (Spotify Connect transfer). During an ad, once it is over: with the
+     * song and the place that play then ([transferNow] reads them when it runs).
+     */
     fun transferTo(device: ConnectDevice) {
         Haptics.confirm()
+        if (!MyspotiRuntime.isStarted) { transferNow(device); return }
+        if (transferAfterAd.run(device.name) { transferNow(device) }) main.post {
+            android.widget.Toast.makeText(Graph.app, Graph.app.getString(app.myspoti.engine.R.string.connect_after_ad, device.name), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun transferNow(device: ConnectDevice) {
         chosenRemote = if (device.isSelf) null else device.id
         _activeDevice.value = if (device.isSelf) null else device
         // A downloaded or streamed song plays in Myspoti's own player, which no other device can
@@ -2690,16 +2787,24 @@ object SongPlayer {
             val at = LocalPlayer.position()
             val wasPlaying = LocalPlayer.isPlaying()
             Log.i(TAG, "local song to ${device.name}: $track in $context at $at ms")
-            ConnectMirror.leaving(device.name)
+            AccountSync.listen.leaving(device.name)
             LocalPlayer.stop()
             command(onFailure = { transferFailed(device) }) {
                 api.devices.transfer(device.id)
                 api.player.play(context, trackUri = track.takeIf { it != context }, positionMs = at)
                 if (!wasPlaying) api.player.pause()
+                else com.music.spotui.connect.SonosLocal.afterTransfer(device.id, device.name, true)
             }
             return
         }
-        command(onFailure = { transferFailed(device) }) { if (device.isSelf) api.devices.pullHere() else api.devices.transfer(device.id) }
+        val wanted = isPlaying()
+        command(onFailure = { transferFailed(device) }) {
+            if (device.isSelf) api.devices.pullHere() else {
+                api.devices.transfer(device.id)
+                // A Sonos may take the song and stay paused: its own play is pressed then.
+                com.music.spotui.connect.SonosLocal.afterTransfer(device.id, device.name, wanted)
+            }
+        }
     }
 
     /**
@@ -2738,7 +2843,13 @@ object SongPlayer {
     private val volumeSender by lazy {
         scope.launch {
             volumeToSend.collect { v ->
-                if (v != null) runCatching { api.player.setVolume(v / 100.0) }.onFailure { Log.w(TAG, "volume failed: ${it.message}") }
+                if (v != null) runCatching {
+                    // Another device plays: its own volume, as Spotify's apps set it; else (or refused) the page's.
+                    val target = _activeDevice.value?.id
+                    val sent = target != null && runCatching { MyspotiRuntime.spotify.devices.setVolume(target, v / 100.0) }
+                        .onFailure { Log.w(TAG, "device volume failed: ${it.message}") }.getOrDefault(false)
+                    if (!sent) api.player.setVolume(v / 100.0)
+                }.onFailure { Log.w(TAG, "volume failed: ${it.message}") }
             }
         }
     }
@@ -3056,8 +3167,33 @@ object SongPlayer {
             i >= 0 && t >= 0 && i == (if (after) t + 1 else t - 1)
         }
 
+    /**
+     * Debug builds: a queue drawn with no player behind it (QueueProbeActivity, to drag rows on an
+     * emulator); its moves are applied to it at once, as the local player reports them.
+     */
+    @Volatile private var probeQueue = false
+    internal fun showProbeQueue(q: EngineQueue) {
+        if (!app.myspoti.engine.BuildConfig.DEBUG) return
+        probeQueue = true
+        _queue.value = q
+    }
+    private fun probeMove(item: QueueItem, target: QueueItem?, after: Boolean, intoQueue: Boolean) = main.postDelayed({
+        val q = _queue.value
+        val queued = q.queued.filter { it.uri != item.uri }.toMutableList()
+        val next = q.nextUp.filter { it.uri != item.uri }.toMutableList()
+        val part = when {
+            intoQueue -> queued
+            target != null && queued.any { it.uri == target.uri } -> queued
+            else -> next
+        }
+        val at = target?.let { t -> part.indexOfFirst { it.uri == t.uri }.takeIf { it >= 0 }?.let { if (after) it + 1 else it } } ?: 0
+        part.add(at.coerceIn(0, part.size), item)
+        _queue.value = q.copy(queued = queued, nextUp = next)
+    }, 300)
+
     /** Move [item] just before / after [target]; a Spotify row stays in its section (see [moveIntoQueue]), a local one goes into [target]'s. */
     fun reorder(item: QueueItem, target: QueueItem, after: Boolean) {
+        if (probeQueue) { probeMove(item, target, after, intoQueue = false); return }
         if (item.provider == LOCAL) {
             val from = localIndex(item) ?: return
             val t = localIndex(target) ?: return
@@ -3083,6 +3219,7 @@ object SongPlayer {
      * other (both at once left it in both places), then placed where it was dropped.
      */
     fun moveIntoQueue(item: QueueItem, target: QueueItem?, after: Boolean) {
+        if (probeQueue) { probeMove(item, target, after, intoQueue = true); return }
         if (item.provider == LOCAL) {
             val from = localIndex(item) ?: return
             LocalPlayer.moveIntoQueue(from, target?.let { localIndex(it) ?: return }, after)
@@ -3163,8 +3300,8 @@ object SongPlayer {
         // What the page reported last (the screens may already show the song asked for).
         engineUriBeforeLocal = lastPageUri
         engineRepaused = false
-        // The Connect mirror's page goes on to the new song itself (or is paused by it if that one is not mirrored).
-        if (playing && !ConnectMirror.running) command { api.player.pause() }
+        // The listen sync's page goes on to the new song itself (or is paused by it if that one is not synced).
+        if (playing && !AccountSync.holdsSpotify) command { api.player.pause() }
         playing = false
         // The local player keeps the output open itself; the engine's states, which
         // would close the silent stream, are ignored while it plays.
@@ -3180,13 +3317,14 @@ object SongPlayer {
      * The engine reports playing while a local file plays. Two streams must never play
      * at once: a pause that did not take (the engine was not ready) is sent once more;
      * anything else is Spotify taking over (a Connect "play on this phone", a resume from
-     * another device), and the local player yields; with the Connect mirror on, the local player
-     * follows those commands instead (see [ConnectMirror]). True when the state is to be ignored.
+     * another device), and the local player yields; with the listen sync on, the local player
+     * follows those commands instead (see [AccountSync]). True when the state is to be ignored.
      */
     private fun engineWhileLocal(s: PlayerState): Boolean {
-        // The Connect mirror's page: its states are another device's commands for the local player
-        // to follow, or the echo of the mirror's own; never a takeover.
-        if (ConnectMirror.running) { ConnectMirror.onWeb(s); return true }
+        // The listen sync's page: its states are another device's commands for the local player
+        // to follow, or the echo of the sync's own; never a takeover.
+        // On the native engine, the page shows the engine's playback (the mirror's): the sync reads the engine's own.
+        if (AccountSync.holdsSpotify) { if (AccountSync.holdsSpotifyPage) AccountSync.listen.onProviderState(s); return true }
         if (s.isPaused) return true
         // An extension mirrors its own song in the page, muted: that is not the engine taking over.
         if (api.player.localMute) return true
@@ -3235,7 +3373,7 @@ object SongPlayer {
             pushNotification(song.copy(coverUri = cover), liked)
             if (songChanged) refreshCurrentLiked()
             com.music.spotui.extensions.Extensions.mirrorTick(isPlaying, uri)
-            ConnectMirror.onLocal(t, isPlaying, pos, dur)
+            AccountSync.onLocal(t, isPlaying, pos, dur)
             val source = if (t.uri.scheme == "file") com.music.spotui.data.local.ListenHistory.Source.DOWNLOAD
                 else com.music.spotui.data.local.ListenHistory.Source.LOCAL
             trackListen("local:${t.id}", song, source, isPlaying)
@@ -3334,6 +3472,27 @@ object SongPlayer {
     // ── Play-key helpers (url = "spotify:track:<id>|<search text>") ──
 
     private val featSearchPattern = Regex("""\s*[\(\[]\s*(feat|ft)\..*?[\)\]]""", RegexOption.IGNORE_CASE)
+
+    /**
+     * [song] ("catalog:<uri>", a song of another provider) as the same recording on Spotify (by its ISRC, else the
+     * match gate), played alone; a short message when Spotify is not asked (signed out, turned off) or has no such
+     * recording, so the tap is never lost.
+     */
+    private fun playCatalogSong(song: String, context: Context?, askExtensions: Boolean) {
+        val uri = song.removePrefix(com.music.spotui.data.catalog.CatalogRuntime.PLAY_PREFIX)
+        app.myspoti.host.android.MyspotiRuntime.scope.launch {
+            val m = try { com.music.spotui.data.catalog.CatalogRuntime.spotifyMatchFor(uri) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                com.music.spotui.data.catalog.SpotifyMatch.Unavailable(e.message ?: e.javaClass.simpleName)
+            }
+            if (m !is com.music.spotui.data.catalog.SpotifyMatch.Found) {
+                app.myspoti.host.android.Logbook.log("catalog: $uri not played on Spotify: $m")
+                com.music.spotui.data.catalog.SpotifyMatch.message(m)?.let { android.widget.Toast.makeText(Graph.app, it, android.widget.Toast.LENGTH_SHORT).show() }
+                return@launch
+            }
+            val (id, t) = m.id to m.track
+            playSong(buildSpotifyPlayQuery(id, t.name, t.artists.joinToString(", ") { it.name }), context, askExtensions = askExtensions, alone = true)
+        }
+    }
 
     fun buildSpotifyPlayQuery(spotifyTrackId: String, title: String, artist: String): String {
         val searchText = listOf(title.replace(featSearchPattern, "").trim(), artist)

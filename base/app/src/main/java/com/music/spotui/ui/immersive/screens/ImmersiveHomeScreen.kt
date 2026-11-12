@@ -51,14 +51,16 @@ import app.myspoti.engine.R
 import com.music.spotui.data.api.Features
 import com.music.spotui.data.api.ProfileCache
 import com.music.spotui.data.api.Response
-import com.music.spotui.data.api.Api
-import com.music.spotui.data.entity.HomeFeedModel
 import com.music.spotui.data.entity.HomeItem
 import com.music.spotui.data.entity.HomeSection
-import com.music.spotui.data.entity.withLikedFirst
+import com.music.spotui.data.entity.homeShortcuts
 import com.music.spotui.data.entity.withoutDj
+import com.music.spotui.data.entity.withoutPodcastShows
 import com.music.spotui.di.Graph
 import com.music.spotui.di.SongPlayer
+import com.music.spotui.ui.components.onHomeItemClick
+import com.music.spotui.ui.components.prefetchHomeItem
+import com.music.spotui.ui.components.prefetchHomeShortcuts
 import com.music.spotui.ui.components.pressHint
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.components.ImmersiveCover
@@ -79,11 +81,6 @@ import com.music.spotui.ui.immersive.shell.immersiveHeaderContentPadding
 import com.music.spotui.ui.immersive.shell.rememberTopBarCollapse
 import com.music.spotui.ui.navigation.Routes
 import com.music.spotui.ui.navigation.TabReselect
-import com.music.spotui.ui.navigation.albumRoute
-import com.music.spotui.ui.navigation.artistRoute
-import com.music.spotui.ui.navigation.playlistRoute
-import com.music.spotui.ui.navigation.showRoute
-import com.music.spotui.ui.screens.ContextViewModel
 import com.music.spotui.ui.viewmodel.HomeViewModel
 
 /**
@@ -130,25 +127,19 @@ fun ImmersiveHomeScreen(navController: NavController) {
 
     // Podcasts can be off: their shows and episodes then leave the feed.
     val hideDj = com.music.spotui.data.preferences.HideDjPref.hidden
-    val sections = remember(feed, hideDj) { feed?.let { visibleSections(it) }.orEmpty().let { if (hideDj) it.withoutDj() else it } }
+    val sections = remember(feed, hideDj) {
+        val all = feed?.sections.orEmpty().withoutPodcastShows()
+        if (hideDj) all.withoutDj() else all
+    }
     // Only the untitled section the web home starts with is a shortcut grid; a titled lead
     // section is a carousel like any other.
     val gridSection = sections.firstOrNull()?.takeIf { it.title.isBlank() }
     val carousels = if (gridSection != null) sections.drop(1) else sections
     // Liked Songs leads the shortcuts when Spotify's grid does not carry it.
     val likedName = stringResource(R.string.collection_liked_songs_title)
-    val shortcuts = remember(gridSection, likedName) { gridSection?.items?.withLikedFirst(likedName) }
+    val shortcuts = remember(gridSection, sections, facet, likedName) { homeShortcuts(gridSection?.items, sections.isEmpty(), facet, likedName) }
     // The shortcuts at the top load in the background, ready before a tap.
-    LaunchedEffect(shortcuts?.map { it.name }) {
-        val top = shortcuts.orEmpty().mapNotNull { item ->
-            when (item) {
-                is HomeItem.Album -> item.id.takeIf { it.isNotBlank() }?.let { "album" to it }
-                is HomeItem.Playlist -> if (item.id == Api.HomeCache.LIKED_SONGS_ID) "liked" to "" else item.id.takeIf { it.isNotBlank() }?.let { "playlist" to it }
-                else -> null
-            }
-        }
-        if (top.isNotEmpty()) ContextViewModel.prefetchSoon(top)
-    }
+    LaunchedEffect(shortcuts) { prefetchHomeShortcuts(shortcuts) }
 
     Box(Modifier.fillMaxSize().background(Immersive.Page)) {
         LazyColumn(
@@ -251,36 +242,6 @@ private fun WhatsNewBell(size: androidx.compose.ui.unit.Dp, onClick: () -> Unit)
             tint = Immersive.Text,
             modifier = Modifier.size(size * 0.55f),
         )
-    }
-}
-
-private fun visibleSections(feed: HomeFeedModel): List<HomeSection> =
-    if (Features.PODCASTS) feed.sections
-    else feed.sections.map { s -> s.copy(items = s.items.filterNot { it is HomeItem.Show }) }.filter { it.items.isNotEmpty() }
-
-/** Albums and playlists start loading under the finger. */
-private fun prefetchHomeItem(item: HomeItem) {
-    when (item) {
-        is HomeItem.Album -> if (item.id.isNotBlank()) ContextViewModel.prefetch("album", item.id)
-        is HomeItem.Playlist ->
-            if (item.id == Api.HomeCache.LIKED_SONGS_ID) ContextViewModel.prefetch("liked", "")
-            else if (item.id.isNotBlank()) ContextViewModel.prefetch("playlist", item.id)
-        else -> {}
-    }
-}
-
-private fun onHomeItemClick(navController: NavController, item: HomeItem) {
-    when (item) {
-        is HomeItem.Album -> navController.navigate(albumRoute(item.name, item.artists.ifBlank { item.subtitle }, item.id))
-        is HomeItem.Artist -> navController.navigate(artistRoute(item.name, item.id))
-        is HomeItem.Show ->
-            if (item.isEpisode) SongPlayer.playSong("episode:${item.id}")
-            else navController.navigate(showRoute(item.id, item.name))
-        // The real playlist content by its id (daily mixes, etc).
-        is HomeItem.Playlist ->
-            if (item.id == Api.HomeCache.LIKED_SONGS_ID) navController.navigate(Routes.Liked.route)
-            else if (item.id.isNotBlank()) navController.navigate(playlistRoute(item.id, item.name))
-            else navController.navigate(albumRoute(item.name))
     }
 }
 
@@ -407,6 +368,8 @@ private fun ShortcutGrid(navController: NavController, items: List<HomeItem>, pl
                                 color = if (playing) Immersive.Accent else Immersive.Text,
                                 fontWeight = FontWeight.SemiBold,
                                 lineHeight = 17.sp,
+                                // Two balanced lines rather than a lone word under the rest.
+                                lineBreak = androidx.compose.ui.text.style.LineBreak.Heading,
                             ),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,

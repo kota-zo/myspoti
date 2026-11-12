@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">பாடல் வரிகளை மொழிபெயர்ப்பதை நிறுத்தும்</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ஹ்ம்ம். இந்தப் பாடலின் வரிகள் எங்களுக்குத் தெரியாது.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">இந்தப் பாடல் வரிகளுக்கு இன்னும் நேரம் ஒத்திசைக்கப்படவில்லை.</string>
-    <string name="av_switch_to_video" formatted="false">வீடியோவுக்கு மாற்று</string>
-    <string name="av_switch_to_audio" formatted="false">ஆடியோவுக்கு மாற்று</string>
-    <string name="av_content_desc" formatted="false">ஆடியோவுக்கும் வீடியோவுக்கும் இடையே நிலைமாற்றும்</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">முகப்பு</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">தேடல்</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">உங்கள் லைப்ரரி</string>

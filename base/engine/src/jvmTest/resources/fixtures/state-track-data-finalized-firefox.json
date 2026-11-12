@@ -1,0 +1,62 @@
+{
+ "seq_num": 5,
+ "state_ref": {
+  "state_machine_id": "ChTOoz1BmJntWV8OR3E4deBrfaDiiy",
+  "state_id": "6b13400c6db9f7bfee8f1fa406e90e17",
+  "paused": false
+ },
+ "sub_state": {
+  "playback_speed": 1,
+  "position": 150062,
+  "duration": 150227,
+  "media_type": "AUDIO",
+  "bitrate": 128000,
+  "audio_quality": "HIGH",
+  "format": 10,
+  "is_video_on": false
+ },
+ "previous_position": 150062,
+ "playback_stats": {
+  "ms_total_est": 150227,
+  "ms_metadata_duration": 0,
+  "ms_manifest_latency": 20,
+  "ms_manifest_parse_latency": 0,
+  "ms_key_system_info_latency": 0,
+  "ms_latency": 1613,
+  "ms_first_bytes_latency": 1680,
+  "start_offset_ms": 120752,
+  "ms_initial_buffering": 1514,
+  "ms_initial_rebuffer": 1514,
+  "ms_seek_rebuffering": 0,
+  "ms_stalled": 0,
+  "max_ms_seek_rebuffering": 0,
+  "max_ms_stalled": 0,
+  "n_stalls": 0,
+  "n_rendition_upgrade": 2,
+  "n_rendition_downgrade": 0,
+  "bps_bandwidth_max": 6308370.3180212015,
+  "bps_bandwidth_min": 31131.221719457015,
+  "bps_bandwidth_avg": 3889134.1510815397,
+  "audiocodec": "mp4",
+  "audio_start_bitrate": 128000,
+  "video_start_bitrate": null,
+  "start_bitrate": 128000,
+  "time_weighted_bitrate": 0,
+  "key_system": "widevine",
+  "ms_key_latency": 429,
+  "total_bytes": 499483,
+  "local_time_ms": 1794269876260,
+  "n_dropped_video_frames": 0,
+  "n_total_video_frames": 0,
+  "resolution_max": 480,
+  "resolution_min": 480,
+  "strategy": "MSE",
+  "ms_played_per_surface": {},
+  "ms_played_visible": 0,
+  "ms_played_per_audio_format": {
+   "mp4a.40.2;128000": 29475
+  },
+  "ms_played_per_video_format": {}
+ },
+ "debug_source": "track_data_finalized"
+}

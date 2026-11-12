@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Lopeta sanojen kääntäminen</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Emme tiedä tämän sanoja.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Näitä sanoja ei ole vielä synkronoitu.</string>
-    <string name="av_switch_to_video" formatted="false">Vaihda videoon</string>
-    <string name="av_switch_to_audio" formatted="false">Vaihda ääneen</string>
-    <string name="av_content_desc" formatted="false">Vaihda äänen ja videon välillä</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Koti</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Haku</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Oma kirjasto</string>

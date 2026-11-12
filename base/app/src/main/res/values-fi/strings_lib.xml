@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Vielä %d asema vastaa hakua, mutta se lähettää salaamatta (http) tai HLS-muodossa, jota sovellus ei vielä osaa toistaa.</item>
+        <item quantity="other">Vielä %d asemaa vastaa hakua, mutta ne lähettävät salaamatta (http) tai HLS-muodossa, jota sovellus ei vielä osaa toistaa.</item>
+    </plurals>
+</resources>

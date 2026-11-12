@@ -4,6 +4,7 @@
 package app.myspoti.spotify
 
 import app.myspoti.api.Album
+import app.myspoti.api.canonicalUri
 import app.myspoti.api.AlbumRef
 import app.myspoti.api.Artist
 import app.myspoti.api.ArtistRef
@@ -101,11 +102,17 @@ internal fun album(d: JsonElement?): Album? {
         releaseDate = d.str("date.isoString") ?: d.long("date.year")?.toString(),
         trackCount = d.int("tracksV2.totalCount") ?: d.int("tracks.totalCount") ?: 0,
         label = d.str("label"),
+        copyrights = d.list("copyright.items").mapNotNull { c ->
+            val text = c.str("text")?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            // "C" is the copyright, "P" the sound recording's; the text often carries its sign already.
+            val sign = when (c.str("type")) { "P" -> "℗"; "C" -> "©"; else -> null }
+            if (sign == null || text.startsWith("©") || text.startsWith("℗") || text.startsWith("(C)") || text.startsWith("(P)")) text else "$sign $text"
+        }.distinct(),
     )
 }
 
 internal fun playlist(d: JsonElement?): Playlist? {
-    val uri = d.str("uri") ?: return null
+    val uri = d.str("uri")?.let(::canonicalUri) ?: return null
     return Playlist(
         uri = uri,
         name = d.str("name") ?: "",
@@ -196,7 +203,7 @@ internal fun queue(q: JsonElement?): Queue? {
 /** Any `*ResponseWrapper` (or its `data`) -> a card for shelves and search tabs. */
 internal fun card(wrapper: JsonElement?): app.myspoti.api.MediaCard? {
     val d = wrapper.obj("data") ?: wrapper
-    val uri = d.str("uri") ?: wrapper.str("_uri") ?: wrapper.str("uri") ?: return null
+    val uri = (d.str("uri") ?: wrapper.str("_uri") ?: wrapper.str("uri"))?.let(::canonicalUri) ?: return null
     val type = d.typename()
     var kind = app.myspoti.api.MediaKind.of(uri)
     if (type == "Audiobook") kind = app.myspoti.api.MediaKind.AUDIOBOOK

@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">zastavíš preklad textu</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Text tejto skladby zatiaľ nevieme.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Tento text zatiaľ nie je synchronizovaný so zvukom.</string>
-    <string name="av_switch_to_video" formatted="false">Prepnúť na video</string>
-    <string name="av_switch_to_audio" formatted="false">Prepnúť na zvuk</string>
-    <string name="av_content_desc" formatted="false">Prepnúť medzi zvukom a videom</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Domov</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Hľadať</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Tvoja knižnica</string>

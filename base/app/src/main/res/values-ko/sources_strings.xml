@@ -4,8 +4,9 @@
     <string name="sources_download_title">다운로드 소스</string>
     <string name="sources_audio_footer">각 곡마다 위에서 아래로 확인합니다. 곡을 가진 첫 번째 소스에서 재생됩니다. 화살표로 순서를 바꿀 수 있습니다.</string>
     <string name="sources_download_footer">위에서 아래로 확인합니다. 곡을 가진 첫 번째 소스가 파일을 제공합니다. 화살표로 순서를 바꿀 수 있습니다.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">위에 있는 소스에 곡이 없을 때 재생됩니다</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">위에 있는 소스에 곡이 없을 때 재생됩니다</string>
+    <string name="sources_account_player">계정의 플레이어</string>
     <string name="sources_ready">준비됨</string>
     <string name="sources_details_show">세부정보 표시</string>
     <string name="sources_details_hide">세부정보 숨기기</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">최근: %1$s, %2$s</string>
     <string name="sources_open">확장 기능 열기</string>
     <string name="sources_order_hint">소스는 설정(재생, 다운로드)에서 정한 순서대로 확인됩니다.</string>
-    <string name="sources_below_spotify">묻지 않음: Spotify가 위에 있습니다</string>
+    <string name="sources_below_account">묻지 않음: Spotify가 위에 있습니다</string>
 </resources>

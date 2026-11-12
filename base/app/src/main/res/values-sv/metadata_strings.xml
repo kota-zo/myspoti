@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Sökningar, album och artister kommer från dessa tjänster, tillfrågade uppifrån och ned. Samma låt som hittas två gånger visas en gång. En avstängd tjänst tillfrågas aldrig.</string>
+    <string name="metadata_spotify_detail">Ditt konto, så länge du är inloggad</string>
+    <string name="metadata_signed_out">Tillfrågas inte: inget konto inloggat</string>
+    <string name="metadata_asked">Tillfrågas</string>
+    <string name="metadata_off">Av: tillfrågas aldrig</string>
+    <string name="metadata_reset">Tillbaka till standardordningen</string>
+    <string name="metadata_not_on_spotify">Hittades inte på Spotify: låten kan inte spelas än</string>
+    <string name="metadata_switch">Fråga %1$s</string>
+</resources>

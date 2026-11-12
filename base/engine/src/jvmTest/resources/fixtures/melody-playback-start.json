@@ -1,0 +1,21 @@
+{
+ "messages": [
+  {
+   "type": "jssdk_playback_start",
+   "message": {
+    "play_track": "spotify:track:R3tHj8qrkVcHgHXlFFZCOG",
+    "file_id": "1a9a51dae23cf2426d51426e3b0a4477578d3e6f",
+    "playback_id": "b49bfeabd497ab9757f1469c011e95d1",
+    "session_id": "1794000000000",
+    "ms_start_position": 60271,
+    "initially_paused": true,
+    "client_id": "",
+    "correlation_id": "",
+    "feature_identifier": ""
+   }
+  }
+ ],
+ "sdk_id": "harmony:4.81.1",
+ "platform": "web_player linux undefined;firefox 159.0;desktop",
+ "client_version": "0.0.0"
+}

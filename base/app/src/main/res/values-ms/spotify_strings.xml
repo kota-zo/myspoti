@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Berhenti menterjemahkan lirik</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Kami tidak tahu lirik untuk lagu ini.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Lirik ini belum disegerakkan mengikut masa lagi.</string>
-    <string name="av_switch_to_video" formatted="false">Bertukar kepada video</string>
-    <string name="av_switch_to_audio" formatted="false">Bertukar kepada audio</string>
-    <string name="av_content_desc" formatted="false">Togol antara audio dan video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Utama</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Cari</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Pustaka Anda</string>

@@ -56,4 +56,12 @@ class PlaylistMergeTest {
         assertEquals(250, all.size)
         assertEquals("spotify:track:t249", all.last())
     }
+
+    @Test fun `liking a whole list likes only the songs not liked yet, each once`() = runBlocking {
+        var asked: List<String>? = null
+        val plan = PlaylistMerge.likePlan(uris("a", "b", "a", "c")) { list -> asked = list; list.map { it.endsWith(":b") } }
+        assertEquals(uris("a", "b", "c"), asked)
+        assertEquals(uris("a", "c"), plan.fresh)
+        assertTrue(PlaylistMerge.likePlan(uris("b")) { list -> list.map { true } }.allDuplicate)
+    }
 }

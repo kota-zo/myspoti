@@ -4,8 +4,9 @@
     <string name="sources_download_title">Aflaai-bronne</string>
     <string name="sources_audio_footer">Van bo na onder gevra vir elke liedjie: die eerste een wat dit het, speel dit. Gebruik die pyltjies om die volgorde te verander.</string>
     <string name="sources_download_footer">Van bo na onder gevra: die eerste een wat die liedjie het, lewer die lêer. Gebruik die pyltjies om die volgorde te verander.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Speel wanneer geen bron hierbo die liedjie het nie</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Speel wanneer geen bron hierbo die liedjie het nie</string>
+    <string name="sources_account_player">Jou rekening se speler</string>
     <string name="sources_ready">Gereed</string>
     <string name="sources_details_show">Wys besonderhede</string>
     <string name="sources_details_hide">Versteek besonderhede</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Laaste: %1$s, %2$s</string>
     <string name="sources_open">Maak die uitbreiding oop</string>
     <string name="sources_order_hint">Bronne word gevra in die volgorde wat in Instellings gestel is (Speel, Aflaaie).</string>
-    <string name="sources_below_spotify">Word nie gevra nie: Spotify is bo</string>
+    <string name="sources_below_account">Word nie gevra nie: Spotify is bo</string>
 </resources>

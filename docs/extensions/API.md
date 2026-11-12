@@ -1264,7 +1264,7 @@ Enums come as their upper-case names.
 Image { url: string, width: number?, height: number? }
 ArtistRef { uri: string, name: string }
 AlbumRef { uri: string, name: string, images: Image[] }
-Track { uri: string, name: string, durationMs: number, artists: ArtistRef[], album: AlbumRef?, explicit: bool, playable: bool, uid: string?, addedAt: string?, hasVideo: bool }
+Track { uri: string, name: string, durationMs: number, artists: ArtistRef[], album: AlbumRef?, explicit: bool, playable: bool, uid: string?, addedAt: string? }
 Album { uri: string, name: string, artists: ArtistRef[], images: Image[], type: string, releaseDate: string?, trackCount: number, label: string? }
 Artist { uri: string, name: string, images: Image[], followers: number?, monthlyListeners: number?, verified: bool }
 Playlist { uri: string, name: string, description: string?, owner: string?, images: Image[], trackCount: number, editable: bool, ownerUri: string?, ownerImages: Image[], followers: number?, isBlend: bool }
@@ -1606,7 +1606,7 @@ made the key and how the phone's keystore and boot state look.
 It proves that the key lives in Android hardware (the attestation's security level is
 StrongBox or TrustedEnvironment, never Software), that **the app package made it** (the attestation
 extension, `attestationApplicationId`, holds the package name and the SHA-256 digest of the
-certificate that signed the app: `app.myspoti` or `app.myspoti.beta`, signed by the key you pin),
+certificate that signed the app: `app.orpheon` or `app.orpheon`, signed by the key you pin),
 and that your server asked for it (the challenge). Every later signature then comes from that key.
 
 It does **not** prove that the build is untouched: on a rooted phone, or with a patched official
@@ -1635,8 +1635,8 @@ by uninstalling.
    description): check `attestationChallenge` equals your challenge, `attestationSecurityLevel` is
    StrongBox or TrustedEnvironment, and in the authorization lists that the key is an EC P-256 key
    with purpose `SIGN`, with no `ALL_APPLICATIONS` and no software-only part.
-4. **Check the app.** In `attestationApplicationId`: the package name is `app.myspoti` (or
-   `app.myspoti.beta` if you accept the beta), and one of the signing certificate digests is the
+4. **Check the app.** In `attestationApplicationId`: the package name is `app.orpheon` (or
+   `app.orpheon` for the release), and one of the signing certificate digests is the
    SHA-256 of the release certificate **you choose to pin** (`apksigner verify --print-certs` on
    the official APK). Optionally also read the root of trust (verified boot, locked bootloader).
 5. **Store** the key against the account or install, with the time and the level you saw.

@@ -14,6 +14,8 @@ package com.music.spotui.ui.immersive.lyrics
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,6 +33,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -51,8 +54,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,6 +65,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LocalPinnableContainer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -82,7 +88,6 @@ import com.music.spotui.di.Haptics
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import sh.calvin.reorderable.rememberScroller
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
@@ -102,9 +107,15 @@ import com.music.spotui.ui.screens.ExplicitBadge
  * and a queue row's background is transparent: the fading copy and whichever row is sliding
  * through that slot both draw their title and artist into the same few pixels. Without the
  * fades a row that leaves is gone the moment it leaves, so movement is the only thing left
- * to see. Bounded rather than the default spring so a track change settles at once.
+ * to see. A soft spring of its own: see [QUEUE_ROW_MOTION].
  */
-private val QUEUE_ROW_MOTION = tween<IntOffset>(durationMillis = 200, easing = FastOutSlowInEasing)
+// A soft spring with a little give: rows a held song passes make way slowly and settle with a
+// slight bounce (a 200 ms tween was "too quick", a 320 ms one "not elastic and slow enough", both reported).
+private val QUEUE_ROW_MOTION = spring(
+    dampingRatio = 0.72f,
+    stiffness = 260f,
+    visibilityThreshold = IntOffset.VisibilityThreshold,
+)
 
 /** Placement-only item motion; see [QUEUE_ROW_MOTION]. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -159,7 +170,9 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
             p.expired(SystemClock.elapsedRealtime())?.let { endPending(p, it) }
         }
     }
-    val rows = shownRows(queue, pending, removed)
+    // Rebuilt only when the queue, a pending drop or a swiped-away row changes: a drag step
+    // (dragOrder) recomposes the panel without touching any of them.
+    val rows = remember(queue, pending, removed.toList()) { shownRows(queue, pending, removed) }
 
     // While a row is dragged, the order on screen: each row or heading it passes swaps with it
     // (sh.calvin.reorderable), and the engine's reports wait for the drop. The drag used to draw
@@ -168,9 +181,9 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     var dragOrder by remember { mutableStateOf<List<String>?>(null) }
     var dragStart by remember { mutableStateOf<List<String>>(emptyList()) }
     var dragRows by remember { mutableStateOf<Map<String, QRow>>(emptyMap()) }
-    val order = dragOrder ?: flatOrder(rows)
-    val byKey = if (dragOrder != null) dragRows else rows.associateBy { it.key }
-    val queuedKeys = QueueDragMath.queuedPart(order, HEADING_NEXT)
+    val order = remember(rows, dragOrder) { dragOrder ?: flatOrder(rows) }
+    val byKey = remember(rows, dragOrder, dragRows) { if (dragOrder != null) dragRows else rows.associateBy { it.key } }
+    val queuedKeys = remember(order) { QueueDragMath.queuedPart(order, HEADING_NEXT) }
 
     val listState = rememberLazyListState()
     val keepScroll = remember(listState) { keepScrollInList(listState) }
@@ -179,40 +192,100 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
     val hasCurrent = song.title.value.isNotBlank() || current != null
     val topPad = contentPadding.calculateTopPadding() + 8.dp
     val bottomPad = contentPadding.calculateBottomPadding() + 24.dp
-    // A speed, not a jump: the list's height every 100 ms was dozens of songs flying by (seen in a recording).
-    // It grows with how far into the edge zone the finger is (QueueDragMath.edgePace): slow at the
-    // zone's border, to stop on a row, about eight rows a second at the very edge.
+    // The list runs toward an edge while a row is held there (a loop of ours below, not the
+    // library's: its scroller read our pace per 100 ms where it is per second, multiplied it by up to
+    // five again, and while it ran, even at no speed, it took no place under the finger and threw the
+    // row onto the first or last row seen, a jump under the finger; in the short list of the player,
+    // its 72 dp zones held most rows, the order stayed behind the finger and the row fell back to it
+    // on the drop, seen in a recording). A speed, not a jump: about eight rows a second at the edge,
+    // slow at the zone's border to stop on a row (QueueDragMath.edgePace).
     val density = LocalDensity.current
-    val maxSpeed = with(density) { 480.dp.toPx() }
-    val edgeZone = with(density) { 72.dp.toPx() }
+    val maxSpeed = with(density) { 360.dp.toPx() }
+    val edgeZoneMax = with(density) { 72.dp.toPx() }
     val topPadPx = with(density) { (contentPadding.calculateTopPadding() + 8.dp).toPx() }
     val bottomPadPx = with(density) { (contentPadding.calculateBottomPadding() + 24.dp).toPx() }
     // The list scrolls toward an edge only once the finger has gone that way: a row taken near the
     // bottom of the screen made the list run at once, the finger not having moved (reported).
     val gate = remember { EdgeScrollGate() }
     gate.slop = with(LocalDensity.current) { 20.dp.toPx() }
-    // A speed of 0 holds the scroll (the scroller then moves by nothing until the gate opens).
-    val scroller = rememberScroller(listState, {
-        if (gate.allows()) QueueDragMath.edgePace(gate.y, topPadPx, gate.height - bottomPadPx, edgeZone, maxSpeed) else 0f
-    })
+    // The held row's place is the panel's own work, every frame: the row under the finger (a little in
+    // from its edges, so a finger on a border does not swap back and forth) gives the held one its
+    // place, however many rows the finger went past in one move. The library only draws the held row
+    // under the finger and brings it to its place on the drop: it looked for a place at drag events
+    // alone, one row at a time, and after each move it took no other until the list had been laid
+    // out twice; a quick move ending still left the place behind the finger, and the row fell back
+    // there on the drop (seen on an emulator with the probe: dropped on row 25, put after row 26).
+    var draggingKey by remember { mutableStateOf<String?>(null) }
     val reorder = rememberReorderableLazyListState(
         listState,
         scrollThresholdPadding = PaddingValues(top = topPad, bottom = bottomPad),
-        scrollThreshold = 72.dp,
-        scroller = scroller,
-    ) { from, to ->
-        val o = dragOrder ?: return@rememberReorderableLazyListState
-        val f = from.key as? String ?: return@rememberReorderableLazyListState
-        val t = to.key as? String ?: return@rememberReorderableLazyListState
-        val row = dragRows[f] ?: return@rememberReorderableLazyListState
-        QueueDragMath.swap(o, f, t, HEADING_NEXT, canLeaveQueue = row.item.provider == SongPlayer.LOCAL, block = blockOf(dragRows))?.let { dragOrder = it }
+        // Its own scrolling off: see above.
+        scrollThreshold = 0.dp,
+    ) { _, _ -> }
+    /** Where the list goes back to on the next frame after the held row took the first row's place. */
+    var anchor: Pair<Int, Int>? = null
+    /** The held row to the place under the finger, when it may go there; true when it moved. */
+    fun settle(held: String): Boolean {
+        val o = dragOrder ?: return false
+        val info = listState.layoutInfo
+        // The finger in the list's own coordinates (its item offsets start after the top padding).
+        val y = gate.y - info.beforeContentPadding
+        // Above the first row seen that can be a place (over the list's top padding, the rows above
+        // the queue's, or out of the list over the player's header), that row; below the last, the
+        // last. Nothing was under the finger there: the held row stayed where it was while the edge
+        // scroll ran the list up, went off the bottom with it, and the drag ended there (reported:
+        // carried up near the top, the row came back instead of going on up).
+        val places = info.visibleItemsInfo.filter { (it.key as? String)?.let(o::contains) == true }
+        val under = info.visibleItemsInfo.firstOrNull { y >= it.offset + it.size * SETTLE_INSET && y < it.offset + it.size * (1f - SETTLE_INSET) }
+            ?.takeIf { (it.key as? String)?.let(o::contains) == true }
+            ?: places.firstOrNull()?.takeIf { y < it.offset }
+            ?: places.lastOrNull()?.takeIf { y >= it.offset + it.size }
+            ?: return false
+        val t = under.key as? String ?: return false
+        if (t == held || t !in o) return false
+        val row = dragRows[held] ?: return false
+        val next = QueueDragMath.swap(o, held, t, HEADING_NEXT, canLeaveQueue = row.item.provider == SongPlayer.LOCAL, block = blockOf(dragRows)) ?: return false
+        // The list keeps its place by its first row seen: when the held row or the one it takes the
+        // place of is that row, the list would follow it and the held row went off under the finger
+        // (going up). Held where it is.
+        val first = listState.firstVisibleItemIndex
+        val heldIndex = info.visibleItemsInfo.firstOrNull { it.key == held }?.index
+        if (heldIndex == first || under.index == first) listState.requestScrollToItem(first, listState.firstVisibleItemScrollOffset)
+        // That hold can be spent on a layout of the order of before (the new one not composed yet):
+        // the list then keeps the row it took the place of first, by its key, and the held row sits
+        // just above what is seen. Put back on the next frame (the held row is pinned meanwhile).
+        if (under.index == first) anchor = first to listState.firstVisibleItemScrollOffset
+        dragOrder = next
+        return true
+    }
+    // Each frame while a row is held: the edge scroll by the pace for the time gone (a slow frame
+    // counts for [MAX_FRAME_S] at most, not a jump of the list), then the held row's place.
+    LaunchedEffect(draggingKey) {
+        val held = draggingKey ?: return@LaunchedEffect
+        var last = 0L
+        while (draggingKey == held) {
+            val now = withFrameNanos { it }
+            val dt = if (last == 0L) 0f else ((now - last) / 1_000_000_000f).coerceAtMost(MAX_FRAME_S)
+            last = now
+            anchor?.let { (index, offset) -> anchor = null; if (listState.firstVisibleItemIndex != index) listState.scrollToItem(index, offset) }
+            if (dt > 0f && gate.allows()) {
+                val start = topPadPx; val end = gate.height - bottomPadPx
+                val zone = minOf(edgeZoneMax, (end - start) / 4f)
+                val pace = QueueDragMath.edgePace(gate.y, start, end, zone, maxSpeed)
+                if (pace > 0f) listState.scrollBy(if (gate.y > (start + end) / 2f) pace * dt else -pace * dt)
+            }
+            if (settle(held)) Haptics.tick()
+        }
     }
     val onDragStarted: (String) -> Unit = { k ->
-        dragStart = order; dragRows = byKey; dragOrder = order
+        dragStart = order; dragRows = byKey; dragOrder = order; draggingKey = k
         gate.begin()
         Haptics.click()
     }
     val onDragStopped: (String) -> Unit = stop@{ k ->
+        // Where the finger is now, not a frame ago.
+        settle(k)
+        draggingKey = null
         val after = dragOrder ?: return@stop
         val start = dragStart
         val known = dragRows
@@ -322,7 +395,7 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
         val rowItem: @Composable LazyItemScope.(String) -> Unit = rowItem@{ k ->
             if (k == HEADING_NEXT) {
                 // A place the dragged row swaps with (it then changes part), never dragged itself.
-                ReorderableItem(reorder, key = k, animateItemModifier = queueMotion()) {
+                ReorderableItem(reorder, key = k, enabled = false, animateItemModifier = queueMotion()) {
                     QueueHeading(
                         title = if (contextName.isNotBlank()) stringResource(R.string.next_from, contextName) else stringResource(R.string.next_up),
                         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
@@ -331,7 +404,15 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
                 return@rowItem
             }
             val row = byKey[k] ?: return@rowItem
-            ReorderableItem(reorder, key = k, animateItemModifier = queueMotion()) { dragging ->
+            // The held row stays composed when the list leaves it out of what is seen for a frame (see
+            // settle): dropped, it took its handle and so the drag with it.
+            val pinnable = LocalPinnableContainer.current
+            val heldHere = draggingKey == k
+            DisposableEffect(pinnable, heldHere) {
+                val pin = if (heldHere) pinnable?.pin() else null
+                onDispose { pin?.release() }
+            }
+            ReorderableItem(reorder, key = k, enabled = false, animateItemModifier = queueMotion()) { dragging ->
                 QueueEntry(row, removed, dragging, dimmed = reorder.isAnyItemDragging && !dragging,
                     handle = Modifier.draggableHandle(onDragStarted = { onDragStarted(k) }, onDragStopped = { onDragStopped(k) }))
             }
@@ -363,8 +444,13 @@ fun ImmersiveQueuePanel(modifier: Modifier = Modifier, contentPadding: PaddingVa
 private data class QRow(val key: String, val item: SongPlayer.QueueItem, val queued: Boolean, val index: Int)
 
 private const val SLOW_REPORT_MS = 3_000L
+/** How far into a row (of its height, from either edge) the finger goes before the held row takes its place. */
+private const val SETTLE_INSET = 0.12f
+/** The longest frame the edge scroll counts, in seconds. */
+private const val MAX_FRAME_S = 1f / 30f
 /** The carried row's veil: light, so it reads as lifted without a dark box over the cover's colours. */
-private val CARRIED_ROW = Color.White.copy(alpha = 0.14f)
+/** The row held: nearly opaque, so the rows it passes over do not show their words through it (seen in a recording). */
+private val CARRIED_ROW = Color(0xF0302E33)
 /** While a row is carried the others fade to this: what it passes over stays faint under it. */
 private const val DIMMED_ALPHA = 0.4f
 
@@ -429,7 +515,8 @@ private fun shownRows(queue: SongPlayer.EngineQueue, pending: QueueDragMath.Pend
 @Composable
 private fun QueueEntry(row: QRow, removed: SnapshotStateList<String>, dragging: Boolean, dimmed: Boolean, handle: Modifier) {
     val item = row.item
-    val dismiss = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
+    // Removed past 40 % of the row, not Material's 56 dp: a slanted scroll took songs out of the queue.
+    val dismiss = rememberSwipeToDismissBoxState(positionalThreshold = { it * 0.4f }, confirmValueChange = { value ->
         if (value == SwipeToDismissBoxValue.EndToStart) {
             removed += row.key
             SongPlayer.removeFromQueue(item)

@@ -63,7 +63,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.api.Response
@@ -193,7 +192,7 @@ private fun AddSongRow(song: SongsModel, added: Boolean, onPlay: () -> Unit, onA
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
     ) {
-        GlideImage(model = song.coverUri, contentDescription = null, contentScale = ContentScale.Crop, transition = CrossFade,
+        GlideImage(model = song.coverUri, contentDescription = null, contentScale = ContentScale.Crop,
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)))
         Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
             Text(song.title, color = AppText, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

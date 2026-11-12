@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Daha %d stansiya uyğun gəlir, amma şifrələnməmiş (http) və ya HLS axını ilə yayımlanır, tətbiq onu hələ oxuda bilmir.</item>
+        <item quantity="other">Daha %d stansiya uyğun gəlir, amma şifrələnməmiş (http) və ya HLS axını ilə yayımlanır, tətbiq onları hələ oxuda bilmir.</item>
+    </plurals>
+</resources>

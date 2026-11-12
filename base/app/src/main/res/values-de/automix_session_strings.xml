@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_automix_session">DJ-Sitzung</string>
+    <string name="settings_automix_session_detail">Lässt Übergänge vor dem Ende an einem musikalischen Abschnitt beginnen. Ausschalten, um mehr von jedem Song zu behalten.</string>
+    <string name="settings_automix_segue">Planbasierte Übergänge</string>
+    <string name="settings_automix_segue_detail">Eine neue Art, Übergänge zu wählen und abzuspielen, mit strengeren Grenzen: Ein Paar darf ungemischt bleiben. Ausschalten, um zur vorherigen Version zurückzukehren.</string>
+</resources>

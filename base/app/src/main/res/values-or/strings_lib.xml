@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">ଆଉ %d ଷ୍ଟେସନ ମେଳ ଖାଉଛି, କିନ୍ତୁ ଏହା ଏନକ୍ରିପ୍ଟ ହୋଇନଥିବା (http) କିମ୍ବା HLS ଷ୍ଟ୍ରିମରେ ଚାଲେ, ଯାହା ଆପ ଏବେ ଚଲାଇପାରିବ ନାହିଁ।</item>
+        <item quantity="other">ଆଉ %d ଷ୍ଟେସନ ମେଳ ଖାଉଛି, କିନ୍ତୁ ସେଗୁଡ଼ିକ ଏନକ୍ରିପ୍ଟ ହୋଇନଥିବା (http) କିମ୍ବା HLS ଷ୍ଟ୍ରିମରେ ଚାଲେ, ଯାହା ଆପ ଏବେ ଚଲାଇପାରିବ ନାହିଁ।</item>
+    </plurals>
+</resources>

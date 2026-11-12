@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">وقّف ترجمة الكلمات</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">اممم. ماعارفينش الكلمات ديال هادي.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">هاد الكلمات ما كتبانش فورا، مؤقتا.</string>
-    <string name="av_switch_to_video" formatted="false">حوّل للفيديو</string>
-    <string name="av_switch_to_audio" formatted="false">حوّل للصوت</string>
-    <string name="av_content_desc" formatted="false">بدِّل بين الفيديو والمقطع الصوتي</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">الصفحة الرئيسية</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">قلّب</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">مكتبتك</string>

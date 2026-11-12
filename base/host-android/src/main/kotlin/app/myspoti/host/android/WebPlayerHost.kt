@@ -31,7 +31,8 @@ import java.io.ByteArrayInputStream
  *
  * - The WebView is built on the application context, so playback outlives activities.
  * - Desktop user agent: on a phone UA the Web Player only offers to open the app.
- * - Protected media (Widevine) is allowed; ad audio requests ([AdBlock]) are refused.
+ * - Protected media (Widevine) is allowed; what [AdBlock] refuses is refused (its ad and tracker
+ *   hosts, only while the music plays on a Spotify Connect device sent from the app).
  * - [loginRequired] turns true on Spotify's login pages: the UI then shows [view] so the
  *   user signs in on Spotify's own page.
  */
@@ -73,7 +74,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
     /**
      * When Spotify last refused this page an audio licence (403 and the like, not a 429 limit). The
      * page then skips the song by itself, and on to the next one, a second or so each: those moves are
-     * not the user's (see ConnectMirror).
+     * not the user's (see the listen sync, app.myspoti.spotify.sync.SpotifyListenSync).
      */
     @Volatile private var licenceRefusedAt = 0L
     fun licenceRefusedWithin(ms: Long): Boolean =
@@ -283,6 +284,9 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         // Playback control requests leave from the app, without the WebView's X-Requested-With.
         relay = ControlRelay(this, fingerprint).also {
             it.onDeviceRegistered = { drmAsked = true; main.removeCallbacks(drmWatch) }
+            // An idle page starting to play by itself (a transfer from another device): awake at
+            // once, before its state comes and makes it of use.
+            it.onPlaybackReport = { wake(REPORT_AWAKE_MS) }
             it.install()
         }
         val webView = this
@@ -314,8 +318,8 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val url = request.url.toString()
                 if (AdBlock.isBlocked(url)) {
-                    Logbook.log("blocked ad request ${Logbook.noQuery(url).take(120)}")
-                    // Refused like a blocked request: the player reports a failed ad and moves on.
+                    Logbook.log("blocked request ${Logbook.noQuery(url).take(120)}")
+                    // Refused like a blocked request.
                     return WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
                 }
                 // Spotify is limiting audio licences (429) and the app holds playback: the page still
@@ -496,6 +500,7 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         runCatching { view.stopLoading() }
         runCatching { view.destroy() }
         view = createView()
+        applyAwake()
         pageStarts = 0
         _url.value = ""
         // attach() loads the page itself when a load is pending; the pending load is asked again
@@ -950,6 +955,56 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         (view.context as? android.content.MutableContextWrapper)?.baseContext = context.applicationContext
     }
 
+    /**
+     * Whether the page is of use now ([MyspotiRuntime] says: it plays, an ad is on, another device
+     * plays through it, it is not up yet). Useful, Chromium is told it is visible and runs it at
+     * full speed; idle, it sees the view as it really is (hidden), and throttles its timers as a
+     * background tab's. A command wakes it for [COMMAND_AWAKE_MS] ([commandComing]) before it is sent.
+     *
+     * Idle, the page still wakes for [BREATH_MS] every [BREATH_EVERY_MS]: Chromium holds a page
+     * hidden five minutes without sound to one timer a minute, and the page's keep-alive with
+     * Spotify (its Connect presence: the device listed and controllable from the others, a
+     * transfer to it) runs on timers. Kept within the first throttling (one timer a second), it
+     * never falls that far behind; the battery gain stays (the page sleeps 98 % of the time).
+     */
+    fun setUseful(on: Boolean) = main.post {
+        useful = on
+        applyAwake()
+        main.removeCallbacks(breath)
+        if (!on) main.postDelayed(breath, BREATH_EVERY_MS)
+    }
+
+    override fun commandComing() = wake(COMMAND_AWAKE_MS)
+
+    /** The page awake for [ms] at least, then back to what [useful] says. */
+    private fun wake(ms: Long) {
+        val until = android.os.SystemClock.uptimeMillis() + ms
+        if (until <= awakeUntil) return
+        awakeUntil = until
+        main.post {
+            applyAwake()
+            main.removeCallbacks(wakeOver)
+            main.postDelayed(wakeOver, (awakeUntil - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0))
+        }
+    }
+
+    @Volatile private var awakeUntil = 0L
+    private var useful = true
+    private val wakeOver = Runnable { applyAwake() }
+    private val breath: Runnable = Runnable {
+        if (useful) return@Runnable
+        wake(BREATH_MS)
+        main.postDelayed(breath, BREATH_EVERY_MS)
+    }
+
+    private fun applyAwake() {
+        val awake = useful || android.os.SystemClock.uptimeMillis() < awakeUntil
+        (view as? AwakeWebView)?.setAwake(awake)
+        // The renderer is important only while the page is of use (it plays, mirrors, is asked):
+        // idle, it is bound to the app's own priority, never waived (a killed renderer is a reload).
+        runCatching { view.setRendererPriorityPolicy(if (awake) WebView.RENDERER_PRIORITY_IMPORTANT else WebView.RENDERER_PRIORITY_BOUND, false) }
+    }
+
     /** Frees the page (data saver, low memory). [load] brings it back. */
     fun unload() = main.post { loadAsked = false; view.loadUrl("about:blank") }
 
@@ -974,7 +1029,19 @@ class WebPlayerHost(private val context: Context) : BridgeHost {
         private const val LIMIT_HOLD_MS = 60_000L
         private const val LIMIT_HOLD_MAX_MS = 600_000L
         private const val LIMIT_FORGET_MS = 1_800_000L
-        private val RETRY_PAGE_MS = longArrayOf(2_000, 5_000, 15_000, 30_000, 60_000)
+        /**
+         * A page that did not load is loaded again after these waits, the last one repeated (a
+         * captive portal, a filtered DNS, a blocked country): it was once a minute for ever.
+         */
+        private val RETRY_PAGE_MS = longArrayOf(2_000, 5_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000)
+        /** A command keeps an idle page awake this long (its answer, the page's work after it). */
+        private const val COMMAND_AWAKE_MS = 10_000L
+        /** A playback report of the page's own keeps it awake this long (its state then says whether it plays). */
+        private const val REPORT_AWAKE_MS = 3_000L
+        /** An idle page wakes this often (under the five minutes after which Chromium holds a hidden page to a timer a minute)... */
+        private const val BREATH_EVERY_MS = 4 * 60_000L
+        /** ...for this long: the timers due run, and the hidden page's five minutes start again. */
+        private const val BREATH_MS = 3_000L
         private const val LOAD_WATCH_MS = 4_000L
         private const val REBUILD_WATCH_MS = 1_500L
         /** A removed profile still held by the WebView just replaced: deleted again after this. */
@@ -1001,7 +1068,8 @@ ready:document.readyState});
 }
 
 /**
- * The engine's WebView, never hidden as far as Chromium knows. A page Chromium sees hidden has
+ * The engine's WebView, not hidden as far as Chromium knows while it is awake ([setAwake]: the
+ * page plays, or a command is on its way). A page Chromium sees hidden has
  * its timers held to one wake-up a second, then to one a minute once it has been hidden five
  * minutes without sound (measured on the test phone, app in the background: eight 38 ms steps
  * took 7.8 s). Everything the page does on a timer waited on that: the fades (a song resumed
@@ -1014,9 +1082,30 @@ ready:document.readyState});
  * [onWindowVisibilityChanged] afterwards (the callback alone left the page hidden).
  */
 private class AwakeWebView(context: Context) : WebView(context) {
-    override fun getVisibility(): Int = View.VISIBLE
-    override fun getWindowVisibility(): Int = View.VISIBLE
-    override fun onWindowVisibilityChanged(visibility: Int) = super.onWindowVisibilityChanged(View.VISIBLE)
+    /** Told visible to Chromium; off, Chromium sees the view's and the window's real visibility. */
+    private var awake = true
+    /** The window's visibility as the framework last said it. */
+    private var realWindowVisibility = View.VISIBLE
+
+    override fun getVisibility(): Int = if (awake) View.VISIBLE else super.getVisibility()
+    override fun getWindowVisibility(): Int = if (awake) View.VISIBLE else super.getWindowVisibility()
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        realWindowVisibility = visibility
+        super.onWindowVisibilityChanged(if (awake) View.VISIBLE else visibility)
+    }
+
+    /**
+     * Idle (nothing played, no command for a while): Chromium is told the truth, so a page nobody
+     * uses is throttled as a hidden tab is (timers once a second, then once a minute). Its view and
+     * window visibility are both said again, as Chromium reads them only on these calls.
+     */
+    fun setAwake(on: Boolean) {
+        if (on == awake) return
+        awake = on
+        val window = if (on) View.VISIBLE else if (isAttachedToWindow) realWindowVisibility else View.GONE
+        super.onWindowVisibilityChanged(window)
+        onVisibilityChanged(this, getVisibility())
+    }
 
     /**
      * Closing the app (swiped from recents, back) destroys the activity and its window, and the

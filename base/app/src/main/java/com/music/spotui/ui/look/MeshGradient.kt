@@ -64,6 +64,20 @@ private val FallbackColors = listOf(
     Color(0xFFFFAF7B),
 )
 
+/** Where the four blobs sit, and how fast each orbits (irrational multiples, so they never line up). */
+private val MeshAnchors = listOf(
+    Offset(0.20f, 0.25f),
+    Offset(0.80f, 0.20f),
+    Offset(0.75f, 0.80f),
+    Offset(0.25f, 0.75f),
+)
+private val MeshSpeeds = listOf(1f, -0.7f, 0.85f, -1.15f)
+
+/** The scrim that keeps white text legible over bright art. */
+private val MeshScrim = Brush.verticalGradient(
+    colors = listOf(Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.38f)),
+)
+
 /** The four mesh colours, wrapped so the backdrop can skip recomposition. */
 @Immutable
 data class MeshPalette(val colors: List<Color>)
@@ -171,20 +185,13 @@ fun MeshGradientBackground(
             .background(baseColor)
             .blur(blurRadius),
     ) {
-        val anchors = listOf(
-            Offset(0.20f, 0.25f),
-            Offset(0.80f, 0.20f),
-            Offset(0.75f, 0.80f),
-            Offset(0.25f, 0.75f),
-        )
-        val speeds = listOf(1f, -0.7f, 0.85f, -1.15f)
         val drift = phase.value
 
         animatedColors.forEachIndexed { index, color ->
-            val anchor = anchors[index]
+            val anchor = MeshAnchors[index]
             val center = Offset(
-                x = (anchor.x + 0.16f * cos(drift * speeds[index] + index * 1.7f)) * size.width,
-                y = (anchor.y + 0.16f * sin(drift * speeds[index] * 0.9f + index * 2.3f)) * size.height,
+                x = (anchor.x + 0.16f * cos(drift * MeshSpeeds[index] + index * 1.7f)) * size.width,
+                y = (anchor.y + 0.16f * sin(drift * MeshSpeeds[index] * 0.9f + index * 2.3f)) * size.height,
             )
             val radius = size.maxDimension * 0.62f
             drawCircle(
@@ -199,14 +206,7 @@ fun MeshGradientBackground(
         }
 
         // Gentle scrim so white text stays legible over bright art.
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Black.copy(alpha = 0.10f),
-                    Color.Black.copy(alpha = 0.38f),
-                ),
-            ),
-        )
+        drawRect(brush = MeshScrim)
     }
 }
 

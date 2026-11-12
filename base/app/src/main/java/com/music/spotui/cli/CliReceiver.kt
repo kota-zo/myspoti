@@ -25,6 +25,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
@@ -83,9 +84,9 @@ class CliReceiver : BroadcastReceiver() {
                 put("context", np.contextUri)
                 put("positionMs", SongPlayer.getCurrentPosition())
                 put("durationMs", SongPlayer.getDuration())
-                // Who plays: the app's own player (an extension's stream, a download, a file) or Spotify's engine.
+                // Who plays: the app's own player (an extension's stream, a download, a file) or the account's (Spotify's Web Player).
                 val local = com.music.spotui.di.LocalPlayer.active.value && !SongPlayer.routing
-                put("player", if (local) "local" else "engine")
+                put("player", if (local) "local" else "account")
                 put("routing", SongPlayer.routing)
                 // The local player's own view: asked to play, and idle (stopped by an error), buffering, ready or ended.
                 if (com.music.spotui.di.LocalPlayer.active.value) {
@@ -99,19 +100,21 @@ class CliReceiver : BroadcastReceiver() {
                 }
                 put("extensions", if (Extensions.isReady) Extensions.registry.value.extensions.size else 0)
                 put("ui", nav.subscriptionCount.value > 0)
-                // The Connect mirror ("Count extension plays on Spotify") and the page under it.
+                // The listen sync of the account provider and the page under it (Spotify's, when it runs).
                 put("mirror", buildJsonObject {
-                    val m = com.music.spotui.di.ConnectMirror.status()
+                    val m = com.music.spotui.di.AccountSync.listen.status()
+                    put("provider", m.provider)
                     put("on", m.on); put("running", m.running); put("handedAway", m.handedAway); put("landed", m.landed)
                     m.uri?.let { put("uri", it) }; m.paused?.let { put("paused", it) }
-                    m.webPositionMs?.let { put("webPositionMs", it) }; m.failedUri?.let { put("failedUri", it) }
+                    m.remotePositionMs?.let { put("webPositionMs", it) }; m.failedUri?.let { put("failedUri", it) }
+                    put("remoteControl", m.remoteControl); m.note?.let { put("note", it) }
                     if (MyspotiRuntime.isStarted) {
                         val page = MyspotiRuntime.spotify.player
                         val s = page.state.value
                         put("pageUri", s?.item?.uri ?: "")
                         put("pagePaused", s?.isPaused ?: true)
                         put("pagePositionMs", s?.positionAt(System.currentTimeMillis()) ?: 0L)
-                        put("hushed", page.localMute)
+                        put("unheard", page.localMute)
                         put("quality", page.streamingLevel)
                         put("bitrate", audio.first); put("codec", audio.second)
                         put("playsElsewhere", page.playsElsewhere.value)
@@ -223,11 +226,99 @@ class CliReceiver : BroadcastReceiver() {
         is CliCommand.JamJoin -> jamJson(MyspotiRuntime.api.jam.join(c.token))
         CliCommand.JamStatus -> { MyspotiRuntime.api.jam.refresh(); jamJson(MyspotiRuntime.api.jam.session.value) }
         CliCommand.JamLeave -> { MyspotiRuntime.api.jam.leave(); JsonNull }
+        CliCommand.CatalogStatus -> com.music.spotui.data.catalog.CatalogRuntime.status()
+        is CliCommand.Search -> {
+            val t0 = android.os.SystemClock.elapsedRealtime()
+            val pageReady = MyspotiRuntime.isStarted && MyspotiRuntime.spotify.ready.value
+            val token = MyspotiRuntime.isStarted && MyspotiRuntime.spotify.http.hasToken()
+            val steps = ArrayList<String>()
+            var first = -1L
+            com.music.spotui.data.api.Api(ctx).searchEverything(c.query).collect { r ->
+                val ms = android.os.SystemClock.elapsedRealtime() - t0
+                when (r) {
+                    is com.music.spotui.data.api.Response.Success -> { if (first < 0) first = ms; steps += "${ms} ms: ${r.data.songs.size} songs, ${r.data.artists.size} artists, ${r.data.albums.size} albums, ${r.data.playlists.size} playlists" }
+                    is com.music.spotui.data.api.Response.Error -> steps += "${ms} ms: error ${r.error}"
+                    else -> Unit
+                }
+            }
+            buildJsonObject {
+                put("pageReadyAtStart", pageReady); put("tokenAtStart", token)
+                put("firstResultsMs", first); put("totalMs", android.os.SystemClock.elapsedRealtime() - t0)
+                put("steps", kotlinx.serialization.json.JsonArray(steps.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                put("httpFellBack", MyspotiRuntime.spotify.httpGql.fellBack.get())
+            }
+        }
+        CliCommand.CatalogUpdate -> {
+            val r = com.music.spotui.data.catalog.CatalogRuntime.update()
+            buildJsonObject {
+                put("result", r.toString())
+                put("status", com.music.spotui.data.catalog.CatalogRuntime.status())
+            }
+        }
+        is CliCommand.CatalogSource -> {
+            // Debug builds only: a beta always fetches the published scripts.
+            if (!app.myspoti.engine.BuildConfig.DEBUG) throw CliError(DISABLED)
+            if (!com.music.spotui.data.catalog.CatalogRuntime.setBaseUrlOverride(c.url)) throw CliError("catalog.source: refused")
+            com.music.spotui.data.catalog.CatalogRuntime.status()
+        }
         CliCommand.AutoMixStatus -> onMain {
             buildJsonObject {
                 put("state", com.music.spotui.di.LocalPlayer.autoMixState())
                 put("journal", JsonArray(com.music.spotui.automix.AutoMix.journalLines().takeLast(30).map(::JsonPrimitive)))
             }
+        }
+        is CliCommand.AutoMixSettings -> onMain {
+            val a = com.music.spotui.automix.AutoMix
+            when (c.name) {
+                null -> Unit
+                "enabled" -> { val on = c.value == "on"; a.set(on); com.music.spotui.di.LocalPlayer.autoMixChanged(on) }
+                "segue" -> a.changeSegue(c.value == "on")
+                "orpheon" -> a.changeOrpheon(c.value == "on")
+                "ideas" -> app.myspoti.automix.segue.MixIdea.values().forEach { a.changeIdea(it, c.value == "on") }
+                "session-dj" -> a.changeSessionDj(c.value == "on")
+                "album-order" -> a.changeAlbumOrder(c.value == "on")
+                "podcasts" -> a.changeMixPodcasts(c.value == "on")
+                "harmonic" -> a.changeHarmonic(c.value == "on")
+                "eq" -> a.changeDjEq(c.value == "on")
+                "show" -> a.changeShowInPlayer(c.value == "on")
+                "mobile-data" -> a.changeAnalyzeOnMobileData(c.value == "on")
+                "on-next" -> a.changeNextStyle(listOf("cut", "quick", "full").indexOf(c.value))
+                "style" -> a.changeStyle(listOf("blend", "cut", "fade").indexOf(c.value))
+                "length" -> a.changeMixLength(listOf("short", "balanced", "long").indexOf(c.value))
+                "tempo" -> a.changeTempoRange(listOf("strict", "normal", "wide").indexOf(c.value))
+                "pulse" -> a.changePulseLevel(listOf("off", "subtle", "strong").indexOf(c.value))
+                "duration-min" -> if (!a.changeDurationBounds(c.value!!.toInt(), a.maxDurationSeconds))
+                    throw CliError("automix.settings: min duration must be 0..90 seconds and not exceed a configured max")
+                "duration-max" -> if (!a.changeDurationBounds(a.minDurationSeconds, c.value!!.toInt()))
+                    throw CliError("automix.settings: max duration must be 0..90 seconds and at least the configured min; 0 means unlimited")
+                "performance-priority" -> a.changePerformancePriority(c.value == "on")
+                else -> app.myspoti.automix.segue.MixIdea.parse(c.name)?.let { a.changeIdea(it, c.value == "on") }
+            }
+            AutoMixSettingsSnapshot(
+                enabled = a.on, segue = a.segue, sessionDj = a.sessionDj, albumOrder = a.albumOrder,
+                podcasts = a.mixPodcasts, harmonic = a.harmonic, eq = a.djEq, show = a.showInPlayer,
+                mobileData = a.analyzeOnMobileData,
+                onNext = listOf("cut", "quick", "full").getOrElse(a.nextStyle) { "cut" },
+                style = listOf("blend", "cut", "fade").getOrElse(a.style) { "blend" },
+                length = listOf("short", "balanced", "long").getOrElse(a.mixLength) { "balanced" },
+                tempo = listOf("strict", "normal", "wide").getOrElse(a.tempoRange) { "normal" },
+                pulse = listOf("off", "subtle", "strong").getOrElse(a.pulseLevel) { "off" },
+                durationMin = a.minDurationSeconds,
+                durationMax = a.maxDurationSeconds,
+                performancePriority = a.performancePriority,
+                orpheon = a.orpheon,
+                ideas = app.myspoti.automix.segue.MixIdea.values().associate { it.wire to a.hasIdea(it) },
+            ).json()
+        }
+        CliCommand.AutoMixNext -> onMain {
+            if (SongPlayer.routing) throw CliError("automix.next: account playback is routing")
+            if (!com.music.spotui.di.LocalPlayer.active.value) throw CliError("automix.next: the local player is not active")
+            if (!com.music.spotui.automix.AutoMix.on) throw CliError("automix.next: AutoMix is off")
+            if (!com.music.spotui.automix.AutoMix.mixOnNext) throw CliError("automix.next: on-next is set to cut")
+            // The same route as the player control: SongPlayer delegates local playback to LocalPlayer.next(),
+            // which calls mixOnSkip() and prepares the next deck when a transition can be made.
+            SongPlayer.next(by = "CLI AutoMix")
+            JsonPrimitive(com.music.spotui.di.LocalPlayer.autoMixState())
         }
         is CliCommand.AutoMixFiles -> {
             val all = com.music.spotui.data.local.LocalMusic.tracks(ctx, refresh = true)
@@ -238,6 +329,18 @@ class CliReceiver : BroadcastReceiver() {
         }
         is CliCommand.AutoMixSeek -> onMain { com.music.spotui.di.LocalPlayer.seekTo(c.ms); JsonNull }
         CliCommand.Pause -> onMain { SongPlayer.pause(by = "cli"); JsonNull }
+        CliCommand.Devices -> {
+            val d = MyspotiRuntime.spotify.devices
+            runCatching { d.refresh() }
+            buildJsonArray {
+                for (x in d.devices.value) add(buildJsonObject {
+                    put("id", x.id); put("name", x.name); put("type", x.type); put("active", x.active); put("local", x.local)
+                    x.volume?.let { put("volume", (it * 100).toInt()) }
+                })
+            }
+        }
+        is CliCommand.Transfer -> { MyspotiRuntime.spotify.devices.transfer(c.deviceId); JsonNull }
+        is CliCommand.Volume -> onMain { SongPlayer.setRemoteVolume(c.level); JsonPrimitive(c.level) }
         CliCommand.Resume -> onMain { SongPlayer.play(by = "cli"); JsonNull }
         CliCommand.Next -> onMain { SongPlayer.next(); JsonNull }
         CliCommand.Previous -> onMain { SongPlayer.previous(); JsonNull }

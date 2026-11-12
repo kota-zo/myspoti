@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Launch screen mark: the launcher wave, smaller and centred. -->
+<!-- Launch screen mark: the launcher mark, smaller and centred. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/ic_launcher_foreground"
     android:inset="22%" />

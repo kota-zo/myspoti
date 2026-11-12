@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">Native player (experimental)</string>
+    <string name="settings_native_audio_detail">The account\'s songs are played by the app\'s own player instead of the hidden web page. Being tried: sorted lists play in their own order, and some controls may lag.</string>
+    <string name="brand_name" translatable="false">Orpheon</string>
+    <string name="welcome_rotate_sources">from the sources you choose.</string>
+    <string name="welcome_rotate_mix">mixed like a DJ set.</string>
+    <string name="album_label">Label: %1$s</string>
+    <string name="settings_automix_options">Options</string>
+    <string name="settings_automix_analysis">Analysis</string>
+    <string name="settings_automix_display">Display</string>
+    <string name="settings_automix_duration_auto">Automatic</string>
+    <string name="settings_automix_duration_none">No limit</string>
+    <string name="settings_automix_seconds">%1$d s</string>
+    <string name="settings_local_files_shown">Show Local Files</string>
+    <string name="settings_local_files_shown_detail">The Local Files row in your Library. Off: hidden; no file is touched.</string>
+    <string name="pass_section">Other devices</string>
+    <string name="pass_send">Send to another device</string>
+    <string name="pass_send_detail">Scan the code shown by your TV, computer or other phone: it gets your settings, extensions and sign-in.</string>
+    <string name="pass_receive">Receive from another device</string>
+    <string name="pass_receive_detail">Show a code for your phone to scan.</string>
+    <string name="pass_receive_title">Scan this code with your phone</string>
+    <string name="pass_receive_hint">Point your phone\'s camera at it, or on the phone: Settings › Other devices › Send to another device. Both must be on the same Wi-Fi.</string>
+    <string name="pass_no_network">No Wi-Fi network: connect this device to the same Wi-Fi as your phone.</string>
+    <string name="pass_received">Received from %1$s. The app restarts.</string>
+    <string name="pass_confirm_title">Send to %1$s?</string>
+    <string name="pass_confirm_text">Your settings, extensions and Spotify sign-in are copied to this device, straight over your Wi-Fi and encrypted. Send them only to your own devices.</string>
+    <string name="pass_send_action">Send</string>
+    <string name="pass_sent">Sent to %1$s</string>
+    <string name="pass_failed">Not sent: %1$s</string>
+    <string name="pass_not_invite">This is not a code of this app.</string>
+    <string name="pass_scan_unavailable">No code scanner on this phone (Google Play services).</string>
+    <string name="pass_sign_in_with_device">Sign in with your phone</string>
+    <string name="pass_link_warning">Opened from a link. Send only if you just scanned this code on the screen of your own device.</string>
+    <string name="pass_need_sign_in">Sign in on this phone first, then scan the code again.</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">What songs mean and the annotations on their lines, and Genius lyrics when no other source has them. Off: nothing is asked of Genius.</string>
+    <string name="welcome_start">Get started</string>
+    <string name="setup_account_spotify_next">You sign in next, on Spotify\'s own page. Orpheon never sees your password.</string>
+</resources>

@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">ଲିରିକ୍ସ ଅନୁବାଦ କରିବା ସ୍ଥଗିତ କରନ୍ତୁ</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ହଁ। ଆମେ ଏହାର ଲିରିକ୍ସ ଜାଣିନାହୁଁ।</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">ଏହି ଲିରିକ୍ସ୍ ଏପର୍ଯ୍ୟନ୍ତ ସମୟ-ସିଙ୍କ୍ ହୋଇନାହିଁ।</string>
-    <string name="av_switch_to_video" formatted="false">ଭିଡିଓକୁ ସ୍ୱିଚ୍ କରନ୍ତୁ</string>
-    <string name="av_switch_to_audio" formatted="false">ଅଡିଓକୁ ସ୍ୱିଚ୍ କରନ୍ତୁ</string>
-    <string name="av_content_desc" formatted="false">ଅଡିଓ ଏବଂ ଭିଡିଓ ମଧ୍ୟରେ ଟୋଗଲ୍‍ କରନ୍ତୁ</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ମୂଳପୃଷ୍ଠା</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">ସର୍ଚ୍ଚ କରନ୍ତୁ</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">ଆପଣଙ୍କ ଲାଇବ୍ରେରୀ</string>

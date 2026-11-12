@@ -38,8 +38,12 @@ internal object MusicVideoMatch {
         Regex("""\b(?:official )?audio\b|\baudio officiel\b"""),
     )
 
-    /** Words of a track title that are not part of its name. */
-    private val titleNoise = Regex("""\(.*?\)|\[.*?]|\{.*?}|\b(?:feat|ft|featuring)\b\.?\s.*""")
+    /**
+     * Words of a track title that are not part of its name. Every closing bracket and brace escaped:
+     * Android's regex engine (ICU) refuses a bare "}" that Java takes as a letter, and the class then
+     * failed to load on the phone (every clip lookup failed, the tests on the JVM passing).
+     */
+    private val titleNoise = Regex("""\(.*?\)|\[.*?\]|\{.*?\}|\b(?:feat|ft|featuring)\b\.?\s.*""")
 
     /** Accents, case, "$" read as "s" ("A$AP" is "ASAP") and the elided apostrophe ("J'SAVAIS" is "jsavais"). */
     private fun fold(s: String): String = Normalizer.normalize(s.replace('$', 's').replace('’', '\''), Normalizer.Form.NFD)

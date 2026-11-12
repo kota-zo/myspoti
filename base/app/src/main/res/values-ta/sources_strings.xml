@@ -4,8 +4,9 @@
     <string name="sources_download_title">பதிவிறக்க ஆதாரங்கள்</string>
     <string name="sources_audio_footer">ஒவ்வொரு பாடலுக்கும் மேலிருந்து கீழாகக் கேட்கப்படும்: அதைக் கொண்டுள்ள முதல் ஆதாரம் இயக்கும். வரிசையை மாற்ற அம்புக்குறிகளைப் பயன்படுத்தவும்.</string>
     <string name="sources_download_footer">மேலிருந்து கீழாகக் கேட்கப்படும்: பாடல் உள்ள முதல் ஆதாரம் கோப்பை வழங்கும். வரிசையை மாற்ற அம்புக்குறிகளைப் பயன்படுத்தவும்.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">மேலுள்ள எந்த ஆதாரத்திலும் பாடல் இல்லாதபோது இயங்கும்</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">மேலுள்ள எந்த ஆதாரத்திலும் பாடல் இல்லாதபோது இயங்கும்</string>
+    <string name="sources_account_player">உங்கள் கணக்கின் பிளேயர்</string>
     <string name="sources_ready">தயார்</string>
     <string name="sources_details_show">விவரங்களைக் காட்டு</string>
     <string name="sources_details_hide">விவரங்களை மறை</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">கடைசியாக: %1$s, %2$s</string>
     <string name="sources_open">நீட்டிப்பைத் திற</string>
     <string name="sources_order_hint">அமைப்புகளில் (பிளேபேக், பதிவிறக்கங்கள்) அமைக்கப்பட்ட வரிசையில் ஆதாரங்கள் கேட்கப்படும்.</string>
-    <string name="sources_below_spotify">கேட்கப்படுவதில்லை: Spotify மேலே உள்ளது</string>
+    <string name="sources_below_account">கேட்கப்படுவதில்லை: Spotify மேலே உள்ளது</string>
 </resources>

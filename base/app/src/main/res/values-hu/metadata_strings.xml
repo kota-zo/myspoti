@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metaadatok</string>
+    <string name="metadata_footer">A keresések, albumok és előadók ezekből a szolgáltatásokból jönnek, fentről lefelé lekérdezve. Ugyanaz a dal kétszer megtalálva egyszer jelenik meg. A kikapcsolt szolgáltatást soha nem kérdezzük le.</string>
+    <string name="metadata_spotify_detail">A fiókod, amíg be vagy jelentkezve</string>
+    <string name="metadata_signed_out">Nincs lekérdezve: nincs bejelentkezett fiók</string>
+    <string name="metadata_asked">Lekérdezve</string>
+    <string name="metadata_off">Ki: soha nincs lekérdezve</string>
+    <string name="metadata_reset">Vissza az alapértelmezett sorrendhez</string>
+    <string name="metadata_not_on_spotify">Nem található a Spotify-on: ez a dal még nem játszható le</string>
+    <string name="metadata_switch">%1$s lekérdezése</string>
+</resources>

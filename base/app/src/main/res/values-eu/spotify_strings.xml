@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Letrak itzultzeari uzteko</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Mmm. Ez dakigu zer dioen abesti honek.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Hitz hauek ez daude sinkronizatuta oraindik.</string>
-    <string name="av_switch_to_video" formatted="false">Aldatu bideora</string>
-    <string name="av_switch_to_audio" formatted="false">Aldatu audiora</string>
-    <string name="av_content_desc" formatted="false">Aldatu audioaren eta bideoaren artean</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Hasiera</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Bilatu</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Liburutegia</string>

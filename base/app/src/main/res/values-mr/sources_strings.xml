@@ -4,8 +4,9 @@
     <string name="sources_download_title">डाउनलोड स्रोत</string>
     <string name="sources_audio_footer">प्रत्येक गाण्यासाठी वरपासून खालपर्यंत विचारले जाते: ज्याच्याकडे ते आहे तो पहिला स्रोत ते वाजवतो. क्रम बदलण्यासाठी बाण वापरा.</string>
     <string name="sources_download_footer">वरपासून खालपर्यंत विचारले जाते: गाणे असलेला पहिला स्रोत फाइल देतो. क्रम बदलण्यासाठी बाण वापरा.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">वरील कोणत्याही स्रोतात गाणे नसल्यास वाजते</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">वरील कोणत्याही स्रोतात गाणे नसल्यास वाजते</string>
+    <string name="sources_account_player">तुमच्या खात्याचा प्लेअर</string>
     <string name="sources_ready">तयार</string>
     <string name="sources_details_show">तपशील दाखवा</string>
     <string name="sources_details_hide">तपशील लपवा</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">शेवटचे: %1$s, %2$s</string>
     <string name="sources_open">विस्तार उघडा</string>
     <string name="sources_order_hint">सेटिंग्जमध्ये (प्लेबॅक, डाउनलोड) ठरवलेल्या क्रमाने स्रोत विचारले जातात.</string>
-    <string name="sources_below_spotify">विचारले जात नाही: Spotify वर आहे</string>
+    <string name="sources_below_account">विचारले जात नाही: Spotify वर आहे</string>
 </resources>

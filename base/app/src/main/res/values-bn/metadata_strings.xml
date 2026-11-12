@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">মেটাডেটা</string>
+    <string name="metadata_footer">অনুসন্ধান, অ্যালবাম ও শিল্পীরা এই পরিষেবাগুলো থেকে আসে, উপর থেকে নিচে জিজ্ঞাসা করা হয়। দুবার পাওয়া একই গান একবার দেখানো হয়। বন্ধ পরিষেবাকে কখনও জিজ্ঞাসা করা হয় না।</string>
+    <string name="metadata_spotify_detail">আপনার অ্যাকাউন্ট, যতক্ষণ আপনি সাইন ইন আছেন</string>
+    <string name="metadata_signed_out">জিজ্ঞাসা করা হয় না: কোনো অ্যাকাউন্ট সাইন ইন নেই</string>
+    <string name="metadata_asked">জিজ্ঞাসা করা হয়</string>
+    <string name="metadata_off">বন্ধ: কখনও জিজ্ঞাসা করা হয় না</string>
+    <string name="metadata_reset">ডিফল্ট ক্রমে ফিরে যান</string>
+    <string name="metadata_not_on_spotify">Spotify-তে পাওয়া যায়নি: এই গানটি এখনও চালানো যাবে না</string>
+    <string name="metadata_switch">%1$s-কে জিজ্ঞাসা করুন</string>
+</resources>

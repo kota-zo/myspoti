@@ -8,6 +8,8 @@
  * lists over the open tab instead of a navigation graph; no onboarding, video, radio, settings
  * or update checks (those stay on the phone).
  */
+// Parts adapted from Android's Jetcaster sample (https://github.com/android/compose-samples), Copyright 2024 The Android Open Source Project, Apache License 2.0.
+// Parts adapted from Android's JetStream sample (https://github.com/android/tv-samples), Copyright 2023 Google LLC, Apache License 2.0.
 package com.music.spotui.ui.tv
 
 import android.app.UiModeManager
@@ -15,6 +17,20 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,8 +104,9 @@ import kotlinx.coroutines.flow.first
 /**
  * Android TV: a version of the app made for the remote. A floating bar of tabs (Home, Your
  * Library, Search, Now Playing) over shelves of covers; a list opens over its tab and Back closes
- * it; a song played goes to the full-screen player. Settings, extensions and downloads stay on the
- * phone; playback, extensions and Connect are the same engine.
+ * it; a song played goes to the full-screen player. Extensions have their tab (the store, the
+ * installed ones, their settings); settings and downloads stay on the phone; playback, extensions
+ * and Connect are the same engine.
  */
 object Tv {
     /** A TV (leanback) device, or a phone or tablet in TV mode. */
@@ -127,6 +144,7 @@ fun TvApp() {
             }
             tab == TvTab.Home -> TvHome(open)
             tab == TvTab.Library -> TvLibrary(open)
+            tab == TvTab.Extensions -> TvExtensions()
             else -> TvSearch(open, played)
         }
     }
@@ -139,11 +157,12 @@ internal fun TvFrame(tab: TvTab, onSelect: (TvTab) -> Unit, page: @Composable ()
         TvTab.Home to stringResource(R.string.navigationbar_musicappitems_home_title),
         TvTab.Library to stringResource(R.string.aa_library),
         TvTab.Search to stringResource(R.string.navigationbar_musicappitems_search_title),
+        TvTab.Extensions to stringResource(R.string.extensions_title),
         TvTab.NowPlaying to stringResource(R.string.immersive_shell_now_playing),
     )
     Box(Modifier.fillMaxSize().background(TvBg)) {
         // The player runs under the bar to the top of the screen; the other pages start below it.
-        Box(Modifier.fillMaxSize().padding(top = if (tab == TvTab.NowPlaying) 0.dp else 72.dp)) { page() }
+        Box(Modifier.fillMaxSize().padding(top = if (tab == TvTab.NowPlaying) 0.dp else TvBarHeight)) { page() }
         TvTopBar(tab, labels, onSelect, Modifier.align(Alignment.TopCenter))
     }
 }
@@ -155,36 +174,48 @@ private fun TvHome(onOpen: (TvPage) -> Unit) {
     val home by vm.home.collectAsState()
     val feed = (home as? Response.Success)?.data
     when {
-        feed == null && home is Response.Loading -> TvShelfSkeleton()
+        feed == null && home is Response.Loading -> TvShelfSkeleton(hero = true)
         feed == null -> TvRetry { vm.retry() }
         else -> TvHomeShelves(feed.greeting, feed.sections, onOpen)
     }
 }
 
-/** Home's shelves, the first one in big cards; an untitled one is named [greeting]. */
+/**
+ * Home: the featured banner (the first shelf's first items, JetStream's FeaturedMoviesCarousel),
+ * then the shelves as Jetcaster's Catalog: the first one in big cards, an untitled one named
+ * [greeting]; each row gives the focus back to the card it last had (focusRestorer).
+ */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun TvHomeShelves(greeting: String, feedSections: List<HomeSection>, onOpen: (TvPage) -> Unit) {
     val likedName = stringResource(R.string.collection_liked_songs_title)
     val homeName = stringResource(R.string.navigationbar_musicappitems_home_title)
+    val kinds = TvKinds(stringResource(R.string.album), stringResource(R.string.assisted_curation_search_playlist),
+        stringResource(R.string.artist_subtitle), stringResource(R.string.album_type_podcast))
     val sections = remember(feedSections, likedName) {
         feedSections.withoutDj()
             .map { s -> s.copy(items = s.items.filter { it.page(likedName) != null }) }
             .filter { it.items.isNotEmpty() }
     }
+    val featured = remember(sections) { sections.firstOrNull()?.items?.take(5).orEmpty() }
     val first = remember { FocusRequester() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 20.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(30.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 16.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(TvSpace.section - 12.dp)) {
+        if (featured.isNotEmpty()) item(key = "featured") {
+            TvHero(featured.map { TvHeroItem(it.name, it.subtitleText(), kinds.of(it), it.imageUrl) },
+                Modifier.padding(horizontal = TvSpace.start).focusRequester(first)) { i -> featured.getOrNull(i)?.page(likedName)?.let(onOpen) }
+        }
         itemsIndexed(sections, key = { i, s -> "$i:${s.title}" }) { i, section ->
             val lead = i == 0
             Column(Modifier.fillMaxWidth()) {
                 val title = section.title.ifBlank { greeting.ifBlank { homeName } }
-                Text(title, fontSize = if (lead) 24.sp else 20.sp, fontWeight = FontWeight.Bold, color = Color.White,
-                    modifier = Modifier.padding(start = 48.dp, bottom = 14.dp))
-                LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(if (lead) 20.dp else 16.dp)) {
+                TvSectionTitle(title, Modifier.padding(start = TvSpace.start))
+                LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = TvSpace.start, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(TvSpace.item)) {
                     itemsIndexed(section.items, key = { j, it -> "$j:${it.name}:${it.imageUrl}" }) { j, item ->
-                        val focus = if (lead && j == 0) Modifier.focusRequester(first) else Modifier
+                        val focus = if (featured.isEmpty() && lead && j == 0) Modifier.focusRequester(first) else Modifier
                         val page = item.page(likedName) ?: return@itemsIndexed
-                        if (lead) TvGradientCard(item.name, item.subtitleText(), item.imageUrl, 200.dp, focus) { onOpen(page) }
-                        else TvAlbumCard(item.name, item.subtitleText(), item.imageUrl, 140.dp, round = item is HomeItem.Artist, modifier = focus) { onOpen(page) }
+                        if (lead) TvGradientCard(item.name, item.subtitleText(), item.imageUrl, TvSpace.cardMedium, focus) { onOpen(page) }
+                        else TvAlbumCard(item.name, item.subtitleText(), item.imageUrl, 156.dp, round = item is HomeItem.Artist, modifier = focus) { onOpen(page) }
                     }
                 }
             }
@@ -192,6 +223,16 @@ internal fun TvHomeShelves(greeting: String, feedSections: List<HomeSection>, on
         item(key = "support") { TvSupport() }
     }
     LaunchedEffect(sections.isNotEmpty()) { if (sections.isNotEmpty()) runCatching { delay(80); first.requestFocus() } }
+}
+
+/** The words over the featured banner: what kind of item it shows. */
+private class TvKinds(val album: String, val playlist: String, val artist: String, val show: String) {
+    fun of(item: HomeItem) = when (item) {
+        is HomeItem.Album -> album
+        is HomeItem.Playlist -> playlist
+        is HomeItem.Artist -> artist
+        is HomeItem.Show -> show
+    }
 }
 
 /** The page a Home card opens, or null for one the TV cannot open (a card with no id, a single episode). */
@@ -245,10 +286,10 @@ private fun TvLibrary(onOpen: (TvPage) -> Unit) {
 @Composable
 private fun TvGrid(entries: List<LibraryEntry>, modifier: Modifier = Modifier, onClick: (LibraryEntry) -> Unit) {
     val first = remember { FocusRequester() }
-    LazyVerticalGrid(GridCells.Adaptive(176.dp), modifier, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyVerticalGrid(GridCells.Adaptive(180.dp), modifier, contentPadding = PaddingValues(horizontal = TvSpace.start, vertical = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(TvSpace.item), verticalArrangement = Arrangement.spacedBy(TvSpace.medium)) {
         itemsIndexed(entries, key = { _, it -> it.uri.ifEmpty { it.folderUri.ifEmpty { it.spotifyId } } }) { i, e ->
-            TvAlbumCard(e.name, e.subtitle, e.coverUri, 150.dp, round = ":artist:" in e.uri, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier) { onClick(e) }
+            TvAlbumCard(e.name, e.subtitle, e.coverUri, 156.dp, round = ":artist:" in e.uri, modifier = if (i == 0) Modifier.focusRequester(first) else Modifier) { onClick(e) }
         }
     }
     LaunchedEffect(entries) { runCatching { delay(80); first.requestFocus() } }
@@ -284,14 +325,14 @@ private fun TvSearch(onOpen: (TvPage) -> Unit, onPlayed: () -> Unit) {
                 focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                 focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, cursorColor = TvAccent,
             ),
-            modifier = Modifier.padding(horizontal = 64.dp).width(560.dp).focusRequester(field))
+            modifier = Modifier.padding(horizontal = TvSpace.start).width(560.dp).focusRequester(field))
         Spacer(Modifier.height(20.dp))
         val f = found
         when {
-            failed -> Text(stringResource(R.string.search_failed), color = TvSubtle, fontSize = 16.sp, modifier = Modifier.padding(start = 64.dp))
+            failed -> Text(stringResource(R.string.search_failed), color = TvSubtle, fontSize = 16.sp, modifier = Modifier.padding(start = TvSpace.start))
             f == null -> Unit
             f.isEmpty() -> Text(context.getString(R.string.assisted_curation_search_empty_view_no_result_title, asked), color = TvSubtle, fontSize = 16.sp,
-                modifier = Modifier.padding(start = 64.dp))
+                modifier = Modifier.padding(start = TvSpace.start))
             else -> TvSearchResults(f, onOpen) { s -> play(s, null, listOf(s)); onPlayed() }
         }
     }
@@ -303,7 +344,7 @@ private fun SearchResults.isEmpty() = songs.isEmpty() && albums.isEmpty() && art
 internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong: (SongsModel) -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (f.songs.isNotEmpty()) item("songs") {
-            Column(Modifier.padding(horizontal = 64.dp)) {
+            Column(Modifier.padding(horizontal = TvSpace.start)) {
                 TvSectionTitle(stringResource(R.string.assisted_curation_search_filter_songs), Modifier)
                 val songs = f.songs.take(8)
                 Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
@@ -317,7 +358,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (artists.isNotEmpty()) item("artists") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_artists)) {
                 itemsIndexed(artists, key = { i, a -> "$i:${a.id}" }) { _, a ->
-                    TvAlbumCard(a.name, "", a.coverUri, 130.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
+                    TvAlbumCard(a.name, "", a.coverUri, 140.dp, round = true) { onOpen(TvPage.Artist(a.id, a.name)) }
                 }
             }
         }
@@ -325,7 +366,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (albums.isNotEmpty()) item("albums") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_albums)) {
                 itemsIndexed(albums, key = { i, a -> "$i:${a.spotifyId}" }) { _, a ->
-                    TvAlbumCard(a.name, a.artists, a.coverUri, 140.dp) {
+                    TvAlbumCard(a.name, a.artists, a.coverUri, 156.dp) {
                         onOpen(TvPage.Songs(LibraryEntry(a.spotifyId, a.name, a.artists, a.coverUri, isPlaylist = false, uri = "spotify:album:${a.spotifyId}")))
                     }
                 }
@@ -334,7 +375,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (f.playlists.isNotEmpty()) item("playlists") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_playlists)) {
                 itemsIndexed(f.playlists, key = { i, e -> "$i:${e.uri}" }) { _, e ->
-                    TvAlbumCard(e.name, e.subtitle, e.coverUri, 140.dp) { onOpen(TvPage.Songs(e)) }
+                    TvAlbumCard(e.name, e.subtitle, e.coverUri, 156.dp) { onOpen(TvPage.Songs(e)) }
                 }
             }
         }
@@ -342,7 +383,7 @@ internal fun TvSearchResults(f: SearchResults, onOpen: (TvPage) -> Unit, onSong:
         if (shows.isNotEmpty()) item("shows") {
             TvShelf(stringResource(R.string.assisted_curation_search_filter_podcasts)) {
                 itemsIndexed(shows, key = { i, sh -> "$i:${sh.id}" }) { _, sh ->
-                    TvAlbumCard(sh.name, sh.publisher, sh.coverUri, 140.dp) { onOpen(TvPage.Show(sh.id, sh.name)) }
+                    TvAlbumCard(sh.name, sh.publisher, sh.coverUri, 156.dp) { onOpen(TvPage.Show(sh.id, sh.name)) }
                 }
             }
         }
@@ -384,58 +425,95 @@ private fun TvSongs(entry: LibraryEntry, onPlayed: () -> Unit) {
     }
 }
 
+/**
+ * A list's page over its cover (Jetcaster's BackgroundContainer), in Jetcaster's TwoColumn: the
+ * cover, name, owner, the number of songs, Play and Shuffle on the left; the songs on the right.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun TvSongsPage(entry: LibraryEntry, p: ContextPageModel, onPlay: () -> Unit, onShuffle: () -> Unit, onSong: (SongsModel) -> Unit) {
-    Row(Modifier.fillMaxSize().padding(start = 64.dp, end = 48.dp, top = 24.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
-        val playFocus = remember { FocusRequester() }
-        Column(Modifier.width(300.dp)) {
-            TvCover(p.coverUri.ifBlank { entry.coverUri }, Modifier.size(300.dp), RoundedCornerShape(12.dp))
-            Text(p.name.ifBlank { entry.name }, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 16.dp))
-            val owner = p.ownerName.ifBlank { entry.subtitle }
-            if (owner.isNotBlank()) Text(owner, color = TvAccent, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true, modifier = Modifier.focusRequester(playFocus), onClick = onPlay)
-                TvPillButton(Icons.Default.Shuffle, stringResource(R.string.immersive_shell_shuffle), filled = false, onClick = onShuffle)
+    val cover = p.coverUri.ifBlank { entry.coverUri }
+    val name = p.name.ifBlank { entry.name }
+    TvBackdrop(cover, name, Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize().padding(start = TvSpace.detailStart, end = TvSpace.start, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(TvSpace.twoColumn)) {
+            val playFocus = remember { FocusRequester() }
+            Column(Modifier.width(TvDetailCover)) {
+                TvCover(cover, Modifier.size(TvDetailCover).shadow(24.dp, RoundedCornerShape(12.dp)), RoundedCornerShape(12.dp), seed = name)
+                Text(name, style = TvType.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = TvSpace.default))
+                val owner = p.ownerName.ifBlank { entry.subtitle }
+                if (owner.isNotBlank()) Text(owner, style = TvType.titleSmall, color = TvAccent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (p.tracks.isNotEmpty()) Text(pluralStringResource(R.plurals.liked_songs_header_metadata_text, p.tracks.size, p.tracks.size),
+                    style = TvType.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                Row(Modifier.padding(top = TvSpace.default), horizontalArrangement = Arrangement.spacedBy(TvSpace.small + TvSpace.tiny)) {
+                    TvPillButton(Icons.Default.PlayArrow, stringResource(R.string.immersive_player_play), filled = true, modifier = Modifier.focusRequester(playFocus), onClick = onPlay)
+                    TvPillButton(Icons.Default.Shuffle, stringResource(R.string.immersive_shell_shuffle), filled = false, onClick = onShuffle)
+                }
             }
+            LazyColumn(Modifier.weight(1f).focusRestorer(), contentPadding = PaddingValues(top = 4.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                itemsIndexed(p.tracks, key = { i, s -> "$i:${s.url}" }) { i, s -> TvSongRow(s, i + 1) { onSong(s) } }
+            }
+            LaunchedEffect(p.tracks.isNotEmpty()) { if (p.tracks.isNotEmpty()) runCatching { delay(80); playFocus.requestFocus() } }
         }
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            itemsIndexed(p.tracks, key = { i, s -> "$i:${s.url}" }) { i, s -> TvSongRow(s, i + 1) { onSong(s) } }
-        }
-        LaunchedEffect(p.tracks.isNotEmpty()) { if (p.tracks.isNotEmpty()) runCatching { delay(80); playFocus.requestFocus() } }
     }
 }
 
-/** Play or Shuffle under a list's cover: the filled one in the accent. */
-@Composable
-internal fun TvPillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, filled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val fg = Color.White
-    Row(
-        modifier.tvPill(RoundedCornerShape(10.dp), base = if (filled) TvAccent else Color(0x26FFFFFF),
-            focusedFill = if (filled) Color(0xFFFF5C97) else Color(0x4DFFFFFF), focusedScale = 1.06f, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(icon, null, tint = fg, modifier = Modifier.size(20.dp))
-        Text(label, color = fg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
+/** The cover of a detail page: Jetcaster's thumbnail, a little smaller to fit a 540 dp high TV. */
+internal val TvDetailCover = 232.dp
 
-/** One song: its number (or cover), title and artist, and its length. */
+/**
+ * Play or Shuffle, as Jetcaster's ButtonWithIcon on tv-material's Button: a pill (Play in the
+ * accent), light with dark words and a little larger when focused.
+ */
 @Composable
-internal fun TvSongRow(s: SongsModel, number: Int?, onClick: () -> Unit) {
+internal fun TvPillButton(icon: ImageVector, label: String, filled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val f by animateFloatAsState(if (focused) 1f else 0f, tween(150), label = "buttonFocus")
+    val container by animateColorAsState(when { focused -> TvOnSurface; filled -> TvAccent; else -> Color(0x29FFFFFF) }, tween(150), label = "buttonFill")
+    val content = if (focused) TvInverseOnSurface else Color.White
     Row(
-        Modifier.fillMaxWidth().tvPill(RoundedCornerShape(10.dp), focusedFill = Color(0x26FFFFFF), focusedScale = 1.02f, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+        modifier.graphicsLayer { val sc = 1f + 0.1f * f; scaleX = sc; scaleY = sc }
+            .clip(RoundedCornerShape(50)).background(container)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(start = 16.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (number != null) Text("$number", color = TvSubtle, fontSize = 14.sp, modifier = Modifier.width(36.dp))
-        else TvCover(s.coverUri, Modifier.size(44.dp).padding(end = 0.dp), RoundedCornerShape(6.dp))
-        Column(Modifier.weight(1f).padding(start = if (number == null) 14.dp else 0.dp)) {
-            Text(s.title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(s.singer, color = TvSubtle, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(icon, null, tint = content, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = TvType.titleSmall, color = content, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
+ * One song as tv-material's ListItem: its number (or cover), title and artist, and its length;
+ * focused, the row turns light with dark words and the number becomes a play sign.
+ */
+@Composable
+internal fun TvSongRow(s: SongsModel, number: Int?, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val f by animateFloatAsState(if (focused) 1f else 0f, tween(150), label = "rowFocus")
+    val fg = if (focused) TvInverseOnSurface else Color.White
+    val sub = if (focused) TvInverseOnSurface.copy(alpha = 0.7f) else TvSubtle
+    Row(
+        Modifier.fillMaxWidth()
+            .graphicsLayer { val sc = 1f + 0.02f * f; scaleX = sc; scaleY = sc }
+            .clip(RoundedCornerShape(8.dp)).background(TvOnSurface.copy(alpha = f))
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (number != null) Box(Modifier.width(36.dp)) {
+            if (focused) Icon(Icons.Default.PlayArrow, null, tint = fg, modifier = Modifier.size(20.dp))
+            else Text("$number", style = TvType.bodyMedium, color = TvSubtle)
         }
-        if (s.durationMs > 0) Text(formatMs(s.durationMs.toLong()), color = TvSubtle, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp))
+        else TvCover(s.coverUri, Modifier.size(44.dp), RoundedCornerShape(6.dp), seed = s.title)
+        Column(Modifier.weight(1f).padding(start = if (number == null) 14.dp else 0.dp)) {
+            Text(s.title, style = TvType.bodyLarge, fontWeight = FontWeight.Medium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(s.singer, style = TvType.bodySmall, color = sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (s.durationMs > 0) Text(formatMs(s.durationMs.toLong()), style = TvType.bodySmall, color = sub, modifier = Modifier.padding(start = 16.dp))
     }
 }
 
@@ -443,9 +521,7 @@ internal fun TvSongRow(s: SongsModel, number: Int?, onClick: () -> Unit) {
 internal fun TvRetry(onRetry: () -> Unit) {
     val focus = remember { FocusRequester() }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(stringResource(R.string.retry_button), color = Color.White, fontSize = 18.sp,
-            modifier = Modifier.focusRequester(focus).tvPill(RoundedCornerShape(10.dp), base = Color(0xFF1C1C1E), onClick = onRetry)
-                .padding(horizontal = 24.dp, vertical = 12.dp))
+        TvPillButton(Icons.Default.Refresh, stringResource(R.string.retry_button), filled = false, modifier = Modifier.focusRequester(focus), onClick = onRetry)
     }
     LaunchedEffect(Unit) { runCatching { delay(80); focus.requestFocus() } }
 }

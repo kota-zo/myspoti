@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">بولاں دا ترجمہ کرنا بند کرو</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">ہمم۔ سانوں ایدے بول دا نہیں پتا۔</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">ایہہ بول ہلے وقت دے لحاظ نال سنک نہیں ہین۔</string>
-    <string name="av_switch_to_video" formatted="false">ویڈیو وچ سوئچ کرو</string>
-    <string name="av_switch_to_audio" formatted="false">آڈیو وچ سوئچ کرو</string>
-    <string name="av_content_desc" formatted="false">آڈیو تے ویڈیو دے وچکار ٹوگل کرو</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">ہوم</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">تلاش کرو</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">تہاڈی لائبریری</string>

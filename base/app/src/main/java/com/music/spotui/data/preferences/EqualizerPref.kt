@@ -36,7 +36,7 @@ enum class EqPreset(val gains: FloatArray, val preamp: Float) {
  *
  * Speed: 0.5× to 2× for everything the local player plays, 1× by default (podcasts streamed by
  * Spotify keep their own speed, the podcast player's). Off 1×, Spotify does not follow the song
- * (see ConnectMirror): its page plays at 1× only.
+ * (see AccountSync): its page plays at 1× only.
  *
  * Spatial audio: the stereo widened by mid/side processing (see SpatialProcessor), off by default,
  * on its own switch (the equalizer may be off).
@@ -113,8 +113,8 @@ object EqualizerPref {
         speed = value.coerceIn(0.5f, 2f)
         prefs(c).edit().putFloat("speed", speed).apply()
         com.music.spotui.di.LocalPlayer.applyPlayback()
-        // Spotify's page plays at 1× only: the mirror stops off 1×, and starts again at 1×.
-        com.music.spotui.di.ConnectMirror.settingChanged()
+        // Spotify's page plays at 1× only: the listen sync stops off 1×, and starts again at 1×.
+        com.music.spotui.di.AccountSync.listen.refresh()
     }
 
     fun setSkipSilence(c: Context, on: Boolean) {
@@ -140,5 +140,7 @@ object EqualizerPref {
     private fun push() {
         Equalizer.current = if (enabled) EqTuning(gains, preamp) else null
         Spatial.current = if (spatial) spatialWidth else null
+        // The audio offload is allowed only with both doing nothing.
+        com.music.spotui.di.LocalPlayer.applyOffload()
     }
 }

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">Ouvrir la page de la version</string>
+    <string name="sys_update_conflict">Android a refusé cette version par-dessus l’application installée : elle est signée avec une autre clé. Téléchargez-la depuis la page de la version, et désinstallez d’abord cette application si Android le demande.</string>
+</resources>

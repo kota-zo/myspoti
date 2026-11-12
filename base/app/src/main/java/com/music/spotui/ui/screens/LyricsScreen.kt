@@ -102,8 +102,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -125,6 +123,7 @@ import com.music.spotui.ui.components.shareLyricLines
 import com.music.spotui.ui.viewmodel.LyricsViewModel
 import app.myspoti.engine.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import java.util.Locale
 
 /**
@@ -248,17 +247,36 @@ internal fun rememberLyricsState(vm: LyricsViewModel, title: String, artist: Str
 
 /**
  * The screen stays on while [active] (the lyrics shown and the song playing), unless turned off in
- * the settings ([com.music.spotui.data.preferences.LyricsKeepAwakePref]). Both looks.
+ * the settings ([com.music.spotui.data.preferences.LyricsKeepAwakePref]). Both looks. For
+ * [LYRICS_AWAKE_MS] after the last touch, or with no limit while the phone charges: a phone left
+ * on a table with the lyrics open stayed lit (and drew them) until its battery ran out.
  */
 @Composable
 internal fun KeepScreenOnForLyrics(active: Boolean) {
     val view = androidx.compose.ui.platform.LocalView.current
     val on = active && com.music.spotui.data.preferences.LyricsKeepAwakePref.on
-    DisposableEffect(view, on) {
-        if (on) view.keepScreenOn = true
-        onDispose { if (on) view.keepScreenOn = false }
+    LaunchedEffect(view, on) {
+        if (!on) return@LaunchedEffect
+        val battery = view.context.getSystemService(android.os.BatteryManager::class.java)
+        try {
+            while (true) {
+                val charging = runCatching { battery?.isCharging == true }.getOrDefault(false)
+                val touchedAt = com.music.spotui.ui.components.UserTouch.lastAt.value
+                val left = LYRICS_AWAKE_MS - (android.os.SystemClock.uptimeMillis() - touchedAt)
+                view.keepScreenOn = charging || left > 0
+                // Looked at again at the limit, a touch, or now and then for the charger.
+                kotlinx.coroutines.withTimeoutOrNull(if (!charging && left > 0) left else LYRICS_AWAKE_RECHECK_MS) {
+                    com.music.spotui.ui.components.UserTouch.lastAt.first { it != touchedAt }
+                }
+            }
+        } finally { view.keepScreenOn = false }
     }
 }
+
+/** The lyrics keep the screen on this long after the last touch (see [KeepScreenOnForLyrics]). */
+private const val LYRICS_AWAKE_MS = 10 * 60_000L
+/** How often a kept screen looks whether the phone was put on or off its charger. */
+private const val LYRICS_AWAKE_RECHECK_MS = 60_000L
 
 /**
  * Keeps the active line about a third down the view, like Spotify. A manual scroll
@@ -507,7 +525,7 @@ fun LyricsScreen(
     // Looked up when the song started (App.kt): here at once, and still here on coming back.
     val lang = com.music.spotui.ui.components.readerLanguage()
     val trackId = SongPlayer.nowPlaying.value.uri.substringAfterLast(':')
-    val meaning = com.music.spotui.data.api.GeniusMeaning.current.value?.takeIf { it.first == trackId }?.second
+    val meaning = com.music.spotui.data.api.GeniusMeaning.currentFor(trackId)
     var meaningOpen by remember { mutableStateOf(false) }
     var noteOpen by remember { mutableStateOf<Int?>(null) }
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -919,7 +937,10 @@ fun InlineLyrics(
 ) {
     val context = LocalContext.current
     val vm: LyricsViewModel = viewModel()
-    val state = rememberLyricsState(vm, title, artist)
+    // Only read: the player's page loads the song. This card enters the list whenever a scroll
+    // reaches it, and a load from here asked a song without lyrics again each time: Loading gave
+    // the page its lyrics peek back, NotFound took it away, and the page shook under a held finger (#192).
+    val state = vm.state.collectAsState().value
     val s = state as? LyricsViewModel.State.Loaded ?: return
     val l = s.lyrics
     val palette = paletteFor(l, accentColor)

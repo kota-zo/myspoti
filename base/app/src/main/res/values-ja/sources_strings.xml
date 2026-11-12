@@ -4,8 +4,9 @@
     <string name="sources_download_title">ダウンロードソース</string>
     <string name="sources_audio_footer">各曲について上から順に確認されます。曲を持っている最初のソースで再生されます。矢印で順序を変更できます。</string>
     <string name="sources_download_footer">上から順に確認されます。曲を持っている最初のソースがファイルを提供します。矢印で順序を変更できます。</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">上にあるどのソースにも曲がない場合に再生されます</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">上にあるどのソースにも曲がない場合に再生されます</string>
+    <string name="sources_account_player">アカウントのプレーヤー</string>
     <string name="sources_ready">準備完了</string>
     <string name="sources_details_show">詳細を表示</string>
     <string name="sources_details_hide">詳細を非表示</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">最後: %1$s、%2$s</string>
     <string name="sources_open">拡張機能を開く</string>
     <string name="sources_order_hint">ソースは設定（再生、ダウンロード）で設定された順序で確認されます。</string>
-    <string name="sources_below_spotify">確認されません: Spotify が上にあります</string>
+    <string name="sources_below_account">確認されません: Spotify が上にあります</string>
 </resources>

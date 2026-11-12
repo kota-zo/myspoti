@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Métadonnées</string>
+    <string name="metadata_footer">Les recherches, albums et artistes viennent de ces services, demandés de haut en bas. Un même titre trouvé deux fois n\'apparaît qu\'une fois. Un service désactivé n\'est jamais demandé.</string>
+    <string name="metadata_spotify_detail">Votre compte, tant que vous êtes connecté</string>
+    <string name="metadata_signed_out">Pas demandé : aucun compte connecté</string>
+    <string name="metadata_asked">Demandé</string>
+    <string name="metadata_off">Désactivé : jamais demandé</string>
+    <string name="metadata_reset">Revenir à l\'ordre par défaut</string>
+    <string name="metadata_not_on_spotify">Introuvable sur Spotify : ce titre ne peut pas encore être lu</string>
+    <string name="metadata_switch">Demander à %1$s</string>
+</resources>

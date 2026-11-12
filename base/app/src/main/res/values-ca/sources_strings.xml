@@ -4,8 +4,9 @@
     <string name="sources_download_title">Fonts de descàrrega</string>
     <string name="sources_audio_footer">Es pregunten de dalt a baix per a cada cançó: la primera que la té la reprodueix. Fes servir les fletxes per canviar l\'ordre.</string>
     <string name="sources_download_footer">Es pregunten de dalt a baix: la primera font que té la cançó dona el fitxer. Fes servir les fletxes per canviar l\'ordre.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Es reprodueix quan cap font de dalt no té la cançó</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Es reprodueix quan cap font de dalt no té la cançó</string>
+    <string name="sources_account_player">El reproductor del teu compte</string>
     <string name="sources_ready">Preparat</string>
     <string name="sources_details_show">Mostra els detalls</string>
     <string name="sources_details_hide">Amaga els detalls</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Última: %1$s, %2$s</string>
     <string name="sources_open">Obre l\'extensió</string>
     <string name="sources_order_hint">Les fonts es pregunten en l\'ordre definit a Configuració (Reproducció, Descàrregues).</string>
-    <string name="sources_below_spotify">No es pregunta: Spotify és a dalt</string>
+    <string name="sources_below_account">No es pregunta: Spotify és a dalt</string>
 </resources>

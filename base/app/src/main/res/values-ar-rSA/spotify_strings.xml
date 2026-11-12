@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">إيقاف ترجمة الكلمات</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">همم. ما نعرف كلمات هذه الأغنية.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">هذه الكلمات لسى ما اتزامنت .</string>
-    <string name="av_switch_to_video" formatted="false">تبديل إلى فيديو</string>
-    <string name="av_switch_to_audio" formatted="false">تبديل إلى ملف صوتي</string>
-    <string name="av_content_desc" formatted="false">تبديل بين مقطع صوتي ومقطع فيديو</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">الصفحة الرئيسية</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">بحث</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">مكتبتك الموسيقية</string>

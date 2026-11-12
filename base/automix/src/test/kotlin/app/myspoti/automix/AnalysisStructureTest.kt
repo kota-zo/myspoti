@@ -35,6 +35,30 @@ class AnalysisStructureTest {
         assertTrue(analysis(novelty).sectionStarts.isEmpty())
     }
 
+    @Test fun duplicateAndOverlappingLyricsDoNotInventSungTime() {
+        val a = analysis(FloatArray(4))
+        // Only 0.4 seconds of this two-second bar are sung, even with duplicate annotations.
+        val single = a.withSung(listOf(0.0 to 0.4))
+        val duplicated = a.withSung(listOf(0.0 to 0.4, 0.0 to 0.4, 0.1 to 0.3))
+        assertArrayEquals(single.barVocalRisk, duplicated.barVocalRisk, 0f)
+        assertTrue(duplicated.barVocalRisk[0] < 0.6f)
+        assertTrue(duplicated.voiceKnown)
+        // Distinct fragments still add up: 0.7 seconds exceeds the 30 percent threshold.
+        val fragments = a.withSung(listOf(0.0 to 0.4, 1.0 to 1.3))
+        assertTrue(fragments.barVocalRisk[0] >= 0.6f)
+    }
+
+    @Test fun lyricCoverageIsOrderIndependentAndClippedToAudibleBounds() {
+        val a = analysis(FloatArray(4))
+        val canonical = a.withSung(listOf(0.0 to 2.5, 6.0 to 8.0))
+        val provider = a.withSung(listOf(6.0 to 50.0, 1.0 to 2.5, -3.0 to 1.5,
+            Double.NaN to 3.0, 0.0 to Double.POSITIVE_INFINITY, 4.0 to 3.0))
+        assertArrayEquals(canonical.barVocalRisk, provider.barVocalRisk, 0f)
+        assertTrue(provider.barVocalRisk[0] >= 0.6f)
+        assertTrue(provider.barVocalRisk[1] < 0.6f)
+        assertTrue(provider.barVocalRisk[3] >= 0.6f)
+    }
+
     @Test fun aBroadChangeHasOneBoundary() {
         val novelty = FloatArray(48) { 0.2f }.also { it[15] = 3f; it[16] = 5f; it[17] = 5f; it[18] = 3f }
         assertArrayEquals(intArrayOf(16), analysis(novelty).sectionStarts)

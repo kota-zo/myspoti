@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Slutt å oversette sangtekster</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Vi kan ikke sangteksten til denne.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Disse sangtekstene er ikke tidssynkronisert ennå.</string>
-    <string name="av_switch_to_video" formatted="false">Bytt til video</string>
-    <string name="av_switch_to_audio" formatted="false">Bytt til lyd</string>
-    <string name="av_content_desc" formatted="false">Veksle mellom lyd og video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Hjem</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Søk</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Ditt bibliotek</string>

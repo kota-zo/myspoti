@@ -13,8 +13,8 @@ private const val KEY_LYRIC_TRANSLATE_LANG = "lyric_translate_lang"
 private const val KEY_LYRICS_EXTRA = "lyrics_extra_sources"
 private const val KEY_CROSSFADE = "crossfade_seconds"
 
-/** Extra lyrics sources (NetEase, Genius) when Spotify and LRCLIB have none. Off by default. */
-fun isLyricsExtraSources(c: Context): Boolean = prefs(c).getBoolean(KEY_LYRICS_EXTRA, false)
+/** Extra lyrics sources (NetEase, Genius) when Spotify and LRCLIB have none. On by default: more songs have words. */
+fun isLyricsExtraSources(c: Context): Boolean = prefs(c).getBoolean(KEY_LYRICS_EXTRA, true)
 fun setLyricsExtraSources(c: Context, v: Boolean) = prefs(c).edit().putBoolean(KEY_LYRICS_EXTRA, v).apply()
 /** The extra sources were turned off by hand (never touched: Genius is still the last resort). */
 fun isLyricsExtraSourcesOff(c: Context): Boolean = prefs(c).let { it.contains(KEY_LYRICS_EXTRA) && !it.getBoolean(KEY_LYRICS_EXTRA, false) }
@@ -24,6 +24,28 @@ fun isLyricsWordSync(c: Context): Boolean = prefs(c).getBoolean("lyrics_word_syn
 fun setLyricsWordSync(c: Context, v: Boolean) = prefs(c).edit().putBoolean("lyrics_word_sync", v).apply()
 
 private fun prefs(c: Context) = c.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+
+/**
+ * Genius (on by default): what a song means and the notes on its lines, and Genius's plain-text
+ * lyrics as a last resort. Off: nothing is asked of genius.com and the Genius parts (the light
+ * bulb, the underlined lines, the "Meaning" row, Genius among the lyrics sources) are gone. Read as
+ * state by both looks; read off the main thread by GeniusMeaning and LyricsApi (true before the
+ * app is set up, in tests).
+ */
+object GeniusPref {
+    private const val KEY = "genius"
+    var on by androidx.compose.runtime.mutableStateOf(
+        runCatching { prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true) }.getOrDefault(true))
+        private set
+
+    fun set(c: Context, value: Boolean) {
+        on = value
+        prefs(c).edit().putBoolean(KEY, value).apply()
+        if (!value) com.music.spotui.data.api.GeniusMeaning.forget()
+        // Lyrics read from Genius before are not kept: the song is read again from the others.
+        com.music.spotui.data.api.LyricsApi.forgetAll()
+    }
+}
 
 /**
  * "Show romanization" under the lyrics' lines (the song in Latin letters), offered when the lyrics
@@ -65,13 +87,13 @@ object AutoplayPref {
 }
 
 /**
- * "Myspoti shuffle" (off by default): with shuffle on, a list plays every one of its songs once, in
+ * "Myspoti shuffle" (on by default: Spotify's replayed songs before the end of the list, reported): with shuffle on, a list plays every one of its songs once, in
  * an order Myspoti draws, before it starts over, instead of Spotify's shuffle (see
  * [com.music.spotui.di.AppShuffle]). Off: Spotify shuffles, as before.
  */
 object AppShufflePref {
     private const val KEY = "myspoti_shuffle"
-    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, false))
+    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
         private set
 
     fun set(c: Context, value: Boolean) {
@@ -82,37 +104,34 @@ object AppShufflePref {
 }
 
 /**
- * "Count extension plays on Spotify" (on by default): a song an extension streams is played by the
- * Web Player too, unheard, so Spotify counts it and Spotify Connect sees and controls it (see
- * [com.music.spotui.di.ConnectMirror]). Off: the extension's stream alone, as before.
+ * "Count extension plays on your music account": a song an extension streams live is played by the
+ * chosen account provider's web player too ([AccountProviderPref]: Spotify's Web Player, YouTube
+ * Music's web app), unheard, so the provider counts it (and Spotify Connect sees and controls it; see
+ * [com.music.spotui.di.AccountSync]). Off: the extension's stream alone. Off for a new install; an
+ * install from before this default keeps what it had (on, the earlier default, when never changed),
+ * and the value read the first time is stored so a later update keeps it. Downloads are never
+ * synced (the earlier "Sync downloaded songs with Spotify" key, `download_spotify_sync`, is no
+ * longer read).
  */
 object ConnectMirrorPref {
     private const val KEY = "connect_mirror"
-    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
+    var on by androidx.compose.runtime.mutableStateOf(initial(com.music.spotui.di.Graph.app))
         private set
 
-    fun set(c: Context, value: Boolean) {
-        on = value
-        prefs(c).edit().putBoolean(KEY, value).apply()
-        com.music.spotui.di.ConnectMirror.settingChanged()
+    private fun initial(c: Context): Boolean {
+        val p = prefs(c)
+        if (p.contains(KEY)) return p.getBoolean(KEY, false)
+        // Never set: an update of an older install had it on by default, a new install starts off.
+        val updated = runCatching { c.packageManager.getPackageInfo(c.packageName, 0).let { it.lastUpdateTime > it.firstInstallTime } }
+            .getOrDefault(false)
+        p.edit().putBoolean(KEY, updated).apply()
+        return updated
     }
-}
-
-/**
- * "Sync downloaded songs with Spotify" (on by default): a downloaded song with a Spotify id, played
- * from its file while the phone is online, is played by the Web Player too, unheard, as an
- * extension's stream is (see [com.music.spotui.di.ConnectMirror]): Spotify counts it, Spotify Connect
- * sees and controls it. Off, or offline: the file plays alone, as before.
- */
-object DownloadSyncPref {
-    private const val KEY = "download_spotify_sync"
-    var on by androidx.compose.runtime.mutableStateOf(prefs(com.music.spotui.di.Graph.app).getBoolean(KEY, true))
-        private set
 
     fun set(c: Context, value: Boolean) {
         on = value
         prefs(c).edit().putBoolean(KEY, value).apply()
-        com.music.spotui.di.ConnectMirror.settingChanged()
+        com.music.spotui.di.AccountSync.listen.refresh()
     }
 }
 
@@ -253,6 +272,8 @@ fun getCrossfadeSeconds(c: Context): Int =
 
 /** Gives the saved length to the player (at start, and at every change); 0 stops a fade at once. */
 fun applyCrossfade(seconds: Int) {
+    // The local player: its audio offload is allowed only without a crossfade, its fade timer follows.
+    com.music.spotui.di.LocalPlayer.crossfadeChanged()
     val runtime = app.myspoti.host.android.MyspotiRuntime
     if (!runtime.isStarted) return
     // AutoMix on: the crossfade length is only kept for later, the Spotify songs get a short fade.
@@ -356,7 +377,8 @@ object PlayerModesPref {
 
 /**
  * "Volume bar in the player" (Settings > Display, Immersive look): the volume slider under the
- * transport. On by default; off, the phone's volume keys still do it, and the controls sit lower.
+ * transport. On by default; off, the phone's volume keys still do it, and the bottom row moves up
+ * into its place while the cover and the other controls stay where they are (#186).
  */
 object PlayerVolumePref {
     private const val KEY = "immersive_player_volume"
@@ -371,8 +393,8 @@ object PlayerVolumePref {
 
 /**
  * "Keep the screen on with lyrics" (Settings > Playback, both looks): while the lyrics are open
- * the screen does not go dark, so the lines can be followed. On by default. Read as state by the
- * lyrics of both looks.
+ * the screen does not go dark, so the lines can be followed, for 10 minutes after the last touch
+ * (no limit while charging). On by default. Read as state by the lyrics of both looks.
  */
 object LyricsKeepAwakePref {
     private const val KEY = "lyrics_keep_screen_on"

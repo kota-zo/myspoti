@@ -4,8 +4,9 @@
     <string name="sources_download_title">Surse de descărcare</string>
     <string name="sources_audio_footer">Sunt întrebate de sus în jos pentru fiecare melodie: prima care o are o redă. Folosiți săgețile pentru a schimba ordinea.</string>
     <string name="sources_download_footer">Sunt întrebate de sus în jos: prima sursă care are melodia oferă fișierul. Folosiți săgețile pentru a schimba ordinea.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Se redă când nicio sursă de deasupra nu are melodia</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Se redă când nicio sursă de deasupra nu are melodia</string>
+    <string name="sources_account_player">Playerul contului tău</string>
     <string name="sources_ready">Gata</string>
     <string name="sources_details_show">Afișează detaliile</string>
     <string name="sources_details_hide">Ascunde detaliile</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Ultima: %1$s, %2$s</string>
     <string name="sources_open">Deschide extensia</string>
     <string name="sources_order_hint">Sursele sunt întrebate în ordinea setată în Setări (Redare, Descărcări).</string>
-    <string name="sources_below_spotify">Nu este întrebat: Spotify este deasupra</string>
+    <string name="sources_below_account">Nu este întrebat: Spotify este deasupra</string>
 </resources>

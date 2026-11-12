@@ -36,10 +36,6 @@ lyrics_fullscreen_context_menu_main_page_translate_lyrics_action
 lyrics_fullscreen_translate_button_enabled_readout_value
 lyrics_fullscreen_no_lyrics_error_version_two
 lyrics_fullscreen_unsynced
-# Music video
-av_switch_to_video
-av_switch_to_audio
-av_content_desc
 # Navigation / headers
 navigationbar_musicappitems_home_title
 navigationbar_musicappitems_search_title

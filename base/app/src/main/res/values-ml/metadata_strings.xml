@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">മെറ്റാഡാറ്റ</string>
+    <string name="metadata_footer">തിരയലുകൾ, ആൽബങ്ങൾ, കലാകാരന്മാർ എന്നിവ ഈ സേവനങ്ങളിൽ നിന്നാണ് വരുന്നത്; മുകളിൽ നിന്ന് താഴേക്ക് ചോദിക്കുന്നു. രണ്ടുതവണ കണ്ടെത്തിയ ഒരേ പാട്ട് ഒരിക്കൽ കാണിക്കും. ഓഫാക്കിയ സേവനത്തോട് ഒരിക്കലും ചോദിക്കില്ല.</string>
+    <string name="metadata_spotify_detail">നിങ്ങൾ സൈൻ ഇൻ ചെയ്തിരിക്കുന്നിടത്തോളം നിങ്ങളുടെ അക്കൗണ്ട്</string>
+    <string name="metadata_signed_out">ചോദിക്കുന്നില്ല: ഒരു അക്കൗണ്ടും സൈൻ ഇൻ ചെയ്തിട്ടില്ല</string>
+    <string name="metadata_asked">ചോദിക്കുന്നു</string>
+    <string name="metadata_off">ഓഫ്: ഒരിക്കലും ചോദിക്കില്ല</string>
+    <string name="metadata_reset">സ്ഥിര ക്രമത്തിലേക്ക് മടങ്ങുക</string>
+    <string name="metadata_not_on_spotify">Spotify-ൽ കണ്ടെത്തിയില്ല: ഈ പാട്ട് ഇതുവരെ പ്ലേ ചെയ്യാനാവില്ല</string>
+    <string name="metadata_switch">%1$s-നോട് ചോദിക്കുക</string>
+</resources>

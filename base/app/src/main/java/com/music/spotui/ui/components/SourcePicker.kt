@@ -37,7 +37,7 @@ import com.music.spotui.di.LocalPlayer
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.extensions.ExtensionAudio
 import com.music.spotui.extensions.Extensions
-import com.music.spotui.extensions.SPOTIFY_SOURCE
+import com.music.spotui.extensions.ACCOUNT_SOURCE
 import com.music.spotui.ui.immersive.Immersive
 import com.music.spotui.ui.immersive.pages.ImmersiveChoiceRow
 import com.music.spotui.ui.immersive.pages.ImmersiveGroupRow
@@ -66,14 +66,15 @@ fun SourcePicker(modifier: Modifier = Modifier) {
     val answers = ExtensionAudio.answers.intValue
     val uri = SongPlayer.nowPlaying.value.uri
     val local = LocalPlayer.active.value
-    val ids = remember(registry, lead) { Extensions.audioChoices() }
-    if (ids.none { it != SPOTIFY_SOURCE } || uri.startsWith("spotify:episode:")) return
-    val spotify = stringResource(R.string.sources_spotify)
-    val names = remember(ids, registry, spotify) { ids.associateWith { if (it == SPOTIFY_SOURCE) spotify else registry.find(it)?.name ?: it } }
+    // The account's player first, the extensions in the order they are asked in.
+    val ids = remember(registry, lead) { Extensions.audioChoices().sortedBy { it != ACCOUNT_SOURCE } }
+    if (ids.none { it != ACCOUNT_SOURCE } || uri.startsWith("spotify:episode:")) return
+    val account = stringResource(R.string.sources_account)
+    val names = remember(ids, registry, account) { ids.associateWith { if (it == ACCOUNT_SOURCE) account else registry.find(it)?.name ?: it } }
     val playing = remember(uri, local, answers, SongPlayer.routing) {
         when {
             SongPlayer.routing -> null
-            !local -> SPOTIFY_SOURCE
+            !local -> ACCOUNT_SOURCE
             // A song played from its download plays from no source.
             else -> LocalPlayer.current()?.uri?.takeIf { it.scheme == ExtensionAudio.SCHEME }?.lastPathSegment?.let(ExtensionAudio::providerOf)
         }
@@ -101,12 +102,13 @@ fun SourcePicker(modifier: Modifier = Modifier) {
     else ClassicSourcePicker(c, pick, reset, modifier)
 }
 
-/** What a source's row says under its name: being asked, first for this session, playing now. */
+/** What a source's row says under its name: being asked, first for this session, playing now; else, for the account's player, what it is. */
 @Composable
 private fun detailOf(c: SourceChoices, id: String): String? = when (id) {
     c.asking -> "…"
     c.lead -> stringResource(R.string.source_pick_temporary)
     c.playing -> stringResource(R.string.source_pick_playing)
+    ACCOUNT_SOURCE -> stringResource(R.string.sources_account_player)
     else -> null
 }
 

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadados</string>
+    <string name="metadata_footer">As pesquisas, os álbuns e os artistas vêm destes serviços, consultados de cima para baixo. A mesma música encontrada duas vezes aparece só uma vez. Um serviço desativado nunca é consultado.</string>
+    <string name="metadata_spotify_detail">A sua conta, enquanto tiver sessão iniciada</string>
+    <string name="metadata_signed_out">Não consultado: nenhuma conta com sessão iniciada</string>
+    <string name="metadata_asked">Consultado</string>
+    <string name="metadata_off">Desativado: nunca consultado</string>
+    <string name="metadata_reset">Voltar à ordem predefinida</string>
+    <string name="metadata_not_on_spotify">Não encontrada no Spotify: esta música ainda não pode ser reproduzida</string>
+    <string name="metadata_switch">Consultar %1$s</string>
+</resources>

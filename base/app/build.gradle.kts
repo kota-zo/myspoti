@@ -20,6 +20,13 @@ val automixLab = findProperty("automixLab") != null
 /** The ABIs a release has an APK for, and how they are named in it (UpdateChecker reads the same names). */
 val RELEASE_ABIS = listOf("arm64-v8a", "armeabi-v7a")
 val ABI_NAMES = mapOf("arm64-v8a" to "ARMv8", "armeabi-v7a" to "ARMv7")
+/**
+ * The first word of a release's APK names (UpdateChecker reads it from BuildConfig.APK_NAME). It
+ * follows the app id: Myspoti's own releases (app.myspoti, app.myspoti.stable) are "Myspoti-...",
+ * so their update check, which installs only its own package, opens the release page for these
+ * instead of trying an APK it cannot install over itself.
+ */
+val APK_NAME = "Orpheon"
 
 android {
     testOptions {
@@ -31,16 +38,16 @@ android {
     namespace = "app.myspoti.engine"
     compileSdk = 37
 
-    // Two channels that install side by side: betas ("2.0.0-beta.3") stay "app.myspoti",
-    // signed with the first key, as "Myspoti Beta"; releases are "app.myspoti.stable",
-    // signed with their own key, as "Myspoti".
+    // Two channels that install side by side: betas ("2.0.0-beta.3") stay "app.orpheon.beta",
+    // signed with the first key, as "Orpheon Beta"; releases are "app.orpheon",
+    // signed with their own key, as "Orpheon". (Provisional ids: the rename from Myspoti.)
     // Local builds (no version given) are on the beta side, like the phone test builds.
-    val version = (findProperty("appVersionName") as String?) ?: "2.4.0"
+    val version = (findProperty("appVersionName") as String?) ?: "1.0.0"
     // "-beta" as in UpdateChecker.isBeta, one predicate for the app id, the label and the log stripping.
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
     defaultConfig {
-        applicationId = if (automixLab) "app.myspoti.automixlab" else if (beta) "app.myspoti" else "app.myspoti.stable"
-        manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else if (beta) "Myspoti Beta" else "Myspoti"
+        applicationId = if (automixLab) "app.myspoti.automixlab" else if (beta) "app.orpheon.beta" else "app.orpheon"
+        manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else if (beta) "Orpheon Beta" else "Orpheon"
         // The adb command line (com.music.spotui.cli): betas and debug builds only.
         manifestPlaceholders["cliEnabled"] = beta.toString()
         minSdk = 29
@@ -50,7 +57,9 @@ android {
         versionName = version
         // GitHub "owner/repo" whose releases the app checks for updates; empty = off
         // (local builds). CI sets it to the repository it builds.
-        buildConfigField("String", "UPDATE_REPO", "\"${(findProperty("updateRepo") as String?) ?: System.getenv("MYSPOTI_UPDATE_REPO") ?: ""}\"")
+        // Not in the dev and Mix Lab builds (below): no release carries their app id.
+        buildConfigField("String", "UPDATE_REPO", "\"${if (automixLab) "" else (findProperty("updateRepo") as String?) ?: System.getenv("MYSPOTI_UPDATE_REPO") ?: ""}\"")
+        buildConfigField("String", "APK_NAME", "\"$APK_NAME\"")
         // -Pabis=arm64-v8a: one APK for one phone (the test builds). Without it, the ABI splits below.
         (findProperty("abis") as String?)?.let { ndk { abiFilters += it.split(",") } }
         // On-device tests (codecs): ./gradlew connectedDebugAndroidTest
@@ -90,8 +99,9 @@ android {
         debug {
             // Installs next to the release apps (own data, own sign-in).
             if (!automixLab) applicationIdSuffix = ".dev"
-            manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else "Myspoti dev"
+            manifestPlaceholders["appLabel"] = if (automixLab) "Myspoti Mix Lab" else "Orpheon dev"
             manifestPlaceholders["cliEnabled"] = "true"
+            buildConfigField("String", "UPDATE_REPO", "\"\"")
         }
         release {
             // Real key when provided (CI releases); otherwise the debug key, so a local
@@ -101,8 +111,11 @@ android {
             // beta on the test phone without replacing the signed beta installed there.
             if (findProperty("overDev") != null && !automixLab) {
                 applicationIdSuffix = ".dev"
-                manifestPlaceholders["appLabel"] = "Myspoti dev"
+                manifestPlaceholders["appLabel"] = "Orpheon dev"
+                buildConfigField("String", "UPDATE_REPO", "\"\"")
             }
+            // The Mix Lab stays drivable from the CLI in its optimised build, as in its debug one.
+            if (automixLab) manifestPlaceholders["cliEnabled"] = "true"
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -132,11 +145,21 @@ android {
 
 dependencies {
     implementation(project(":host-android"))
+    // YouTube Music as the account provider (listen sync, library read, metadata on the user's session).
+    implementation(project(":api-ytmusic"))
+    // The native engine: the account's audio outside the Web Player page (NativeAudio), behind its setting.
+    implementation(project(":engine-android"))
+    // The watch's app asks this one for the account's session and playlists (WearLinkService).
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
     // AutoMix: song analysis and transition planning (pure Kotlin), Beat This on ONNX Runtime.
     implementation(project(":automix"))
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
     // Third-party extensions: the sandbox (Rhino), manifests, packages and catalogues.
     implementation(project(":extensions"))
+    // Metadata (search, albums, artists, ISRC) from several providers in the user's order, with signed script updates.
+    implementation(project(":catalog"))
+    // Passing the setup to another of the user's devices by QR code, over the local network.
+    implementation(project(":pass"))
     // The queue's drag and drop (Apache-2.0): the row carried stays in the list, auto-scroll at the edges.
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
     // Jam: scan the invite QR code (Google code scanner, no camera permission).
@@ -144,10 +167,15 @@ dependencies {
     // Myspoti TV: the support links as QR codes (Apache-2.0), the encoder alone.
     implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
+    // Virtual time for the tests of timed coroutines (graces, timeouts): no real waits.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test-jvm:1.11.0")
     // The real org.json in unit tests (android.jar only has stubs).
     testImplementation("org.json:json:20240303")
     // A real XML pull parser in unit tests (the TTML lyrics parser; the tests skip themselves without it).
     testImplementation("net.sf.kxml:kxml2:2.3.0")
+    // Roborazzi asks for kotlinx-io 0.3.3; Ktor (removed) had raised it to 0.9.1, the version the unit tests ran with.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     implementation(libs.androidx.core.ktx)
@@ -160,7 +188,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
-    implementation(libs.compose.ui.tooling.preview)
     implementation(libs.material)
     implementation(libs.compose.material3)
     implementation(libs.compose.foundation)
@@ -171,23 +198,22 @@ dependencies {
     // Native UI (ported from Spotui, GPL-3.0)
     implementation("androidx.navigation:navigation-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
-    implementation("com.github.bumptech.glide:compose:1.0.0-beta01")
+    implementation("com.github.bumptech.glide:compose:1.0.0-beta10")
+    // Used directly (Glide, GlideUrl, the disk cache...): beta10 only brings it at runtime.
+    implementation("com.github.bumptech.glide:glide:5.0.9")
     implementation("androidx.palette:palette-ktx:1.0.0")
     // Frosted (blurred) bars of the Immersive look. Apache-2.0.
     implementation("dev.chrisbanes.haze:haze:1.3.1")
-    // MediaTransferReceiver: lets the system output switcher transfer to our Connect routes
-    implementation("androidx.mediarouter:mediarouter:1.8.1")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    // Awaiting the watch link's tasks (Data Layer channels).
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
     implementation(libs.serialization.json)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.okhttp)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.client.encoding)
-    implementation(libs.ktor.serialization.json)
     // Looping Spotify Canvas video on the now-playing screen
     implementation("androidx.media3:media3-exoplayer:1.8.0")
     implementation("androidx.media3:media3-exoplayer-dash:1.8.0")
+    // HLS (.m3u8) Live Radio streams, which most big broadcasters use.
+    implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
     // Installs the Baseline Profiles shipped by Compose & co. on sideloaded builds
     // (faster start, less jank; Play does this itself for store installs).
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
@@ -213,16 +239,16 @@ dependencies {
 }
 /**
  * `./gradlew :app:collectApks` after assembleRelease: the APKs under clear names in
- * build/release-apks/: Myspoti-2.4.0-ARMv8.apk (64-bit phones, almost all of them),
- * Myspoti-2.4.0-ARMv7.apk (32-bit), Myspoti-2.4.0-universal.apk (both) and Myspoti-2.4.0-TV.apk
+ * build/release-apks/: Orpheon-2.4.0-ARMv8.apk (64-bit phones, almost all of them),
+ * Orpheon-2.4.0-ARMv7.apk (32-bit), Orpheon-2.4.0-universal.apk (both) and Orpheon-2.4.0-TV.apk
  * (Android TV: the universal APK, since many TVs run 32-bit apps on a 64-bit chip). Betas are
- * Myspoti-Beta-..., the optimised dev builds Myspoti-dev-...
+ * Orpheon-Beta-..., the optimised dev builds Orpheon-dev-...
  */
 tasks.register("collectApks") {
     mustRunAfter("assembleRelease")
-    val version = (findProperty("appVersionName") as String?) ?: "2.4.0"
+    val version = (findProperty("appVersionName") as String?) ?: "1.0.0"
     val beta = findProperty("appVersionName") == null || version.contains("-beta")
-    val app = when { findProperty("overDev") != null -> "Myspoti-dev"; beta -> "Myspoti-Beta"; else -> "Myspoti" }
+    val app = when { findProperty("overDev") != null -> "$APK_NAME-dev"; beta -> "$APK_NAME-Beta"; else -> APK_NAME }
     // Copies: the configuration cache cannot keep a reference to the script's own values.
     val abis = RELEASE_ABIS.toList()
     val abiNames = ABI_NAMES.toMap()

@@ -4,8 +4,9 @@
     <string name="sources_download_title">Źródła pobierania</string>
     <string name="sources_audio_footer">Pytane od góry do dołu dla każdego utworu: pierwsze, które go ma, odtwarza go. Strzałkami zmienisz kolejność.</string>
     <string name="sources_download_footer">Pytane od góry do dołu: pierwsze źródło, które ma utwór, dostarcza plik. Strzałkami zmienisz kolejność.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Odtwarzane, gdy żadne źródło powyżej nie ma utworu</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Odtwarzane, gdy żadne źródło powyżej nie ma utworu</string>
+    <string name="sources_account_player">Odtwarzacz Twojego konta</string>
     <string name="sources_ready">Gotowe</string>
     <string name="sources_details_show">Pokaż szczegóły</string>
     <string name="sources_details_hide">Ukryj szczegóły</string>
@@ -13,15 +14,15 @@
     <string name="sources_last_used">Ostatnio: %1$s, %2$s</string>
     <string name="sources_open">Otwórz rozszerzenie</string>
     <string name="sources_order_hint">Źródła są pytane w kolejności ustawionej w Ustawieniach (Odtwarzanie, Pobieranie).</string>
-    <string name="sources_below_spotify">Nie pytamy: Spotify jest wyżej</string>
+    <string name="sources_below_account">Nie pytamy: Spotify jest wyżej</string>
     <string name="source_pick_title">Źródło</string>
-    <string name="source_pick_detail">Odtwarza ten utwór i kolejne z wybranego źródła, do ponownego uruchomienia Myspoti. Twoja kolejność w Ustawieniach pozostaje bez zmian.</string>
+    <string name="source_pick_detail">Odtwarza ten utwór i kolejne z wybranego źródła, do ponownego uruchomienia Orpheon. Twoja kolejność w Ustawieniach pozostaje bez zmian.</string>
     <string name="source_pick_playing">Teraz odtwarzane</string>
-    <string name="source_pick_temporary">Tymczasowo: najpierw do ponownego uruchomienia Myspoti</string>
+    <string name="source_pick_temporary">Tymczasowo: najpierw do ponownego uruchomienia Orpheon</string>
     <string name="source_pick_reset">Wróć do mojej kolejności</string>
     <string name="source_pick_reset_detail">Kolejność ustawiona w Ustawienia → Odtwarzanie</string>
     <string name="source_pick_tag">tymczasowo</string>
     <string name="source_pick_missing">Źródło %1$s nie ma tego utworu: gra dalej od miejsca, w którym był odtwarzany, a Twoja kolejność zostaje taka, jak była.</string>
     <string name="source_pick_next">Źródło %1$s odtwarza od następnego utworu: ten gra dalej tak, jak grał.</string>
-    <string name="source_pick_active">Tymczasowy wybór na tę sesję: źródło %1$s jest pytane jako pierwsze, do ponownego uruchomienia Myspoti.</string>
+    <string name="source_pick_active">Tymczasowy wybór na tę sesję: źródło %1$s jest pytane jako pierwsze, do ponownego uruchomienia Orpheon.</string>
 </resources>

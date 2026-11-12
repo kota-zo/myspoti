@@ -12,7 +12,6 @@
  */
 package com.music.spotui.ui.immersive.player
 
-import com.music.spotui.ui.components.zoneOn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
@@ -138,9 +137,6 @@ internal fun PlayerScrubber(
             onValueChange = scrub::drag,
             onValueChangeFinished = { scrub.release { onSeek((it * (state.seekLengthMs?.invoke() ?: state.durationMs)).toLong()) } },
             loading = state.buffering && !scrub.scrubbing,
-            // AutoMix: the mix's stretch in the accent from the moment it is planned, beating while it plays.
-            mixZone = { state.mixCue?.zoneOn(state.durationMs, incomingShown = state.blend?.outgoingWords == false) },
-            mixColor = com.music.spotui.ui.immersive.Immersive.Accent,
         )
         ScrubTimes(frame, scrub, state)
         com.music.spotui.ui.components.PlaybackSpeedNote(LocalPlayerTint.current.copy(alpha = 0.8f), com.music.spotui.ui.immersive.Immersive.Accent,
@@ -322,11 +318,14 @@ private fun TransportGlyph(
     }
 }
 
+/** How tall [VolumeRow] is: its bar's touch strip (10dp drawn at its thickest, plus 22dp). */
+internal val VOLUME_ROW_HEIGHT = 32.dp
+
 /** The volume bar between its two speaker glyphs. */
 @Composable
 internal fun VolumeRow(volume: PlayerVolume) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(VOLUME_ROW_HEIGHT),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

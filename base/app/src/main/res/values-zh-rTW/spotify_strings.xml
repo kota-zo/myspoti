@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">停止翻譯歌詞</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">嗯，我們也不知道這首歌曲的歌詞。</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">這些歌詞還沒跟播放時間同步。</string>
-    <string name="av_switch_to_video" formatted="false">切換至影片</string>
-    <string name="av_switch_to_audio" formatted="false">切換至音訊</string>
-    <string name="av_content_desc" formatted="false">在音訊和影片之間切換</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">首頁</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">搜尋</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">你的音樂庫</string>

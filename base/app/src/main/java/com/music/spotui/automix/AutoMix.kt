@@ -10,6 +10,7 @@ import app.myspoti.automix.BeatThis
 import app.myspoti.automix.MixPlan
 import app.myspoti.automix.MixPlanner
 import app.myspoti.automix.TrackAnalysis
+import app.myspoti.automix.DurationBounds
 import com.music.spotui.di.Graph
 import com.music.spotui.extensions.ExtensionAudio
 import java.io.File
@@ -26,6 +27,21 @@ import java.util.concurrent.Executors
 object AutoMix {
     private const val PREFS = "myspoti_prefs"
     private const val KEY = "automix_on"
+    private const val KEY_DURATION_MIN = "automix_duration_min_seconds"
+    private const val KEY_DURATION_MAX = "automix_duration_max_seconds"
+    private const val KEY_PERFORMANCE_PRIORITY = "automix_performance_priority"
+
+    private fun loadDurationPair(): Pair<Int, Int> {
+        val p = Graph.app.getSharedPreferences(PREFS, 0)
+        val rawMin = runCatching { p.getInt(KEY_DURATION_MIN, 0) }.getOrDefault(-1)
+        val rawMax = runCatching { p.getInt(KEY_DURATION_MAX, 0) }.getOrDefault(-1)
+        val pair = normalizeDurationPair(rawMin, rawMax)
+        if (pair.first != rawMin || pair.second != rawMax) {
+            p.edit().putInt(KEY_DURATION_MIN, pair.first).putInt(KEY_DURATION_MAX, pair.second).apply()
+        }
+        return pair
+    }
+    private val initialDurationPair = loadDurationPair()
 
     /** The setting, Compose state (off by default). */
     var on by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean(KEY, false))
@@ -67,6 +83,32 @@ object AutoMix {
         private set
     fun changeMixLength(value: Int) { mixLength = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_length", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
 
+    /** Optional hard bounds on overlap seconds; minimum 0 is automatic and maximum 0 is unlimited. */
+    var minDurationSeconds by mutableStateOf(initialDurationPair.first)
+        private set
+    var maxDurationSeconds by mutableStateOf(initialDurationPair.second)
+        private set
+
+    /** Updates the pair atomically so a temporary min > max can never reach the planner. */
+    fun changeDurationBounds(minSeconds: Int, maxSeconds: Int): Boolean {
+        if (normalizeDurationPair(minSeconds, maxSeconds) != (minSeconds to maxSeconds)) return false
+        minDurationSeconds = minSeconds
+        maxDurationSeconds = maxSeconds
+        Graph.app.getSharedPreferences(PREFS, 0).edit()
+            .putInt(KEY_DURATION_MIN, minSeconds).putInt(KEY_DURATION_MAX, maxSeconds).apply()
+        com.music.spotui.di.LocalPlayer.autoMixSettingsChanged()
+        return true
+    }
+
+    /** Same planner and signal path, with one analysis worker thread and no third-song prefetch. */
+    var performancePriority by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean(KEY_PERFORMANCE_PRIORITY, false))
+        private set
+    fun changePerformancePriority(value: Boolean) {
+        performancePriority = value
+        Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_PERFORMANCE_PRIORITY, value).apply()
+        com.music.spotui.di.LocalPlayer.autoMixSettingsChanged()
+    }
+
     /** A DJ session may leave at an earlier musical section; independent of overlap length. */
     var sessionDj by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_session_dj", true))
         private set
@@ -105,7 +147,7 @@ object AutoMix {
         private set
     fun changeMixPodcasts(value: Boolean) { mixPodcasts = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_podcasts", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
 
-    /** Extension streams analysed on mobile data too (each is read a second time: about the song's size again). On by default. */
+    /** Extension streams analysed on mobile data too (each is read a second time: about the song's size again). On by default: off, songs heard on mobile data are not mixed. */
     var analyzeOnMobileData by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_mobile_data", true))
         private set
     fun changeAnalyzeOnMobileData(value: Boolean) {
@@ -121,7 +163,12 @@ object AutoMix {
      * the music says), long 12–32 (up to 90 seconds); the lower end is a preference (a shorter mix only
      * when no longer one fits the songs), the upper one a limit. A plain fade lasts 4, 8 or 14 s.
      */
-    fun settings() = MixPlanner.Settings(
+    private fun configuredDurationBounds() = DurationBounds(
+        minSeconds = minDurationSeconds.toDouble(),
+        maxSeconds = if (maxDurationSeconds == 0) Double.POSITIVE_INFINITY else maxDurationSeconds.toDouble(),
+    )
+
+    fun settings(playbackRate: Double = com.music.spotui.di.LocalPlayer.rate().toDouble()) = MixPlanner.Settings(
         maxStretch = doubleArrayOf(0.04, 0.12, 0.16)[tempoRange],
         maxSec = if (mixLength == 2) 90.0 else 48.0,
         lengthBias = mixLength - 1,
@@ -132,6 +179,7 @@ object AutoMix {
         smoothSec = doubleArrayOf(4.0, 8.0, 14.0)[mixLength],
         filterSec = doubleArrayOf(6.0, 10.0, 14.0)[mixLength],
         djMode = sessionDj,
+        durationBounds = configuredDurationBounds().forPlaybackRate(playbackRate),
     )
 
     /** The data-plan transitions, in place of the planner; only for the beat blend style. On unless the listener turned them off. */
@@ -140,12 +188,39 @@ object AutoMix {
     fun changeSegue(value: Boolean) { segue = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_segue", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
     val segueActive: Boolean get() = segue && style == 0
 
+    /** The Orpheon planner (on by default), else the compact one it replaces, kept as a way back. */
+    var orpheon by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getBoolean("automix_orpheon", true))
+        private set
+    fun changeOrpheon(value: Boolean) { orpheon = value; Graph.app.getSharedPreferences(PREFS, 0).edit().putBoolean("automix_orpheon", value).apply(); com.music.spotui.di.LocalPlayer.autoMixSettingsChanged() }
+
+    /** The [app.myspoti.automix.segue.MixIdea]s the Orpheon planner plays with, as their bits: each is one switch of the Mix Lab. */
+    var ideas by mutableStateOf(Graph.app.getSharedPreferences(PREFS, 0).getInt("automix_ideas",
+        if (app.myspoti.engine.BuildConfig.APPLICATION_ID == "app.myspoti.automixlab") app.myspoti.automix.segue.MixIdea.DEFAULT else 0))
+        private set
+    fun hasIdea(idea: app.myspoti.automix.segue.MixIdea) = ideas and idea.bit != 0
+    fun changeIdea(idea: app.myspoti.automix.segue.MixIdea, on: Boolean) {
+        ideas = if (on) ideas or idea.bit else ideas and idea.bit.inv()
+        Graph.app.getSharedPreferences(PREFS, 0).edit().putInt("automix_ideas", ideas).apply()
+        com.music.spotui.di.LocalPlayer.autoMixSettingsChanged()
+    }
+
+    /** The tempo gap the Orpheon planner may close when the listener asks for the narrowest range. */
+    private const val ORPHEON_NARROW_TEMPO = 0.06
+
     /** The policy's decision for two analysed songs. The listener's settings may only tighten its limits. */
-    fun decide(a: TrackAnalysis, b: TrackAnalysis, earliestExit: Double, sameAlbum: Boolean, listener: Float): app.myspoti.automix.segue.SegueDecision {
+    fun decide(a: TrackAnalysis, b: TrackAnalysis, earliestExit: Double, sameAlbum: Boolean, listener: Float,
+               genreA: app.myspoti.automix.segue.GenreFamily? = null, genreB: app.myspoti.automix.segue.GenreFamily? = null): app.myspoti.automix.segue.SegueDecision {
         val s = settings()
         val d = app.myspoti.automix.segue.SeguePolicy.decide(app.myspoti.automix.segue.SegueRequest(a, b, (earliestExit * 1e6).toLong(),
             listenerRate = (listener * app.myspoti.automix.segue.SegueFormat.RATE_NOMINAL).toLong(),
-            maxRatePpm = (s.maxStretch * 1e6).toLong(), maxBars = s.maxBars, eq = djEq, harmonic = harmonic, sameAlbum = sameAlbum))
+            // The Orpheon planner ramps both songs and keeps its own tempo limits (see OrpheonTuning): the
+            // listener's range, made for one song held at a fixed speed, only narrows it at its smallest.
+            maxRatePpm = if (orpheon && tempoRange > 0) null else ((if (orpheon) ORPHEON_NARROW_TEMPO else s.maxStretch) * 1e6).toLong(),
+            maxBars = s.maxBars, eq = djEq, harmonic = harmonic, sameAlbum = sameAlbum,
+            durationBounds = configuredDurationBounds(), genreA = genreA, genreB = genreB,
+            minBars = s.minBars, fadeSec = doubleArrayOf(6.0, 10.0, 14.0)[mixLength],
+            tuning = app.myspoti.automix.segue.SegueTuning(planner = if (orpheon) app.myspoti.automix.segue.SegueTuning.PLANNER_ORPHEON else app.myspoti.automix.segue.SegueTuning.PLANNER_COMPACT,
+                ideas = if (orpheon) ideas else 0)))
         val plan = d.plan ?: return d
         if (app.myspoti.automix.segue.SegueDeck.playable(plan)) return d
         return app.myspoti.automix.segue.SegueDecision(app.myspoti.automix.segue.SegueLevel.NORMAL, null,
@@ -196,9 +271,16 @@ object AutoMix {
     // ── Journal (last lines, for the command line and the stats sheet) ──
 
     private val lines = ArrayDeque<String>()
+    /** Immutable event snapshot for Compose readers; updated only when a journal event arrives. */
+    var journalSnapshot by mutableStateOf<List<String>>(emptyList())
+        private set
     fun journal(line: String) {
         app.myspoti.host.android.Logbook.log("automix: $line")
-        synchronized(lines) { lines.addLast(line); while (lines.size > 60) lines.removeFirst() }
+        synchronized(lines) {
+            lines.addLast(line)
+            while (lines.size > 60) lines.removeFirst()
+            journalSnapshot = lines.toList()
+        }
     }
     fun journalLines(): List<String> = synchronized(lines) { lines.toList() }
 
@@ -230,8 +312,11 @@ object AutoMix {
      * any other song; [ready] runs on the worker when one is done.
      */
     fun request(uris: List<Uri>, ready: () -> Unit) {
-        // Three songs at most; cached answers for B/C are loaded before A's expensive analysis.
-        val songs = uris.distinctBy(::requestId).take(if (frugal()) 2 else 3)
+        // The song playing and the next one; the one after only while charging (skipped or
+        // replaced before it plays, it was often analysed for nothing: about 10 J a song).
+        // Cached answers for B/C are loaded before A's expensive analysis.
+        val lookahead = AnalysisCache.lookahead(charging = charging(), frugal = frugal())
+        val songs = uris.distinctBy(::requestId).take(if (performancePriority) minOf(lookahead, 2) else lookahead)
         wanted = songs.map(::requestId).toSet()
         val epoch = cacheEpoch
         val jobs = songs.filter { uri ->
@@ -304,8 +389,8 @@ object AutoMix {
             val t1 = System.currentTimeMillis()
             // On battery 3: measured on the S24, 5 made the same song's analysis slower (7.6 s against 5.5 s),
             // the extra cores being small ones and the next song's decode running meanwhile.
-            val threads = if (frugal()) 2 else if (charging()) THREADS else minOf(THREADS, 3)
-            val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, threads)
+            val threads = if (performancePriority) 1 else if (frugal()) 2 else if (charging()) THREADS else minOf(THREADS, 3)
+            val a = Analyzer.analyze(pcm.mid, pcm.side, model(), cancelled, threads, pcm.length)
             if (cancelled() || cacheKey != key(uri)) return null
             save(cacheKey, a)
             journal(String.format("analysed %s: %.1f BPM%s, %d bars, key %d, decode %d ms (bytes %d ms, %.1f MB, convert %d ms, %d restarts), analysis %d ms on %d threads", label(uri), a.bpm,
@@ -318,6 +403,12 @@ object AutoMix {
             if (cancelled() || e is InterruptedException) return null
             synchronized(memory) { retry.failed(cacheKey, android.os.SystemClock.elapsedRealtime()); refused[id] = Reason.NotAnalyzed }
             journal("analysis deferred for ${label(uri)}: ${e.javaClass.simpleName} ${e.message?.take(120)}")
+            return null
+        } catch (e: OutOfMemoryError) {
+            // The song's signals are this thread's own (dropped with this frame): the analysis
+            // is given up, the app goes on. Reported: this error, uncaught here, closed the app.
+            synchronized(memory) { retry.failed(cacheKey, android.os.SystemClock.elapsedRealtime()); refused[id] = Reason.NotAnalyzed }
+            journal("analysis given up for ${label(uri)}: out of memory (heap ${Runtime.getRuntime().maxMemory() / 1_000_000} MB)")
             return null
         }
     }
@@ -355,15 +446,32 @@ object AutoMix {
 
     // ── Plans ──
 
-    fun planFor(a: TrackAnalysis, b: TrackAnalysis): MixPlan = MixPlanner.plan(a, b, settings())
+    fun planFor(a: TrackAnalysis, b: TrackAnalysis): MixPlan? = MixPlanner.planBounded(a, b, settings())
     fun planAfter(a: TrackAnalysis, b: TrackAnalysis, earliestExit: Double): MixPlan? = MixPlanner.planAfter(a, b, earliestExit, settings())
 
     // ── Cache ──
 
-    private fun dir() = File(Graph.app.cacheDir, "automix4").apply { mkdirs() }
+    /**
+     * In the app's files, not its cache: Android empties a cache when storage runs low, and every
+     * song was then decoded and analysed again. Bounded instead ([AnalysisCache.MAX_BYTES], the
+     * least recently used go first); the old cache folder moves here once.
+     */
+    private fun dir(): File {
+        val d = File(Graph.app.filesDir, "automix4")
+        if (!d.exists()) {
+            val old = File(Graph.app.cacheDir, "automix4")
+            if (!(old.isDirectory && old.renameTo(d))) d.mkdirs()
+        }
+        return d
+    }
 
-    private fun load(key: String): TrackAnalysis? =
-        runCatching { File(dir(), key).takeIf { it.exists() }?.inputStream()?.buffered()?.use { TrackAnalysis.read(it) } }.getOrNull()
+    private fun load(key: String): TrackAnalysis? = runCatching {
+        File(dir(), key).takeIf { it.exists() }?.let { f ->
+            // Used now: the last to go when the cache is trimmed.
+            f.setLastModified(System.currentTimeMillis())
+            f.inputStream().buffered().use { TrackAnalysis.read(it) }
+        }
+    }.getOrNull()
 
     private fun save(key: String, a: TrackAnalysis) {
         runCatching {
@@ -371,6 +479,10 @@ object AutoMix {
             val tmp = File(dir(), "$key.tmp")
             tmp.outputStream().buffered().use { a.write(it) }
             tmp.renameTo(f)
+            dir().listFiles()?.let { files ->
+                AnalysisCache.toTrim(files.map { AnalysisCache.Entry(it.name, it.length(), it.lastModified()) })
+                    .forEach { File(dir(), it).delete() }
+            }
         }
     }
 
@@ -437,3 +549,8 @@ object AutoMix {
     /** The space the analyses take on disk, in bytes (off the main thread). */
     fun cacheBytes(): Long = dir().listFiles()?.sumOf { it.length() } ?: 0L
 }
+
+/** Invalid persisted pairs recover together to Auto; max=0 means no configured maximum. */
+internal fun normalizeDurationPair(minSeconds: Int, maxSeconds: Int): Pair<Int, Int> =
+    if (minSeconds !in 0..90 || maxSeconds !in 0..90 || (maxSeconds != 0 && minSeconds > maxSeconds)) 0 to 0
+    else minSeconds to maxSeconds

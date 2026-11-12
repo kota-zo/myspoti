@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Nog %d zender komt overeen, maar die zendt onversleuteld (http) of in HLS uit, wat de app nog niet kan afspelen.</item>
+        <item quantity="other">Nog %d zenders komen overeen, maar die zenden onversleuteld (http) of in HLS uit, wat de app nog niet kan afspelen.</item>
+    </plurals>
+</resources>

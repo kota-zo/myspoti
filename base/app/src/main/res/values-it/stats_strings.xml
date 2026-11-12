@@ -8,7 +8,7 @@
     <string name="stats_artists_ranked">%1$d artisti nei tuoi ascolti</string>
     <string name="stats_empty">Spotify non ha ancora artisti o brani più ascoltati per questo periodo. Continua ad ascoltare e ricontrolla più tardi.</string>
     <string name="stats_failed">Spotify non ha inviato le tue statistiche.</string>
-    <string name="stats_spotify_note">Classifica di Spotify basata su tutto ciò che questo account ha riprodotto, su ogni dispositivo. Spotify non condivide le riproduzioni né i minuti ascoltati: i minuti di «Su questo telefono» sono il conteggio di Myspoti.</string>
+    <string name="stats_spotify_note">Classifica di Spotify basata su tutto ciò che questo account ha riprodotto, su ogni dispositivo. Spotify non condivide le riproduzioni né i minuti ascoltati: i minuti di «Su questo telefono» sono il conteggio di Orpheon.</string>
     <string name="stats_weekly_minutes">Minuti a settimana</string>
     <string name="stats_this_week">Questa settimana: %1$d min</string>
     <string name="stats_listening_stats">Statistiche di ascolto</string>

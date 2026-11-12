@@ -1,0 +1,216 @@
+{
+ "media": {
+  "spotify:track:R3tHj8qrkVcHgHXlFFZCOG": {
+   "video_version_uri": "spotify:track:o043CggDYuQsh5kck1P1Vt",
+   "item": {
+    "metadata": {
+     "uri": "spotify:track:R3tHj8qrkVcHgHXlFFZCOG",
+     "linked_from_uri": null,
+     "context_description": null,
+     "context_uri": "spotify:track:R3tHj8qrkVcHgHXlFFZCOG",
+     "name": "Name 6",
+     "group_name": "Name 6",
+     "group_uri": "spotify:album:WgXwbPwv04f0b8dUJvoQsY",
+     "authors": [
+      {
+       "name": "Name 7",
+       "uri": "spotify:artist:a4iNCWHOdYDysIrmcIUL4c"
+      },
+      {
+       "name": "Name 8",
+       "uri": "spotify:artist:k7B5jmW8u0Ri81EPmFOL0a"
+      }
+     ],
+     "duration": 150226,
+     "images": [
+      {
+       "url": "https://i.scdn.co/image/802c18b760778e6c60801b5b1e07437cea60df66",
+       "height": 640,
+       "width": 640
+      }
+     ],
+     "episode_content_type": null,
+     "show_content_type": null,
+     "is_explicit": true
+    },
+    "manifest": {
+     "file_ids_mp4_dual": [
+      {
+       "bitrate": 256000,
+       "file_id": "7c309cdde2e142f787a860e5c14d56e9c3e2782c",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "13",
+       "audio_quality": "VERY_HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 260480
+      },
+      {
+       "bitrate": 128000,
+       "file_id": "6ad3d6298c4d0b33a2bf2b2f9c9e2c4c29f5b498",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "12",
+       "audio_quality": "HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 132436
+      }
+     ],
+     "file_ids_mp4": [
+      {
+       "bitrate": 256000,
+       "file_id": "7d903c00ca40ec4cb46680c004378a30547834ff",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "11",
+       "audio_quality": "VERY_HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 260266
+      },
+      {
+       "bitrate": 128000,
+       "file_id": "1a9a51dae23cf2426d51426e3b0a4477578d3e6f",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "10",
+       "audio_quality": "HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 132222
+      }
+     ]
+    },
+    "audio_id": null,
+    "video_id": null,
+    "track_type": "AUDIO",
+    "ms_played_until_update": 30000,
+    "ms_playing_update_interval": 0,
+    "content_type": "TRACK"
+   }
+  },
+  "spotify:track:o043CggDYuQsh5kck1P1Vt": {
+   "item": {
+    "metadata": {
+     "uri": "spotify:track:o043CggDYuQsh5kck1P1Vt",
+     "linked_from_uri": null,
+     "context_description": null,
+     "context_uri": "spotify:track:R3tHj8qrkVcHgHXlFFZCOG",
+     "name": "Name 6",
+     "group_name": "Name 6",
+     "group_uri": "spotify:album:XFDT1fd2dd0784G3GEBTD0",
+     "authors": [
+      {
+       "name": "Name 7",
+       "uri": "spotify:artist:a4iNCWHOdYDysIrmcIUL4c"
+      },
+      {
+       "name": "Name 8",
+       "uri": "spotify:artist:k7B5jmW8u0Ri81EPmFOL0a"
+      }
+     ],
+     "duration": 159743,
+     "images": [
+      {
+       "url": "https://i.scdn.co/image/50e4be1d73589111dfd3f27d369bd09d2ee2defe",
+       "height": 360,
+       "width": 640
+      }
+     ],
+     "episode_content_type": null,
+     "show_content_type": null,
+     "is_explicit": false
+    },
+    "manifest": {
+     "file_ids_mp4_dual": [
+      {
+       "bitrate": 256000,
+       "file_id": "960b7d91c0010be0d464f06e4dd182daabb36366",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "13",
+       "audio_quality": "VERY_HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 260548
+      },
+      {
+       "bitrate": 128000,
+       "file_id": "484b480b11f737d4f2f10597b76fb2f1e2b36270",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "12",
+       "audio_quality": "HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 132503
+      }
+     ],
+     "manifest_ids_video": [
+      {
+       "bitrate": null,
+       "file_id": "9228713245efbf7fd86d56039fdf58df",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "VIDEO",
+       "format": null,
+       "audio_quality": null,
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": null
+      }
+     ],
+     "file_ids_mp4": [
+      {
+       "bitrate": 256000,
+       "file_id": "b72b04435dc6a28b9866a5f73c3fe178578c854b",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "11",
+       "audio_quality": "VERY_HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 260347
+      },
+      {
+       "bitrate": 128000,
+       "file_id": "62c4076b4c59bb339f12429cde008a984ed797e7",
+       "file_url": null,
+       "impression_urls": null,
+       "track_type": "AUDIO",
+       "format": "10",
+       "audio_quality": "HIGH",
+       "hifi_status": "NONE",
+       "gain_db": null,
+       "expires_at": null,
+       "average_bitrate": 132302
+      }
+     ]
+    },
+    "audio_id": null,
+    "video_id": "9228713245efbf7fd86d56039fdf58df",
+    "track_type": "VIDEO",
+    "ms_played_until_update": 30000,
+    "ms_playing_update_interval": 0,
+    "content_type": "TRACK"
+   }
+  }
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "dealer-g2": [
+  "gew4-dealer.g2.spotify.com:443",
+  "guc3-dealer.g2.spotify.com:443",
+  "gew1-dealer.g2.spotify.com:443",
+  "gae2-dealer.g2.spotify.com:443"
+ ],
+ "spclient": [
+  "gew4-spclient.spotify.com:443",
+  "guc3-spclient.spotify.com:443",
+  "gew1-spclient.spotify.com:443",
+  "gae2-spclient.spotify.com:443"
+ ]
+}

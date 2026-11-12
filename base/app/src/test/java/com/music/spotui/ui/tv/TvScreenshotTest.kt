@@ -9,7 +9,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,19 +52,36 @@ import org.robolectric.annotation.GraphicsMode
  * stay as placeholders. Run with `./gradlew :app:testDebugUnitTest --tests '*TvScreenshotTest*'`;
  * the images land in app/build/outputs/roborazzi/.
  */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w960dp-h540dp-land-television-xhdpi", application = Application::class)
 class TvScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
-    private fun shoot(name: String, content: @Composable () -> Unit) {
+    private fun shoot(name: String, act: (() -> Unit)? = null, content: @Composable () -> Unit) {
         // The player never idles (its clock, the marquee, the playhead): time is moved by hand.
         rule.mainClock.autoAdvance = false
-        rule.setContent(content)
+        rule.setContent { RemoteMode(content) }
         rule.mainClock.advanceTimeBy(1_000)
+        // A focused state: the remote moved, then the focus animations allowed to finish.
+        if (act != null) { act(); rule.mainClock.advanceTimeBy(1_200) }
         rule.onRoot().captureRoboImage("build/outputs/roborazzi/tv-$name.png")
     }
+
+    /**
+     * A TV has no touch screen: out of touch mode, as there, so that clickable elements can take the
+     * focus (Compose only lets them in keyboard mode) and the screens' first focus shows.
+     */
+    @Composable
+    private fun RemoteMode(content: @Composable () -> Unit) {
+        val inputMode = LocalInputModeManager.current
+        LaunchedEffect(Unit) { inputMode.requestInputMode(InputMode.Keyboard) }
+        content()
+    }
+
+    /** Gives the focus to the clickable element showing [text]. */
+    private fun focus(text: String) { rule.onNode(hasText(text) and hasClickAction()).requestFocus() }
 
     private fun song(i: Int, title: String, artist: String) =
         SongsModel(i, title, "Album", artist, "", "spotify:track:$i", durationMs = 180_000 + i * 7_000)
@@ -66,7 +94,14 @@ class TvScreenshotTest {
 
     private fun playlists(n: Int, prefix: String) = List(n) { HomeItem.Playlist("$prefix ${it + 1}", "", "Mix of the week", id = "pl$prefix$it") }
 
-    @Test fun home() = shoot("home") {
+    @Test fun home() = shoot("home") { homeContent() }
+
+    @Test fun homeFocused() = shoot("home-focused", { focus("Daily Mix 2") }) { homeContent() }
+
+    @Test fun tabsFocused() = shoot("tabs-focused", { focus("Library") }) { homeContent() }
+
+    @Composable
+    private fun homeContent() {
         TvFrame(TvTab.Home, {}) {
             TvHomeShelves("Good evening", listOf(
                 HomeSection("", playlists(6, "Daily Mix")),
@@ -75,6 +110,28 @@ class TvScreenshotTest {
             )) {}
         }
     }
+
+    @Test fun listFocused() = shoot("list-focused", { focus("Nightcall") }) {
+        val entry = LibraryEntry("pl1", "Night Drive", "Myspoti", "", isPlaylist = true, uri = "spotify:playlist:pl1")
+        TvFrame(TvTab.Library, {}) {
+            TvSongsPage(entry, ContextPageModel("spotify:playlist:pl1", "playlist", "Night Drive", "", ownerName = "Myspoti", tracks = songs), {}, {}, {})
+        }
+    }
+
+    @Test fun cardsFocused() = shoot("cards-focused", { focus("Album 2") }) {
+        TvFrame(TvTab.Search, {}) {
+            TvSearchResults(SearchResults(
+                albums = List(8) { AlbumsModel(it, "M83", "", "Album ${it + 1}", "2011", spotifyId = "al$it") },
+                artists = listOf("M83", "Tame Impala", "Kavinsky", "MGMT", "Justice", "Daft Punk", "Air").mapIndexed { i, n -> ArtistsModel(n, "", id = "a$i") },
+            ), {}, {})
+        }
+    }
+
+    @Test fun playerSeek() = shoot("player-seek", {
+        rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNode(isFocused()).performKeyInput { pressKey(Key.DirectionRight); pressKey(Key.DirectionRight); pressKey(Key.DirectionRight) }
+    }) { playerContent() }
 
     @Test fun list() = shoot("list") {
         val entry = LibraryEntry("pl1", "Night Drive", "Myspoti", "", isPlaylist = true, uri = "spotify:playlist:pl1")
@@ -104,7 +161,10 @@ class TvScreenshotTest {
         }
     }
 
-    @Test fun player() = shoot("player") {
+    @Test fun player() = shoot("player") { playerContent() }
+
+    @Composable
+    private fun playerContent() {
         TvFrame(TvTab.NowPlaying, {}) {
             TvPlayerScreen(
                 ImmersivePlayerState(title = "Breathe Deeper", artist = "Tame Impala", playing = true, positionMs = { 74_000L }, durationMs = 372_000L,

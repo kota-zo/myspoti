@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d emissora més coincideix, però emet sense xifrar (http) o en HLS, que l\'aplicació encara no pot reproduir.</item>
+        <item quantity="other">%d emissores més coincideixen, però emeten sense xifrar (http) o en HLS, que l\'aplicació encara no pot reproduir.</item>
+    </plurals>
+</resources>

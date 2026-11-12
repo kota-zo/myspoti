@@ -21,7 +21,7 @@ import com.music.spotui.extensions.ExtensionAudio
  */
 @OptIn(UnstableApi::class)
 object ExtStreamCache {
-    private fun key(uri: Uri) = "ext:" + uri.lastPathSegment.orEmpty()
+    private fun key(uri: Uri) = key(uri.lastPathSegment.orEmpty())
 
     private fun cached(context: Context): CacheDataSource.Factory = CacheDataSource.Factory()
         .setCache(SongPlayer.mediaCache(context.applicationContext))
@@ -61,6 +61,46 @@ object ExtStreamCache {
         override fun getResponseHeaders(): Map<String, List<String>> = active.responseHeaders
         override fun close() = active.close()
     }
+
+    /**
+     * The file an extension answered with for a song, as far as its answer says: the extension and
+     * its source, the codec, depth, rate, type, length and transform. Two answers for one song can
+     * be two files (a 24-bit master one day, a 16-bit copy the next), which the cache, keyed by the
+     * song, cannot tell apart.
+     */
+    internal fun identity(s: app.myspoti.extensions.AudioStream): String = listOf(
+        s.providerId, s.source, s.codec, s.bitDepth, s.sampleRate, s.mimeType, s.durationMs, s.transform?.let { it::class.simpleName },
+    ).joinToString("|")
+
+    /** Every song's file identity as last cached, at most this many (then started over: each song's cache is dropped once). */
+    private const val IDENTITIES_MAX = 1000
+    private const val IDENTITIES = "ext_stream_identities"
+
+    /**
+     * An extension answered [stream] for the song [trackId]: when it is another file than the one the
+     * cache holds for the song (or the cache's is not known), the song's cached bytes go before it is
+     * read. Kept, the start of one file (its header) was read with the rest of another: a FLAC whose
+     * frames no longer matched its header, read as one 11 MB frame, and the song stopped (heard as a
+     * cut, the player then asking the extension again). Returns whether it was dropped.
+     */
+    fun answered(context: Context, trackId: String, stream: app.myspoti.extensions.AudioStream): Boolean {
+        if (trackId.isBlank()) return false
+        val prefs = context.getSharedPreferences(IDENTITIES, Context.MODE_PRIVATE)
+        val now = identity(stream)
+        val before = prefs.getString(trackId, null)
+        if (!mustDrop(before, now)) return false
+        val edit = prefs.edit()
+        if (prefs.all.size >= IDENTITIES_MAX) edit.clear()
+        edit.putString(trackId, now).apply()
+        runCatching { SongPlayer.mediaCache(context.applicationContext).removeResource(key(trackId)) }
+        if (before != null) app.myspoti.host.android.Logbook.log("stream: $trackId is another file than the one cached, the cache of the song dropped")
+        return true
+    }
+
+    /** The cached bytes of a song go unless they are known to be the same file as [now]. */
+    internal fun mustDrop(before: String?, now: String): Boolean = before != now
+
+    private fun key(trackId: String) = "ext:$trackId"
 
     /**
      * Reads the song at [uri] into the cache, up to half the media cache (a long FLAC is kept in

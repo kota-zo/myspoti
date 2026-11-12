@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Pencarian, album, dan artis berasal dari layanan ini, ditanyakan dari atas ke bawah. Lagu yang sama yang ditemukan dua kali hanya muncul sekali. Layanan yang dimatikan tidak pernah ditanyakan.</string>
+    <string name="metadata_spotify_detail">Akunmu, selama kamu masuk</string>
+    <string name="metadata_signed_out">Tidak ditanyakan: tidak ada akun yang masuk</string>
+    <string name="metadata_asked">Ditanyakan</string>
+    <string name="metadata_off">Mati: tidak pernah ditanyakan</string>
+    <string name="metadata_reset">Kembali ke urutan bawaan</string>
+    <string name="metadata_not_on_spotify">Tidak ditemukan di Spotify: lagu ini belum bisa diputar</string>
+    <string name="metadata_switch">Tanyakan %1$s</string>
+</resources>

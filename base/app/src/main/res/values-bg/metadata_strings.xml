@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Метаданни</string>
+    <string name="metadata_footer">Търсенията, албумите и изпълнителите идват от тези услуги, питани отгоре надолу. Една и съща песен, намерена два пъти, се показва веднъж. Изключена услуга никога не се пита.</string>
+    <string name="metadata_spotify_detail">Профилът ви, докато сте влезли</string>
+    <string name="metadata_signed_out">Не се пита: няма влязъл профил</string>
+    <string name="metadata_asked">Пита се</string>
+    <string name="metadata_off">Изключено: никога не се пита</string>
+    <string name="metadata_reset">Обратно към подредбата по подразбиране</string>
+    <string name="metadata_not_on_spotify">Не е намерена в Spotify: тази песен още не може да се пусне</string>
+    <string name="metadata_switch">Питай %1$s</string>
+</resources>

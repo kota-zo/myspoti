@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Coincide %d emisora más, pero emite sin cifrar (http) o en HLS, que la app aún no puede reproducir.</item>
+        <item quantity="other">Coinciden %d emisoras más, pero emiten sin cifrar (http) o en HLS, que la app aún no puede reproducir.</item>
+    </plurals>
+</resources>

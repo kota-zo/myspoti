@@ -23,6 +23,8 @@ internal class Stretch(
     val beats: DoubleArray,
     /** How far it can be trusted, 0..1: the worst of its beats' share and its downbeats' confidence. */
     val reliability: Double,
+    /** Its grid was carried over from bars next to it, not measured on its own beats. */
+    val carried: Boolean = false,
 ) {
     val start get() = grid.first
     val end get() = grid.first + grid.period * 4 * bars
@@ -39,15 +41,16 @@ internal object Stretches {
 
     /**
      * The stretch of [bars] bars from [bar], or null when its beats cannot be relied on. [metre] stands
-     * in for the downbeats' confidence on an analysis that has none.
+     * in for the downbeats' confidence on an analysis that has none; [beatsGiven] replaces the song's
+     * beats (the model's, else the tracker's).
      */
-    fun measure(s: TrackAnalysis, bar: Int, bars: Int, metre: Double, t: SegueTuning): Stretch? {
+    fun measure(s: TrackAnalysis, bar: Int, bars: Int, metre: Double, t: SegueTuning, beatsGiven: DoubleArray? = null): Stretch? {
         if (bar < 0 || bar + bars >= s.bars) return null
         val from = s.barStarts[bar]; val to = s.barStarts[bar + bars]
         val beatCount = 4 * bars
         val rough = (to - from) / beatCount
         if (rough <= 0 || 60 / rough !in BeatTracker.MIN_BPM..BeatTracker.MAX_BPM) return null
-        val source = if (s.modelBeats.isNotEmpty()) s.modelBeats else s.beats
+        val source = beatsGiven ?: if (s.modelBeats.isNotEmpty()) s.modelBeats else s.beats
         val i0 = lowerBound(source, from - rough / 4); val i1 = lowerBound(source, to - rough / 4)
         val n = i1 - i0
         if (n < t.stretchMinBeatShare * beatCount || n > beatCount + 1 || n < 2) return null
@@ -83,21 +86,53 @@ internal object Stretches {
         return Stretch(bar, bars, Grid(first, period, beatCount, share, drift * 1000, 1.0), beats, min(share, down))
     }
 
+    /** How many of [beats] fall in the [bars] bars from [bar], counted as [measure] counts them. */
+    fun count(s: TrackAnalysis, beats: DoubleArray, bar: Int, bars: Int): Int {
+        if (bar < 0 || bar + bars >= s.bars) return 0
+        val from = s.barStarts[bar]; val to = s.barStarts[bar + bars]
+        val rough = (to - from) / (4 * bars)
+        return lowerBound(beats, to - rough / 4) - lowerBound(beats, from - rough / 4)
+    }
+
+    /** [beats] with a beat halfway between each two: the model's beats at the bars' level when it tracked half of them. */
+    fun doubled(beats: DoubleArray): DoubleArray {
+        if (beats.size < 2) return beats
+        val out = DoubleArray(beats.size * 2 - 1)
+        for (i in beats.indices) { out[2 * i] = beats[i]; if (i + 1 < beats.size) out[2 * i + 1] = (beats[i] + beats[i + 1]) / 2 }
+        return out
+    }
+
     /**
-     * A build-up has too few clear beats of its own to be measured, and the song arrives right after it:
-     * the [bars] bars from [bar] take the beat of the bars they lead into, carried back, when it lands
-     * on their start. Null when what follows does not hold or does not line up.
+     * Every other one of [beats] around the [bars] bars from [bar], the one nearest the first bar's
+     * start kept: the model's beats at the bars' level when it tracked twice as many.
      */
-    fun carried(s: TrackAnalysis, bar: Int, bars: Int, metre: Double, t: SegueTuning): Stretch? {
-        if (bar < 0) return null
+    fun halved(s: TrackAnalysis, beats: DoubleArray, bar: Int, bars: Int): DoubleArray {
+        if (bar < 0 || bar + bars >= s.bars) return DoubleArray(0)
+        val from = s.barStarts[bar]; val to = s.barStarts[bar + bars]
+        val rough = (to - from) / (8 * bars)
+        val i0 = lowerBound(beats, from - rough); val i1 = lowerBound(beats, to + rough)
+        if (i1 - i0 < 2) return DoubleArray(0)
+        val start = if (abs(beats[i0] - from) <= abs(beats[i0 + 1] - from)) i0 else i0 + 1
+        return (start until i1 step 2).map { beats[it] }.toDoubleArray()
+    }
+
+    /**
+     * Weak bars borrow the grid of the [SegueTuning.carryFromBars] reliable bars next to them: after
+     * them ([fromAfter], an opening that has not found its beat yet) or before them (an ending that
+     * thins out), at most [maxGap] bars away, when that grid lands on their first bar. Null when no
+     * neighbour holds or the grid does not line up.
+     */
+    fun extended(s: TrackAnalysis, bar: Int, bars: Int, metre: Double, t: SegueTuning, fromAfter: Boolean, maxGap: Int): Stretch? {
+        if (bar < 0 || bar >= s.bars) return null
         val beatCount = 4 * bars
-        for (gap in 0..t.carrySearchBars) {
-            val next = measure(s, bar + bars + gap, t.carryFromBars, metre, t) ?: continue
-            val period = next.grid.period
-            val first = next.grid.first - (beatCount + 4 * gap) * period
-            if (abs(first - s.barStarts[bar]) * 1e6 > t.carryMaxOffUs) return null
-            return Stretch(bar, bars, Grid(first, period, beatCount, 1.0, next.grid.driftMs, 1.0),
-                DoubleArray(beatCount) { first + it * period }, min(next.reliability, t.reliabilityForMiddle))
+        for (gap in 0..maxGap) {
+            val from = if (fromAfter) bar + bars + gap else bar - gap - t.carryFromBars
+            val near = measure(s, from, t.carryFromBars, metre, t) ?: continue
+            val period = near.grid.period
+            val first = if (fromAfter) near.grid.first - (beatCount + 4 * gap) * period else near.end + 4 * gap * period
+            if (abs(first - s.barStarts[bar]) * 1e6 > t.carryMaxOffUs || first + beatCount * period > s.duration) return null
+            return Stretch(bar, bars, Grid(first, period, beatCount, 1.0, near.grid.driftMs, 1.0),
+                DoubleArray(beatCount) { first + it * period }, min(near.reliability, t.reliabilityForMiddle), carried = true)
         }
         return null
     }

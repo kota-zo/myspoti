@@ -1,0 +1,8 @@
+{
+ "headers": {
+  "Spotify-Connection-Id": "dGVzdC1jb25uZWN0aW9uLTcxYjhlZDQ2NmNiYTlhNTk="
+ },
+ "method": "PUT",
+ "type": "message",
+ "uri": "hm://pusher/v1/connections/dGVzdC1jb25uZWN0aW9u"
+}

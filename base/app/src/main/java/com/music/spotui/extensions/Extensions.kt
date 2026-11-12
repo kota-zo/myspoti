@@ -151,7 +151,6 @@ object Extensions {
         val romanize: List<String> = emptyList(),
     )
     private val _provided = MutableStateFlow(Provided())
-    val provided: StateFlow<Provided> = _provided.asStateFlow()
     /** The same, read by [hasAudioSource], [hasDownloadSource] and [hasLyrics]: a screen calling them is drawn again when it changes. */
     private val providedState = androidx.compose.runtime.mutableStateOf(Provided())
     private val providedLock = Any()
@@ -524,7 +523,7 @@ object Extensions {
         // A source whose last `status` said it does not answer is skipped: the next one, or Spotify, plays.
         val skip = { id: String -> hook in SOURCE_HOOKS && health.inactive(id) }
         // A source: the extensions above Spotify only (all of them while Spotify is last).
-        val ordered = if (action?.mode == app.myspoti.extensions.Mode.ORDERED) line(r, action).takeWhile { it != SPOTIFY_SOURCE }.mapNotNull(r::find)
+        val ordered = if (action?.mode == app.myspoti.extensions.Mode.ORDERED) line(r, action).takeWhile { it != ACCOUNT_SOURCE }.mapNotNull(r::find)
             else r.byPriority(area, r.extensions) { it.id }
         val all = ordered.mapNotNull { e -> runtimes[e.id]?.takeIf { e.enabled && it.provides(hook) && !skip(e.id) }?.let { e.id to it } }
         if (action == null || action.mode != app.myspoti.extensions.Mode.EXCLUSIVE) all
@@ -544,7 +543,7 @@ object Extensions {
 
     /**
      * The order the source [action] asks in, as ids: its extensions and, for audio, Spotify
-     * ([SPOTIFY_SOURCE], last until the user moves it up; the extensions after it are not asked).
+     * ([ACCOUNT_SOURCE], last until the user moves it up; the extensions after it are not asked).
      */
     fun sourceLine(action: Action): List<String> = line(_registry.value, action)
 
@@ -553,7 +552,10 @@ object Extensions {
 
     private fun savedLine(r: Registry, action: Action): List<String> {
         val ids = r.extensions.filter { action in manifest(it.id)?.actionSet().orEmpty() }.map { it.id }
-        return r.bySourceOrder(action.key, Area.AUDIO.key, if (action == Action.AUDIO_SOURCE) ids + SPOTIFY_SOURCE else ids) { it }
+        // The account's player is a source only with Spotify as the music account (SongPlayer.accountPlays):
+        // with YouTube Music or none, its row is not offered and every extension is asked.
+        val withAccount = action == Action.AUDIO_SOURCE && com.music.spotui.di.SongPlayer.accountPlays
+        return r.bySourceOrder(action.key, Area.AUDIO.key, if (withAccount) ids + ACCOUNT_SOURCE else ids) { it }
     }
 
     /** The order the source [action] asks in now: the user's, with the audio source picked for this session first ([SessionSource]). */
@@ -563,7 +565,7 @@ object Extensions {
         return SessionSource.effective(saved, SessionSource.valid(_sessionSource.value, saved) { r.find(it)?.enabled == true })
     }
 
-    /** Moves [id] (an extension, or [SPOTIFY_SOURCE]) up (negative [delta]) or down in the order the source [action] asks in. */
+    /** Moves [id] (an extension, or [ACCOUNT_SOURCE]) up (negative [delta]) or down in the order the source [action] asks in. */
     fun moveSource(action: Action, id: String, delta: Int) = update { r -> r.move(action.key, savedLine(r, action), id, delta) }
 
     private val _sessionSource = MutableStateFlow<String?>(null)
@@ -580,7 +582,7 @@ object Extensions {
     }
 
     /**
-     * Puts [id] (an extension, or [SPOTIFY_SOURCE]) first of the audio order for this session; null,
+     * Puts [id] (an extension, or [ACCOUNT_SOURCE]) first of the audio order for this session; null,
      * or the source the user's order asks first already: back to that order. The songs after the one
      * playing are asked again in the new order (as for a change in Settings); the one playing is the
      * caller's (SongPlayer.switchSource).
@@ -1295,6 +1297,9 @@ object Extensions {
     /** The user tapped next ("forward") or previous ("backward"): a `skip` event says which. */
     fun skipAsked(direction: String) = playback.skipAsked(direction, System.currentTimeMillis())
 
+    /** How much longer the `playback` watch sleeps between two looks while no extension listens to it. */
+    private val NO_LISTENER_MS = 9_000L
+
     /**
      * The `playback` events: both players read once a second (on the main thread, where they
      * live), only while an extension listens; delivered in order, one at a time.
@@ -1317,6 +1322,9 @@ object Extensions {
                 kotlinx.coroutines.delay(if (idle >= 3) 3_000 else 1_000)
                 if (runtimes.values.none { it.listens(ExtensionRuntime.EVENT_PLAYBACK) }) {
                     if (listening) { playback.observe(null, System.currentTimeMillis()); listening = false }
+                    // No extension listens (the usual case): a look every ten seconds for one that
+                    // starts to, not a wake of the main thread every second for as long as the app lives.
+                    kotlinx.coroutines.delay(NO_LISTENER_MS)
                     continue
                 }
                 listening = true
@@ -1622,8 +1630,9 @@ object Extensions {
     // ── What the sandbox reaches of the app ──
 
     private object AndroidHost : Host {
+        // Spotify's own API, not the app's metadata catalog: an extension's spotify.* calls answer with Spotify's items.
         private val dispatcher by lazy {
-            SpotifyDispatcher(MyspotiRuntime.api, AppRaw, app.myspoti.extensions.PlayerMedia { app.myspoti.spotify.bridge.MediaManifests.of(it) })
+            SpotifyDispatcher(MyspotiRuntime.spotify, AppRaw, app.myspoti.extensions.PlayerMedia { app.myspoti.spotify.bridge.MediaManifests.of(it) })
         }
 
         override fun http(extensionId: String, request: HttpRequest): HttpResponse {
@@ -1684,17 +1693,14 @@ object Extensions {
                 if (!Extensions.mirror.disable(extensionId)) return "null"
                 try { return dispatcher.execute(call) } finally { Extensions.mirrorEndedBy(extensionId) }
             }
-            // Myspoti's own Connect mirror has the page already ("Count extension plays on Spotify"): it wins.
-            // A download mirrored by "Sync downloaded songs with Spotify" gives way instead, as before that setting.
-            val download = com.music.spotui.di.ConnectMirror.mirrorsDownload
-            if (com.music.spotui.di.ConnectMirror.running && !download) {
+            // Myspoti's own listen sync has the page already ("Count extension plays on Spotify"): it wins.
+            if (com.music.spotui.di.AccountSync.holdsSpotify) {
                 val why = "setLocalMute: Myspoti already plays this song on Spotify (Count extension plays on Spotify)"
                 Extensions.log(extensionId, "refused: $why"); throw IllegalStateException(why)
             }
             if (!arbitrate(extensionId, "setLocalMute")) return "null"
             val (playing, uri, dur) = SongPlayer.localSnapshot3()
             Extensions.mirror.enable(extensionId, playing, uri, dur)?.let { Extensions.log(extensionId, "refused: $it"); throw IllegalStateException(it) }
-            if (download) com.music.spotui.di.ConnectMirror.yieldToExtension()
             return try { dispatcher.execute(call).also { Extensions.mirrorStartedBy(extensionId) } }
             catch (t: Throwable) { Extensions.mirror.disable(extensionId); throw t }
         }

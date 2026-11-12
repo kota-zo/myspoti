@@ -50,7 +50,7 @@ fun ImmersiveAlbumByIdScreen(navController: NavController, name: String, artist:
             ImmersiveTopBar(title = "", collapse = { 0f }, onBack = { navController.navigateUp() })
         }
         else -> BoxWithConstraints(Modifier.fillMaxSize().background(Immersive.Page)) {
-            ContextLoading(navController, sleeve = albumSleeve(maxWidth, maxHeight))
+            ContextLoading(navController, sleeve = albumSleeve(maxWidth, maxHeight, com.music.spotui.ui.components.windowSize().large))
         }
     }
 }

@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.music.spotui.data.entity.SongsModel
@@ -208,7 +207,6 @@ fun DownloadsScreen(navController: NavController) {
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     GlideImage(
-                        transition = CrossFade,
                         model = r.coverUrl, contentDescription = null, contentScale = ContentScale.Crop,
                         loading = placeholder(R.drawable.placeholder), failure = placeholder(R.drawable.placeholder),
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),
@@ -249,7 +247,6 @@ fun DownloadsScreen(navController: NavController) {
                 ) {
                     val first = mine.first()
                     GlideImage(
-                        transition = CrossFade,
                         model = if (c.type == "album") OfflineStore.coverFile(first) ?: first.coverUrl else first.coverUrl,
                         contentDescription = null, contentScale = ContentScale.Crop,
                         loading = placeholder(R.drawable.placeholder), failure = placeholder(R.drawable.downloads_cover),
@@ -278,7 +275,6 @@ fun DownloadsScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth().pressable(0.97f) { play(i) }.padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     GlideImage(
-                        transition = CrossFade,
                         model = OfflineStore.coverFile(t) ?: t.coverUrl, contentDescription = null, contentScale = ContentScale.Crop,
                         loading = placeholder(R.drawable.placeholder), failure = placeholder(R.drawable.downloads_cover),
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),

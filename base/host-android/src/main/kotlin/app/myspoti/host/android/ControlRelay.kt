@@ -41,6 +41,12 @@ import java.util.concurrent.TimeUnit
 internal class ControlRelay(private val view: WebView, private val fingerprint: Fingerprint) {
     /** The page's player registered its playback device (it started, and takes commands). */
     @Volatile var onDeviceRegistered: (() -> Unit)? = null
+    /**
+     * The page's player reports a playback state of its own (a track-playback state PUT): it is
+     * starting or moving, a Spotify Connect transfer or a command from another device among the
+     * causes. The host wakes an idle page for it.
+     */
+    @Volatile var onPlaybackReport: (() -> Unit)? = null
     private val main = Handler(Looper.getMainLooper())
 
     /** The guarded fallback channel of a WebView without web message listeners (see [PlayerChannel]). */
@@ -93,14 +99,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
      * A phone appearing as "Web Player (Chrome)" on every other device is a phone that stands out;
      * under its own name it looks like what it is. Falls back to the model, then to a neutral name.
      */
-    private val deviceName: String by lazy {
-        val resolver = view.context.contentResolver
-        fun setting(key: String): String? = runCatching {
-            android.provider.Settings.Global.getString(resolver, key)
-                ?: android.provider.Settings.Secure.getString(resolver, key)
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-        setting("device_name") ?: setting("bluetooth_name") ?: android.os.Build.MODEL.ifBlank { "Spotify" }
-    }
+    private val deviceName: String by lazy { PhoneName.of(view.context) }
 
     /** `{id, url, method, headers, body}` from the page's wrapped `fetch`. */
     private fun onMessage(json: String) {
@@ -148,10 +147,11 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
             reply(id, doc, 0, "{}", "")
             return
         }
+        if (method == "PUT" && PLAYBACK_REPORT.containsMatchIn(url)) onPlaybackReport?.invoke()
         val built = relayHeaders(given, identity, fingerprint.userAgent, fallbackLanguage, fingerprint.secChUa)
         // The registration goes out as the real Web Player sends it, except for its name: the phone's
         // own (see [deviceName]) replaces "Web Player (Chrome)".
-        val registration = body != null && app.myspoti.spotify.bridge.AdBlock.isDeviceRegistration(method, url)
+        val registration = body != null && app.myspoti.spotify.bridge.DeviceRegistration.isDeviceRegistration(method, url)
         if (debuggable && body != null && url.contains("/connect-state/"))
             Logbook.log("connect-state body: ${body.take(500)}")
         if (registration) runCatching { JSONObject(body!!).optJSONObject("device")?.optString("device_id") }
@@ -176,7 +176,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
             }
         }
         val sent = if (registration) {
-            val rewritten = app.myspoti.spotify.bridge.AdBlock.withDeviceName(body!!, deviceName)
+            val rewritten = app.myspoti.spotify.bridge.DeviceRegistration.withDeviceName(body!!, deviceName)
             if (debuggable && rewritten != body) Logbook.log("device registered as \"$deviceName\"")
             rewritten
         } else body
@@ -364,23 +364,15 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
             }
         if (debuggable && registration) Logbook.log("registration answered: ${text.take(500)}")
         if (debuggable && AD_MARK.containsMatchIn(text)) keepAdSample(method, url, body, text)
-        // An ad in the queue Spotify sends: the song before it goes on to the next song
-        // instead, before the page sees the queue (see AdBlock.withoutAds).
-        val given = if (url.contains("/track-playback/")) app.myspoti.spotify.bridge.AdBlock.withoutAds(text) else null
-        given?.second?.forEach { note -> Logbook.log("ad left out: $note"); ADS_LEFT_OUT.incrementAndGet(); app.myspoti.spotify.report.Refusal402.adStateLeftOut() }
-        // Marked as holding an ad, yet left as it was: why (which marker, what kept it), once per reason.
-        if (given == null && url.contains("/track-playback/") && AD_MARK.containsMatchIn(text))
-            app.myspoti.spotify.bridge.AdBlock.whyKept(text)?.takeIf { it != lastAdKept }?.let { why -> lastAdKept = why; Logbook.log("ad kept in the queue: $why") }
-        val sent = given?.first ?: text
-        // The songs' media manifests, for extensions to read (spotify.media).
-        if (it.code in 200..299 && url.contains("/track-playback/")) app.myspoti.spotify.bridge.MediaManifests.record(sent)
-        // Both ways on from this song lead to the ad: the player plays the next song
-        // just before this one ends (AdBlock.adAhead).
-        if (url.contains("/track-playback/")) app.myspoti.spotify.bridge.AdBlock.adAhead(sent)?.let { a ->
-            if (app.myspoti.spotify.bridge.AdBlock.ahead.value != a) Logbook.log("ad ahead: ${a.nextUri} is played before the end")
-            app.myspoti.spotify.bridge.AdBlock.ahead.value = a
+        if (it.code in 200..299 && url.contains("/track-playback/")) {
+            // The songs' media manifests, for extensions to read (spotify.media).
+            app.myspoti.spotify.bridge.MediaManifests.record(text)
+            // Where the next ad comes (read only: the reply goes to the page as it came).
+            val before = app.myspoti.spotify.bridge.AdSchedule.due.value
+            app.myspoti.spotify.bridge.AdSchedule.record(text)
+            app.myspoti.spotify.bridge.AdSchedule.due.value?.takeIf { d -> d != before }?.let { d -> Logbook.log("ad due after this song (${d.songUri}), then ${d.nextUri ?: "a song not named"}") }
         }
-        reply(id, doc, it.code, out.toString(), sent)
+        reply(id, doc, it.code, out.toString(), text)
     }
 
     private fun reply(id: Int, doc: String, status: Int, headersJson: String, body: String) {
@@ -426,8 +418,6 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
     @Volatile private var staleOwn: String? = null
 
     @Volatile private var lastCluster: String? = null
-    /** The last reason an ad-marked reply was left as it was (logged once per reason). */
-    @Volatile private var lastAdKept: String? = null
 
     /**
      * A refused command another route answered 2xx: whether the page's media really plays 10 s
@@ -446,9 +436,9 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
     @Volatile private var matrixPage = false
     @Volatile private var matrixPageLine: String? = null
 
-    /** The ads mode, for the 402 report: what this app does to ads (it has no setting for it). */
-    private fun adsMode() = "blocked (page ad managers off, ${app.myspoti.spotify.bridge.AdBlock.blockedHosts.size} ad hosts blocked, " +
-        "ad states left out this session=${ADS_LEFT_OUT.get()}, ad ahead=${app.myspoti.spotify.bridge.AdBlock.ahead.value != null})"
+    /** The ads mode, for the 402 report: what this app does to ads (no setting: the blocker acts on Connect devices only). */
+    private fun adsMode() = "played (blocker ${if (app.myspoti.spotify.bridge.AdBlock.active.value) "on: music sent to a Spotify Connect device" else "off"}, " +
+        "ad due=${app.myspoti.spotify.bridge.AdSchedule.due.value != null})"
     @Volatile private var commandHeaders: String? = null
 
     private val debuggable = view.context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -575,9 +565,6 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
         /** The 402 matrix runs once per process, on the first refused command. */
         private val MATRIX_RUN = java.util.concurrent.atomic.AtomicBoolean(false)
 
-        /** Ad states [app.myspoti.spotify.bridge.AdBlock.withoutAds] left out this session. */
-        private val ADS_LEFT_OUT = java.util.concurrent.atomic.AtomicInteger(0)
-
         /** A route's name in the 402 summary. */
         internal fun shortRoute(route: RelayRoute) = when (route) {
             RelayRoute.DEFAULT -> "okhttp"
@@ -698,6 +685,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
         }
 
         private val COMMAND = Regex("/connect-state/v1/(player/command|connect/transfer)/")
+        private val PLAYBACK_REPORT = Regex("/track-playback/v1/devices/[^/]+/state")
 
         /** The license Spotify granted this player in its registration answer. */
         private val EFFECTIVE_LICENSE = Regex("\"effective_license\"\\s*:\\s*\"([^\"]*)\"")
@@ -822,16 +810,16 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
                 }}));
               } catch (e) { /* the host keeps its fallback identity */ }
               // The player's media elements, often never added to the document: the bridge
-              // silences them during an ad ("media.mute") or while the song is unheard here
-              // ("media.hush"); one started then starts silent.
+              // silences them while the song is unheard here ("media.quiet"); one started then
+              // starts silent.
               // Silent is a tiny volume, never muted: Chromium pauses muted media of a hidden page.
               const media = new Set();
               window.__mspMedia = media;
-              // Held silent from its first play while the flags stand: the page raises its own
-              // volume after a mute (a new song, its fade-in, a Connect volume), which left an ad heard.
+              // Held silent from its first play while the flag stands: the page raises its own
+              // volume again (a new song, its fade-in, a Connect volume), which left the page heard.
               const silence = el => {
                 if (el.__mspGuard) return;
-                el.__mspGuard = () => { if ((window.__mspMuted || window.__mspHushed) && !el.muted && el.volume > 0.001) el.volume = 0.001; };
+                el.__mspGuard = () => { if (window.__mspQuiet && !el.muted && el.volume > 0.001) el.volume = 0.001; };
                 el.addEventListener('volumechange', el.__mspGuard);
                 el.addEventListener('playing', el.__mspGuard);
               };
@@ -840,7 +828,7 @@ internal class ControlRelay(private val view: WebView, private val fingerprint: 
               HTMLMediaElement.prototype.play = function () {
                 media.add(this);
                 silence(this);
-                if (window.__mspMuted || window.__mspHushed) { this.muted = false; this.volume = 0.001; }
+                if (window.__mspQuiet) { this.muted = false; this.volume = 0.001; }
                 return play.apply(this, arguments);
               };
               const relayed = /^https:\/\/([a-z0-9-]+\.)*spotify\.com\/(connect-state|track-playback)\/v1\//;

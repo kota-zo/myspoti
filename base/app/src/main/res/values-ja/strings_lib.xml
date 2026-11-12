@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">ほかに %d 件の局が一致しますが、暗号化されていない (http) か HLS の配信のため、アプリはまだ再生できません。</item>
+    </plurals>
+</resources>

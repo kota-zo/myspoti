@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="action_playback_mirror">Keeps Spotify playing silently here; counts listens on your account</string>
-    <string name="action_attest">Prove this is Myspoti</string>
+    <string name="action_attest">Prove this is Orpheon</string>
     <string name="action_ui_style">Change the look</string>
     <string name="mirror_indicator">Spotify mirrored by %1$s</string>
 </resources>

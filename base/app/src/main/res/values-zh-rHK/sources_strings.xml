@@ -4,8 +4,9 @@
     <string name="sources_download_title">下載來源</string>
     <string name="sources_audio_footer">每首歌會由上至下查詢：第一個有該歌曲的來源會播放。使用箭咀更改次序。</string>
     <string name="sources_download_footer">由上至下查詢：第一個有該歌曲的來源會提供檔案。使用箭咀更改次序。</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">上方所有來源都沒有該歌曲時播放</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">上方所有來源都沒有該歌曲時播放</string>
+    <string name="sources_account_player">你帳戶的播放器</string>
     <string name="sources_ready">已就緒</string>
     <string name="sources_details_show">顯示詳情</string>
     <string name="sources_details_hide">隱藏詳情</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">最近：%1$s，%2$s</string>
     <string name="sources_open">開啟擴充功能</string>
     <string name="sources_order_hint">來源會按「設定」（播放、下載）中的次序查詢。</string>
-    <string name="sources_below_spotify">不查詢：Spotify 在上方</string>
+    <string name="sources_below_account">不查詢：Spotify 在上方</string>
 </resources>

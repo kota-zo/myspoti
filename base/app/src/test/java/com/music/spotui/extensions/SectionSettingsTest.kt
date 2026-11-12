@@ -27,15 +27,15 @@ class SectionSettingsTest {
     private fun downloads(line: List<String>, enabled: (String) -> Boolean = on) = SectionSettings.place(SettingSection.DOWNLOADS, line, enabled, manifests::get)
 
     @Test fun theFirstSourceLeads() {
-        assertEquals(SPOTIFY_SOURCE, SectionSettings.leader(listOf(SPOTIFY_SOURCE, hifi.id), on))
-        assertEquals(hifi.id, SectionSettings.leader(listOf(hifi.id, SPOTIFY_SOURCE), on))
+        assertEquals(ACCOUNT_SOURCE, SectionSettings.leader(listOf(ACCOUNT_SOURCE, hifi.id), on))
+        assertEquals(hifi.id, SectionSettings.leader(listOf(hifi.id, ACCOUNT_SOURCE), on))
         // Turned off, it is not a source: the next one leads.
-        assertEquals(SPOTIFY_SOURCE, SectionSettings.leader(listOf(hifi.id, SPOTIFY_SOURCE), { it != hifi.id }))
+        assertEquals(ACCOUNT_SOURCE, SectionSettings.leader(listOf(hifi.id, ACCOUNT_SOURCE), { it != hifi.id }))
         assertNull(SectionSettings.leader(emptyList(), on))
     }
 
     @Test fun anExtensionAboveSpotifyShowsItsPlaybackSettingsAndHidesSpotifysQuality() {
-        val p = playback(listOf(hifi.id, SPOTIFY_SOURCE, plain.id))!!
+        val p = playback(listOf(hifi.id, ACCOUNT_SOURCE, plain.id))!!
         assertEquals(hifi.id, p.extensionId)
         assertEquals(listOf("q", "server"), p.settings.map { it.key })
         assertEquals("q", p.quality?.key)
@@ -44,17 +44,17 @@ class SectionSettingsTest {
 
     @Test fun spotifyFirstIsTheScreenAsBefore() {
         // Spotify moved back to the top: the extension's settings stay on its page, Spotify's quality is back.
-        assertNull(playback(listOf(SPOTIFY_SOURCE, hifi.id)))
+        assertNull(playback(listOf(ACCOUNT_SOURCE, hifi.id)))
         // Only the first source counts: an extension under another one shows nothing here.
-        assertNull(playback(listOf(plain.id, hifi.id, SPOTIFY_SOURCE)))
+        assertNull(playback(listOf(plain.id, hifi.id, ACCOUNT_SOURCE)))
         // Turned off: as if it were not there.
-        assertNull(playback(listOf(hifi.id, SPOTIFY_SOURCE), { it != hifi.id }))
+        assertNull(playback(listOf(hifi.id, ACCOUNT_SOURCE), { it != hifi.id }))
         // Not installed (no manifest): nothing.
-        assertNull(playback(listOf("io.github.a.gone", SPOTIFY_SOURCE)))
+        assertNull(playback(listOf("io.github.a.gone", ACCOUNT_SOURCE)))
     }
 
     @Test fun anExtensionWithoutSectionChangesNothing() {
-        assertNull(playback(listOf(plain.id, SPOTIFY_SOURCE)))
+        assertNull(playback(listOf(plain.id, ACCOUNT_SOURCE)))
     }
 
     @Test fun theFirstDownloaderHidesTheDownloadQualityOnlyForItsRoleQuality() {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">מטא־נתונים</string>
+    <string name="metadata_footer">חיפושים, אלבומים ואמנים מגיעים מהשירותים האלה, שנשאלים מלמעלה למטה. אותו שיר שנמצא פעמיים מוצג פעם אחת. שירות כבוי לעולם לא נשאל.</string>
+    <string name="metadata_spotify_detail">החשבון שלך, כל עוד אתה מחובר</string>
+    <string name="metadata_signed_out">לא נשאל: אין חשבון מחובר</string>
+    <string name="metadata_asked">נשאל</string>
+    <string name="metadata_off">כבוי: לעולם לא נשאל</string>
+    <string name="metadata_reset">חזרה לסדר ברירת המחדל</string>
+    <string name="metadata_not_on_spotify">לא נמצא ב־Spotify: עדיין אי אפשר לנגן את השיר הזה</string>
+    <string name="metadata_switch">לשאול את %1$s</string>
+</resources>

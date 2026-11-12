@@ -8,7 +8,7 @@
     <string name="stats_artists_ranked">%1$d Künstler in deinem Hörverlauf</string>
     <string name="stats_empty">Spotify hat für diesen Zeitraum noch keine Top-Künstler oder -Titel. Hör weiter und schau später wieder vorbei.</string>
     <string name="stats_failed">Spotify hat deine Statistiken nicht gesendet.</string>
-    <string name="stats_spotify_note">Von Spotify gerankt, basierend auf allem, was dieses Konto auf jedem Gerät abgespielt hat. Spotify teilt weder Wiedergabezahlen noch Hörminuten: Die Minuten unter „Auf diesem Telefon“ sind Myspotis eigene Zählung.</string>
+    <string name="stats_spotify_note">Von Spotify gerankt, basierend auf allem, was dieses Konto auf jedem Gerät abgespielt hat. Spotify teilt weder Wiedergabezahlen noch Hörminuten: Die Minuten unter „Auf diesem Telefon“ sind Orpheons eigene Zählung.</string>
     <string name="stats_weekly_minutes">Minuten pro Woche</string>
     <string name="stats_this_week">Diese Woche: %1$d Min.</string>
     <string name="stats_listening_stats">Hörstatistiken</string>

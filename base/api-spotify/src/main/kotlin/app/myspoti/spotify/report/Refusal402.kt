@@ -52,7 +52,6 @@ object Refusal402 {
     private var firstCluster: String? = null
     private var lastCluster: String? = null
     private var adBreaks = 0
-    private var adStatesLeftOut = 0
     private var lastAdAt = -1L
     private var lastTransferAt = -1L
     private var afterAd = 0
@@ -69,7 +68,7 @@ object Refusal402 {
         pageFirstPending = false; commands = 0; accepted = 0; refusedCommands = 0; refusedKinds.clear(); routes.clear()
         errorTypes.clear(); refusalHeaders.clear(); wonRetries.clear(); pageFetch.clear(); pageKept = 0; pageDropped = 0
         connectPut.clear(); connectPutHeaders = null; firstCluster = null; lastCluster = null; adBreaks = 0
-        adStatesLeftOut = 0; lastAdAt = -1; lastTransferAt = -1; afterAd = 0; afterTransfer = 0; refusalTimes.clear()
+        lastAdAt = -1; lastTransferAt = -1; afterAd = 0; afterTransfer = 0; refusalTimes.clear()
         licence.clear(); licenceErrorTimes.clear(); licenceHeld = 0; retryAfter.clear(); songs = 0
     }
 
@@ -155,7 +154,6 @@ object Refusal402 {
     }
 
     fun adBreak() = synchronized(lock) { adBreaks++; lastAdAt = clock() }
-    fun adStateLeftOut() = synchronized(lock) { adStatesLeftOut++; lastAdAt = clock() }
 
     /** A song the page started (its track changed). */
     fun song() = synchronized(lock) { songs++ }
@@ -189,7 +187,7 @@ object Refusal402 {
         out += "verdict" to verdict
         out += "account" to listOfNotNull(account ?: "unknown", installAge?.let { "app installed $it" }).joinToString(", ")
         out += "ads" to if (AccountPlan.isPremium) "none (Premium)"
-            else "blocked by the app; ad breaks this session=$adBreaks, ad states left out=$adStatesLeftOut"
+            else "played as Spotify sends them (blocked on Spotify Connect devices only); ad breaks this session=$adBreaks"
         out += "devices" to (firstCluster?.let { first -> if (first == lastCluster) first else "$first | last: $lastCluster" } ?: "no cluster seen")
         out += "timing" to listOfNotNull(
             "first command ${firstCommand ?: "none"}",

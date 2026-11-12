@@ -65,35 +65,6 @@ class StallTest {
     }
     @Test fun `an ad is never a target`() = assertNull(SpotifyPlayer.onwardTarget(state(199_500, 0, next = ad), listOf(ad)))
 
-    @Test fun `a stuck ad reloads the page first, then plays on twice before reloading again`() {
-        assertEquals("reload", SpotifyPlayer.adRecovery(1))
-        assertEquals("next", SpotifyPlayer.adRecovery(2))
-        assertEquals("next", SpotifyPlayer.adRecovery(3))
-        assertEquals("reload", SpotifyPlayer.adRecovery(4))
-    }
-
-    @Test fun `a muted ad that plays is played past once before the reload`() {
-        assertEquals("next", SpotifyPlayer.adRecovery(1, playing = true))
-        assertEquals("reload", SpotifyPlayer.adRecovery(2, playing = true))
-        assertEquals("next", SpotifyPlayer.adRecovery(3, playing = true))
-    }
-
     // Chromium pauses a hidden page's media that (re)starts at volume 0.
     @Test fun `a fade never reaches volume 0`() = SpotifyPlayer.FADE_STEPS.forEach { assertEquals(true, it > 0.0) }
-
-    // The skip past an ad due (measured 21/10): the target is found in the queue, the ad's own song is recognised.
-    private val due = app.myspoti.spotify.bridge.AdBlock.AdAhead("uid-a", "spotify:track:a", "spotify:track:b")
-    @Test fun `an ad is due after the song with that uid`() = assertEquals(true, SpotifyPlayer.adDueFor(due, song.copy(uid = "uid-a", uri = "spotify:track:z")))
-    @Test fun `an ad is due after the song with that uri`() = assertEquals(true, SpotifyPlayer.adDueFor(due.copy(songUid = null), song))
-    @Test fun `no ad due after another song`() = assertEquals(false, SpotifyPlayer.adDueFor(due, after.copy(uid = "uid-b")))
-    @Test fun `no ad due when none is announced`() = assertEquals(false, SpotifyPlayer.adDueFor(null, song))
-    @Test fun `the target is found by uri with its uid`() =
-        assertEquals("uid-b", SpotifyPlayer.adTargetIn(listOf(song, after.copy(uid = "uid-b")), "spotify:track:b")?.uid)
-    @Test fun `a target missing from the queue is null`() = assertNull(SpotifyPlayer.adTargetIn(listOf(song), "spotify:track:b"))
-    @Test fun `the skip has landed on another real song`() = assertEquals(true, SpotifyPlayer.adSkipSettled(after, due))
-    @Test fun `the skip has not landed on the song before or on the ad`() {
-        assertEquals(false, SpotifyPlayer.adSkipSettled(song, due))
-        assertEquals(false, SpotifyPlayer.adSkipSettled(song.copy(kind = ItemKind.AD, uri = "spotify:ad:1"), due))
-        assertEquals(false, SpotifyPlayer.adSkipSettled(null, due))
-    }
 }

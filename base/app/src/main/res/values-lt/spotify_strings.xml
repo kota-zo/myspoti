@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Nebeversti dainos teksto</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Mes irgi nežinome šios dainos teksto.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Šie dainų tekstai kol kas nėra sinchronizuojami pagal laiką.</string>
-    <string name="av_switch_to_video" formatted="false">Įjungti vaizdą</string>
-    <string name="av_switch_to_audio" formatted="false">Įjungti garsą</string>
-    <string name="av_content_desc" formatted="false">Perjunk į garsą arba vaizdą</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Pagrindinis</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Paieška</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Mano biblioteka</string>

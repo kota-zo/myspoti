@@ -8,7 +8,7 @@
     <string name="stats_artists_ranked">你的收听中有 %1$d 位艺人</string>
     <string name="stats_empty">Spotify 暂时没有此时段的热门艺人或曲目。请继续收听，稍后再来查看。</string>
     <string name="stats_failed">Spotify 没有返回你的统计数据。</string>
-    <string name="stats_spotify_note">由 Spotify 根据此账号在所有设备上播放的全部内容排名。Spotify 不提供播放次数或收听分钟数：“此手机上”的分钟数是 Myspoti 自己的统计。</string>
+    <string name="stats_spotify_note">由 Spotify 根据此账号在所有设备上播放的全部内容排名。Spotify 不提供播放次数或收听分钟数：“此手机上”的分钟数是 Orpheon 自己的统计。</string>
     <string name="stats_weekly_minutes">每周分钟数</string>
     <string name="stats_this_week">本周：%1$d 分钟</string>
     <string name="stats_listening_stats">收听统计</string>

@@ -2,6 +2,17 @@
 
 Each release on GitHub shows its section below. The app shows it too when it offers the update. Every detail: [docs/CHANGELOG-full.md](docs/CHANGELOG-full.md).
 
+## 1.0.0
+
+- 🎉 **Myspoti is now Orpheon**, the name the community chose. It installs as a new app next to Myspoti: sign in again and add your extensions back, then Myspoti can go. Myspoti 2.4.1 offers to install it. The icon is a placeholder until the real one is made.
+- 🔗 **Sign in a computer from its QR code** with the phone's camera, and the first launch asks which music account you use (Spotify, YouTube Music or none) before any sign-in.
+- 🎧 **Smoother listening**: the mirror of your plays on Spotify stays on its song (no more jumping back to the playlist's song or pausing by itself), the music pauses again for calls and other apps, and an extension's song no longer cuts off when the extension switches to another version of the file.
+- 🔋 **Less battery**: the Spotify mirror is no longer decoded when it is muted, and the song's Canvas video gives its decoder back while the app is in the background.
+- 🎛️ **AutoMix**: the player's motion after a mix plays smoothly.
+- 🎬 **Music videos** are found again on phones (they never were in the previous builds).
+- 💬 **Genius** can be turned off in Settings, Lyrics: nothing is asked of Genius then.
+- 🛠️ **Fixes**: the player's controls stay in place on a phone held upright, a queue song carried past the top of the list goes to its head, the Classic search hint sits after the magnifier, the search cursor no longer shows through the player, "Not on Spotify" only when Spotify said so, and the Immersive invitation is not shown again right after the first launch.
+
 ## 2.4.0
 
 - 🎧 **AutoMix**: two decks and a whole-song analysis mix the next song in on the beat, in both players, with a new engine that plans each transition: where the next song comes in, for how long and how the sound changes hands (you can turn it off in Settings). Next can do a real mix too (Settings: Cut, Quick mix or Real mix). Faster analysis, a faster start after leaving the app, a gentler tempo lock, and the speed coming back to normal slowly.

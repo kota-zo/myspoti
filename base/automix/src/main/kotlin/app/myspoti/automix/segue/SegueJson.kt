@@ -146,8 +146,11 @@ object SegueCodec {
         p.echoUs?.let { put("echoUs", it) }
     }
 
-    private fun side(s: SeguePlan.Side) = mapOf("audioKey" to s.audioKey, "gridKey" to s.gridKey, "anchorUs" to s.anchorUs,
-        "ratePpm" to s.ratePpm, "listenerRate" to s.listenerRate)
+    private fun side(s: SeguePlan.Side): Map<String, Any?> = buildMap {
+        put("audioKey", s.audioKey); put("gridKey", s.gridKey); put("anchorUs", s.anchorUs)
+        put("ratePpm", s.ratePpm); put("listenerRate", s.listenerRate)
+        s.ramp?.let { put("ramp", mapOf("startPpm" to it.startPpm, "endPpm" to it.endPpm, "endT" to it.endT.toLong())) }
+    }
 
     /**
      * Another major version is refused whole, whatever its fields. Within this major an unknown
@@ -180,7 +183,11 @@ object SegueCodec {
     }
 
     private fun readSide(m: Map<*, *>) = SeguePlan.Side(text(m, "audioKey"), m["gridKey"]?.let { it as? String ?: throw SegueFormatException("gridKey") },
-        long(m, "anchorUs"), long(m, "ratePpm"), long(m, "listenerRate"))
+        long(m, "anchorUs"), long(m, "ratePpm"), long(m, "listenerRate"),
+        m["ramp"]?.let { r ->
+            val ramp = r as? Map<*, *> ?: throw SegueFormatException("ramp is not an object")
+            SeguePlan.Ramp(long(ramp, "startPpm"), long(ramp, "endPpm"), toInt(long(ramp, "endT")))
+        })
 
     private fun readLane(any: Any?): SeguePlan.Lane {
         val m = any as? Map<*, *> ?: throw SegueFormatException("lane is not an object")

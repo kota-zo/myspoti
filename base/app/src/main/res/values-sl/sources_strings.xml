@@ -4,8 +4,9 @@
     <string name="sources_download_title">Viri prenosov</string>
     <string name="sources_audio_footer">Za vsako skladbo se poizveduje od zgoraj navzdol: prvi, ki jo ima, jo predvaja. Vrstni red spremenite s puščicami.</string>
     <string name="sources_download_footer">Poizveduje se od zgoraj navzdol: prvi vir, ki ima skladbo, zagotovi datoteko. Vrstni red spremenite s puščicami.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Predvaja se, ko nobeden vir nad njim nima skladbe</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Predvaja se, ko nobeden vir nad njim nima skladbe</string>
+    <string name="sources_account_player">Predvajalnik vašega računa</string>
     <string name="sources_ready">Pripravljeno</string>
     <string name="sources_details_show">Pokaži podrobnosti</string>
     <string name="sources_details_hide">Skrij podrobnosti</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Zadnje: %1$s, %2$s</string>
     <string name="sources_open">Odpri razširitev</string>
     <string name="sources_order_hint">Viri se poizvedujejo v vrstnem redu, nastavljenem v Nastavitvah (Predvajanje, Prenosi).</string>
-    <string name="sources_below_spotify">Ni vprašan: Spotify je višje</string>
+    <string name="sources_below_account">Ni vprašan: Spotify je višje</string>
 </resources>

@@ -55,7 +55,7 @@ internal fun TvSupport(modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().padding(horizontal = 48.dp)
             .onFocusChanged { focused = it.isFocused }.focusable()
             .background(Color(0x14FFFFFF), shape)
-            .border(2.dp, if (focused) Color.White else Color.Transparent, shape)
+            .border(TvFocusBorder, if (focused) TvOnSurface else Color.Transparent, shape)
             .padding(24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(32.dp),

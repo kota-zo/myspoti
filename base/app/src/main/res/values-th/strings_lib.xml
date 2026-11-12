@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">มีอีก %d สถานีที่ตรงกัน แต่ออกอากาศแบบไม่เข้ารหัส (http) หรือแบบ HLS ซึ่งแอปยังเล่นไม่ได้</item>
+    </plurals>
+</resources>

@@ -8,6 +8,8 @@ data class EnergyPolicy(
     val videoMaxHeight: Int = 1080,
     val allowBackgroundLookups: Boolean = true,
     val progressFps: Int = 30,
+    /** The word-by-word sweep of synced lyrics: 60 frames a second (the screen ran it at 120), 30 with the saver. */
+    val lyricsFps: Int = 60,
     /** 0 = no preference: the LTPO screen already drops its rate when nothing moves. */
     val displayRefreshCap: Float = 0f,
 ) {
@@ -25,6 +27,7 @@ data class EnergyPolicy(
                 videoMaxHeight = if (saver) 480 else 1080,
                 allowBackgroundLookups = !saver,
                 progressFps = if (saver) 20 else 30,
+                lyricsFps = if (saver) 30 else 60,
                 displayRefreshCap = if (saver) 60f else 0f,
             )
         }

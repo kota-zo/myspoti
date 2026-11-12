@@ -1,5 +1,7 @@
 package com.music.spotui.ui.immersive.sheets
 
+import androidx.compose.material.icons.rounded.ContentCopy
+import com.music.spotui.ui.components.SongQueue
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
@@ -142,16 +144,12 @@ fun ImmersiveSongOptionsSheet(
             }
         }
         if (!nowPlaying) {
-            ImmersiveSheetRow(Icons.AutoMirrored.Rounded.PlaylistPlay, stringResource(R.string.context_menu_play_next), enabled = hasId) {
-                playerViewModel.playNext(song)
-                Haptics.confirm()
-                toast(context.getString(R.string.context_menu_play_next))
+            ImmersiveSheetRow(Icons.AutoMirrored.Rounded.PlaylistPlay, stringResource(R.string.context_menu_play_next), enabled = SongQueue.canQueue(song)) {
+                SongQueue.add(context, song, next = true)
                 onDismiss()
             }
-            ImmersiveSheetRow(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.context_menu_add_to_queue), enabled = hasId) {
-                playerViewModel.addToQueue(song)
-                Haptics.confirm()
-                toast(context.getString(R.string.snackbar_added_to_queue))
+            ImmersiveSheetRow(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.context_menu_add_to_queue), enabled = SongQueue.canQueue(song)) {
+                SongQueue.add(context, song)
                 onDismiss()
             }
         } else if (onOpenQueue != null) {
@@ -213,7 +211,8 @@ fun ImmersiveSongOptionsSheet(
         }
         ImmersiveSheetRow(Icons.Rounded.Info, stringResource(R.string.track_credits), enabled = hasId) { showCredits = true }
         if (nowPlaying && hasId && !song.url.startsWith("episode:")) {
-            ImmersiveSheetRow(Icons.Rounded.Lightbulb, stringResource(R.string.lyrics_meaning_title)) { showMeaning = true }
+            if (com.music.spotui.data.preferences.GeniusPref.on)
+                ImmersiveSheetRow(Icons.Rounded.Lightbulb, stringResource(R.string.lyrics_meaning_title)) { showMeaning = true }
         }
         if (nowPlaying && lyricsOpen) {
             // The lyrics panel's translation, the Classic look's: same model, shown under each line.
@@ -324,6 +323,9 @@ fun ImmersiveSongOptionsSheet(
             if (isRadio) com.music.spotui.radio.RadioPlayer.share(context)
             else SpotifyCode.show(ShareTarget("spotify:track:${song.spotifyTrackId}", song.title, song.singer, song.coverUri))
             onDismiss()
+        }
+        if (hasId && !isRadio) ImmersiveSheetRow(Icons.Rounded.ContentCopy, stringResource(R.string.copy_link)) {
+            SpotifyCode.copyLink(context, "spotify:track:${song.spotifyTrackId}"); onDismiss()
         }
         if (nowPlaying) {
             ImmersiveSheetRow(

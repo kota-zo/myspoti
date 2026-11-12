@@ -25,7 +25,7 @@ data class Track(
     val uid: String? = null,
     /** When it was added to the playlist (ISO 8601), for playlist rows. */
     val addedAt: String? = null,
-    /** Spotify knows a music video of it (its own "switch to video"), when the answer says. */
+    /** The catalogue knows a music video of it, when the answer says. */
     val hasVideo: Boolean = false,
 )
 
@@ -38,6 +38,8 @@ data class Album(
     val releaseDate: String?,
     val trackCount: Int,
     val label: String? = null,
+    /** The album's copyright lines as the service gives them ("© 2023 Label", "℗ 2023 Label"). */
+    val copyrights: List<String> = emptyList(),
 )
 
 data class Artist(

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">Sobib veel %d jaam, kuid see edastab krüpteerimata (http) või HLS-voogu, mida rakendus veel esitada ei oska.</item>
+        <item quantity="other">Sobib veel %d jaama, kuid need edastavad krüpteerimata (http) või HLS-voogu, mida rakendus veel esitada ei oska.</item>
+    </plurals>
+</resources>

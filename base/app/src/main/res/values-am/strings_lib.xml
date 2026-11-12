@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">ተጨማሪ %d ጣቢያ ተገኝቷል፣ ግን ያልተመሰጠረ (http) ወይም HLS ዥረት ይጠቀማል፤ መተግበሪያው ገና ሊያጫውተው አይችልም።</item>
+        <item quantity="other">ተጨማሪ %d ጣቢያዎች ተገኝተዋል፣ ግን ያልተመሰጠረ (http) ወይም HLS ዥረት ይጠቀማሉ፤ መተግበሪያው ገና ሊያጫውታቸው አይችልም።</item>
+    </plurals>
+</resources>

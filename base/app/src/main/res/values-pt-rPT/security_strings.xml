@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="action_playback_mirror">Mantém o Spotify a tocar em silêncio aqui; conta reproduções na sua conta</string>
-    <string name="action_attest">Provar que é o Myspoti</string>
+    <string name="action_attest">Provar que é o Orpheon</string>
     <string name="action_ui_style">Mudar o aspeto</string>
     <string name="mirror_indicator">Spotify espelhado por %1$s</string>
 </resources>

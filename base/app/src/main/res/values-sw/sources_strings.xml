@@ -4,8 +4,9 @@
     <string name="sources_download_title">Vyanzo vya upakuaji</string>
     <string name="sources_audio_footer">Huulizwa kutoka juu hadi chini kwa kila wimbo: cha kwanza kilicho nao hucheza. Tumia mishale kubadilisha mpangilio.</string>
     <string name="sources_download_footer">Huulizwa kutoka juu hadi chini: chanzo cha kwanza chenye wimbo hutoa faili. Tumia mishale kubadilisha mpangilio.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Hucheza wakati hakuna chanzo kilicho juu yake chenye wimbo</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Hucheza wakati hakuna chanzo kilicho juu yake chenye wimbo</string>
+    <string name="sources_account_player">Kicheza cha akaunti yako</string>
     <string name="sources_ready">Tayari</string>
     <string name="sources_details_show">Onyesha maelezo</string>
     <string name="sources_details_hide">Ficha maelezo</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Mwisho: %1$s, %2$s</string>
     <string name="sources_open">Fungua kiendelezi</string>
     <string name="sources_order_hint">Vyanzo huulizwa kwa mpangilio uliowekwa katika Mipangilio (Uchezaji, Upakuaji).</string>
-    <string name="sources_below_spotify">Haulizwi: Spotify iko juu</string>
+    <string name="sources_below_account">Haulizwi: Spotify iko juu</string>
 </resources>

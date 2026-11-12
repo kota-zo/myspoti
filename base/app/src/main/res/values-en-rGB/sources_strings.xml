@@ -4,8 +4,9 @@
     <string name="sources_download_title">Download sources</string>
     <string name="sources_audio_footer">Asked from top to bottom for each song: the first one that has it plays it. Use the arrows to change the order.</string>
     <string name="sources_download_footer">Asked from top to bottom: the first one that has the song gives the file. Use the arrows to change the order.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Plays when no source above it has the song</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Plays when no source above it has the song</string>
+    <string name="sources_account_player">Your account\'s player</string>
     <string name="sources_ready">Ready</string>
     <string name="sources_details_show">Show details</string>
     <string name="sources_details_hide">Hide details</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Last: %1$s, %2$s</string>
     <string name="sources_open">Open the extension</string>
     <string name="sources_order_hint">Sources are asked in the order set in Settings (Playback, Downloads).</string>
-    <string name="sources_below_spotify">Not asked: Spotify is above</string>
+    <string name="sources_below_account">Not asked: Spotify is above</string>
 </resources>

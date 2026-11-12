@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Zoekopdrachten, albums en artiesten komen van deze diensten, van boven naar beneden gevraagd. Hetzelfde nummer dat twee keer gevonden wordt, staat er één keer. Een uitgeschakelde dienst wordt nooit gevraagd.</string>
+    <string name="metadata_spotify_detail">Je account, zolang je bent ingelogd</string>
+    <string name="metadata_signed_out">Niet gevraagd: geen account ingelogd</string>
+    <string name="metadata_asked">Gevraagd</string>
+    <string name="metadata_off">Uit: nooit gevraagd</string>
+    <string name="metadata_reset">Terug naar de standaardvolgorde</string>
+    <string name="metadata_not_on_spotify">Niet gevonden op Spotify: dit nummer kan nog niet spelen</string>
+    <string name="metadata_spotify_no_answer">Spotify gaf geen antwoord: tik nog een keer op het nummer</string>
+    <string name="metadata_switch">%1$s vragen</string>
+</resources>

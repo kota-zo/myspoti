@@ -9,7 +9,7 @@
     <string name="stats_artists_ranked">%1$d artists in your listening</string>
     <string name="stats_empty">Spotify has no top artists or tracks for this period yet. Keep listening and check back.</string>
     <string name="stats_failed">Spotify didn\'t send your stats.</string>
-    <string name="stats_spotify_note">Ranked by Spotify from everything this account played, on every device. Spotify doesn\'t share play counts or minutes listened: the minutes under \"On this phone\" are Myspoti\'s own count.</string>
+    <string name="stats_spotify_note">Ranked by Spotify from everything this account played, on every device. Spotify doesn\'t share play counts or minutes listened: the minutes under \"On this phone\" are Orpheon\'s own count.</string>
     <string name="stats_weekly_minutes">Minutes per week</string>
     <string name="stats_this_week">This week: %1$d min</string>
     <string name="stats_listening_stats">Listening stats</string>

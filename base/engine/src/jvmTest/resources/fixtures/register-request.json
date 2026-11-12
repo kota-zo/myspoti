@@ -1,0 +1,41 @@
+{
+ "device": {
+  "brand": "spotify",
+  "capabilities": {
+   "change_volume": true,
+   "enable_play_token": true,
+   "supports_file_media_type": true,
+   "play_token_lost_behavior": "pause",
+   "disable_connect": false,
+   "audio_podcasts": true,
+   "video_playback": true,
+   "manifest_formats": [
+    "file_ids_mp3",
+    "file_urls_mp3",
+    "manifest_urls_audio_ad",
+    "manifest_ids_video",
+    "file_urls_external",
+    "file_ids_mp4",
+    "file_ids_mp4_dual",
+    "manifest_urls_audio_ad"
+   ],
+   "supports_preferred_media_type": true,
+   "supports_playback_offsets": true,
+   "supports_playback_speed": true
+  },
+  "device_id": "89aa74c533c3a3a22f933e98378452373db1453c",
+  "device_type": "computer",
+  "metadata": {},
+  "model": "web_player",
+  "name": "Web Player (Firefox)",
+  "platform_identifier": "web_player linux undefined;firefox 159.0;desktop",
+  "is_group": false,
+  "is_public": false,
+  "correlation_id": "7f114d4d-00cf-402a-a109-c3ff87b1c03d",
+  "client_version": "harmony:4.81.1-1f3d48b7f"
+ },
+ "outro_endcontent_snooping": false,
+ "connection_id": "dGVzdC1jb25uZWN0aW9uLTZiZDM0NGIxYjAxNzdmMzc=",
+ "client_version": "harmony:4.81.1-1f3d48b7f",
+ "volume": 65535
+}

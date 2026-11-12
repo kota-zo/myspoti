@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_native_audio_title">Leitor nativo (experimental)</string>
+    <string name="settings_native_audio_detail">As músicas da conta são reproduzidas pelo leitor da própria app em vez da página web oculta. Em teste: as listas ordenadas tocam na sua ordem original e alguns controlos podem demorar.</string>
+    <string name="welcome_rotate_sources">das fontes que escolher.</string>
+    <string name="welcome_rotate_mix">misturada como um set de DJ.</string>
+    <string name="album_label">Editora: %1$s</string>
+    <string name="settings_automix_options">Opções</string>
+    <string name="settings_automix_analysis">Análise</string>
+    <string name="settings_automix_display">Exibição</string>
+    <string name="settings_automix_duration_auto">Automático</string>
+    <string name="settings_automix_duration_none">Sem limite</string>
+    <string name="settings_automix_seconds">%1$d s</string>
+    <string name="settings_local_files_shown">Mostrar Arquivos locais</string>
+    <string name="settings_local_files_shown_detail">A linha Arquivos locais da sua biblioteca. Desligado: oculta; nenhum arquivo é alterado.</string>
+    <string name="pass_section">Outros dispositivos</string>
+    <string name="pass_send">Enviar para outro dispositivo</string>
+    <string name="pass_send_detail">Escaneie o código da TV, do computador ou de outro celular: ele recebe configurações, extensões e login.</string>
+    <string name="pass_receive">Receber de outro dispositivo</string>
+    <string name="pass_receive_detail">Mostra um código para escanear com o celular.</string>
+    <string name="pass_receive_title">Escaneie este código com o celular</string>
+    <string name="pass_receive_hint">Aponte a câmera do celular para ele, ou no celular: Configurações › Outros dispositivos › Enviar para outro dispositivo. Os dois na mesma Wi-Fi.</string>
+    <string name="pass_no_network">Sem Wi-Fi: conecte este dispositivo à mesma Wi-Fi do celular.</string>
+    <string name="pass_received">Recebido de %1$s. O app reinicia.</string>
+    <string name="pass_confirm_title">Enviar para %1$s?</string>
+    <string name="pass_confirm_text">Suas configurações, extensões e login do Spotify são copiados para este dispositivo, direto pela Wi-Fi e criptografados. Envie só para seus próprios dispositivos.</string>
+    <string name="pass_send_action">Enviar</string>
+    <string name="pass_sent">Enviado para %1$s</string>
+    <string name="pass_failed">Não enviado: %1$s</string>
+    <string name="pass_not_invite">Este não é um código deste app.</string>
+    <string name="pass_scan_unavailable">Sem leitor de código neste celular (serviços do Google Play).</string>
+    <string name="pass_sign_in_with_device">Entrar com o celular</string>
+    <string name="pass_link_warning">Aberto por um link. Envie só se você acabou de escanear este código na tela do seu próprio dispositivo.</string>
+    <string name="pass_need_sign_in">Entre primeiro neste celular e depois escaneie o código de novo.</string>
+    <string name="settings_genius_title">Genius</string>
+    <string name="settings_genius_detail">O significado das músicas e as anotações dos versos, e as letras do Genius quando nenhuma outra fonte as tem. Desativado: nada é pedido ao Genius.</string>
+    <string name="welcome_start">Começar</string>
+    <string name="setup_account_spotify_next">Depois você entra na página oficial do Spotify. O Orpheon nunca vê a sua senha.</string>
+</resources>

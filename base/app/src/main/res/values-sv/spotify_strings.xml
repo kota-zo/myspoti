@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Sluta översätta låttext</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Vi kan inte den här låttexten.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">De här låttexterna är inte tidssynkroniserade än.</string>
-    <string name="av_switch_to_video" formatted="false">Växla till video</string>
-    <string name="av_switch_to_audio" formatted="false">Växla till ljud</string>
-    <string name="av_content_desc" formatted="false">Växla mellan ljud och video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Hem</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Sök</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Ditt bibliotek</string>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">ಮೆಟಾಡೇಟಾ</string>
+    <string name="metadata_footer">ಹುಡುಕಾಟಗಳು, ಆಲ್ಬಮ್‌ಗಳು ಮತ್ತು ಕಲಾವಿದರು ಈ ಸೇವೆಗಳಿಂದ ಬರುತ್ತಾರೆ; ಮೇಲಿನಿಂದ ಕೆಳಗೆ ಕೇಳಲಾಗುತ್ತದೆ. ಎರಡು ಬಾರಿ ಸಿಕ್ಕ ಒಂದೇ ಹಾಡು ಒಮ್ಮೆ ತೋರಿಸಲಾಗುತ್ತದೆ. ಆಫ್ ಮಾಡಿದ ಸೇವೆಯನ್ನು ಎಂದಿಗೂ ಕೇಳಲಾಗುವುದಿಲ್ಲ.</string>
+    <string name="metadata_spotify_detail">ನೀವು ಸೈನ್ ಇನ್ ಆಗಿರುವವರೆಗೆ ನಿಮ್ಮ ಖಾತೆ</string>
+    <string name="metadata_signed_out">ಕೇಳಲಾಗುವುದಿಲ್ಲ: ಯಾವುದೇ ಖಾತೆ ಸೈನ್ ಇನ್ ಆಗಿಲ್ಲ</string>
+    <string name="metadata_asked">ಕೇಳಲಾಗುತ್ತದೆ</string>
+    <string name="metadata_off">ಆಫ್: ಎಂದಿಗೂ ಕೇಳಲಾಗುವುದಿಲ್ಲ</string>
+    <string name="metadata_reset">ಡೀಫಾಲ್ಟ್ ಕ್ರಮಕ್ಕೆ ಹಿಂತಿರುಗಿ</string>
+    <string name="metadata_not_on_spotify">Spotify ನಲ್ಲಿ ಸಿಗಲಿಲ್ಲ: ಈ ಹಾಡನ್ನು ಇನ್ನೂ ಪ್ಲೇ ಮಾಡಲಾಗುವುದಿಲ್ಲ</string>
+    <string name="metadata_switch">%1$s ಅನ್ನು ಕೇಳಿ</string>
+</resources>

@@ -75,8 +75,11 @@ data class InstalledExtension(
 @Serializable
 data class KeptVersion(val version: String, val versionCode: Int, val sha256: String, val origin: Origin? = null)
 
-/** Spotify's place in the audio sources' order: the extensions after it are not asked. */
-const val SPOTIFY_SOURCE = "spotify"
+/**
+ * The account's player in the audio sources' order (the music account's own player, heard in its own
+ * format): the extensions after it are not asked. "spotify" as the orders saved before it was named so.
+ */
+const val ACCOUNT_SOURCE = "spotify"
 
 /** A newer version that asks something the user has not accepted; the old one keeps running. */
 @Serializable

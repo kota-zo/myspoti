@@ -34,6 +34,9 @@ and are listed by `operationName`.
 
 Free account: no shuffle button on a playlist context in the web UI.
 
+The playback calls in detail (bodies, state reports, melody, file format), for the native
+engine without the page: NATIVE-PLAYBACK.md.
+
 ## Catalog and search
 
 | Action | GraphQL operations |

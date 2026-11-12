@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sys_update_open_page">打开版本页面</string>
+    <string name="sys_update_conflict">Android 拒绝将此版本安装到已安装的应用之上：它使用了其他密钥签名。请从版本页面下载，如果 Android 提示，请先卸载此应用。</string>
+</resources>

@@ -55,7 +55,6 @@ import app.myspoti.api.best
 import app.myspoti.engine.R
 import app.myspoti.host.android.MyspotiRuntime
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.local.ListenHistory
 import com.music.spotui.di.Graph
@@ -138,7 +137,7 @@ fun NewReleasesScreen(navController: NavController) {
                     }
                     else -> items(list, key = { "$title:${it.id}" }) { t ->
                         Column(Modifier.clickable { navController.navigate(t.route()) }) {
-                            GlideImage(transition = CrossFade, model = t.cover, contentDescription = null, contentScale = ContentScale.Crop,
+                            GlideImage(model = t.cover, contentDescription = null, contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(6.dp)))
                             Text(t.name, color = AppText, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 16.sp, minLines = 2, maxLines = 2,
                                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
@@ -191,7 +190,7 @@ fun EpisodesScreen(navController: NavController) {
                             SongPlayer.playSong(e.url)
                         }.padding(16.dp, 8.dp),
                     ) {
-                        GlideImage(transition = CrossFade, model = e.coverUri, contentDescription = null, contentScale = ContentScale.Crop,
+                        GlideImage(model = e.coverUri, contentDescription = null, contentScale = ContentScale.Crop,
                             modifier = Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)))
                         Column(Modifier.padding(start = 12.dp).weight(1f)) {
                             Text(e.title, color = AppText, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -227,7 +226,7 @@ fun NewEpisodesScreen(navController: NavController) {
                             navController.navigate(com.music.spotui.ui.navigation.episodeRoute(e.url.removePrefix("episode:"), e.title))
                         }.padding(16.dp, 8.dp),
                     ) {
-                        GlideImage(transition = CrossFade, model = e.coverUri, contentDescription = null, contentScale = ContentScale.Crop,
+                        GlideImage(model = e.coverUri, contentDescription = null, contentScale = ContentScale.Crop,
                             modifier = Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)))
                         Column(Modifier.padding(start = 12.dp).weight(1f)) {
                             Text(e.title, color = AppText, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -297,7 +296,7 @@ fun RecapScreen(navController: NavController) {
                     val r = list[i]
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(16.dp, 6.dp)) {
                         Text("${i + 1}", color = Subtle, fontSize = 16.sp, modifier = Modifier.width(28.dp))
-                        GlideImage(transition = CrossFade, model = r.cover, contentDescription = null, contentScale = ContentScale.Crop,
+                        GlideImage(model = r.cover, contentDescription = null, contentScale = ContentScale.Crop,
                             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)))
                         Column(Modifier.padding(start = 12.dp).weight(1f)) {
                             Text(r.name, color = AppText, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

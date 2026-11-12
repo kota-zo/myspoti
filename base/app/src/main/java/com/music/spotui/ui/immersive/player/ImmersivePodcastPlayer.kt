@@ -68,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
@@ -101,7 +100,6 @@ import kotlinx.coroutines.withContext
 private val TITLE_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
 private val ART_TOP_PAD = 8.dp
-private val DISMISS_STRIP_HEIGHT = 32.dp
 private val ArtCorner = RoundedCornerShape(8.dp)
 
 /** The cover is always decoded at the size of the largest cover, whatever the box measures. */
@@ -146,8 +144,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
     val pauseScale = rememberPauseScale(state.playing)
 
     fun openShow() {
-        val showId = episodeShowId(np.contextUri)
-        if (showId.isNotBlank()) navController.navigate(showRoute(showId, showName))
+        com.music.spotui.ui.screens.openEpisodeShow(navController, np.contextUri, np.uri, showName)
     }
 
     val coverArt: @Composable (Dp) -> Unit = { size ->
@@ -170,7 +167,6 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                 model = state.coverUrl.takeIf { it.isNotBlank() },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                transition = CrossFade,
                 loading = placeholder(R.drawable.placeholder),
                 failure = placeholder(R.drawable.placeholder),
                 modifier = Modifier.fillMaxSize(),
@@ -280,13 +276,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
         CompositionLocalProvider(LocalPlayerTint provides tint) {
             if (landscape) Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
-                Box(
-                    Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
-                }
+                PlayerDismissStrip(tint) { actions.close() }
                 Row(
                     Modifier.weight(1f).fillMaxWidth().padding(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(PLAYER_GUTTER),
@@ -323,13 +313,7 @@ fun ImmersivePodcastPlayer(navController: NavController) {
                 }
             } else Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // The handle: always hands its drags to the sheet.
-                Box(
-                    Modifier.fillMaxWidth().height(DISMISS_STRIP_HEIGHT).dragToClose()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { actions.close() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(Modifier.width(36.dp).height(5.dp).clip(CircleShape).background(tint.copy(alpha = 0.35f)))
-                }
+                PlayerDismissStrip(tint) { actions.close() }
 
                 // Where the episode plays from: a tap opens the show.
                 Column(

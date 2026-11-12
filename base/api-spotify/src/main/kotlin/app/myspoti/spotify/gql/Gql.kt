@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -118,11 +119,34 @@ class SpotifyHttp(
     }
 
     /** Drops the cached web token (it belongs to one account); the client token is kept. */
-    suspend fun forgetWebToken() = lock.withLock { web = null }
+    suspend fun forgetWebToken() = lock.withLock { web = null; runCatching { tokenStore?.save(storedKey(), "") } }
+
+    /** The credentials [send] uses, for a client on another HTTP stack (the native playback engine). */
+    class Credentials(
+        val accessToken: String,
+        val accessExpiresAtMs: Long,
+        val clientId: String,
+        /** The page's `clientVersion` (`spotify-app-version`). */
+        val appVersion: String,
+        val clientToken: String,
+        /** The `js_sdk_data.device_id` the client token was minted with. */
+        val clientDeviceId: String,
+    )
+
+    /**
+     * The web token from the page and the client token kept here, refreshed exactly as for [send]:
+     * [forceRefresh] (after a 401 elsewhere) asks the page for a new web token. Nothing is computed:
+     * the page holds the web token, this class mints only the client token, as before.
+     */
+    suspend fun credentials(forceRefresh: Boolean = false): Credentials {
+        if (forceRefresh) forgetWebToken()
+        val (w, c) = tokens()
+        return Credentials(w.access, w.expiresAtMs, w.clientId, w.appVersion, c.value, deviceId)
+    }
 
     /** True when the page's token belongs to a signed-in user (the cached one is reused). */
     /**
-     * Asks the page, never the cached token: a token cached before a logout (valid up to an hour)
+     * True when the page's token belongs to a signed-in user. Asks the page, never the cached token: a token cached before a logout (valid up to an hour)
      * said "signed in" while the user was still on the e-mail code step, the sign-in page was put
      * away under them and the code was lost (log seen). A fresh answer also refreshes the cache.
      * "Fresh" is a few seconds: several checks at once (startup asks five times within five
@@ -137,10 +161,32 @@ class SpotifyHttp(
     /** What the token in hand says (null: none yet), without asking the page; for logs only. */
     fun signedInHint(): Boolean? = web?.let { !it.anonymous }
 
+    private fun storedKey() = "$deviceId-web"
+
+    /**
+     * The account's token kept from the last launch while it is still valid (about an hour): the
+     * reads go out at once instead of waiting for the page to load (3 to 10 s on a phone just
+     * started). Kept per account (its device id); never an anonymous token.
+     */
+    private fun storedWebToken(now: Long): WebToken? = runCatching {
+        val o = Json.parseToJsonElement(tokenStore?.load(storedKey()) ?: return null).jsonObject
+        WebToken(
+            access = o["access"]!!.jsonPrimitive.content, expiresAtMs = o["expiresAtMs"]!!.jsonPrimitive.long,
+            clientId = o["clientId"]!!.jsonPrimitive.content, appVersion = o["appVersion"]!!.jsonPrimitive.content,
+            anonymous = false, fetchedAtMs = 0,
+        )
+    }.getOrNull()?.takeIf { it.expiresAtMs - now > 120_000 }
+
+    /** Whether a request can go out now without the page (a token in hand or kept from the last launch). */
+    fun hasToken(): Boolean {
+        val now = System.currentTimeMillis()
+        return web?.let { !it.anonymous && it.expiresAtMs - now > 60_000 } == true || storedWebToken(now) != null
+    }
+
     /** The account's token, fetched again only when the cached one is missing or stale. */
     private suspend fun webToken(): WebToken {
         val now = System.currentTimeMillis()
-        return web?.takeIf { it.expiresAtMs - now > 60_000 } ?: run {
+        return web?.takeIf { it.expiresAtMs - now > 60_000 } ?: storedWebToken(now)?.also { web = it } ?: run {
             val t = bridge.call("token.get").jsonObject
             // A page that answers without a field (a build that changed) is a bridge error, not a crash.
             fun field(name: String): JsonPrimitive = t[name] as? JsonPrimitive ?: throw BridgeException("token.get: no $name")
@@ -150,7 +196,14 @@ class SpotifyHttp(
                 clientId = field("clientId").content,
                 appVersion = field("appVersion").content,
                 anonymous = t["isAnonymous"]?.jsonPrimitive?.contentOrNull == "true",
-            ).also { web = it }
+            ).also { w ->
+                web = w
+                if (!w.anonymous) runCatching {
+                    tokenStore?.save(storedKey(), buildJsonObject {
+                        put("access", w.access); put("expiresAtMs", w.expiresAtMs); put("clientId", w.clientId); put("appVersion", w.appVersion)
+                    }.toString())
+                }
+            }
         }
     }
 
@@ -179,7 +232,7 @@ class SpotifyHttp(
         // (log seen: an extension asked for a skipped-to song 10 s late, behind its ISRC lookup).
         // Writes still run to their end: a caller gone must not leave one half sent.
         val result = if (method == "GET") call.executeCancellable() else withContext(Dispatchers.IO) { call.execute().use { it.code to it.body.string() } }
-        if (result.first == 401) lock.withLock { web = null }
+        if (result.first == 401) lock.withLock { web = null; runCatching { tokenStore?.save(storedKey(), "") } }
         return result
     }
 

@@ -226,16 +226,18 @@
     return Promise.race([streamer._playerPromise, new Promise(r => setTimeout(() => r(null), 2000))]);
   };
 
-  // Not heard, yet not "muted audio" to Chromium (see 'media.mute').
+  // Not heard, yet not "muted audio" to Chromium: Chromium pauses a hidden page's media that
+  // starts (a new song, a restart, a seek) muted or at volume 0. A volume of SILENT is not heard
+  // and keeps playback going.
   const SILENT = 0.001;
 
-  // Holds an element unheard while an ad is muted or the page hushed: the page sets its own volume
-  // again after a mute (a new song, its fade-in, a Spotify Connect volume), and a one-off set left
-  // the ad heard until the next mute two seconds later. The host's document-start hook puts the
+  // Holds an element unheard while the page is quiet: the page sets its own volume again (a new
+  // song, its fade-in, a Spotify Connect volume), and a one-off set left it heard until the next
+  // set two seconds later. The host's document-start hook puts the
   // same guard on every element from its first play (window.__mspSilence); this one is the fallback.
   const silence = window.__mspSilence || (el => {
     if (el.__mspGuard) return;
-    el.__mspGuard = () => { if ((window.__mspMuted || window.__mspHushed) && !el.muted && el.volume > SILENT) el.volume = SILENT; };
+    el.__mspGuard = () => { if (window.__mspQuiet && !el.muted && el.volume > SILENT) el.volume = SILENT; };
     el.addEventListener('volumechange', el.__mspGuard);
     el.addEventListener('playing', el.__mspGuard);
   });
@@ -341,59 +343,8 @@
     return services;
   };
 
-  // --- ads ------------------------------------------------------------------
-  // The page's own ad managers drive the audio ads and their mute. SpotX patches the bundled
-  // web player to force `adsEnabled` off; the very same managers are reachable at runtime through
-  // the service registry, so they are turned off here instead of patching a bundle we do not ship.
-  //
-  // `enable`/`disable` sit on the prototype and `enabled` is a plain field, so the instance is
-  // shadowed here: after this, the page cannot arm its own managers again for the life of the page.
-  // This does not stop audio ads: Spotify's server puts those in the queue itself (measured on
-  // 20/10, desktop, free account: one ad after ~17 min with this latch on, as without it). Those
-  // are left out of the queue by the host (AdBlock.withoutAds). The "Test ad" once taken for an
-  // ad that came through was tools/playback_test.py's own fake.
-  let adsLatched = false;
-  const adsOff = () => {
-    // A Premium account (the host sets window.__mspKeepAds from its AccountPlan): no ads to turn off,
-    // and the page's own ad managers are left as they are.
-    if (window.__mspKeepAds) return 'kept (Premium)';
-    if (!services) return 'not ready';
-    if (adsLatched) return 'already off';
-    let audio = null;
-    try { audio = services.resolve('AdManagers').audio; } catch (e) { return 'unresolved'; }
-    if (!audio) return 'no ad manager';
-    const done = [];
-    for (const [label, mgr] of [['audio', audio], ['inStream', audio.inStreamApi]]) {
-      if (!mgr) continue;
-      try {
-        if (typeof mgr.disable === 'function') { mgr.disable(); done.push(label); }
-        // The page's own `enable` is replaced on the instance: it can only ever answer "not on".
-        if (typeof mgr.enable === 'function') {
-          Object.defineProperty(mgr, 'enable', { value: () => false, writable: true, configurable: true });
-        }
-        if ('enabled' in mgr) mgr.enabled = false;
-      } catch (e) { /* already off */ }
-    }
-    return done.length ? (adsLatched = true, done.join(',')) : 'nothing to disable';
-  };
-
-  /**
-   * Asks the in-stream ad manager to end its break. Kept for diagnosis only: on a real ad whose
-   * audio was refused it did nothing (20/10), the server holds the ad ("ad_disallow").
-   */
-  const adsSkip = () => {
-    if (!services) return 'not ready';
-    try {
-      const api = services.resolve('AdManagers').audio.inStreamApi;
-      if (api && typeof api.skipToNext === 'function') { api.skipToNext(); return 'inStream.skipToNext'; }
-    } catch (e) { return 'failed: ' + e; }
-    return 'no lever';
-  };
-
   const commands = {
     'bridge.version': () => VERSION,
-    'ads.off': () => adsOff(),
-    'ads.skip': () => adsSkip(),
 
     'player.state': () => mapState(need().player.getState()),
     'player.queue': () => mapQueue(need().player.getQueue()),
@@ -462,40 +413,19 @@
     // {items: [{uri, uid}], before | after: {uri, uid}}
     'queue.reorder': a => need().player.reorderQueue(a.items, a.after ? { after: a.after } : { before: a.before }),
 
-    // Mutes the page's own media elements (ads), whatever Spotify Connect says about the
-    // volume. Elements are known from the host's document-start hook (window.__mspMedia),
-    // or found in the document. {on} -> how many elements were set.
-    //
-    // Not `muted`, and never volume 0: Chromium pauses a hidden page's media that starts (a
-    // new song, a restart, a seek) muted or at volume 0, and the song after the ad stayed
-    // paused. A volume of SILENT is not heard and keeps playback going.
-    'media.mute': async a => {
-      cancelFade();
-      window.__mspMuted = !!a.on;
+    // The page plays unheard: another player is heard (the listen sync's mirror of a song the
+    // local player plays). The song keeps playing here (Spotify's own play of it), only at the
+    // unheard volume above. Held against the page's own volume sets (a new song, a fade, a volume
+    // change) by a listener on each element. {on} -> elements.
+    'media.quiet': async a => {
+      window.__mspQuiet = !!a.on;
       const player = await localPlayer().catch(() => null);
       const els = new Set([...(window.__mspMedia || []), ...document.querySelectorAll('audio, video'), ...await playerMedia()]);
-      // The end of an ad's mute leaves a hushed page unheard ('media.hush'): seen, the page heard
-      // over the local player it mirrors after an ad, on an element the hush had not reached yet.
+      if (a.on) cancelFade();
       for (const el of els) {
         silence(el);
         el.muted = false;
-        el.volume = a.on || window.__mspHushed ? SILENT : (player && el === player._player ? ownLevel(player) : 1);
-      }
-      return els.size;
-    },
-
-    // "Clip sound": the music video's own soundtrack is heard instead of the song. The song keeps
-    // playing here (still Spotify's play of it, counted as one), only unheard, at the same
-    // unheard volume as above. Held against the page's own volume sets (a new song, a fade, a
-    // volume change) by a listener on each element; an ad's mute keeps the upper hand. {on} -> elements.
-    'media.hush': async a => {
-      window.__mspHushed = !!a.on;
-      const player = await localPlayer().catch(() => null);
-      const els = new Set([...(window.__mspMedia || []), ...document.querySelectorAll('audio, video'), ...await playerMedia()]);
-      for (const el of els) {
-        silence(el);
-        if (a.on) { cancelFade(); el.muted = false; el.volume = SILENT; }
-        else if (!window.__mspMuted) el.volume = player && el === player._player ? ownLevel(player) : 1;
+        el.volume = a.on ? SILENT : (player && el === player._player ? ownLevel(player) : 1);
       }
       return els.size;
     },
@@ -529,7 +459,7 @@
       const el = player && player._player;
       if (!(el instanceof HTMLMediaElement)) return null;
       cancelFade();
-      // Never 0: see 'media.mute'.
+      // Never 0: see SILENT.
       el.volume = a.restore ? ownLevel(player) : Math.min(1, Math.max(SILENT, Number(a.level) || 0));
       return el.volume;
     },
@@ -537,7 +467,7 @@
     // A whole fade in one call: the page applies the steps itself, so the host sends the play
     // command while the sound goes down instead of waiting for every step (a round trip each).
     // {steps: [level, ...], ms, restore: true?, rise: {ms, wait}?} -> true. Levels are never 0: see
-    // 'media.mute'. rise: the sound is then held through the change of song (riseOnSwitch).
+    // SILENT. rise: the sound is then held through the change of song (riseOnSwitch).
     'media.fade': async a => {
       const player = await localPlayer();
       const el = player && player._player;
@@ -689,8 +619,6 @@
   const pushState = () => {
     if (!services) return;
     const state = mapState(services.player.getState());
-    // An ad is on: the page's ad managers are turned off again (it re-arms them per break).
-    if (state && state.track && state.track.kind === 'ad') { try { adsOff(); } catch (e) { /* no service */ } }
     const json = JSON.stringify(state);
     if (json === lastState) return;
     lastState = json;
@@ -705,8 +633,6 @@
     const events = services.player.getEvents();
     events.addListener('update', pushState);
     events.addListener('queue_update', pushQueue);
-    // Ads off from the first moment: a break queued before the bridge attached never starts.
-    try { adsOff(); } catch (e) { /* no service yet */ }
     traceSkips();
   };
 
@@ -791,7 +717,7 @@
     pushState();
   };
 
-  window.Myspoti = { version: VERSION, call, announce, adsOff, adsSkip, methods: Object.keys(commands) };
+  window.Myspoti = { version: VERSION, call, announce, methods: Object.keys(commands) };
 
   // The page's own UI is never seen. On the home page a song change redraws ~7000 nodes and
   // ~190 images, which held the main thread for ~1 s and delayed the next song's sound; the

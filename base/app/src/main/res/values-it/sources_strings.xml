@@ -4,8 +4,9 @@
     <string name="sources_download_title">Sorgenti di download</string>
     <string name="sources_audio_footer">Vengono interrogate dall\'alto verso il basso per ogni brano: la prima che lo ha lo riproduce. Usa le frecce per cambiare l\'ordine.</string>
     <string name="sources_download_footer">Vengono interrogate dall\'alto verso il basso: la prima sorgente che ha il brano fornisce il file. Usa le frecce per cambiare l\'ordine.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Riproduce quando nessuna sorgente sopra ha il brano</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Riproduce quando nessuna sorgente sopra ha il brano</string>
+    <string name="sources_account_player">Il lettore del tuo account</string>
     <string name="sources_ready">Pronto</string>
     <string name="sources_details_show">Mostra dettagli</string>
     <string name="sources_details_hide">Nascondi dettagli</string>
@@ -13,15 +14,15 @@
     <string name="sources_last_used">Ultima: %1$s, %2$s</string>
     <string name="sources_open">Apri l\'estensione</string>
     <string name="sources_order_hint">Le sorgenti vengono interrogate nell\'ordine impostato nelle Impostazioni (Riproduzione, Download).</string>
-    <string name="sources_below_spotify">Non interpellato: Spotify è sopra</string>
+    <string name="sources_below_account">Non interpellato: Spotify è sopra</string>
     <string name="source_pick_title">Sorgente</string>
-    <string name="source_pick_detail">Riproduce questo brano e i successivi dalla sorgente che scegli, fino al riavvio di Myspoti. Il tuo ordine nelle Impostazioni resta com\'è.</string>
+    <string name="source_pick_detail">Riproduce questo brano e i successivi dalla sorgente che scegli, fino al riavvio di Orpheon. Il tuo ordine nelle Impostazioni resta com\'è.</string>
     <string name="source_pick_playing">In riproduzione</string>
-    <string name="source_pick_temporary">Temporanea: per prima fino al riavvio di Myspoti</string>
+    <string name="source_pick_temporary">Temporanea: per prima fino al riavvio di Orpheon</string>
     <string name="source_pick_reset">Torna al mio ordine</string>
     <string name="source_pick_reset_detail">L\'ordine impostato in Impostazioni → Riproduzione</string>
     <string name="source_pick_tag">temporanea</string>
     <string name="source_pick_missing">%1$s non ha questo brano: continua da dove era arrivato e il tuo ordine resta com\'era.</string>
     <string name="source_pick_next">%1$s riproduce dal brano successivo: questo continua com\'è.</string>
-    <string name="source_pick_active">Scelta temporanea per questa sessione: %1$s viene interrogata per prima, fino al riavvio di Myspoti.</string>
+    <string name="source_pick_active">Scelta temporanea per questa sessione: %1$s viene interrogata per prima, fino al riavvio di Orpheon.</string>
 </resources>

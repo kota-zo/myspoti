@@ -100,11 +100,14 @@ object LanLogin {
                 if (answer == null) throw IOException("no answer to addUser")
                 when (Zeroconf.codeAnswer(answer.first, answer.second)) {
                     Zeroconf.CodeAnswer.ACCEPTED -> {
-                        // A Sonos takes longer than a Bose to join: it redeems the code first.
-                        val device = joined(d, 20) ?: throw IOException("the device did not show up")
-                        listed = true
                         ConnectCode.remember(user, m.strategy)
-                        return device
+                        // A Sonos takes longer than a Bose to join: it redeems the code first.
+                        val device = joined(d, 20)
+                        listed = device != null
+                        // Logged in but not in the list the page reads (yet): the transfer goes to the
+                        // id it announced, which is its Connect id; a refusal is said by the transfer.
+                        return device ?: SongPlayer.ConnectDevice(info.deviceId, info.name.ifBlank { d.service }, "Speaker", false, false)
+                            .also { ConnectCode.log("login: accepted but not listed, moving the song to its id") }
                     }
                     Zeroconf.CodeAnswer.GROUPED -> throw ConnectCode.Failure("grouped speaker?", grouped = true)
                     Zeroconf.CodeAnswer.REFUSED -> throw ConnectCode.Failure("addUser refused ${answer.first}")
@@ -136,15 +139,21 @@ object LanLogin {
         }
     }
 
-    /** [info] once the device's Spotify part is loaded (it answers getInfo again every second, 5 s at most). */
+    /** [info] once the device's Spotify part is loaded (woken, then asked getInfo again every second, 8 s at most). */
     private suspend fun ready(d: LanDevice, info: ZeroconfInfo): ZeroconfInfo {
         var now = info
-        for (k in 1..5) {
+        // An addUser with neither blob nor key tells a Sonos still starting to load its Spotify part
+        // (it answers with its key once it has), as SpotifyPlus does before its real login.
+        if (now.starting) {
+            val woken = withContext(Dispatchers.IO) { LanDiscovery.call(d.host, d.port, Zeroconf.wakeRequest(d.host.hostAddress.orEmpty(), d.port, d.cpath, now), 10_000) }
+            ConnectCode.log("wake: ${woken?.let { "HTTP ${it.first}, ${Zeroconf.answerSummary(it.second)}" } ?: "no answer"}")
+        }
+        for (k in 1..8) {
             if (!now.starting) return now.also { if (k > 1) ConnectCode.log("loaded after ${k - 1}s") }
             delay(1000)
             now = withContext(Dispatchers.IO) { LanDiscovery.getInfo(d.host, d.port, d.cpath) } ?: now
         }
-        if (now.starting) ConnectCode.log("still not loaded after 5s, trying anyway")
+        if (now.starting) ConnectCode.log("still not loaded after 8s, trying anyway")
         return now
     }
 

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Siêu dữ liệu</string>
+    <string name="metadata_footer">Kết quả tìm kiếm, album và nghệ sĩ đến từ các dịch vụ này, được hỏi từ trên xuống dưới. Cùng một bài hát tìm thấy hai lần chỉ hiện một lần. Dịch vụ đã tắt không bao giờ được hỏi.</string>
+    <string name="metadata_spotify_detail">Tài khoản của bạn, khi bạn đang đăng nhập</string>
+    <string name="metadata_signed_out">Không được hỏi: chưa đăng nhập tài khoản nào</string>
+    <string name="metadata_asked">Được hỏi</string>
+    <string name="metadata_off">Tắt: không bao giờ được hỏi</string>
+    <string name="metadata_reset">Về thứ tự mặc định</string>
+    <string name="metadata_not_on_spotify">Không tìm thấy trên Spotify: chưa thể phát bài hát này</string>
+    <string name="metadata_switch">Hỏi %1$s</string>
+</resources>

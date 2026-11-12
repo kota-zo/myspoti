@@ -301,6 +301,8 @@ interface Devices {
     suspend fun transfer(deviceId: String, play: Boolean = true)
     /** Brings playback back to this app. */
     suspend fun pullHere()
+    /** Sets the volume of the Connect device [deviceId] ([level] 0 to 1); false when it could not be sent this way. */
+    suspend fun setVolume(deviceId: String, level: Double): Boolean = false
 }
 
 interface Jam {

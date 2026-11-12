@@ -1,0 +1,13 @@
+{
+ "result": "CDN",
+ "cdnurl": [
+  "https://audio-fa.scdn.co/audio/1a9a51dae23cf2426d51426e3b0a4477578d3e6f?1794354467_O9UtOxD1BAvDHD7xPp4bJ-6noZd3YFHdfsKsspQB3jg=",
+  "https://audio-fa-quic.spotifycdn.com/audio/1a9a51dae23cf2426d51426e3b0a4477578d3e6f?1794354467_O9UtOxD1BAvDHD7xPp4bJ-6noZd3YFHdfsKsspQB3jg=",
+  "https://audio-fa-tls13.spotifycdn.com/audio/1a9a51dae23cf2426d51426e3b0a4477578d3e6f?1794354467_O9UtOxD1BAvDHD7xPp4bJ-6noZd3YFHdfsKsspQB3jg=",
+  "https://audio-fa-tls130.spotifycdn.com/audio/1a9a51dae23cf2426d51426e3b0a4477578d3e6f?1794354467_O9UtOxD1BAvDHD7xPp4bJ-6noZd3YFHdfsKsspQB3jg=",
+  "https://audio-fa-quic0.spotifycdn.com/audio/1a9a51dae23cf2426d51426e3b0a4477578d3e6f?1794354467_O9UtOxD1BAvDHD7xPp4bJ-6noZd3YFHdfsKsspQB3jg=",
+  "https://audio-ak.spotifycdn.com/audio/1a9a51dae23cf2426d51426e3b0a4477578d3e6f?__token__=exp=1794354467~hmac=af18077489aa4f97d2ff0840048c911a4232fa0715a718ef4bcd1893f5121b57"
+ ],
+ "fileid": "1a9a51dae23cf2426d51426e3b0a4477578d3e6f",
+ "ttl": 86400
+}

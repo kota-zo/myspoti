@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="other">%d개의 방송국이 더 일치하지만, 암호화되지 않은(http) 스트림이나 HLS로 송출되어 앱에서 아직 재생할 수 없습니다.</item>
+    </plurals>
+</resources>

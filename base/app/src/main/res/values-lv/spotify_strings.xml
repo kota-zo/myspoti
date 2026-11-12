@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Pārtrauktu dziesmu vārdu tulkošanu</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Mēs nezinām šīs dziesmas vārdus.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Šie dziesmu vārdi vēl nav sinhronizēti, lai tiktu rādīti pareizajā laikā.</string>
-    <string name="av_switch_to_video" formatted="false">Pārslēgties uz video</string>
-    <string name="av_switch_to_audio" formatted="false">Pārslēgties uz audio</string>
-    <string name="av_content_desc" formatted="false">Pārslēgties starp audio un video</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Sākums</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Meklēt</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Mana bibliotēka</string>

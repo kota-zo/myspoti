@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lib_radio_unplayable">
+        <item quantity="one">%d autre station correspond, mais elle diffuse sans chiffrement (http) ou en HLS, que l\'app ne sait pas encore lire.</item>
+        <item quantity="other">%d autres stations correspondent, mais elles diffusent sans chiffrement (http) ou en HLS, que l\'app ne sait pas encore lire.</item>
+    </plurals>
+</resources>

@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">להפסיק את התרגום של מילות השיר</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">המממ. אנחנו לא מכירים את מילות השיר הזה.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">מילות השיר הזה עדיין לא מסונכרנות.</string>
-    <string name="av_switch_to_video" formatted="false">מעבר לווידאו</string>
-    <string name="av_switch_to_audio" formatted="false">מעבר לאודיו</string>
-    <string name="av_content_desc" formatted="false">החלפת מצב בין אודיו לווידאו</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">מסך הבית</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">חיפוש</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">הספרייה</string>

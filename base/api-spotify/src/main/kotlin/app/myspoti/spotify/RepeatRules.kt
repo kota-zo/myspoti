@@ -10,7 +10,7 @@ import app.myspoti.api.Uri
  * How [SpotifyPlayer] keeps the repeat the user chose, and what it plays again, without the page.
  *
  * Reported (2.1.0 to 2.3.0): repeat one loops a song two or three times, then the next song
- * plays. An ad took the song's end (see AdBlock.withoutAds), a play or a reload started the page
+ * plays. An ad left out of the queue took the song's end (an earlier version did that), a play or a reload started the page
  * on its own options (repeat off), and the page dropped repeat one at the loop. The choice is one
  * value, [SpotifyPlayer.setRepeat]'s: set again where the page forgot it, given up where the
  * page's repeat was changed from another device.

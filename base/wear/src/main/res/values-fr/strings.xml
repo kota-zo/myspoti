@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_no_phone">Ouvrez Orpheon sur votre téléphone, connecté à votre compte, avec la montre reliée.</string>
+    <string name="wear_loading">Chargement…</string>
+    <string name="wear_nothing_playing">Rien en lecture</string>
+    <string name="wear_library">Votre musique</string>
+    <string name="wear_retry">Réessayer</string>
+    <string name="wear_failed">Cela n\'a pas fonctionné : %1$s</string>
+    <string name="wear_playing_channel">Lecture</string>
+    <string name="wear_extensions_sync">Extensions du téléphone</string>
+    <string name="wear_extensions_count">%1$d sur la montre</string>
+    <string name="wear_extensions_synced">%1$d copiées sur la montre</string>
+    <string name="wear_previous">Précédent</string>
+    <string name="wear_play">Lecture</string>
+    <string name="wear_pause">Pause</string>
+    <string name="wear_next">Suivant</string>
+</resources>

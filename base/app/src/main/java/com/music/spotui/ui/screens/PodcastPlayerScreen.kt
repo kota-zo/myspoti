@@ -1,5 +1,6 @@
 package com.music.spotui.ui.screens
 
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,7 +51,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import app.myspoti.engine.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.GlideImage
 import com.music.spotui.data.entity.SongsModel
 import com.music.spotui.di.Graph
@@ -79,11 +79,15 @@ private fun PodcastProgress(playing: Boolean, uri: String, duration: Long) {
     var showRemaining by remember { mutableStateOf(true) }
     var drag by remember { mutableStateOf<Float?>(null) }
     var position by remember { mutableStateOf(SongPlayer.getCurrentPosition()) }
-    LaunchedEffect(playing, uri) {
-        while (true) {
-            position = SongPlayer.getCurrentPosition()
-            if (!playing) break
-            kotlinx.coroutines.delay(500)
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    // On screen only: the background has no slider to move.
+    LaunchedEffect(playing, uri, lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                position = SongPlayer.getCurrentPosition()
+                if (!playing) break
+                kotlinx.coroutines.delay(500)
+            }
         }
     }
     val fraction = when {
@@ -189,7 +193,7 @@ fun PodcastPlayerScreen(navController: NavController) {
     val tint by androidx.compose.animation.animateColorAsState(coverColor, androidx.compose.animation.core.tween(450), label = "cover")
 
     // Pulled down anywhere, the player closes, as the music player does from the top of its list.
-    val pullToClose = com.music.spotui.ui.components.rememberPullToDismiss { com.music.spotui.ui.navigation.PlayerSheet.close() }
+    val pullToClose = com.music.spotui.ui.components.rememberPullToDismiss(com.music.spotui.ui.navigation.PlayerSheet.open.value) { com.music.spotui.ui.navigation.PlayerSheet.close() }
     Box(
         Modifier
             .fillMaxSize()
@@ -222,8 +226,7 @@ fun PodcastPlayerScreen(navController: NavController) {
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) {
-                            val showId = episodeShowId(np.contextUri)
-                            if (showId.isNotBlank()) navController.navigate(com.music.spotui.ui.navigation.showRoute(showId, showName))
+                            openEpisodeShow(navController, np.contextUri, np.uri, showName)
                         },
                 ) {
                     Text(
@@ -253,7 +256,6 @@ fun PodcastPlayerScreen(navController: NavController) {
 
             Spacer(Modifier.weight(1f))
             GlideImage(
-                transition = CrossFade,
                 model = cover,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -289,8 +291,7 @@ fun PodcastPlayerScreen(navController: NavController) {
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) {
-                            val showId = episodeShowId(np.contextUri)
-                            if (showId.isNotBlank()) navController.navigate(com.music.spotui.ui.navigation.showRoute(showId, showName))
+                            openEpisodeShow(navController, np.contextUri, np.uri, showName)
                         }.titleMarquee(iterations = 3),
                     )
                 }
@@ -386,3 +387,21 @@ private fun SkipIcon(back: Boolean) {
 /** The show id carried by the played context ("spotify:show:<id>"), "" when there is none. */
 internal fun episodeShowId(contextUri: String): String =
     contextUri.takeIf { it.startsWith("spotify:show:") }?.removePrefix("spotify:show:").orEmpty()
+
+/**
+ * Opens the page of the show the playing episode [episodeUri] belongs to, with its episodes: the
+ * context's when it was played from the show, else read from the episode itself (played from Home,
+ * a search, a playlist: tapping the show's name did nothing then; reported).
+ */
+internal fun openEpisodeShow(navController: androidx.navigation.NavController, contextUri: String, episodeUri: String, showName: String) {
+    val known = episodeShowId(contextUri)
+    if (known.isNotBlank()) { navController.navigate(com.music.spotui.ui.navigation.showRoute(known, showName)); return }
+    if (!episodeUri.startsWith("spotify:episode:")) return
+    kotlinx.coroutines.MainScope().launch {
+        val show = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { app.myspoti.host.android.MyspotiRuntime.api.podcasts.episode(episodeUri).show }.getOrNull()
+        } ?: return@launch
+        val id = show.uri.substringAfterLast(':').takeIf { it.isNotBlank() } ?: return@launch
+        runCatching { navController.navigate(com.music.spotui.ui.navigation.showRoute(id, show.name.ifBlank { showName })) }
+    }
+}

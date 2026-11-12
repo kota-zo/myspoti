@@ -4,8 +4,9 @@
     <string name="sources_download_title">مصادر التنزيل</string>
     <string name="sources_audio_footer">بيتسأل من فوق لتحت لكل أغنية: أول مصدر يكون عنده الأغنية بيشغّلها. استخدم الأسهم عشان تغيّر الترتيب.</string>
     <string name="sources_download_footer">بيتسأل من فوق لتحت: أول مصدر عنده الأغنية بيدّي الملف. استخدم الأسهم عشان تغيّر الترتيب.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">بيشتغل لما مفيش مصدر فوقه فيه الأغنية</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">بيشتغل لما مفيش مصدر فوقه فيه الأغنية</string>
+    <string name="sources_account_player">مشغّل حسابك</string>
     <string name="sources_ready">جاهز</string>
     <string name="sources_details_show">اعرض التفاصيل</string>
     <string name="sources_details_hide">اخفي التفاصيل</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">آخر مرة: %1$s، %2$s</string>
     <string name="sources_open">افتح الإضافة</string>
     <string name="sources_order_hint">المصادر بتتسأل بالترتيب اللي متظبط في الإعدادات (التشغيل، التنزيلات).</string>
-    <string name="sources_below_spotify">مش هيتسأل: Spotify فوق</string>
+    <string name="sources_below_account">مش هيتسأل: Spotify فوق</string>
 </resources>

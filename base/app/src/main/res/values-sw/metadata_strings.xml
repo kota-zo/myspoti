@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">Metadata</string>
+    <string name="metadata_footer">Utafutaji, albamu na wasanii hutoka kwenye huduma hizi, zinazoulizwa kutoka juu kwenda chini. Wimbo uleule uliopatikana mara mbili huonyeshwa mara moja. Huduma iliyozimwa haiulizwi kamwe.</string>
+    <string name="metadata_spotify_detail">Akaunti yako, ukiwa umeingia</string>
+    <string name="metadata_signed_out">Haiulizwi: hakuna akaunti iliyoingia</string>
+    <string name="metadata_asked">Inaulizwa</string>
+    <string name="metadata_off">Imezimwa: haiulizwi kamwe</string>
+    <string name="metadata_reset">Rudi kwenye mpangilio chaguomsingi</string>
+    <string name="metadata_not_on_spotify">Haipatikani kwenye Spotify: wimbo huu bado hauwezi kuchezwa</string>
+    <string name="metadata_switch">Uliza %1$s</string>
+</resources>

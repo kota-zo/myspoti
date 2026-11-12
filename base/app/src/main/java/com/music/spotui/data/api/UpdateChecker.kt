@@ -91,21 +91,34 @@ object UpdateChecker {
     private fun fetch(repo: String, force: Boolean): Fetch = try {
         // Stable builds follow "latest", which never includes pre-releases. A beta build
         // reads the list: the newest beta, compared with [isNewer].
-        val bust = if (force) "${if (isBeta) "&" else "?"}_=${System.currentTimeMillis()}" else ""
-        val url = (if (isBeta) "https://api.github.com/repos/$repo/releases?per_page=10" else "https://api.github.com/repos/$repo/releases/latest") + bust
+        // Both channels read the list: the repository also carries Myspoti's releases (2.x, whose
+        // "latest" is one of them), never this app's.
+        val bust = if (force) "&_=${System.currentTimeMillis()}" else ""
+        val url = "https://api.github.com/repos/$repo/releases?per_page=20$bust"
         val request = Request.Builder().url(url).header("Accept", "application/vnd.github+json")
             .apply { if (force) { header("Cache-Control", "no-cache, no-store, max-age=0"); header("Pragma", "no-cache") } }.build()
         http.newCall(request).execute().use { r ->
             if (!r.isSuccessful) return@use Fetch.Err(r.code == 429 || (r.code == 403 && r.header("x-ratelimit-remaining") == "0"))
             val text = r.body.string()
-            val list = if (isBeta) org.json.JSONArray(text).let { a -> (0 until a.length()).map { a.getJSONObject(it) } } else listOf(JSONObject(text))
+            val list = org.json.JSONArray(text).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
             // Betas and releases are two apps (different package names, one cannot update the
             // other): each one is offered its own channel only.
-            Fetch.Ok(list.filter { !it.optBoolean("draft") && (!isBeta || it.optBoolean("prerelease")) }
-                .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), apkAsset(it)) }
-                .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best })
+            // A pre-release that is not a version of the app (a test build's tag) is never offered.
+            Fetch.Ok(newest(list))
         }
     } catch (e: Exception) { Fetch.Err(false) }
+
+    /**
+     * The newest release of this app and channel in [releases] (GitHub's list): a stable build takes
+     * releases, a beta pre-releases, and only those that carry this app's APK for this phone. The
+     * repository also holds Myspoti's releases (2.x, numbered above this app's 1.x, with Myspoti APKs
+     * this app cannot install): read as this app's, they were offered as updates opening their page.
+     */
+    internal fun newest(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis, name: String = BuildConfig.APK_NAME): Release? =
+        releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == beta && isVersionTag(it.optString("tag_name")) }
+            .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), apkAsset(it, beta, abis, name)) }
+            .filter { it.apkUrl.isNotEmpty() }
+            .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best }
 
     /** The newer release last seen, dismissed or not (no request): what Settings > About shows. */
     fun known(context: Context): Release? =
@@ -122,26 +135,26 @@ object UpdateChecker {
     /** The ABIs a release carries one APK for, and their names in it (as app/build.gradle.kts `collectApks`). */
     internal val RELEASE_ABIS = mapOf("arm64-v8a" to "ARMv8", "armeabi-v7a" to "ARMv7")
 
+    /** "v2.4.0", "2.5.0-beta.1": a version of the app, not some other tag ("automix2-build205"). */
+    internal fun isVersionTag(tag: String): Boolean = Regex("v?\\d+(\\.\\d+)+(-[0-9A-Za-z.]+)?").matches(tag)
+
     /**
      * The release's APK download link for this app's channel and this phone. A release carries
-     * `Myspoti-<version>-ARMv8.apk`, `-ARMv7.apk`, `-universal.apk` and `-TV.apk` (betas:
-     * `Myspoti-Beta-<version>-...`), and the first of [abis] (the phone's, most preferred first)
-     * that has one wins, so a 64-bit phone that also runs armeabi-v7a takes ARMv8. The names of
-     * 2.3.x and before come next (older releases): `myspoti-<beta|stable>-<version>-<abi>.apk`, then one APK without an ABI, `myspoti-<beta|stable>-<version>.apk`
-     * or `myspoti-<version>.apk`. Only this channel's APK: a release carrying both must not hand a
-     * phone the other channel's build (a different package, it could not update this one), and a
-     * name that matches none (or no APK for this phone's ABIs) gives no link.
+     * `<name>-<version>-ARMv8.apk`, `-ARMv7.apk`, `-universal.apk` and `-TV.apk` (betas:
+     * `<name>-Beta-<version>-...`), [name] following the app id (see APK_NAME in
+     * app/build.gradle.kts), and the first of [abis] (the phone's, most preferred first) that has
+     * one wins, so a 64-bit phone that also runs armeabi-v7a takes ARMv8. Only this app's and this
+     * channel's APK: another one (the other channel, or Myspoti's own `Myspoti-...` builds) is a
+     * different package that Android cannot install over this one, so a name that matches none
+     * (or no APK for this phone's ABIs) gives no link, and the release page opens instead.
      */
-    internal fun apkAsset(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis): String {
+    internal fun apkAsset(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis, name: String = BuildConfig.APK_NAME): String {
         val assets = release.optJSONArray("assets") ?: return ""
         val version = release.optString("tag_name").removePrefix("v")
-        val named = "${if (beta) "Myspoti-Beta" else "Myspoti"}-$version"
-        val channel = "myspoti-${if (beta) "beta" else "stable"}-$version"
+        val named = "${if (beta) "$name-Beta" else name}-$version"
         val byName = (0 until assets.length()).map { assets.getJSONObject(it) }.associateBy { it.optString("name") }
-        val ours = abis.filter { it in RELEASE_ABIS }
-        val want = ours.map { "$named-${RELEASE_ABIS.getValue(it)}.apk" } + ours.map { "$channel-$it.apk" } +
-            listOf("$channel.apk", "myspoti-$version.apk")
-        return want.firstNotNullOfOrNull { byName[it] }?.optString("browser_download_url").orEmpty()
+        return abis.filter { it in RELEASE_ABIS }.map { "$named-${RELEASE_ABIS.getValue(it)}.apk" }
+            .firstNotNullOfOrNull { byName[it] }?.optString("browser_download_url").orEmpty()
     }
 
     /** This phone's ABIs, most preferred first. */

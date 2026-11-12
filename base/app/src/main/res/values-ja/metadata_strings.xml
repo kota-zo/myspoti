@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metadata_title">メタデータ</string>
+    <string name="metadata_footer">検索、アルバム、アーティストはこれらのサービスから、上から順に問い合わせて取得します。2回見つかった同じ曲は1回だけ表示されます。オフにしたサービスには問い合わせません。</string>
+    <string name="metadata_spotify_detail">ログイン中のあなたのアカウント</string>
+    <string name="metadata_signed_out">問い合わせなし：ログイン中のアカウントがありません</string>
+    <string name="metadata_asked">問い合わせ中</string>
+    <string name="metadata_off">オフ：問い合わせません</string>
+    <string name="metadata_reset">デフォルトの順序に戻す</string>
+    <string name="metadata_not_on_spotify">Spotify で見つかりません：この曲はまだ再生できません</string>
+    <string name="metadata_switch">%1$s に問い合わせる</string>
+</resources>

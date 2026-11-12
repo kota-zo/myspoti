@@ -32,9 +32,6 @@
     <string name="lyrics_fullscreen_translate_button_enabled_readout_value" formatted="false">Prestanite prevoditi tekstove</string>
     <string name="lyrics_fullscreen_no_lyrics_error_version_two" formatted="false">Hmm. Ne znamo tekst te pjesme.</string>
     <string name="lyrics_fullscreen_unsynced" formatted="false">Ovaj tekst još nije vremenski sinkroniziran.</string>
-    <string name="av_switch_to_video" formatted="false">Prebaci na videozapis</string>
-    <string name="av_switch_to_audio" formatted="false">Prebaci na audiozapis</string>
-    <string name="av_content_desc" formatted="false">Prebacivanje između zvučnih i videozapisa</string>
     <string name="navigationbar_musicappitems_home_title" formatted="false">Početna</string>
     <string name="navigationbar_musicappitems_search_title" formatted="false">Tražilica</string>
     <string name="navigationbar_musicappitems_yourlibrary_title" formatted="false">Vaša zbirka</string>

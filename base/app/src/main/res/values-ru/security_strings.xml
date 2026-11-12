@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="action_playback_mirror">Тихо воспроизводит Spotify здесь; засчитывает прослушивания в вашем аккаунте</string>
-    <string name="action_attest">Подтвердить, что это Myspoti</string>
+    <string name="action_attest">Подтвердить, что это Orpheon</string>
     <string name="action_ui_style">Менять оформление</string>
     <string name="mirror_indicator">Spotify зеркалируется: %1$s</string>
 </resources>

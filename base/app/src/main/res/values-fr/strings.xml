@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name">Myspoti</string>
+    <string name="app_name">Orpheon</string>
     <string name="aa_playlists">Playlists</string>
     <string name="aa_albums">Albums</string>
     <string name="aa_artists">Artistes</string>
@@ -17,8 +17,6 @@
 
     <string name="energy_saver_title" tools:ignore="MissingTranslation">Économie d’énergie</string>
     <string name="energy_saver_summary" tools:ignore="MissingTranslation">Canvas désactivés, vidéos et animations allégées</string>
-    <string name="video_fullscreen_enter" tools:ignore="MissingTranslation">Plein écran</string>
-    <string name="video_fullscreen_exit" tools:ignore="MissingTranslation">Quitter le plein écran</string>
     <string name="playback_seek_description" tools:ignore="MissingTranslation">Position de lecture</string>
     <string name="account_page_title">Compte Spotify</string>
     <string name="account_page_detail">Abonnement, confidentialité et appareils, sur spotify.com</string>

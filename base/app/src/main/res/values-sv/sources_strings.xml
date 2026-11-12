@@ -4,8 +4,9 @@
     <string name="sources_download_title">Nedladdningskällor</string>
     <string name="sources_audio_footer">Frågas uppifrån och ner för varje låt: den första som har den spelar upp den. Använd pilarna för att ändra ordningen.</string>
     <string name="sources_download_footer">Frågas uppifrån och ner: den första källan som har låten levererar filen. Använd pilarna för att ändra ordningen.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Spelas när ingen källa ovanför har låten</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Spelas när ingen källa ovanför har låten</string>
+    <string name="sources_account_player">Ditt kontos spelare</string>
     <string name="sources_ready">Klar</string>
     <string name="sources_details_show">Visa detaljer</string>
     <string name="sources_details_hide">Dölj detaljer</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Senast: %1$s, %2$s</string>
     <string name="sources_open">Öppna tillägget</string>
     <string name="sources_order_hint">Källorna frågas i den ordning som anges i Inställningar (Uppspelning, Nedladdningar).</string>
-    <string name="sources_below_spotify">Frågas inte: Spotify är ovanför</string>
+    <string name="sources_below_account">Frågas inte: Spotify är ovanför</string>
 </resources>

@@ -4,8 +4,9 @@
     <string name="sources_download_title">Letöltési források</string>
     <string name="sources_audio_footer">Minden dalnál fentről lefelé kérdezzük: az első, amelyiknél megvan, lejátssza. A sorrendet a nyilakkal módosíthatod.</string>
     <string name="sources_download_footer">Fentről lefelé kérdezzük: az első forrás, amelyiknél megvan a dal, adja a fájlt. A sorrendet a nyilakkal módosíthatod.</string>
-    <string name="sources_spotify">Spotify</string>
-    <string name="sources_spotify_detail">Akkor játszik le, ha a fölötte lévő forrásoknál sincs meg a dal</string>
+    <string name="sources_account">Spotify</string>
+    <string name="sources_account_detail">Akkor játszik le, ha a fölötte lévő forrásoknál sincs meg a dal</string>
+    <string name="sources_account_player">A fiókod lejátszója</string>
     <string name="sources_ready">Kész</string>
     <string name="sources_details_show">Részletek megjelenítése</string>
     <string name="sources_details_hide">Részletek elrejtése</string>
@@ -13,5 +14,5 @@
     <string name="sources_last_used">Utoljára: %1$s, %2$s</string>
     <string name="sources_open">Bővítmény megnyitása</string>
     <string name="sources_order_hint">A források a Beállításokban (Lejátszás, Letöltések) megadott sorrendben kerülnek lekérdezésre.</string>
-    <string name="sources_below_spotify">Nem kérdezzük le: a Spotify fent van</string>
+    <string name="sources_below_account">Nem kérdezzük le: a Spotify fent van</string>
 </resources>

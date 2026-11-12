@@ -12,11 +12,13 @@ package com.music.spotui.ui.immersive.lyrics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableLongState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.music.spotui.di.SongPlayer
 import com.music.spotui.ui.look.LyricClock
@@ -55,7 +57,15 @@ private const val SAME_CLOCK_NANOS = 250_000_000L
 private const val SEEK_JUMP_MS = 800L
 
 /** How often the position is looked at while paused, for a seek made from elsewhere. */
-private const val PAUSED_POLL_MS = 120L
+private const val PAUSED_POLL_MS = 250L
+
+/** The word sweep's top rate (word-synced lyrics); the line-synced ones need far fewer (see [LYRICS_LINE_FPS]). */
+internal const val LYRICS_WORD_FPS = 60
+/** Line-synced lyrics: only a line change moves them (its own animation runs at the screen's rate). */
+internal const val LYRICS_LINE_FPS = 20
+
+/** A frame's own time within the period (see rememberFrameClock). */
+private const val FRAME_SLACK_MS = 4L
 
 private fun playerPosition(): Long = SongPlayer.getCurrentPosition().coerceAtLeast(0L)
 
@@ -63,7 +73,9 @@ private fun playerPosition(): Long = SongPlayer.getCurrentPosition().coerceAtLea
 internal var lyricsPosition: () -> Long = ::playerPosition
 
 /**
- * The song position, ticking every frame while [playing].
+ * The song position, ticking while [playing]: [fps] frames a second at most (one frame, then a
+ * sleep, as [com.music.spotui.ui.components.rememberFrameClock] does), so the screen is not held at
+ * its top rate (120 Hz) for the lyrics; the energy saver's lower cap applies too.
  *
  * Gated on the app being on screen: the loop asks for a frame, writes a value that
  * invalidates a drawing and is handed the next one, which is a request to render continuously
@@ -71,10 +83,12 @@ internal var lyricsPosition: () -> Long = ::playerPosition
  * pause nor a spell in the background is mistaken for one very long frame.
  */
 @Composable
-internal fun rememberLyricsPlayhead(trackKey: Any, playing: Boolean): LyricsPlayhead {
+internal fun rememberLyricsPlayhead(trackKey: Any, playing: Boolean, fps: Int = LYRICS_WORD_FPS): LyricsPlayhead {
     val head = remember(trackKey) { LyricsPlayhead(lyricsPosition()) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(head, playing, lifecycle) {
+    val energy by app.myspoti.power.EnergySettings.state.collectAsStateWithLifecycle()
+    val periodMs = 1000L / minOf(fps, energy.policy.lyricsFps).coerceIn(1, 120)
+    LaunchedEffect(head, playing, lifecycle, periodMs) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (!playing) {
                 // Not moving: each reading is the truth, including a seek made while paused.
@@ -122,6 +136,8 @@ internal fun rememberLyricsPlayhead(trackKey: Any, playing: Boolean): LyricsPlay
                             discontinuity = head.discontinuity,
                         )
                     }
+                    // Nothing asks for a frame until the next tick: the LTPO screen can step down.
+                    delay((periodMs - FRAME_SLACK_MS).coerceAtLeast(0))
                 }
             }
         }

@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.put
 
 /**
  * Debug and beta builds: the commands `tools/myspoti-cli` sends over adb ([CliReceiver]), so a test
@@ -34,6 +35,11 @@ sealed interface CliCommand {
     data class ExtWhy(val n: Int) : CliCommand
     data class Play(val uri: String, val context: String?) : CliCommand
     data object Pause : CliCommand
+    /** The account's Connect devices, with which one plays and their volume. */
+    data object Devices : CliCommand
+    data class Transfer(val deviceId: String) : CliCommand
+    /** The volume of the device that plays, as the volume keys set it (0 to 100). */
+    data class Volume(val level: Int) : CliCommand
     data object Resume : CliCommand
     data object Next : CliCommand
     data object Previous : CliCommand
@@ -43,6 +49,10 @@ sealed interface CliCommand {
     /** The data-plan transitions on or off; null: as they are. */
     data class AutoMixSegue(val on: Boolean?) : CliCommand
     data object AutoMixStatus : CliCommand
+    /** Read the supported AutoMix controls, or change one by its public name. */
+    data class AutoMixSettings(val name: String? = null, val value: String? = null) : CliCommand
+    /** Next through SongPlayer's ordinary control path, which delegates to LocalPlayer's mix-on-skip. */
+    data object AutoMixNext : CliCommand
     /** Phone songs (a piece of each one's MediaStore folder + title) played as the local queue. */
     data class AutoMixFiles(val names: List<String>) : CliCommand
     data class AutoMixSeek(val ms: Long) : CliCommand
@@ -50,6 +60,50 @@ sealed interface CliCommand {
     data class JamJoin(val token: String) : CliCommand
     data object JamStatus : CliCommand
     data object JamLeave : CliCommand
+    /** The metadata catalog: its scripts (version, bundled or downloaded, last look), the providers' order. */
+    data object CatalogStatus : CliCommand
+    /** Times a search as the search screen runs it: the wait for the account, then the results (counts only). */
+    data class Search(val query: String) : CliCommand
+    /** Looks for newer signed metadata scripts now. */
+    data object CatalogUpdate : CliCommand
+    /** Debug builds: where the scripts are fetched from ([url]; null: the published repository). */
+    data class CatalogSource(val url: String?) : CliCommand
+}
+
+/** Public, account-free subset of AutoMix settings returned by `automix.settings`. */
+data class AutoMixSettingsSnapshot(
+    val enabled: Boolean,
+    val segue: Boolean,
+    val sessionDj: Boolean,
+    val albumOrder: Boolean,
+    val podcasts: Boolean,
+    val harmonic: Boolean,
+    val eq: Boolean,
+    val show: Boolean,
+    val mobileData: Boolean,
+    val onNext: String,
+    val style: String,
+    val length: String,
+    val tempo: String,
+    val pulse: String,
+    val durationMin: Int = 0,
+    val durationMax: Int = 0,
+    val performancePriority: Boolean = false,
+    /** The Mix Lab's planner switch and the ideas played on top of it, by their names. */
+    val orpheon: Boolean = false,
+    val ideas: Map<String, Boolean> = emptyMap(),
+) {
+    fun json(): JsonObject = buildJsonObject {
+        put("enabled", enabled); put("segue", segue); put("session-dj", sessionDj)
+        put("album-order", albumOrder); put("podcasts", podcasts); put("harmonic", harmonic)
+        put("eq", eq); put("show", show); put("mobile-data", mobileData)
+        put("on-next", onNext); put("style", style); put("length", length)
+        put("tempo", tempo); put("pulse", pulse)
+        put("duration-min", durationMin); put("duration-max", durationMax)
+        put("performance-priority", performancePriority)
+        put("orpheon", orpheon)
+        for ((name, on) in ideas) put(name, on)
+    }
 }
 
 class CliError(message: String) : Exception(message)
@@ -59,7 +113,9 @@ object CliParser {
         "status", "ext.list", "ext.install <zip path>", "ext.uninstall <id>", "ext.enable <id>", "ext.disable <id>",
         "ext.setting <id> <key> <value|null>", "ext.press <id> <key>", "ext.call <id> <hook> [json]",
         "ext.log <id> [lines]", "ext.storage <id>", "ext.why [n]", "play <spotify uri> [context uri]", "pause", "resume", "next", "previous",
-        "nav <route>", "automix [on|off]", "automix.segue [on|off]", "automix.status", "automix.files <folder+title piece> <folder+title piece>...", "automix.seek <ms>", "jam.join <token|link>", "jam.status", "jam.leave",
+        "devices", "transfer <device id>", "volume <0-100>",
+        "nav <route>", "automix [on|off]", "automix.segue [on|off]", "automix.status", "automix.settings [name value]", "automix.next", "automix.files <folder+title piece> <folder+title piece>...", "automix.seek <ms>", "jam.join <token|link>", "jam.status", "jam.leave",
+        "catalog.status", "catalog.update", "catalog.source <https url|http://localhost:port/|default>",
     )
 
     private val ID = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
@@ -110,12 +166,51 @@ object CliParser {
             "automix" -> CliCommand.AutoMixSet(when (args.getOrNull(0)) { null -> null; "on" -> true; "off" -> false; else -> throw CliError("automix: on or off") }).also { most(1) }
             "automix.segue" -> CliCommand.AutoMixSegue(when (args.getOrNull(0)) { null -> null; "on" -> true; "off" -> false; else -> throw CliError("automix.segue: on or off") }).also { most(1) }
             "automix.status" -> CliCommand.AutoMixStatus.also { most(0) }
+            "automix.settings" -> {
+                most(2)
+                if (args.isEmpty()) CliCommand.AutoMixSettings()
+                else {
+                    if (args.size != 2) throw CliError("automix.settings: use <name> <value>, or no arguments to read")
+                    val name = arg(0, "setting name")
+                    val value = arg(1, "value")
+                    val allowed = when (name) {
+                        "enabled", "segue", "orpheon", "ideas", "session-dj", "album-order", "podcasts", "harmonic", "eq", "show", "mobile-data" -> listOf("on", "off")
+                        in app.myspoti.automix.segue.MixIdea.values().map { it.wire } -> listOf("on", "off")
+                        "on-next" -> listOf("cut", "quick", "full")
+                        "style" -> listOf("blend", "cut", "fade")
+                        "length" -> listOf("short", "balanced", "long")
+                        "tempo" -> listOf("strict", "normal", "wide")
+                        "pulse" -> listOf("off", "subtle", "strong")
+                        "duration-min", "duration-max" -> {
+                            val seconds = value.toIntOrNull()?.takeIf { it in 0..90 }
+                                ?: throw CliError("automix.settings: '$name' must be an integer from 0 to 90 seconds")
+                            listOf(seconds.toString())
+                        }
+                        "performance-priority" -> listOf("on", "off")
+                        else -> throw CliError("automix.settings: unknown setting '$name'")
+                    }
+                    if (value !in allowed) throw CliError("automix.settings: '$name' must be one of ${allowed.joinToString()}")
+                    CliCommand.AutoMixSettings(name, value)
+                }
+            }
+            "automix.next" -> CliCommand.AutoMixNext.also { most(0) }
             "automix.files" -> CliCommand.AutoMixFiles(args.filter { it.isNotBlank() }.also { if (it.size < 2) throw CliError("automix.files: at least two files") })
             "jam.join" -> CliCommand.JamJoin(arg(0, "token").let { a -> Regex("socialsession[:/]([A-Za-z0-9]+)").find(a)?.groupValues?.get(1) ?: a }).also { most(1) }
             "jam.status" -> CliCommand.JamStatus.also { most(0) }
             "jam.leave" -> CliCommand.JamLeave.also { most(0) }
+            "catalog.status" -> CliCommand.CatalogStatus.also { most(0) }
+            "search" -> CliCommand.Search(args.joinToString(" ").trim().ifEmpty { throw CliError("search: missing <query>") }.take(120))
+            "catalog.update" -> CliCommand.CatalogUpdate.also { most(0) }
+            "catalog.source" -> CliCommand.CatalogSource(arg(0, "url|default").let { u ->
+                most(1)
+                if (u == "default") null
+                else u.also { if (!app.myspoti.catalog.scriptsUrlAllowed(it, allowLocalhost = true)) throw CliError("catalog.source: an https:// address, or http://localhost:<port>/ (adb reverse)") }
+            })
             "automix.seek" -> CliCommand.AutoMixSeek(arg(0, "ms").toLongOrNull()?.takeIf { it >= 0 } ?: throw CliError("automix.seek: <ms> is a number")).also { most(1) }
             "pause" -> CliCommand.Pause.also { most(0) }
+            "devices" -> CliCommand.Devices.also { most(0) }
+            "transfer" -> { most(1); CliCommand.Transfer(arg(0, "device id").also { if (!ID.matches(it)) throw CliError("transfer: not a device id") }) }
+            "volume" -> { most(1); CliCommand.Volume(arg(0, "level").toIntOrNull()?.takeIf { it in 0..100 } ?: throw CliError("volume: 0 to 100")) }
             "resume" -> CliCommand.Resume.also { most(0) }
             "next" -> CliCommand.Next.also { most(0) }
             "previous" -> CliCommand.Previous.also { most(0) }
