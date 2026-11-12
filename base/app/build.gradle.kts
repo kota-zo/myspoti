@@ -226,7 +226,7 @@ dependencies {
 
     // Screenshots of the TV screens on the computer (TvScreenshotTest): Robolectric draws them, Roborazzi saves them.
     testImplementation("org.robolectric:robolectric:4.14.1")
-    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.40.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.77.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.40.1")
     testImplementation(platform(libs.compose.bom))
     testImplementation("androidx.compose.ui:ui-test-junit4")
