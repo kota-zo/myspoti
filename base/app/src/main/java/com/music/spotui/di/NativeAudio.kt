@@ -129,7 +129,13 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
     override val current: kotlinx.coroutines.flow.StateFlow<NativeEngine?> = _current
 
     override suspend fun play(contextUri: String, trackUri: String?, index: Int?, positionMs: Long?, order: List<String>?, shuffle: Boolean?) {
-        val e = runCatching { ready() }.getOrElse { setAside("it did not start (${it.message})"); throw it }
+        val e = runCatching { ready() }.getOrElse {
+            // Cancelled (the play was given up for a newer one while the engine started): not the
+            // engine's failure. Left aside for it, the page played every song for 15 minutes.
+            if (!engineFailedToStart(it)) { scope.launch { runCatching { stop() } }; throw it }
+            setAside("it did not start (${it.message})")
+            throw it
+        }
         foreground()
         commandAtMs = System.currentTimeMillis()
         val since = e.clockMs()
@@ -312,3 +318,6 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
         }
     }
 }
+
+/** Whether [t], thrown while the native engine started, is the engine's own failure: a cancellation is not. */
+internal fun engineFailedToStart(t: Throwable): Boolean = t !is kotlinx.coroutines.CancellationException
