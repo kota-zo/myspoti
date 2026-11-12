@@ -25,6 +25,33 @@ internal val TimeRange.gqlName: String
         TimeRange.LONG_TERM -> "LONG_TERM"
     }
 
+/** Playlists per page of `user-profile-view/v3/profile/<id>/playlists`, and its cap. */
+internal const val PROFILE_PAGE = 50
+
+/** The most public playlists a profile shows (the official profile has thousands). */
+internal const val PROFILE_PLAYLISTS_MAX = 500
+
+/**
+ * A profile's public playlists. `user-profile-view/v3/profile/<id>` gives the first 50 of them
+ * (its `playlist_limit` is capped at 50) and their number in `total_public_playlists_count`; the
+ * others are read from `.../profile/<id>/playlists` by [page] (reported, #258: about half of a
+ * profile's public playlists showed). The offset moves by the page asked for, not by what came:
+ * a short page is not the last. An empty page or a failed one ends it.
+ */
+internal suspend fun allPublicPlaylists(profile: JsonElement?, page: suspend (offset: Int) -> JsonElement?): List<JsonElement> {
+    val all = profile.list("public_playlists").toMutableList()
+    val total = minOf(profile.int("total_public_playlists_count") ?: 0, PROFILE_PLAYLISTS_MAX)
+    var offset = PROFILE_PAGE
+    while (offset < total) {
+        val more = runCatching { page(offset) }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null }
+            .list("public_playlists")
+        if (more.isEmpty()) break
+        all += more
+        offset += PROFILE_PAGE
+    }
+    return all.distinctBy { it.str("uri") ?: it.toString() }
+}
+
 /** `userTopContent`'s `data.me.profile`: `topArtists` (ArtistPageV2) and `topTracks` (TrackPageV2). */
 internal fun topContent(profile: JsonElement?): TopContent = TopContent(
     artists = profile.list("topArtists.items").mapNotNull { artist(it.at("data")) },

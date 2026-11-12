@@ -272,13 +272,19 @@ class SpotifyUsers(private val gql: Gql, private val bridge: Bridge, private val
         val id = URLEncoder.encode(idOf(userUri), "UTF-8")
         val p = http.getJson("https://spclient.wg.spotify.com/user-profile-view/v3/profile/$id?playlist_limit=50&artist_limit=10&episode_limit=10&market=from_token")
             ?: throw GqlException("user-profile-view", "not found")
+        val playlists = allPublicPlaylists(p) { offset ->
+            http.getJson("https://spclient.wg.spotify.com/user-profile-view/v3/profile/$id/playlists?offset=$offset&limit=$PROFILE_PAGE&market=from_token")
+        }
+        p.int("total_public_playlists_count")?.takeIf { it > PROFILE_PAGE }?.let {
+            bridge.logger?.invoke("profile: ${playlists.size} of $it public playlists")
+        }
         return UserProfile(
             uri = p.str("uri") ?: userUri,
             name = p.str("name") ?: idOf(userUri),
             images = listOfNotNull(p.str("image_url")?.let { Image(it) }),
             followers = p.int("followers_count"),
             following = p.int("following_count"),
-            publicPlaylists = p.list("public_playlists").mapNotNull { pl ->
+            publicPlaylists = playlists.mapNotNull { pl ->
                 val uri = pl.str("uri") ?: return@mapNotNull null
                 app.myspoti.api.Playlist(uri, pl.str("name") ?: "", null, pl.str("owner_name"),
                     listOfNotNull(pl.str("image_url")?.let { Image(it) }), 0)
