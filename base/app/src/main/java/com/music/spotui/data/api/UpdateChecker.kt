@@ -142,11 +142,17 @@ object UpdateChecker {
      * release a release carrying `Orpheon-<version>-<ABI>.apk`. None of those (no Orpheon release
      * yet on this channel, or none for this phone's ABIs): nothing is offered.
      */
-    internal fun newestOrpheon(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis): Release? =
-        releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == beta }
-            .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), orpheonApk(it, beta, abis)) }
+    internal fun newestOrpheon(releases: List<JSONObject>, beta: Boolean = isBeta, abis: List<String> = deviceAbis): Release? {
+        fun newestOf(pre: Boolean) = releases.filter { !it.optBoolean("draft") && it.optBoolean("prerelease") == pre }
+            .map { Release(it.getString("tag_name").removePrefix("v"), it.getString("html_url"), cleanNotes(it.optString("body")), orpheonApk(it, pre, abis)) }
             .filter { it.apkUrl.isNotEmpty() }
             .reduceOrNull { best, next -> if (isNewer(next.version, best.version)) next else best }
+        // A stable Myspoti is offered Orpheon's beta while Orpheon has no release yet.
+        return newestOf(beta) ?: if (!beta) newestOf(true) else null
+    }
+
+    /** The package of the Orpheon [offer]: its beta app for a beta version, else Orpheon. */
+    fun orpheonPackageOf(offer: Release): String = orpheonPackage(beta = offer.version.contains("-beta"))
 
     /** The release's Orpheon APK for this channel and the first of [abis] it carries one for, or "". */
     internal fun orpheonApk(release: JSONObject, beta: Boolean = isBeta, abis: List<String> = deviceAbis): String {

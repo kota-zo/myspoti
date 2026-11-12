@@ -68,13 +68,17 @@ class OrpheonOfferTest {
         assertNull(UpdateChecker.newestOrpheon(list, beta = true, abis = listOf("x86_64")))
     }
 
-    @Test fun aStableIsOfferedNoOrpheonPreRelease() {
-        assertNull(UpdateChecker.newestOrpheon(list, beta = false, abis = arm64))
+    @Test fun aStableIsOfferedOrpheonsBetaUntilOrpheonHasARelease() {
+        // No Orpheon release yet: its newest beta, installed as the beta app.
+        val beta = UpdateChecker.newestOrpheon(list, beta = false, abis = arm64)!!
+        assertEquals("1.0.0-beta.2", beta.version)
+        assertEquals("app.orpheon.beta", UpdateChecker.orpheonPackageOf(beta))
         // A stable Orpheon, once there: the stable APK, never the beta one.
         val withStable = list + release("v1.0.0", false, "Orpheon-1.0.0-ARMv8.apk", "Orpheon-Beta-1.0.0-ARMv8.apk")
         val offer = UpdateChecker.newestOrpheon(withStable, beta = false, abis = arm64)!!
         assertEquals("1.0.0", offer.version)
         assertEquals("https://example.invalid/v1.0.0/Orpheon-1.0.0-ARMv8.apk", offer.apkUrl)
+        assertEquals("app.orpheon", UpdateChecker.orpheonPackageOf(offer))
         // A beta is not handed the stable release either.
         assertEquals("1.0.0-beta.2", UpdateChecker.newestOrpheon(withStable, beta = true, abis = arm64)!!.version)
     }

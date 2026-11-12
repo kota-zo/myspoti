@@ -386,7 +386,7 @@ private fun OrpheonPrompt(offer: com.music.spotui.data.api.UpdateChecker.Release
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val updater = com.music.spotui.data.api.AppUpdater
     val state by updater.state.collectAsState()
-    val pkg = com.music.spotui.data.api.UpdateChecker.orpheonPackage()
+    val pkg = com.music.spotui.data.api.UpdateChecker.orpheonPackageOf(offer)
     val start = { scope.launch { updater.update(context, offer, pkg) }; Unit }
     // Installed by this card or by hand meanwhile: asked again after each install and each return.
     var resumes by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
