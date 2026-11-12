@@ -164,6 +164,51 @@ object RadioBrowserApi {
         return uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
     }
 
+    /**
+     * [url]'s https form when it is an http address, else null. Most of the directory's stations
+     * are listed with an http address only (350 of the 500 most voted), and about two in three
+     * of those answer the same address over https: they are offered that way, still never in
+     * clear (reported, #234: Couleur 3 was missing). One that does not answer fails as any
+     * station whose stream is gone does.
+     */
+    internal fun secured(url: String): String? {
+        val uri = runCatching { java.net.URI(url.trim()) }.getOrNull() ?: return null
+        if (!uri.scheme.equals("http", ignoreCase = true) || uri.host.isNullOrBlank()) return null
+        return "https" + url.trim().substring(uri.scheme.length)
+    }
+
+    /**
+     * Where a redirect from [from] to [location] goes, asked over https: [location] made absolute,
+     * and an http one in its https form (see [secured]). Null: no https address to go on with.
+     */
+    internal fun securedHop(from: String, location: String): String? {
+        val next = runCatching { java.net.URI(from).resolve(location.trim()).toString() }.getOrNull() ?: return null
+        return next.takeIf { playable(it) } ?: secured(next)
+    }
+
+    /**
+     * The address the player is to open for [streamUrl]: its redirects followed here, each one
+     * asked over https ([securedHop]). The player itself follows redirects too but refuses one to
+     * http, and some stations send their https address to http (#234: Couleur 3's
+     * stream.srg-ssr.ch sends to livestreaming-node-N.srg-ssr.ch, which answers https too).
+     * [streamUrl] itself when nothing redirects or this fails: the player then tries as before.
+     */
+    suspend fun secureStream(streamUrl: String): String = withContext(Dispatchers.IO) {
+        runCatching {
+            var url = streamUrl
+            repeat(MAX_HOPS) {
+                val req = Request.Builder().url(url).header("User-Agent", USER_AGENT).header("Icy-MetaData", "0").build()
+                val location = noRedirects.newCall(req).execute().use { r -> if (r.isRedirect) r.header("Location") else null }
+                    ?: return@runCatching url
+                url = securedHop(url, location) ?: return@runCatching streamUrl
+            }
+            streamUrl
+        }.getOrDefault(streamUrl)
+    }
+
+    private const val MAX_HOPS = 5
+    private val noRedirects by lazy { http.newBuilder().followRedirects(false).followSslRedirects(false).callTimeout(6, TimeUnit.SECONDS).build() }
+
     /** Whether [streamUrl] is an HLS playlist by its address alone (.m3u8, any case, query left aside). */
     internal fun looksHls(streamUrl: String): Boolean =
         runCatching { java.net.URI(streamUrl.trim()).path.orEmpty() }.getOrDefault("").endsWith(".m3u8", ignoreCase = true)
@@ -180,8 +225,9 @@ object RadioBrowserApi {
     private fun station(e: JsonElement): RadioStation? {
         val o = e as? JsonObject ?: return null
         // url_resolved follows redirects already; url is the directory's raw entry.
-        val streamUrl = o.str("url_resolved")?.takeIf { it.isNotBlank() } ?: o.str("url").orEmpty()
-        if (!playable(streamUrl)) return null
+        val listed = o.str("url_resolved")?.takeIf { it.isNotBlank() } ?: o.str("url").orEmpty()
+        // An http entry is asked over https (see [secured]); most of those servers answer it.
+        val streamUrl = listed.takeIf { playable(it) } ?: secured(listed) ?: return null
         return RadioStation(
             stationUuid = o.str("stationuuid").orEmpty(),
             name = o.str("name").orEmpty().ifBlank { "?" },
