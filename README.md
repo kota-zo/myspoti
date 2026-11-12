@@ -4,7 +4,7 @@
 
 *Coming from Myspoti? Update it to 2.4.1: it offers to install Orpheon, a new app next to it. Betas are on the [releases page](https://github.com/kota-zo/myspoti/releases).*
 
-[![Latest release](https://img.shields.io/github/v/release/kota-zo/myspoti?label=release)](https://github.com/kota-zo/myspoti/releases/latest)
+[![Orpheon beta: 1.0.0-beta.1](https://img.shields.io/badge/Orpheon-1.0.0--beta.1-blue)](https://github.com/kota-zo/Orpheon/releases/tag/v1.0.0-beta.1)
 [![License: GPL-3.0](https://img.shields.io/github/license/kota-zo/myspoti)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/jXKnGVFnGS)
 
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kota-zo/myspoti/releases/latest"><b>⬇ Download the latest APK</b></a>
+  <a href="https://github.com/kota-zo/Orpheon/releases/tag/v1.0.0-beta.1"><b>⬇ Download Orpheon 1.0.0-beta.1</b></a>
 </p>
 
 <p align="center"><sub>The Immersive look comes from <a href="https://github.com/kushagrasinghx/BitChord">BitChord</a>: see <a href="#bitchord">Credits</a>.</sub></p>
@@ -41,7 +41,7 @@ Under the hood, the official Spotify Web Player plays the music, hidden inside t
 
 ## Get started
 
-1. Download the APK from the [latest release](https://github.com/kota-zo/myspoti/releases/latest) and open it (Android 10 or later). Android asks once to allow installs from your browser or file manager.
+1. Download the APK from the [Orpheon 1.0.0-beta.1 release](https://github.com/kota-zo/Orpheon/releases/tag/v1.0.0-beta.1) and open it (Android 10 or later). Android asks once to allow installs from your browser or file manager.
 2. Tap **Log in with Spotify** and sign in.
 3. Pick the sound quality, allow what you want (notifications, Bluetooth, local files…), and you are in.
 
