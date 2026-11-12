@@ -97,7 +97,8 @@ class SpotifyApi(
                 }
                 // A Jam this account is in (joined before a restart or a reload): known at once, so
                 // nothing takes the host's playback here before the Jam sheet is opened.
-                try { jam.refresh() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { }
+                try { jam.refresh() } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { bridge.logger?.invoke("jam probe failed: ${e.message ?: e.javaClass.simpleName}") }
             }
         }
     }
