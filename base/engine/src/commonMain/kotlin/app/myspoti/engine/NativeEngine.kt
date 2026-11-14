@@ -316,11 +316,12 @@ class NativeEngine(
     }
 
     private suspend fun replaceState(cmd: TrackPlaybackCommand) {
-        ackCommand()
+        val ack = takeAck()
         val sm = cmd.stateMachine
         val index = cmd.stateRef?.stateIndex
         if (sm == null || sm.states.isEmpty() || index == null || index !in sm.states.indices) {
             // Playback moved to another device: `state_clear` with no state_ref (connect capture).
+            ack?.invoke()
             current?.let { finalize(it, "remote", null); player.stop() }
             current = null
             machine = null
@@ -340,11 +341,22 @@ class NativeEngine(
             // taken: its state does not exist in the new machine (a skip's report was refused,
             // "invalid backplay request", and the next song never loaded). A report the server
             // refuses is said and does not hold the next song back.
-            if (cur != null) runCatching { finalize(cur, "remote", state.id, keepMachine = true) }
-                .onFailure { emit(EngineEvent.Failure("finalize of ${cur.track.metadata.uri}: ${it.message}")) }
+            //
+            // Speed: the new song's audio starts first, and the reports follow in the same order as
+            // before (ack, finalize of the song going out, before_track_load, playback_start). They
+            // were four sequential round trips (0.8-1.4 s measured on a Realme 12 Pro+) between the
+            // push and the player's load, so a preloaded skip was heard >1 s late. The player's
+            // events wait for [lock], so no report of the new song can overtake them.
+            val outgoingMetrics = cur?.let { player.metrics() }
+            val outgoingMachineId = machine?.id
             machine = sm
             stateIndex = index
-            load(state, track, seekTo ?: state.initialPlaybackPosition ?: 0, paused, "remote", cur?.lastPosition)
+            load(state, track, seekTo ?: state.initialPlaybackPosition ?: 0, paused, "remote", cur?.lastPosition) {
+                ack?.invoke()
+                if (cur != null) runCatching {
+                    finalize(cur, "remote", state.id, keepMachine = true, metrics = outgoingMetrics ?: PlaybackMetrics(), machineId = outgoingMachineId)
+                }.onFailure { emit(EngineEvent.Failure("finalize of ${cur.track.metadata.uri}: ${it.message}")) }
+            }
             return
         }
         machine = sm
@@ -361,6 +373,8 @@ class NativeEngine(
             if (paused) player.pause() else player.resume()
             acted = true
         }
+        // Sent after the player was told to seek/pause/resume: the ack does not delay them.
+        ack?.invoke()
         // Options or queue changed around the same track (shuffle, repeat, add to queue).
         if (!acted) putState(cur, "modify_current_state", cur.lastPosition, cur.lastPosition)
     }
@@ -374,21 +388,37 @@ class NativeEngine(
         )
     }
 
-    /** `jssdk_connect_command` once the server's push for our command arrived (ack duration = POST to push). */
-    private suspend fun ackCommand() {
-        val c = pendingCommands.removeFirstOrNull() ?: return
+    /**
+     * `jssdk_connect_command` for the server's push of our command (ack duration = POST to push).
+     * Measured now, when the push arrived; sent by the caller once the player has been told what to
+     * do, so this round trip (120-150 ms on a phone) no longer delays the audio of a skip.
+     */
+    private suspend fun takeAck(): (suspend () -> Unit)? {
+        val c = pendingCommands.removeFirstOrNull() ?: return null
         val msg = Reports.connectCommand(c.type, c.id, env.nowMs() - c.sentAt, c.latency, tokens.accessToken().clientId, deviceId, c.status)
-        melody(listOf(Bodies.melodyMessage("jssdk_connect_command", msg)), config.harmonyVersion)
+        return {
+            runCatching { melody(listOf(Bodies.melodyMessage("jssdk_connect_command", msg)), config.harmonyVersion) }
+                .onFailure { emit(EngineEvent.Failure("connect command report: ${it.message}")) }
+        }
     }
 
     // ---------------------------------------------------------------- loading and finalizing
 
     /** [track] comes from the same state machine as [state]: a PUT answer in between may renumber tracks. */
-    private suspend fun load(state: SmState, track: SmTrack, position: Long, paused: Boolean, reasonStart: String, previousPosition: Long?) {
+    /**
+     * [beforeReports] runs right after the player was given the song and before its
+     * `before_track_load`: the reports of what came before (ack, the outgoing song's finalize) keep
+     * their order on the wire without holding back the audio.
+     */
+    private suspend fun load(
+        state: SmState, track: SmTrack, position: Long, paused: Boolean, reasonStart: String, previousPosition: Long?,
+        beforeReports: suspend () -> Unit = {},
+    ) {
         if (track.contentType == "AD") {
             // No ad request is made and nothing is reported as played (decision of 2026-10-16).
             current = null
             player.stop()
+            beforeReports()
             emit(EngineEvent.AdBreak(track.metadata.uri, track.metadata.duration))
             // On to the next song (outside this handler: a command waits for the lock it holds).
             scope.launch { runCatching { command("skip_next") }.onFailure { emit(EngineEvent.Failure("ad not passed: ${it.message}")) } }
@@ -401,10 +431,12 @@ class NativeEngine(
         val p = Playback(state.id, track, file, media, position, paused, reasonStart, t0, env.nowMs() - t0)
         current = p
         publishNow(p, position, false, buffering = !paused)
+        timeline.opened(p, volume)
+        // The audio first (a preloaded song is heard ~50 ms later), the reports after it.
+        player.load(media, position, !paused, licences.channel())
+        beforeReports()
         putState(p, "before_track_load", position, previousPosition, speed = 0)
         melody(listOf(Bodies.melodyMessage("jssdk_playback_start", Reports.playbackStart(p, sessionId))), "harmony:${config.sdkVersion}")
-        timeline.opened(p, volume)
-        player.load(media, position, !paused, licences.channel())
     }
 
     /**
@@ -416,8 +448,14 @@ class NativeEngine(
      * the same `state_machine_id`, i.e. without waiting for its answer, and later reports used the
      * answer to `before_track_load` (end-of-track, 2026-11-10). [keepMachine] does the same.
      */
-    private suspend fun finalize(p: Playback, reasonEnd: String, nextPlaybackId: String?, putPosition: Long = p.lastPosition, keepMachine: Boolean = false) {
-        val m = player.metrics()
+    private suspend fun finalize(
+        p: Playback, reasonEnd: String, nextPlaybackId: String?, putPosition: Long = p.lastPosition, keepMachine: Boolean = false,
+        /** Taken before the next song was given to the player: after that they are the next song's. */
+        metrics: PlaybackMetrics = player.metrics(),
+        /** The machine [p] played in: a skip's new machine is taken before this report goes out. */
+        machineId: String? = machine?.id,
+    ) {
+        val m = metrics
         val now = env.nowMs()
         timeline.position(p, p.lastPosition, if (reasonEnd == "trackdone") 5 else 6)
         melody(
@@ -430,7 +468,7 @@ class NativeEngine(
         putState(
             p, "track_data_finalized", putPosition, putPosition,
             stats = Reports.finalizedStats(p, m, licences.lastLicenceLatencyMs, now, config.playbackStrategy),
-            duration = p.fileDurationMs, applyAnswer = !keepMachine,
+            duration = p.fileDurationMs, applyAnswer = !keepMachine, machineId = machineId,
         )
     }
 
@@ -532,16 +570,20 @@ class NativeEngine(
         val next = state?.transitions?.advance
         val nextState = next?.stateIndex?.let { sm?.states?.getOrNull(it) }
         val nextTrack = nextState?.let { sm?.tracks?.getOrNull(it.track) }
-        finalize(p, "trackdone", nextState?.id, shownPosition, keepMachine = true)
+        val metrics = player.metrics()
         current = null
         if (next == null || nextState == null || nextTrack == null) {
+            finalize(p, "trackdone", nextState?.id, shownPosition, keepMachine = true, metrics = metrics)
             player.stop()
             emit(EngineEvent.ContextEnded)
             return
         }
         stateIndex = machine?.states?.indexOfFirst { it.id == nextState.id } ?: -1
         flushOnFirstPlay = true
-        load(nextState, nextTrack, nextState.initialPlaybackPosition ?: 0, next.paused, "trackdone", shownPosition)
+        // Gapless: the next song starts, then the finalize of this one goes out (same wire order).
+        load(nextState, nextTrack, nextState.initialPlaybackPosition ?: 0, next.paused, "trackdone", shownPosition) {
+            finalize(p, "trackdone", nextState.id, shownPosition, keepMachine = true, metrics = metrics)
+        }
     }
 
     /** Resolves and licenses the track `advance` (else `skip_next`) leads to, so a skip starts at once. */
@@ -565,10 +607,11 @@ class NativeEngine(
     private suspend fun putState(
         p: Playback, debugSource: String, position: Long, previousPosition: Long?, speed: Int? = null,
         stats: JsonObject? = null, duration: Long = p.durationMs, applyAnswer: Boolean = true,
+        machineId: String? = machine?.id,
     ) {
         val s = speed ?: if (p.wantPaused) 0 else 1
         val sub = Bodies.SubState(s, position, duration, p.file.bitrate, p.file.format, p.file.audioQuality)
-        putState(machine?.id, p.stateId, p.wantPaused, sub, previousPosition, debugSource, stats, applyAnswer)
+        putState(machineId, p.stateId, p.wantPaused, sub, previousPosition, debugSource, stats, applyAnswer)
     }
 
     private suspend fun putState(
