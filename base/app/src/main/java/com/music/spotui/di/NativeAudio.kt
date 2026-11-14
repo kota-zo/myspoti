@@ -21,6 +21,7 @@ import app.myspoti.host.android.Logbook
 import app.myspoti.host.android.MyspotiRuntime
 import app.myspoti.host.android.NativeTokens
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.flatMapLatest
@@ -64,14 +65,45 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
 
     override val on: Boolean get() = enabled && System.currentTimeMillis() >= asideUntil
 
-    /** The engine could not play ([why]): the page is the player for [ASIDE_MS], then the engine is tried again. */
+    /** How many times in a row the engine was left aside; back to 0 at its next first audio. */
+    @Volatile private var asideCount = 0
+
+    /**
+     * The engine could not play ([why]): the page is the player for a while, then the engine is
+     * tried again. 30 s, then 2 min, then 15 min in a row: one cancelled request at a start
+     * ("ux8 was cancelled", Realme 12 Pro+) used to leave the slow page as the player for 15 min.
+     */
     private fun setAside(why: String) {
-        asideUntil = System.currentTimeMillis() + ASIDE_MS
-        log("left aside for ${ASIDE_MS / 60_000} min, the page plays: $why")
+        val ms = ASIDE_STEPS_MS[minOf(asideCount, ASIDE_STEPS_MS.size - 1)]
+        asideCount++
+        asideUntil = System.currentTimeMillis() + ms
+        log("left aside for ${if (ms < 60_000) "${ms / 1000} s" else "${ms / 60_000} min"}, the page plays: $why")
         scope.launch { runCatching { stop() } }
     }
 
-    private const val ASIDE_MS = 15 * 60_000L
+    private val ASIDE_STEPS_MS = longArrayOf(30_000L, 2 * 60_000L, 15 * 60_000L)
+
+    /**
+     * The engine, started once more when its first start failed. A cancellation is the caller's
+     * (another song tapped meanwhile): passed on, the engine is not left aside for it.
+     */
+    private suspend fun readyOrAside(): NativeEngine {
+        try {
+            return ready()
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            log("start failed (${t.message}), trying once more")
+        }
+        return try {
+            ready()
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            setAside("it did not start (${t.message})")
+            throw t
+        }
+    }
 
     /**
      * The page's listen-sync mirror starts (an extension plays, the page plays the song unheard): the engine
@@ -87,6 +119,7 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
     fun set(context: Context, value: Boolean) {
         enabled = value
         asideUntil = 0L
+        asideCount = 0
         context.getSharedPreferences(PREFS, 0).edit().putBoolean("on", value).apply()
         log("the engine plays the account's songs: ${if (value) "on" else "off"}")
         if (!value) scope.launch { runCatching { stop() } }
@@ -119,7 +152,24 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
         val spotify = MyspotiRuntime.spotify
         spotify.player.audio = this
         spotify.devices.ownDeviceId = { deviceId }
+        prewarm()
     }
+
+    /**
+     * Starts and registers the engine ahead of the first play, so the first tap does not wait for
+     * apresolve, the dealer and the device registration (~1-1.5 s measured, in sequence). Silent:
+     * a device in the account's list, nothing taken or played. A failure here is only logged; the
+     * first play tries again.
+     */
+    fun prewarm() {
+        if (!on || mirrorHolds || engine != null) return
+        scope.launch {
+            kotlinx.coroutines.delay(PREWARM_DELAY_MS)
+            if (!on || mirrorHolds || engine != null) return@launch
+            runCatching { ready() }.onFailure { log("prewarm failed: ${it.message}") }
+        }
+    }
+    private const val PREWARM_DELAY_MS = 2_000L
 
     /** The engine, started and registered first if it was not (the account's player, or the listen mirror's device). */
     override suspend fun ready(): NativeEngine = started(Graph.app, forceL3 = false)
@@ -128,10 +178,13 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
     /** The engine registered on the account now, or null. */
     override val current: kotlinx.coroutines.flow.StateFlow<NativeEngine?> = _current
 
-    override suspend fun play(contextUri: String, trackUri: String?, index: Int?, positionMs: Long?, order: List<String>?, shuffle: Boolean?) {
-        val e = runCatching { ready() }.getOrElse { setAside("it did not start (${it.message})"); throw it }
-        foreground()
+    override suspend fun play(contextUri: String, trackUri: String?, index: Int?, positionMs: Long?, order: List<String>?, shuffle: Boolean?): Unit = kotlinx.coroutines.coroutineScope {
+        // From the tap: "time to first audio" now says what is heard, a cold start included.
         commandAtMs = System.currentTimeMillis()
+        // The playback service comes to the foreground while the engine starts, not after it.
+        val fg = async { foreground() }
+        val e = readyOrAside()
+        fg.await()
         val since = e.clockMs()
         // A song played alone is its own context.
         if (trackUri != null && trackUri != contextUri) e.play(contextUri, trackUri, index, order = order?.takeIf { it.isNotEmpty() }, shuffle = shuffle)
@@ -140,14 +193,19 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
         if (positionMs != null && positionMs > 0 && e.awaitLoaded(trackUri ?: contextUri.takeIf { it.startsWith("spotify:track:") }, since, LOAD_WAIT_MS)) e.seekTo(positionMs)
     }
     override suspend fun pause() { engine?.pause() }
-    override suspend fun resume() { val e = ready(); foreground(); e.resume() }
+    override suspend fun resume(): Unit = kotlinx.coroutines.coroutineScope {
+        val fg = async { foreground() }
+        val e = ready()
+        fg.await()
+        e.resume()
+    }
 
     /** The playback service in the foreground before the engine's player asks for the audio (Android refuses it otherwise). */
     private suspend fun foreground() {
         if (app.myspoti.host.android.PlaybackService.isRunning) return
         app.myspoti.host.android.PlaybackService.ensureStarted(Graph.app)
-        kotlinx.coroutines.withTimeoutOrNull(FOREGROUND_MS) { while (!app.myspoti.host.android.PlaybackService.isRunning) kotlinx.coroutines.delay(40) }
-        kotlinx.coroutines.delay(150)
+        kotlinx.coroutines.withTimeoutOrNull(FOREGROUND_MS) { while (!app.myspoti.host.android.PlaybackService.isRunning) kotlinx.coroutines.delay(20) }
+        kotlinx.coroutines.delay(50)
     }
     private const val FOREGROUND_MS = 2_000L
     private const val LOAD_WAIT_MS = 6_000L
@@ -224,7 +282,7 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
         // A pause the player made itself (focus lost, headphones out) becomes a pause command, so
         // the account's state follows and the engine reports it when the push comes back.
         p.onPlayerPause = { why -> log("player paused itself: $why"); scope.launch { runCatching { e.pause() } } }
-        scope.launch {
+        val watch = scope.launch {
             e.events.collect { ev ->
                 lastEvent = ev.toString().take(120)
                 log("event $ev")
@@ -236,7 +294,17 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
             }
         }
         log("starting: widevine ${WidevineInfo.summary}, ${config.deviceName}, app ${config.appVersion}")
-        e.start()
+        try {
+            e.start()
+        } catch (t: Throwable) {
+            // A failed start leaves nothing behind: the next try builds a new engine and player.
+            watch.cancel()
+            runCatching { e.close() }
+            p.release()
+            player = null
+            http = null
+            throw t
+        }
         log("registered ${e.deviceId.take(8)}… on ${e.spclient.substringAfter("://")}, http ${chromium.status}")
         engine = e
         _current.value = e
@@ -267,6 +335,7 @@ object NativeAudio : app.myspoti.spotify.AccountAudio, app.myspoti.spotify.sync.
     /** The player as the engine sees it, plus the time from the command to the first audio. */
     private class Observed(private val inner: DrmPlayer) : DrmPlayer by inner {
         override fun setListener(listener: (PlayerEvent) -> Unit) = inner.setListener { ev ->
+            if (ev is PlayerEvent.Playing) asideCount = 0
             if (ev is PlayerEvent.Playing && commandAtMs > 0) {
                 log("time to first audio ${System.currentTimeMillis() - commandAtMs} ms from the command")
                 commandAtMs = 0
